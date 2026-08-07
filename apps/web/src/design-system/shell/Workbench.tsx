@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { BrandMark } from "../BrandMark";
 import { Icon, type IconName } from "../Icon";
 import { Breadcrumb, type BreadcrumbItem } from "../navigation/Breadcrumb";
+import { Tooltip, TooltipProvider } from "../overlays/Tooltip";
 import { injectCss } from "../shared/inject-css";
 import { useStoredState } from "../shared/use-stored-state";
 import { CommandPalette, type Command } from "./CommandPalette";
@@ -182,186 +183,194 @@ export function Workbench({
   const mainContent = children ?? editor;
 
   return (
-    <div className="lbb-wb">
-      <div className="lbb-wb-row">
-        <nav className="lbb-wb-rail" aria-label="Módulos">
-          <div className="lbb-wb-brand">
-            <BrandMark size={26} />
-            <div style={{ minWidth: 0 }}>
-              <div className="lbb-wb-brand-name">{productName}</div>
-              <div className="lbb-wb-brand-org">{productArea}</div>
-            </div>
-          </div>
-
-          <div className="lbb-wb-rail-scroll">
-            {groups.map(([group, items]) => (
-              <Fragment key={group || "_topo"}>
-                {group && <div className="lbb-wb-eyebrow">{group}</div>}
-                {items.map((entry) => {
-                  const active = entry.id === activeModule;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      className="lbb-wb-item"
-                      data-active={active ? "true" : "false"}
-                      {...(active ? { "aria-current": "page" as const } : {})}
-                      onClick={() => onModuleSelect?.(entry.id)}
-                    >
-                      {active && <span className="lbb-wb-filete" aria-hidden="true" />}
-                      {entry.icon && <Icon name={entry.icon} />}
-                      <span className="lbb-wb-item-label">{entry.label}</span>
-                      {entry.badge != null && (
-                        <span className="lbb-wb-item-badge">{entry.badge}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </Fragment>
-            ))}
-          </div>
-
-          <div className="lbb-wb-rail-foot">
-            <button type="button" className="lbb-wb-item" onClick={() => setPaletteOpen(true)}>
-              <Icon name="search" />
-              <span className="lbb-wb-item-label">Buscar</span>
-              <span className="lbb-kbd">Ctrl K</span>
-            </button>
-          </div>
-        </nav>
-
-        {sidebar && (
-          <>
-            <nav className="lbb-wb-sidebar" style={{ width: sidebarW }} aria-label={sidebarTitle}>
-              <div className="lbb-wb-panel-head">
-                <span className="lbb-wb-panel-title">{sidebarTitle}</span>
+    // O provider mora aqui para que qualquer `Tooltip` dentro do workbench funcione sem
+    // cerimônia — e para que todos compartilhem o mesmo "skip delay".
+    <TooltipProvider>
+      <div className="lbb-wb">
+        <div className="lbb-wb-row">
+          <nav className="lbb-wb-rail" aria-label="Módulos">
+            <div className="lbb-wb-brand">
+              <BrandMark size={26} />
+              <div style={{ minWidth: 0 }}>
+                <div className="lbb-wb-brand-name">{productName}</div>
+                <div className="lbb-wb-brand-org">{productArea}</div>
               </div>
-              <div className="lbb-wb-sidebar-body">{sidebar}</div>
-            </nav>
-            <Divider
-              value={sidebarW}
-              min={216}
-              max={440}
-              defaultValue={DEFAULT_SIDEBAR_W}
-              onChange={setSidebarW}
-              label="Redimensionar a árvore"
-            />
-          </>
-        )}
-
-        <div className="lbb-wb-center">
-          <header className="lbb-wb-topbar">
-            <div className="lbb-wb-topbar-crumbs">
-              {breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} />}
             </div>
-            <div className="lbb-wb-spacer" />
 
-            <button
-              type="button"
-              className="lbb-wb-search"
-              onClick={() => setPaletteOpen(true)}
-              aria-label="Abrir paleta de comandos (Ctrl+K)"
-            >
-              <Icon name="search" />
-              <span className="lbb-wb-search-label">{searchLabel}</span>
-              <span className="lbb-kbd">Ctrl K</span>
-            </button>
+            <div className="lbb-wb-rail-scroll">
+              {groups.map(([group, items]) => (
+                <Fragment key={group || "_topo"}>
+                  {group && <div className="lbb-wb-eyebrow">{group}</div>}
+                  {items.map((entry) => {
+                    const active = entry.id === activeModule;
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className="lbb-wb-item"
+                        data-active={active ? "true" : "false"}
+                        {...(active ? { "aria-current": "page" as const } : {})}
+                        onClick={() => onModuleSelect?.(entry.id)}
+                      >
+                        {active && <span className="lbb-wb-filete" aria-hidden="true" />}
+                        {entry.icon && <Icon name={entry.icon} />}
+                        <span className="lbb-wb-item-label">{entry.label}</span>
+                        {entry.badge != null && (
+                          <span className="lbb-wb-item-badge">{entry.badge}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </div>
 
-            {actions}
+            <div className="lbb-wb-rail-foot">
+              <button type="button" className="lbb-wb-item" onClick={() => setPaletteOpen(true)}>
+                <Icon name="search" />
+                <span className="lbb-wb-item-label">Buscar</span>
+                <span className="lbb-kbd">Ctrl K</span>
+              </button>
+            </div>
+          </nav>
 
-            {aside && (
+          {sidebar && (
+            <>
+              <nav className="lbb-wb-sidebar" style={{ width: sidebarW }} aria-label={sidebarTitle}>
+                <div className="lbb-wb-panel-head">
+                  <span className="lbb-wb-panel-title">{sidebarTitle}</span>
+                </div>
+                <div className="lbb-wb-sidebar-body">{sidebar}</div>
+              </nav>
+              <Divider
+                value={sidebarW}
+                min={216}
+                max={440}
+                defaultValue={DEFAULT_SIDEBAR_W}
+                onChange={setSidebarW}
+                label="Redimensionar a árvore"
+              />
+            </>
+          )}
+
+          <div className="lbb-wb-center">
+            <header className="lbb-wb-topbar">
+              <div className="lbb-wb-topbar-crumbs">
+                {breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} />}
+              </div>
+              <div className="lbb-wb-spacer" />
+
               <button
                 type="button"
-                className="lbb-wb-iconbtn"
-                data-active={asideOpen ? "true" : "false"}
-                // O nome de um botão de alternância não muda com o estado — quem carrega o
-                // estado é `aria-pressed`. Trocar o rótulo faria o leitor de tela anunciar
-                // "Fechar Agente, pressionado", que é a mesma informação duas vezes e em
-                // sentidos opostos. Também é o que colidia com o nome do FAB.
-                aria-label={`Painel ${asideTitle}`}
-                aria-pressed={asideOpen}
-                onClick={() => setAsideOpen(!asideOpen)}
+                className="lbb-wb-search"
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Abrir paleta de comandos (Ctrl+K)"
               >
-                <Icon name="sparkles" />
+                <Icon name="search" />
+                <span className="lbb-wb-search-label">{searchLabel}</span>
+                <span className="lbb-kbd">Ctrl K</span>
               </button>
-            )}
-          </header>
 
-          <main className="lbb-wb-main">
-            <div className="lbb-wb-editor">{mainContent}</div>
-            {preview && (
-              <>
-                <Divider
-                  value={previewW}
-                  min={320}
-                  max={900}
-                  defaultValue={DEFAULT_PREVIEW_W}
-                  onChange={setPreviewW}
-                  invert
-                  label="Redimensionar o preview"
-                />
-                <div className="lbb-wb-preview" style={{ width: previewW }}>
-                  {preview}
+              {actions}
+
+              {aside && (
+                // O ícone `✦` sozinho não diz o que faz. O rótulo acessível resolve para o
+                // leitor de tela; o tooltip resolve para quem enxerga e não reconhece o glifo.
+                <Tooltip label={asideOpen ? `Fechar ${asideTitle}` : `Abrir ${asideTitle}`}>
+                  <button
+                    type="button"
+                    className="lbb-wb-iconbtn"
+                    data-active={asideOpen ? "true" : "false"}
+                    // O nome de um botão de alternância não muda com o estado — quem carrega o
+                    // estado é `aria-pressed`. Trocar o rótulo faria o leitor de tela anunciar
+                    // "Fechar Agente, pressionado", que é a mesma informação duas vezes e em
+                    // sentidos opostos. Também é o que colidia com o nome do FAB.
+                    aria-label={`Painel ${asideTitle}`}
+                    aria-pressed={asideOpen}
+                    onClick={() => setAsideOpen(!asideOpen)}
+                  >
+                    <Icon name="sparkles" />
+                  </button>
+                </Tooltip>
+              )}
+            </header>
+
+            <main className="lbb-wb-main">
+              <div className="lbb-wb-editor">{mainContent}</div>
+              {preview && (
+                <>
+                  <Divider
+                    value={previewW}
+                    min={320}
+                    max={900}
+                    defaultValue={DEFAULT_PREVIEW_W}
+                    onChange={setPreviewW}
+                    invert
+                    label="Redimensionar o preview"
+                  />
+                  <div className="lbb-wb-preview" style={{ width: previewW }}>
+                    {preview}
+                  </div>
+                </>
+              )}
+            </main>
+          </div>
+
+          {aside && !asideOpen && (
+            <button
+              type="button"
+              className="lbb-wb-fab"
+              onClick={() => setAsideOpen(true)}
+              aria-label={`Abrir ${asideTitle}`}
+            >
+              {/* O glifo é o da spec §14.6 — não um ícone qualquer de chat. */}
+              <span className="lbb-wb-fab-glyph" aria-hidden="true">
+                ✦
+              </span>
+              <span>{asideTitle}</span>
+            </button>
+          )}
+
+          {aside && asideOpen && (
+            <>
+              <Divider
+                value={asideW}
+                min={300}
+                max={560}
+                defaultValue={DEFAULT_ASIDE_W}
+                onChange={setAsideW}
+                invert
+                label={`Redimensionar ${asideTitle}`}
+              />
+              <aside className="lbb-wb-aside" style={{ width: asideW }} aria-label={asideTitle}>
+                <div className="lbb-wb-panel-head">
+                  <span className="lbb-wb-panel-title">{asideTitle}</span>
+                  <button
+                    type="button"
+                    className="lbb-wb-iconbtn"
+                    aria-label={`Fechar ${asideTitle}`}
+                    onClick={() => setAsideOpen(false)}
+                  >
+                    <Icon name="x" />
+                  </button>
                 </div>
-              </>
-            )}
-          </main>
+                <div className="lbb-wb-aside-body">{aside}</div>
+              </aside>
+            </>
+          )}
         </div>
 
-        {aside && !asideOpen && (
-          <button
-            type="button"
-            className="lbb-wb-fab"
-            onClick={() => setAsideOpen(true)}
-            aria-label={`Abrir ${asideTitle}`}
-          >
-            {/* O glifo é o da spec §14.6 — não um ícone qualquer de chat. */}
-            <span className="lbb-wb-fab-glyph" aria-hidden="true">
-              ✦
-            </span>
-            <span>{asideTitle}</span>
-          </button>
-        )}
+        <footer className="lbb-wb-foot" aria-label="Barra de status">
+          <div>{statusLeft}</div>
+          <div>{statusRight}</div>
+        </footer>
 
-        {aside && asideOpen && (
-          <>
-            <Divider
-              value={asideW}
-              min={300}
-              max={560}
-              defaultValue={DEFAULT_ASIDE_W}
-              onChange={setAsideW}
-              invert
-              label={`Redimensionar ${asideTitle}`}
-            />
-            <aside className="lbb-wb-aside" style={{ width: asideW }} aria-label={asideTitle}>
-              <div className="lbb-wb-panel-head">
-                <span className="lbb-wb-panel-title">{asideTitle}</span>
-                <button
-                  type="button"
-                  className="lbb-wb-iconbtn"
-                  aria-label={`Fechar ${asideTitle}`}
-                  onClick={() => setAsideOpen(false)}
-                >
-                  <Icon name="x" />
-                </button>
-              </div>
-              <div className="lbb-wb-aside-body">{aside}</div>
-            </aside>
-          </>
-        )}
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          commands={commands}
+        />
       </div>
-
-      <footer className="lbb-wb-foot" aria-label="Barra de status">
-        <div>{statusLeft}</div>
-        <div>{statusRight}</div>
-      </footer>
-
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        commands={commands}
-      />
-    </div>
+    </TooltipProvider>
   );
 }

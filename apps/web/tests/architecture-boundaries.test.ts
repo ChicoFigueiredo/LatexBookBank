@@ -116,3 +116,30 @@ describe("a camada de application continua livre", () => {
     expect(messages).toHaveLength(0);
   });
 });
+
+/**
+ * Radix é a única dependência visual de terceiro (D13). Confinada em `overlays/`, ela cobre as
+ * três lacunas do DS sem virar um segundo sistema de componentes rodando em paralelo.
+ */
+describe("Radix confinado a design-system/overlays", () => {
+  const IMPORT = `import * as Tooltip from "@radix-ui/react-tooltip";\nexport const T = Tooltip;`;
+
+  const forbidden = [
+    ["página", "app/publications/violation.tsx"],
+    ["módulo de feature", "src/modules/questions/ui/Violation.tsx"],
+    ["componente portado do DS", "src/design-system/forms/Violation.tsx"],
+    ["shell", "src/design-system/shell/Violation.tsx"],
+  ] as const;
+
+  for (const [label, filePath] of forbidden) {
+    it(`rejeita import direto em ${label}`, async () => {
+      const messages = await lintAs(filePath, IMPORT);
+      expect(messages.join("\n")).toMatch(/Radix só em src\/design-system\/overlays/);
+    });
+  }
+
+  it("permite dentro de overlays/", async () => {
+    const messages = await lintAs("src/design-system/overlays/Allowed.tsx", IMPORT);
+    expect(messages).toHaveLength(0);
+  });
+});

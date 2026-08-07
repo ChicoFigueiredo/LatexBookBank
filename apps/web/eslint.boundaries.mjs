@@ -16,6 +16,17 @@ const AI_SDK = ["openai", "@anthropic-ai/*", "ollama", "ai", "@ai-sdk/*", "@goog
 
 const deny = (patterns, message) => ({ group: patterns, message });
 
+/**
+ * Radix é a **única** dependência visual de terceiro no projeto (D13), e entrou para cobrir três
+ * lacunas do DS: context menu, tooltip e popover. Confinar os imports a `overlays/` é o que
+ * impede que ele se espalhe e vire, na prática, um segundo sistema de componentes ao lado do
+ * portado — exatamente o que a decisão de adotar o Edulingo DS quis evitar.
+ */
+const RADIX_DENY = deny(
+  ["@radix-ui/*"],
+  "Radix só em src/design-system/overlays/. Fora dali, use o componente do DS que o embrulha.",
+);
+
 /** Camada de domínio: regras de negócio puras. Não conhece infraestrutura nenhuma. */
 const DOMAIN_RESTRICTIONS = [
   deny(PRISMA, "Domínio não conhece Prisma. Use a interface de Repository."),
@@ -28,6 +39,7 @@ const DOMAIN_RESTRICTIONS = [
     ["@infrastructure/*", "@/infrastructure/*"],
     "Domínio não importa infraestrutura. A dependência aponta para dentro, nunca para fora.",
   ),
+  RADIX_DENY,
 ];
 
 /** Componentes React: nunca falam com o banco direto. */
@@ -39,6 +51,11 @@ const UI_RESTRICTIONS = [
   ),
 ];
 
+/** A mesma lista da UI, menos o Radix: é o que `overlays/` tem de especial, e só isso. */
+const OVERLAY_RESTRICTIONS = [...UI_RESTRICTIONS];
+
+UI_RESTRICTIONS.push(RADIX_DENY);
+
 /**
  * Agente: propõe patches, nunca escreve.
  * A escrita real acontece depois da aprovação humana, no use case (spec §14.3).
@@ -49,6 +66,7 @@ const AGENT_RESTRICTIONS = [
     ["@infrastructure/database/*", "@/infrastructure/database/*"],
     "O agente não acessa a camada de banco. Fluxo: propor → validar → diff → aprovar → aplicar.",
   ),
+  RADIX_DENY,
 ];
 
 const restrict = (paths) => ({
@@ -56,6 +74,18 @@ const restrict = (paths) => ({
 });
 
 const boundaries = [
+  {
+    /**
+     * Bloco largo, deliberadamente **primeiro**: os blocos seguintes casam com subconjuntos de
+     * `src/modules/**` e, em flat config, o último que casa substitui `no-restricted-imports`
+     * inteiro. Por isso `RADIX_DENY` também aparece nas listas de domínio, UI e agente — sem
+     * isso, o bloco mais específico apagaria esta regra em silêncio. Foi exatamente o que os
+     * testes de violação proposital pegaram quando ela entrou como bloco separado.
+     */
+    name: "boundary/radix-modules",
+    files: ["src/modules/**/*.{ts,tsx}"],
+    rules: restrict([RADIX_DENY]),
+  },
   {
     name: "boundary/domain",
     files: ["src/modules/*/domain/**/*.{ts,tsx}"],
@@ -95,6 +125,12 @@ const boundaries = [
         },
       ],
     },
+  },
+  {
+    /** Último a casar, e portanto o que vale para `overlays/`: aqui o Radix é legítimo. */
+    name: "boundary/overlays",
+    files: ["src/design-system/overlays/**/*.{ts,tsx}"],
+    rules: restrict(OVERLAY_RESTRICTIONS),
   },
 ];
 

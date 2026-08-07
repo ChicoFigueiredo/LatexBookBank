@@ -22,8 +22,8 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 em andamento · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — #27 fechada (PR #31) e #28 entregue (PR #32): workbench de
-seis zonas montado em `/publications/[id]`. 28 componentes · 166 testes · 16 PRs, nenhum mergeado.
+**Última atualização:** 2026-08-07 — #27, #28 e #29 entregues. Falta da Fase 1 só o aceite
+visual. 31 componentes · 181 testes · 17 PRs abertos, nenhum mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -208,11 +208,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ `BrandMark` substituído pela identidade do LatexBookBank *(chave de grupo `{` + linhas compostas)*
 - ✅ Nenhum componente portado quebra sob SSR *(afirmado com `renderToStaticMarkup`)*
 
-**Primitivas complementares** *(D13 — lacuna do DS)*
-- [ ] Radix headless para context menu
-- [ ] Radix headless para tooltip
-- [ ] Radix headless para popover
-- [ ] Estilizadas apenas com tokens do DS; sem Tailwind, sem shadcn
+**Primitivas complementares** *(D13 — lacuna do DS)* — #29
+- ✅ Radix headless para context menu *(grupos derivam os separadores; ação destrutiva isolada no último)*
+- ✅ Radix headless para tooltip *(aparece no foco, não só no hover; nunca é o único portador da informação)*
+- ✅ Radix headless para popover *(não bloqueia a tela — o que exige atenção exclusiva vai para `Modal`)*
+- ✅ Estilizadas apenas com tokens do DS; sem Tailwind, sem shadcn *(lint de aderência verde)*
+- ✅ **Radix confinado a `design-system/overlays/`** *(regra de lint com violação proposital em 4 caminhos)*
 
 **Zonas do workbench** *(D14)* — #28, verificadas em `/publications/[id]` com o app rodando
 - ✅ Rail com módulos: Biblioteca, Publicações, Avaliações, Importação, Diagnóstico
