@@ -6,7 +6,10 @@
 > **Levantamento:** 2026-08-07
 > **Revisão 1:** 2026-08-07 — decisões de plataforma do CEO (§3.4).
 > **Revisão 2:** 2026-08-07 — incorporada a
-> [auditoria arquitetural](../prompts/260807-01.Auditoria-Planejamento.e.Checklist.md) (§3.5).
+> [primeira auditoria](../prompts/260807-01.Auditoria-Planejamento.e.Checklist.md) (§3.5).
+> **Revisão 3:** 2026-08-07 — incorporada a
+> [segunda auditoria](../prompts/260807-02.Segunda.Auditoria.md): ajustes de fronteira (§3.6).
+> **Parecer:** aprovado com ajustes · 9/10 · **autorizado iniciar a Fase 0** após esta revisão.
 > **Escopo aprovado:** Waves A–F. M8/SaaS entra apenas como preparação arquitetural.
 > **Modo de execução:** Claude executa fase a fase, com checkpoint humano ao fim de cada fase.
 >
@@ -32,12 +35,12 @@ mestra assumia:
 3. **Existe um design system pronto e maduro** (Edulingo DS Admin v1), que já implementa a maior
    parte do chrome do workbench que a spec descreve — incluindo as superfícies de IA governável.
    Isso substitui a stack de UI proposta na spec §5.2.
-4. **A direção arquitetural é local-first, cloud-ready.** O produto local não é ambiente de
-   desenvolvimento temporário: é produto de primeira classe, capaz de operar com a internet
-   desligada. Ao mesmo tempo, nenhuma regra de domínio pode depender de SQLite, filesystem, TeX
-   instalado, Ollama, Vercel, Neon ou Blob — todos são **providers de infraestrutura**. A
-   compatibilidade com a nuvem é provada empiricamente numa fase curta (6.5), não presumida nem
-   antecipada.
+4. **A direção arquitetural é local-first, cloud-ready.** O modo local é produto de primeira
+   classe, não ambiente temporário: Next.js + SQLite + `LocalFileStorage` + renderer em Docker +
+   IA local, capaz de operar com a internet desligada. O modo cloud futuro troca as
+   implementações — PostgreSQL, object storage, mesma imagem do renderer hospedada — sem que as
+   regras de negócio saibam qual dos dois está em uso. Isso é provado empiricamente numa fase
+   curta (6.5), não presumido.
 5. **O acervo real cabe em 109 MB.** O inventário em bytes (§2.10) mostrou que as 13 bibliotecas
    somam 109 MB em 409 arquivos, com menos de 1% recuperável por deduplicação. Isso remove a
    questão de custo de storage da lista de riscos.
@@ -57,9 +60,9 @@ Esta seção registra evidências, não suposições. Cada item foi verificado n
 |---|---|---|
 | Node.js | v24.16.0 | OK |
 | pnpm | 10.34.1 | OK |
-| TeX Live | 2023/Debian, `pdfTeX 3.141592653-2.6-1.40.25` | Render viável **no serviço containerizado**, ver §2.8 |
+| TeX Live | 2023/Debian, `pdfTeX 3.141592653-2.6-1.40.25` | **Fallback opcional** — o caminho principal é o renderer em Docker (D27, §19 da 2ª auditoria) |
 | `pdftocairo` | 24.02.0 | OK |
-| Docker | disponível, ambiente muito povoado | Ver §2.9 (portas) |
+| Docker | disponível, ambiente muito povoado | **Dependência principal**: o renderer roda nele. Ver §2.9 (portas) |
 | Ollama | rodando, 13 modelos | Desenvolvimento agêntico offline possível |
 | Sistema de arquivos | `/mnt/d` é **ext4**, não DrvFs | Sem penalidade de I/O do WSL |
 
@@ -311,11 +314,14 @@ ali podem colidir com conexões de saída aleatórias. Para o LatexBookBank, esc
 | Porta | Serviço | Mnemônico |
 |---:|---|---|
 | `28080` | Next.js (dev) | ecoa 8080 |
-| `28432` | PostgreSQL (Docker) | ecoa 5432 |
-| `28900` | Worker de render LaTeX (Docker no WSL) | — |
+| `28900` | Worker/API de render LaTeX (Docker) | — |
+| `28432` | PostgreSQL em Docker — **apenas Fase 6.5** | ecoa 5432 |
 | `28001` | Prisma Studio | — |
 | `28379` | Redis, se vier a ser necessário (reservado) | ecoa 6379 |
 | `28025` | Mailpit, se vier a ser necessário (reservado) | ecoa 1025/8025 |
+
+Todas verificadas livres em 2026-08-07, em containers e no host. As portas `28090`/`28091`, que
+haviam sido reservadas para MinIO em D34, ficam liberadas com a suspensão daquela decisão.
 
 ### 2.10 Inventário de volume do acervo *(executado — auditoria §33–35)*
 
@@ -453,10 +459,10 @@ PostgreSQL/Neon como candidato cloud provado no spike (D25).
 
 #### D17 — Deploy na Vercel; storage da Vercel · **REVISTA por D21/D26**
 
-Vercel e Vercel Blob permanecem como alvos de nuvem, validados na Fase 6.5 — não como runtime do
-MVP. O `StorageProvider` continua nascendo na Fase 0 (essa parte da D17 se confirma), mas com
-`LocalFileStorageProvider` como implementação padrão e obrigatória, e o adapter Blob exercitado
-no spike.
+Vercel permanece como alvo de deploy, validado na Fase 6.5 — não como runtime do MVP. O
+`StorageProvider` continua nascendo na Fase 0 (essa parte da D17 se confirma), com
+`LocalFileStorageProvider` como implementação inicial e `VercelBlobStorageProvider` como
+candidato cloud, conforme D26.
 
 #### D18 — Portabilidade por arquivo `.lbb` (zip com SQLite + assets) · **MANTIDA**
 
@@ -517,10 +523,14 @@ futura. Não deve ser usado para bounding boxes, crops, posições em página ou
 **Razão.** Os dados espaciais do LatexBookBank são coordenadas de documento, não dados
 geográficos. Um recorte se representa com campos comuns e coordenadas normalizadas (D28).
 
-#### D23 — Quatro fronteiras de provider, e apenas quatro
+#### D23 — Quatro fronteiras primárias de infraestrutura
+
+*Redação revista pela segunda auditoria (§14–§16).*
+
+São as quatro grandes fronteiras externas do runtime — os pontos onde o produto toca o mundo:
 
 ```text
-DatabaseProvider / Repository
+Persistence / Repository
 StorageProvider
 RenderExecutor
 AiProvider
@@ -528,13 +538,23 @@ AiProvider
 
 O domínio não conhece implementação concreta de nenhuma delas.
 
-**Contenção deliberada** (auditoria §39): criar interface *apenas* onde já existe necessidade real
-de múltiplas implementações. Nada de vinte interfaces inúteis, classes de uma linha, factories
-desnecessárias ou framework de injeção de dependência. A abstração é ferramenta, não cerimônia.
+**"Primárias" não significa "as únicas".** Outros contratos continuam legítimos quando
+representam comportamento real, não cerimônia:
 
-#### D24 — SQLite permanece o banco primário local
+`QuestionTypePlugin` · `MathRecognitionProvider` · `QuestionSearchService` · `PortableArchive` ·
+`QuestionPatch`
 
-*Revisa D16.*
+**Pergunta de controle antes de criar qualquer interface:**
+
+> Existe mais de uma implementação real, ou uma fronteira arquitetural importante?
+
+Se a resposta for não, provavelmente não precisa de interface.
+
+**Continua proibido:** interface para classe que nunca terá outra implementação · factory sem
+necessidade · abstração de uma linha · DI framework pesado · service locator · microserviço por
+módulo.
+
+#### D24 — SQLite é o banco primário local · **VIGENTE** (reconfirmada pela segunda auditoria §2.1)
 
 ```text
 Prisma → SQLite
@@ -544,18 +564,30 @@ Razões: o acervo já é local; a importação é local; desenvolvimento mais si
 offline; desempenho suficiente para 109 MB e ~1.250 alternativas; backup trivial; nenhuma
 dependência de infraestrutura externa.
 
+PostgreSQL permanece alvo futuro, validado na Fase 6.5 (D25). SQLite tem ainda dois papéis
+auxiliares: ler os `.knowchico` legados (Fase 11) e ser o container de dados do `.lbb`
+(Fase 13, D18/D32/D37).
+
+> *Esta decisão foi brevemente substituída por D33 e restaurada pela segunda auditoria. Ver D33.*
+
 #### D25 — PostgreSQL/Neon é o candidato cloud, provado no spike
 
-Neon é a primeira opção a testar, **nunca como dependência de domínio**: qualquer PostgreSQL deve
-poder substituí-lo. Migrations SQLite e PostgreSQL não precisam ser literalmente iguais;
+Neon é o primeiro PostgreSQL cloud a testar, **nunca como dependência de domínio**: a aplicação
+não pode usar funcionalidade exclusiva do Neon, e qualquer PostgreSQL deve poder substituí-lo. Migrations SQLite e PostgreSQL não precisam ser literalmente iguais;
 estratégias específicas por motor são aceitáveis. O requisito real é que **domínio e use cases
 não precisem ser reescritos**.
 
-#### D26 — Vercel Blob é o candidato cloud de storage
+#### D26 — Storage sempre atrás de `StorageProvider`
 
-*Revisa D17.*
+*Revisa D17. Reconfirmada pela segunda auditoria §2.4.*
 
-Testado apenas através de `StorageProvider`. É proibido `import { put } from '@vercel/blob'`
+| Papel | Implementação |
+|---|---|
+| Inicial e principal | `LocalFileStorageProvider` |
+| Candidato cloud | `VercelBlobStorageProvider` |
+| Possibilidade futura | `S3StorageProvider` |
+
+Nenhum SDK concreto de storage pode vazar para o domínio ou para os use cases. É proibido `import { put } from '@vercel/blob'`
 espalhado por domínio ou use cases — só a infraestrutura correspondente pode depender do SDK
 concreto. `S3StorageProvider` deve ser implementável depois sem tocar em regra de negócio.
 
@@ -681,44 +713,190 @@ caminho de código, o que traz três consequências:
 
 Parâmetros (retenção, frequência, destino) são configuração de operação, não de domínio.
 
+#### D33 — Paridade dev/prod (PostgreSQL + S3 locais) · **SUSPENSA**
+
+*Proposta em 2026-08-07 após D32. Suspensa na mesma data pela segunda auditoria.*
+
+A proposta era rodar a stack de produção inteira localmente — `vercel dev`, PostgreSQL em Docker,
+storage S3-compatible (MinIO) e o worker — de modo que subir para a nuvem fosse trocar variáveis
+de ambiente em vez de trocar tecnologia.
+
+**Por que está suspensa.** A segunda auditoria aprovou explicitamente SQLite como banco principal
+local (§2.1) e `LocalFileStorageProvider` como implementação inicial (§2.4), e estruturou a Fase
+6.5 sobre os pares `SQLite ↕ PostgreSQL` e `LocalFileStorage ↕ Vercel Blob` (§31) — pares que
+D33 esvaziaria, por não haver troca a provar.
+
+**Observação para uma eventual retomada.** O parecer não menciona D33 nem D34 em nenhum ponto, o
+que sugere que avaliou o estado anterior a elas. O mérito da proposta — eliminar a troca em vez
+de prová-la — permanece em aberto e exigiria parecer específico. O custo que pesava contra era
+tornar Docker pré-requisito para desenvolver.
+
+#### D34 — Storage S3-compatible como adapter primário · **SUSPENSA**
+
+Suspensa junto com D33, pelo mesmo motivo. `S3StorageProvider` volta ao papel que a auditoria
+§2.4 lhe dá: **possibilidade futura**, atrás da mesma interface.
+
+A observação sobre **DO Spaces** continua válida para quando o destino cloud dos assets for
+decidido: sendo S3-compatible e ficando no mesmo datacenter do droplet, evita tráfego entre
+nuvens a cada render. Comparar com Vercel Blob na ocasião.
+
+---
+
+### 3.6 Ajustes de fronteira — segunda auditoria
+
+Origem: [segunda auditoria](../prompts/260807-02.Segunda.Auditoria.md). Parecer: aprovado com
+ajustes, 9/10, com autorização para iniciar a Fase 0 depois de incorporados.
+
+#### D35 — O renderer é storage-agnostic
+
+*Ajuste obrigatório 1 (§3–§7). Resolve uma contradição real do plano anterior.*
+
+**A contradição.** O plano exigia, ao mesmo tempo, que o container do renderer não tivesse rede
+de saída **e** que ele gravasse artefatos via `StorageProvider` remoto. As duas coisas não podem
+ser verdadeiras: sem egress, o renderer não alcança Vercel Blob nem qualquer object storage.
+
+**A decisão.** O renderer não conhece storage, banco, workspace nem Prisma. Ele compila e
+devolve bytes; **quem persiste é a aplicação**.
+
+```text
+Next.js  ──RenderBundle──▶  Renderer Docker  ──RenderResult──▶  Next.js  ──▶  StorageProvider
+```
+
+```ts
+interface RenderBundle {
+  jobId: string;
+  sourceLatex: string;
+  profile: string;
+  assets: RenderAsset[];        // enviados junto: multipart, tar/zip ou stream
+  options: RenderOptions;
+}
+
+interface RenderResult {
+  success: boolean;
+  pdf?: Uint8Array;
+  png?: Uint8Array;
+  diagnostics: RenderDiagnostic[];
+  stdout?: string;
+  stderr?: string;
+  durationMs: number;
+}
+```
+
+O mecanismo concreto de transporte dos assets (multipart, tar, zip, stream) fica para a Fase 6.
+
+**Consequências, todas boas:** o container pode ficar sem rede de saída de verdade; funciona
+igual com `LocalFileStorage` ou com Blob, sem alterar o renderer; a imagem Docker permanece
+idêntica entre local e produção; e o worker não precisa de credencial de storage nem de banco —
+portanto não pode vazá-las.
+
+#### D36 — Backup é um processo separado do renderer
+
+*Ajuste obrigatório 2 (§8–§10, §30). Corrige D32.*
+
+D32 dizia "backup recorrente do worker". Isso empurrava responsabilidade demais para dentro de um
+serviço cuja função é uma só: **compilar LaTeX**.
+
+Rodar no mesmo host não significa pertencer ao mesmo serviço:
+
+```text
+Droplet
+├── latex-renderer          (compila; sem estado, sem credenciais)
+└── latexbookbank-backup    (usa PortableArchiveWriter, gera .lbb)
+```
+
+O backup reutiliza o **mesmo `PortableArchiveWriter`** da exportação manual:
+
+```text
+PortableArchiveWriter
+       ├── Export manual
+       └── Backup recorrente
+```
+
+Isso preserva o ganho central de D32 — um formato só, um caminho de código, coberto pelo mesmo
+teste de round-trip — e remove o acoplamento indevido.
+
+#### D37 — `.lbb` usa um schema portátil versionado, não o schema de runtime
+
+*Ajuste obrigatório 3 (§11–§13).*
+
+O plano anterior descrevia `data.sqlite` como "espelho do schema de runtime". Isso amarraria o
+formato de arquivo à evolução interna da aplicação: qualquer migration do Prisma quebraria
+compatibilidade dos arquivos antigos.
+
+**A decisão.** Existe um **Portable Schema** próprio e versionado, e a exportação é uma
+**projeção**:
+
+```text
+Runtime Domain          Runtime Domain v8
+      ↓                       ↓
+Export Projection       Export Projection
+      ↓                       ↓
+Portable Schema v1      Portable Schema v2
+      ↓                       ↓
+  data.sqlite             data.sqlite
+```
+
+Assim o Prisma pode mudar, as migrations podem mudar, SQLite pode virar PostgreSQL e nomes
+internos podem mudar — **sem destruir a compatibilidade dos `.lbb` já gerados**.
+
+O `manifest.json` declara `formatVersion`. O importador tem **migradores de formato**
+(`LBB v1 → v2 → runtime atual`) quando fizer sentido, e **nunca adivinha** versão desconhecida:
+recusa com mensagem clara.
+
+**Consequência para a Fase 13:** o round-trip deixa de ser "exportei e reimportei o mesmo schema"
+e passa a exercitar duas projeções — runtime → portable e portable → runtime. É mais trabalho, e
+é o que faz o formato sobreviver ao produto.
+
+---
+
 ## 4. Arquitetura
 
 ### 4.1 Topologia — modo local (o MVP)
 
 ```
-┌── Máquina do autor ─────────────────────────────────────────┐
-│  Next.js (localhost:28080)                                  │
-│  Route Handlers · Use Cases · Domain                        │
-│        │              │              │              │       │
-│        ▼              ▼              ▼              ▼       │
-│   SQLite         LocalFile     RenderWorker      Ollama /   │
-│   (Prisma)        Storage       Executor         remoto     │
-│                 (filesystem)        │                       │
-│                                     ▼ HTTP                  │
-│                          ┌──────────────────────┐           │
-│                          │ Docker no WSL :28900 │           │
-│                          │ pdflatex + pdftocairo│           │
-│                          └──────────────────────┘           │
-└─────────────────────────────────────────────────────────────┘
-        Objetivo: desligar a internet e continuar produzindo.
+┌── Máquina do autor ─────────────────────────────────────────────────┐
+│                                                                     │
+│   Next.js  ·  localhost:28080                                       │
+│   Route Handlers · Use Cases · Domain                               │
+│        │              │               │              │             │
+│        ▼              ▼               ▼              ▼             │
+│   Repository     StorageProvider  RenderExecutor  AiProvider        │
+│        │              │               │              │             │
+│        ▼              ▼               │              ▼             │
+│    SQLite      LocalFileStorage       │           Ollama            │
+│                 (filesystem)          │           :11434            │
+│                       ▲               ▼ RenderBundle                │
+│                       │      ┌──────────────────────┐               │
+│                       └──────│ Renderer Docker      │               │
+│                RenderResult  │ :28900 · sem egress  │               │
+│                              │ pdflatex + pdftocairo│               │
+│                              └──────────────────────┘               │
+└─────────────────────────────────────────────────────────────────────┘
+        Sem internet, tudo continua funcionando.
 ```
 
-### 4.2 Topologia — modo cloud (candidata, provada na Fase 6.5)
+**Note a direção das setas do renderer (D35).** Ele recebe um `RenderBundle` e devolve um
+`RenderResult`. Não toca no storage, no banco nem no workspace — quem persiste é a aplicação. É
+isso que permite ao container ficar realmente sem rede de saída.
+
+### 4.2 Topologia — modo cloud (futuro, provado na Fase 6.5)
 
 ```
     ┌─────────────┐                    ┌──────────────────────┐
-    │   Vercel    │  ────── HTTP ────▶ │  Droplet · Docker    │
-    │  Next.js    │                    │  worker de render    │
-    └──────┬──────┘                    │  + backup recorrente │
-           │                           └──────────┬───────────┘
-   ┌───────┼────────┐                             │ .lbb
-   ▼       ▼        ▼                             ▼
-PostgreSQL Object  AI Provider              destino de backup
+    │   Vercel    │  ──RenderBundle──▶ │  Droplet · Docker    │
+    │  Next.js    │  ◀─RenderResult─── │  ├─ latex-renderer   │
+    └──────┬──────┘                    │  └─ backup job (D36) │
+           │                           └──────────────────────┘
+   ┌───────┼────────┐
+   ▼       ▼        ▼
+PostgreSQL Object  AI Provider
   (Neon)  Storage  OpenAI-compat
 ```
 
-**Mesma imagem do worker nos dois modos** (D27). Marcas específicas não viram requisito de
-domínio (auditoria §26).
+**Mesma imagem do renderer nos dois modos** (D27), e a aplicação continua sendo quem grava os
+artefatos (D35). Renderer e backup são serviços distintos, ainda que no mesmo host (D36).
+
+Topologia **candidata**. Marcas específicas não viram requisito de domínio.
 
 ### 4.3 Terceiro modo, apenas registrado (auditoria §27)
 
@@ -780,7 +958,7 @@ use cases e API. Nenhum componente React importa Prisma. O agente não tem camin
 │  │  └─ infrastructure/
 │  │     ├─ database/   sqlite/  ·  postgres/
 │  │     ├─ storage/    local/   ·  vercel-blob/
-│  │     ├─ rendering/  local/   ·  cloud/
+│  │     ├─ rendering/  worker/RenderWorkerExecutor.ts
 │  │     └─ ai/         openai-compatible/
 │  ├─ prisma/
 │  ├─ data/                         # SQLite + assets locais (fora do git)
@@ -789,12 +967,12 @@ use cases e API. Nenhum componente React importa Prisma. O agente não tem camin
 └─ _antigo/                         # symlink read-only para o legado
 ```
 
-### 4.7 Os quatro contratos (D23)
+### 4.7 As quatro fronteiras primárias (D23)
 
 ```ts
 // 1 — Persistência
 interface QuestionRepository { get(id): Promise<QuestionAggregate | null>; /* … */ }
-// idem PublicationRepository, AssetRepository, RevisionRepository, DocumentNodeRepository
+// idem PublicationRepository, DocumentNodeRepository, AssetRepository, RevisionRepository
 
 // 2 — Storage
 interface StorageProvider {
@@ -804,9 +982,9 @@ interface StorageProvider {
   delete(key: string): Promise<void>;
 }
 
-// 3 — Render
+// 3 — Render  (D35: recebe bundle, devolve bytes; NÃO persiste)
 interface RenderExecutor {
-  render(request: RenderRequest): Promise<RenderResult>;
+  render(bundle: RenderBundle): Promise<RenderResult>;
 }
 
 // 4 — IA
@@ -818,19 +996,21 @@ interface AiProvider {
 }
 ```
 
-Implementações do MVP: `PrismaSqliteRepository` · `LocalFileStorageProvider` ·
-`RenderWorkerExecutor` (worker em Docker, `localhost:28900`) · `OpenAiCompatibleProvider`.
+| Fronteira | Implementação inicial | Candidato cloud |
+|---|---|---|
+| Persistence | `PrismaSqliteRepository` | `PrismaPostgresRepository` (Neon) |
+| Storage | `LocalFileStorageProvider` | `VercelBlobStorageProvider` · futuro `S3StorageProvider` |
+| Render | `RenderWorkerExecutor` → Docker `28900` | mesma imagem, outro `baseURL` |
+| IA | `OpenAiCompatibleProvider` | mesmo provider, outro `baseURL` |
 
-Implementações preparadas, não construídas: `PrismaPostgresRepository` ·
-`VercelBlobStorageProvider` · `S3StorageProvider`.
+### 4.8 Outros contratos de domínio
 
-> `RenderWorkerExecutor` não muda entre ambientes — só o `baseURL`. Não há implementação de
-> render "de nuvem" separada (D27).
-
-### 4.8 Demais contratos de domínio
+Legítimos por representarem comportamento real, não por cerimônia (D23):
 
 `QuestionTypePlugin` (§9) · `MathRecognitionProvider` (§13.3) · `QuestionPatch` (§14.4) ·
-`QuestionSearchService` (§21) · `PortableArchive` (§7).
+`QuestionSearchService` (§21) · `PortableArchive` / `PortableArchiveWriter` (§7).
+
+---
 
 ## 5. Ajustes no modelo de domínio
 
@@ -1012,7 +1192,7 @@ Arquivo único, zip, que carrega um workspace inteiro — dados e assets — de 
 ```
 biblioteca.lbb                      # zip
 ├─ manifest.json                    # versão do formato, workspace, contagens, criado em, checksums
-├─ data.sqlite                      # espelho do schema de runtime, sem features exclusivas
+├─ data.sqlite                      # Portable Schema versionado — NÃO é o schema de runtime
 └─ assets/
    └─ <sha256[0:2]>/<sha256>.<ext>  # conteúdo endereçado por hash
 ```
@@ -1034,14 +1214,18 @@ biblioteca.lbb                      # zip
 questões; SQLite dá consulta, integridade referencial e compacidade sem parser próprio. É também
 continuidade direta do `.knowchico` legado, que o autor já usa há anos.
 
-**Duplo papel: exportação e backup (D32).** O mesmo formato serve à exportação manual pelo
-usuário e ao backup recorrente executado no host do worker. Um caminho de código, um
-`formatVersion`, e o teste de round-trip da Fase 13 cobrindo os dois usos.
+**Portable Schema versionado (D37).** `data.sqlite` **não** é cópia do schema Prisma: é um schema
+próprio, versionado, alimentado por projeção. O importador possui migradores de formato
+(`LBB v1 → v2 → runtime atual`) e recusa versão desconhecida em vez de adivinhar.
 
-**Nota sobre D24.** Com SQLite de volta como banco primário local, o `.lbb` fica quase trivial de
-produzir: é um snapshot do que já roda, mais os assets. Se um dia o runtime for PostgreSQL, o
-`data.sqlite` passa a ser gerado por projeção — e o teste de round-trip é o que garante que a
-projeção não perdeu nada.
+**Duplo papel: exportação e backup (D32, corrigida por D36).** O mesmo `PortableArchiveWriter`
+serve à exportação manual e ao backup recorrente — que roda como **processo próprio**, nunca
+dentro do renderer. Um caminho de código, um `formatVersion`, e o teste de round-trip da Fase 13
+cobrindo os dois usos.
+
+**Por que a projeção é indispensável.** Mesmo com SQLite dos dois lados, `data.sqlite` é gerado
+por projeção, não por cópia de arquivo — é o que desacopla o formato da migration atual. O teste
+de round-trip exercita as duas direções e está ligado a qualquer mudança de schema (Fase 13).
 
 ---
 
@@ -1053,17 +1237,28 @@ Cada fase termina em estado verificável e em checkpoint humano. Os itens marcá
 ### Wave A — fundação e IDE editorial
 
 #### Fase 0 — Fundação e providers
-Workspace pnpm · Next.js App Router · TypeScript strict · ESLint/Prettier + **as regras de
-boundary da §4.5** · estrutura modular da §4.6 · **Prisma + SQLite** com o schema núcleo
-(`Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`, `QuestionTag`,
-`Asset`, `SourceAnchor`) · interfaces de repository + implementação Prisma · DTOs de saída, sem
-vazar objeto Prisma para o React · **os quatro contratos da §4.7 definidos** ·
-`LocalFileStorageProvider` implementado · seed de demonstração · `pnpm setup` (migrations, seed,
-health checks de TeX/Poppler/IA) · CI (install locked, lint, typecheck, test, build).
+Workspace pnpm · Next.js App Router em `28080` · TypeScript strict · ESLint/Prettier + **as
+regras de boundary da §4.5** · estrutura modular da §4.6 · **Prisma + SQLite** com o schema
+núcleo (`Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`,
+`QuestionTag`, `Asset`, `SourceAnchor`) · repositories + implementação Prisma · DTOs de saída,
+sem vazar objeto Prisma para o React · **as quatro fronteiras da §4.7 definidas** ·
+`LocalFileStorageProvider` implementado · toda configuração de infraestrutura por variável de
+ambiente · seed de demonstração · `pnpm setup` · CI.
+
+**`pnpm setup` verifica, nesta ordem de importância** (2ª auditoria §19, §21):
+
+| Verificação | Natureza |
+|---|---|
+| Docker disponível | **obrigatória** |
+| Imagem do renderer buildável | **obrigatória** |
+| Renderer inicia e `GET /health` responde | **obrigatória** |
+| Provider de IA alcançável | informativa |
+| `pdflatex`/`pdftocairo` no host | **fallback opcional**, nunca bloqueia |
+
 **Aceite:** `pnpm setup && pnpm dev` sobe em `28080` sem colidir com nenhum container existente;
-seed cria publicação demo navegável; upload e leitura de arquivo funcionam pelo
-`LocalFileStorageProvider` com `sha256` calculado; CI verde; as regras de boundary falham o lint
-quando violadas propositalmente.
+seed cria publicação demo navegável; upload e leitura funcionam pelo `LocalFileStorageProvider`
+com `sha256` calculado; ausência de TeX no host **não** impede o setup; CI verde; as regras de
+boundary falham o lint quando violadas propositalmente.
 
 #### Fase 1 — Design system e shell
 Portar `tokens.css` re-tokenizado · portar componentes `.jsx` → `.tsx` · incorporar
@@ -1101,56 +1296,71 @@ salto de qualidade do editor pelo menor custo, e não depende de nenhuma decisã
 `PreviewModel` · renderização React + MathJax · aviso permanente de divergência · debounce.
 **Aceite:** latência percebida como imediata; o aviso da §11 está visível.
 
-#### Fase 6 — Worker de render autoritativo *(D27)*
-`services/renderer` com Dockerfile (Node + TeX Live + Poppler) · contrato HTTP `POST /render`,
-`GET /render/:id`, `GET /health` · autenticação por segredo compartilhado · container sem rede de
-saída, com limites de CPU, memória e timeout · `pdflatex` via `execFile` com argumentos,
-diretório temporário por job, sem `shell-escape` · `pdftocairo` → PNG · artefatos gravados via
-`StorageProvider` · `docker compose` expondo `28900` no WSL · `RenderExecutor` implementado como
-`RenderWorkerExecutor` no lado da app · `LatexProfile` + profile "Legacy Compatibility" a partir
-de `latex-includes.tex` · `LatexBuilder` alimentado pelo `QuestionTypePlugin` · `RenderJob`
-persistido · cache por content hash · coalescing · abas PDF/PNG/Log/Source · `Ctrl+Enter` ·
-diagnósticos mapeados para linha, com clique no log navegando para o editor · **preâmbulo
-pré-compilado (`mylatexformat`) com ganho medido antes/depois**.
+#### Fase 6 — Worker de render autoritativo *(D27, D35)*
+`services/renderer` com Dockerfile (Node + TeX Live + Poppler) · **contratos `RenderBundle` e
+`RenderResult`** · decisão do transporte dos assets (multipart, tar/zip ou stream) · contrato
+HTTP `POST /render`, `GET /render/:id`, `GET /health` · autenticação por segredo compartilhado ·
+container **sem rede de saída**, sem credencial de storage, sem credencial de banco, com limites
+de CPU, memória e timeout · `pdflatex` via `execFile` com argumentos, diretório temporário por
+job, sem `shell-escape` · `pdftocairo` → PNG · **o renderer devolve bytes; a aplicação é quem
+chama `StorageProvider.put`** · `docker compose` expondo `28900` · `RenderWorkerExecutor` no lado
+da app · `LatexProfile` + profile "Legacy Compatibility" · `LatexBuilder` alimentado pelo
+`QuestionTypePlugin` · `RenderJob` persistido · cache por content hash · coalescing · abas
+PDF/PNG/Log/Source · `Ctrl+Enter` · diagnósticos mapeados para linha · **preâmbulo pré-compilado
+(`mylatexformat`) com ganho medido antes/depois**.
+
+`GET /health` responde algo como:
+
+```json
+{ "status": "ok", "rendererVersion": "1.0.0",
+  "pdfLatexVersion": "...", "pdfToCairoVersion": "...", "profileCount": 3 }
+```
+
 **Aceite:** `docker compose up` sobe o worker em `28900` e a app conversa com ele; compila
-`tikz`, `pgfplots`, `siunitx`, `xlop` e `cancel`; cache hit medido e reportado; erro de TeX
-aparece como diagnóstico, não como stack trace; worker indisponível degrada com mensagem clara,
-sem perder edição; nenhum módulo editorial chama a compilação diretamente; ganho do preâmbulo
-pré-compilado registrado com número; **a imagem é a mesma que irá para o droplet**.
+`tikz`, `pgfplots`, `siunitx`, `xlop` e `cancel`; **o worker roda sem nenhuma credencial e sem
+rede de saída**; cache hit medido; erro de TeX aparece como diagnóstico, não como stack trace;
+worker indisponível degrada com mensagem clara, sem perder edição; ganho do preâmbulo registrado
+com número; a imagem é a mesma que irá para o droplet.
 
-#### Fase 6.5 — Cloud Compatibility Spike *(D30 — prova arquitetural, curta)*
+#### Fase 6.5 — Cloud Compatibility Spike *(D30)*
 
-**Objetivo.** Responder empiricamente a uma pergunta, e só ela:
+**Objetivo único:**
 
-> O domínio que construímos realmente consegue trocar SQLite por PostgreSQL e filesystem por
-> object storage sem cirurgia?
+> provar que **banco e storage** podem trocar de implementação sem reescrever domínio e use cases.
 
-Não é migração. Não é produção. Não muda o ambiente principal.
+Não é migração. Não é produção. Não muda o ambiente principal. Terminada a fase, **volta-se ao
+desenvolvimento local**.
 
-**Ambiente experimental:** Vercel + Neon PostgreSQL + Vercel Blob, mais um PostgreSQL em Docker
-(`28432`) para rodar a suíte localmente contra os dois motores.
+**Os dois pares a testar:**
+
+```text
+SQLite            LocalFileStorage
+   ↕ teste            ↕ teste
+PostgreSQL        Vercel Blob
+```
+
+**Render está fora do escopo** (2ª auditoria §32). Ele já foi provado na Fase 6, e a mesma imagem
+Docker roda nos dois ambientes. Os arquivos `render.pdf` e `render.png` que aparecem na amostra
+são **artefatos pré-gerados na Fase 6**, usados apenas como carga de teste do `StorageProvider` —
+provar upload, leitura, persistência e referência de `Asset`. Nenhuma compilação acontece aqui.
 
 **Amostra mínima:** 1 workspace · 1 publication · 1 chapter · 1 section · 10 questions ·
-alternatives · tags · 1 PDF original · 3–5 assets · 1 crop · 1 SourceAnchor · 1 render PDF ·
-1 render PNG.
+alternatives · tags · 1 PDF original · 3–5 assets · 1 crop · 1 SourceAnchor · 1 `render.pdf` e
+1 `render.png` pré-gerados.
 
-**Testar:** criação de publicação · árvore · `Question` · `QuestionOption` · tags · save ·
-optimistic concurrency · upload · `StorageProvider` · download · `SourceAnchor` · crop ·
-render artifact · hashes · relations · timestamps · UUIDs.
+**Verificar que continuam funcionando sem mudança de domínio:** `Question` · `Publication` ·
+`DocumentNode` · `QuestionOption` · `Asset` · `SourceAnchor` · `Revision` — mais save, optimistic
+concurrency, upload, download, hashes, relations, timestamps e UUIDs.
 
 A suíte de integração pertinente precisa rodar contra **SQLite** e contra **PostgreSQL**.
 
 **Entregável: `Cloud Compatibility Report`** — diferenças SQLite/PostgreSQL, problemas de
 migrations, problemas do Prisma, diferenças de constraints e índices, problemas de storage, de
-paths, de uploads, de assets, mudanças necessárias. Ou "nenhum problema encontrado", se for o
-caso.
-
-> **O render saiu do escopo desta fase.** Com D27, o worker é o mesmo container em WSL e em
-> droplet — a portabilidade do render já está provada pela própria Fase 6. Restam banco e
-> storage.
+paths, de uploads, de assets, mudanças necessárias. Ou "nenhum problema encontrado".
 
 **Aceite:** relatório escrito; suíte verde nos dois motores, ou lista explícita do que falhou e
-por quê; **e então voltar ao desenvolvimento local normal**.
+por quê; **nenhuma reescrita de domínio foi necessária** — ou a fronteira violada está
+identificada; desenvolvimento voltou ao modo local.
 
 **Guarda-corpo.** Semanas gastas em infraestrutura cloud aqui significam escopo errado. O spike
 implementa o mínimo para provar ou reprovar a portabilidade.
@@ -1215,17 +1425,22 @@ acervo importado, e decisão documentada.
 registrada com números; a interface permanece agnóstica, de modo que o full-text do PostgreSQL
 possa substituí-la sem tocar em use case.
 
-#### Fase 13 — Exportação e importação `.lbb` *(nova, D18)*
-Módulo `portability` · `PortableArchive` · escrita do zip com `manifest.json`, `data.sqlite` e
-assets endereçados por `sha256` · leitura com verificação de `formatVersion` e checksums ·
-recusa explícita de versão desconhecida · religação dos assets ao `StorageProvider` de destino ·
-relatório de colisões, sem sobrescrever em silêncio · UI de exportar e importar workspace ·
-**rotina de backup recorrente (D32) reutilizando o mesmo escritor**, com retenção, frequência e
-destino configuráveis.
-**Aceite:** round-trip completo — exportar um workspace, importar num vazio e comparar dá
-identidade; arquivo corrompido ou de versão futura é recusado com mensagem clara; assets
-duplicados aparecem uma vez só no zip; **um arquivo produzido pelo backup automático abre e
-restaura exatamente como um export manual**, provado pelo mesmo teste.
+#### Fase 13 — Portabilidade `.lbb` *(D18, D32, D36, D37)*
+Módulo `portability` · **`PortableSchema` versionado**, independente da migration atual do Prisma ·
+`PortableArchiveWriter` e `PortableArchiveReader` · **projeção runtime → portable** na exportação
+e **portable → runtime** na importação · escrita do zip com `manifest.json`, `data.sqlite` e
+assets endereçados por `sha256` · verificação de `formatVersion` e checksums · **migradores de
+formato** (`LBB v1 → v2 → runtime atual`) quando fizer sentido · recusa explícita de versão
+desconhecida, sem adivinhar · religação dos assets ao `StorageProvider` de destino · relatório de
+colisões, sem sobrescrever em silêncio · UI de exportar e importar workspace · **job de backup
+recorrente como processo próprio** (`services/backup`), reutilizando o mesmo
+`PortableArchiveWriter` — nunca dentro do renderer.
+
+**Aceite:** round-trip completo exercitando **as duas projeções** — exportar um workspace,
+importar num vazio e comparar dá identidade; arquivo corrompido ou de versão futura é recusado
+com mensagem clara; assets duplicados aparecem uma vez só no zip; **um arquivo produzido pelo
+backup automático abre e restaura como um export manual**, provado pelo mesmo teste; o teste está
+ligado a qualquer mudança de schema.
 
 ### Wave E — ingestão visual
 
@@ -1251,13 +1466,16 @@ PRNG determinístico com testes · entidades de `Assessment` · embaralhamento p
 **Aceite:** a mesma seed reproduz a mesma prova byte a byte, em execuções e processos diferentes.
 
 #### Fase 17 — Endurecimento
-Página de diagnósticos (§25): versão, path do SQLite, TeX disponível e versão do `pdflatex`,
-`pdftocairo`, provider de IA e modelo, Ollama disponível, storage ativo, tamanho do cache, jobs,
-último erro · logs estruturados de render, import, agente e persistência, sem prompts completos
+Página de diagnósticos (§25) **consultando `GET /health` do worker**: versão do app, path do
+SQLite, storage ativo e sanidade, saúde do renderer com `rendererVersion`, `pdfLatexVersion`,
+`pdfToCairoVersion` e `profileCount`, TeX do host (informativo, marcado como fallback opcional),
+último backup `.lbb` com data e resultado, provider de IA e modelo, Ollama disponível, tamanho do
+cache, jobs, último erro · logs estruturados de render, import, agente e persistência, sem prompts completos
 por padrão · guard central de `workspaceId` · secrets apenas em `.env.local` · E2E completo do
 fluxo crítico da §27 · revisão final das regras de boundary da §4.5.
 **Aceite:** Definition of Done global da §28 auditado item a item; o app roda ponta a ponta com a
-internet desligada; nenhuma secret no repositório.
+internet desligada; a página de diagnóstico reflete o estado real do worker; nenhuma secret no
+repositório; nenhuma configuração de infraestrutura hard-coded.
 
 > O deploy em produção **não** faz parte deste plano. A prova de que ele é viável é a Fase 6.5;
 > a execução dele é decisão posterior de negócio.
@@ -1272,12 +1490,14 @@ internet desligada; nenhuma secret no repositório.
 | Tool calling varia muito entre modelos e provedores | Alta | Matriz de capacidades por perfil, com fallback para JSON estruturado; testes de contrato com respostas gravadas |
 | Deriva de schema entre as 13 bibliotecas quebra o import | Alta | Detecção de geração por biblioteca; campos ausentes degradam; dry-run obrigatório antes de qualquer escrita |
 | **As fronteiras de provider viram cerimônia** | Média | D23 limita a exatamente quatro interfaces; regra explícita contra factories e DI framework; revisão a cada fase |
-| **Uma dependência de SQLite vaza para o domínio sem ninguém notar** | Média | Regras de boundary no CI (§4.5); testes de domínio independentes de provider; a Fase 6.5 detecta o que passar |
+| **Uma dependência de SQLite vazar para o domínio sem ninguém notar** | Média | Regras de boundary no CI (§4.5); testes de domínio independentes de provider; a Fase 6.5 existe para detectar o que escapar |
+| **`PortableSchema` divergir do domínio sem ninguém notar** | Média | Round-trip nas duas projeções, ligado a qualquer mudança de schema (D37, Fase 13) |
 | **Divergência entre o schema de runtime e o `data.sqlite` do `.lbb`** | Média | Schema do pacote gerado a partir do Prisma, não escrito à mão; teste de round-trip ligado a qualquer mudança de schema |
 | Monaco quebra sob SSR do App Router | Média | Client component isolado com dynamic import desde a Fase 3 |
 | Fractional indexing sutilmente errado corrompe a ordenação | Média | Testes de propriedade na Fase 2, incluindo rebalanceamento |
 | Portar o DS de `.jsx` para `.tsx` revela acoplamentos ao EduLingo | Média | Os `.d.ts` já existem; portar na Fase 1, cedo, quando corrigir é barato |
 | Classificação errada dos 1.000+ arquivos de figura | Média | Classificação por extensão com relatório do que caiu em `ATTACHMENT`; nada é descartado |
+| **Docker de pé vira pré-requisito para renderizar** | Média | `pnpm setup` valida Docker, build e `/health` antes de tudo; TeX do host permanece como fallback opcional; o app degrada com mensagem clara quando o worker não responde |
 | **Operar o droplet vira custo e trabalho recorrente** | Média | Mesma imagem em WSL e em produção, então o modo local nunca depende do droplet; `RenderExecutor` permite trocar de host sem tocar na app |
 | **Backup recorrente falhar em silêncio** | Média | D32: backup usa o mesmo escritor da exportação e é coberto pelo teste de round-trip; falha de backup aparece na página de diagnóstico |
 | Árvore grande trava a UI | Baixa | Virtualização na Fase 2, antes de existir volume |
@@ -1305,7 +1525,11 @@ Somatório), que existem no vocabulário legado mas têm **zero linhas** no acer
 - **`ITA/Material` e `Listas/`** — 97% dos bytes da árvore, sem `.knowchico`, material de
   terceiros. O scanner ignora e reporta que ignorou.
 - **Estimativa de custo de storage em nuvem** — respondida pelo inventário: 109 MB.
+
 - **Deduplicação como estratégia de economia** — 0,77 MB recuperáveis.
+
+Também fora, por decisão da segunda auditoria §35: Redis obrigatório · filas distribuídas
+complexas · autenticação SaaS completa.
 
 **Preparar a interface, não construir a infraestrutura futura inteira** (auditoria §53).
 
@@ -1315,21 +1539,21 @@ Somatório), que existem no vocabulário legado mas têm **zero linhas** no acer
 
 | Fase | Epic da spec | Seções da spec | Decisões que a alteram |
 |---|---|---|---|
-| 0 | EPIC 01 | §5.1, §6, §7, §26, §27, §39 | D21, D23, D24, D29 |
+| 0 | EPIC 01 | §5.1, §6, §7, §26, §27, §39 | D21, D23, D24, D26, D29 |
 | 1 | EPIC 02 | §4, §5.2, §22, §34 | D13, D14, D15 |
 | 2 | EPIC 02 | §4.1, §8.3 | — |
 | 3 | EPIC 03 | §5.3, §10.1, §20 | — |
 | 4 | EPIC 03 | §10.2 | — |
 | 5 | EPIC 04 | §5.5, §11 | — |
-| 6 | EPIC 04 | §12, §40 | D27 |
-| **6.5** | — | §39, §40 | **D30** (nova) |
+| 6 | EPIC 04 | §12, §40 | D27, **D35** |
+| **6.5** | — | §39, §40 | **D30** |
 | 7 | EPIC 05 | §8.4, §8.5, §8.6, §9 | — |
 | 8 | EPIC 07 | §5.6, §14.1–14.3, §14.7, §14.8 | D3 |
 | 9 | EPIC 07 | §14.4–14.6, §36, §24 | — |
 | 10 | EPIC 10 | §8.9 | — |
 | 11 | EPIC 08 | §16, §8.2, §8.8 | D11, D12, D29, D31 |
 | 12 | EPIC 10 | §21 | D24 |
-| 13 | — | — | **D18**, **D32** (novas) |
+| 13 | — | — | D18, D32, **D36**, **D37** |
 | 14 | EPIC 06 | §13.1, §13.2, §8.7, §24 | D22, D28, D29 |
 | 15 | EPIC 06 | §13.3, §13.4 | D29 |
 | 16 | EPIC 09 | §17, §18 | — |

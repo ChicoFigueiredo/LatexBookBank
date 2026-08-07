@@ -9,8 +9,11 @@
 >
 > **Revisão 2026-08-07** — incorporada a
 > [auditoria arquitetural](../prompts/260807-01.Auditoria-Planejamento.e.Checklist.md).
-> Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D31 adicionadas;
-> D16, D17 e D20 revistas.
+> **Revisão 3 · 2026-08-07** — incorporada a
+> [segunda auditoria](../prompts/260807-02.Segunda.Auditoria.md): ajustes de fronteira.
+> Parecer **aprovado com ajustes · 9/10 · autorizado iniciar a Fase 0**.
+> Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
+> D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** Fase 0 de 17 · 0/19 fases concluídas
 
@@ -48,8 +51,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
       distintos; 9 grupos duplicados; 0,77 MB recuperáveis; `ITA/Material` (3,2 GB) e `Listas/`
       (327 MB) identificados como material externo, fora do escopo
 - [x] Arquitetura do render decidida: worker/API em Docker — WSL local, droplet em produção (D27)
+- [x] Contrato do renderer definido como storage-agnostic: `RenderBundle` → `RenderResult` (D35)
+- [x] Backup separado do processo do renderer (D36)
+- [x] `.lbb` definido com Portable Schema versionado (D37)
 - [ ] Repositório GitLab `bqcf/bqcf.windows` inspecionado *(bloqueado: exige autenticação)*
-- [ ] Confirmação do CEO sobre a reconciliação de D16/D17 *(local-first agora, nuvem provada na 6.5)*
+- [ ] Parecer específico sobre D33/D34 *(suspensas; o parecer não as menciona, sugerindo que avaliou o estado anterior a elas)*
+- [ ] Destino cloud dos assets escolhido quando for a hora: Vercel Blob × DO Spaces
 
 ---
 
@@ -59,19 +66,21 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **Bootstrap**
 - [ ] Workspace pnpm criado com `apps/web`
-- [ ] Next.js com App Router
+- [ ] Next.js com App Router em `28080`
 - [ ] TypeScript strict, sem `any` injustificado
 - [ ] ESLint + Prettier configurados
 - [ ] Aliases de import
 - [ ] Scripts `dev`, `build`, `lint`, `typecheck`, `test`
 - [ ] Estrutura modular da §4.6 do planejamento criada
-- [ ] `infrastructure/` com `database/{sqlite,postgres}`, `storage/{local,vercel-blob}`, `rendering/{local,cloud}`, `ai/{openai-compatible}`
+- [ ] `infrastructure/` com `database/`, `storage/`, `rendering/worker/`, `ai/`
+- [ ] **Nenhum diretório `rendering/local` ou `rendering/cloud`**
+- [ ] `rendering/local-process/` só existe se o fallback for realmente implementado
 - [ ] Convenções documentadas no README
 
 **Regras de boundary (falham o CI quando violadas)** *(auditoria §37)*
 - [ ] `domain/**` não importa `prisma`
 - [ ] `domain/**` não importa `next`
-- [ ] `domain/**` não importa `@vercel/blob`
+- [ ] `domain/**` não importa SDK de storage
 - [ ] `domain/**` não importa `node:fs`
 - [ ] `domain/**` não importa SDK de IA
 - [ ] `domain/**` não executa `pdflatex`
@@ -79,20 +88,21 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] O agente não tem caminho de escrita no banco
 - [ ] Todas as regras verificadas com violação proposital antes de marcar
 
-**Os quatro contratos** *(D23 — e apenas quatro)*
+**As quatro fronteiras primárias** *(D23)*
 - [ ] `Repository` (por agregado) definido
 - [ ] `StorageProvider` definido (`put`/`get`/`exists`/`delete`)
-- [ ] `RenderExecutor` definido
+- [ ] `RenderExecutor` definido — recebe `RenderBundle`, devolve `RenderResult`
 - [ ] `AiProvider` definido
-- [ ] Nenhuma interface criada sem necessidade real de múltiplas implementações
-- [ ] Sem factories desnecessárias, sem framework de DI
+- [ ] Outros contratos de domínio criados só quando representam comportamento real
+- [ ] Pergunta de controle aplicada antes de cada interface nova
+- [ ] Sem factories desnecessárias, sem DI framework, sem service locator
 
 **Persistência — SQLite** *(D24)*
 - [ ] Prisma com `provider = "sqlite"`
 - [ ] Schema núcleo: `Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`, `QuestionTag`, `Asset`, `SourceAnchor`
 - [ ] Migration inicial versionada
 - [ ] Client Prisma server-only
-- [ ] Implementação Prisma dos repositories
+- [ ] `PrismaSqliteRepository` implementado
 - [ ] DTOs de saída — objeto Prisma não vaza para o React *(auditoria §40)*
 - [ ] Seed de demonstração
 - [ ] **PostGIS não existe no projeto** *(D22)*
@@ -107,27 +117,41 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Nenhuma regra de negócio dependente de comportamento particular do SQLite
 - [ ] Testes de domínio independentes do provider
 
-**Storage**
+**Storage** *(D26)*
 - [ ] `LocalFileStorageProvider` implementado
 - [ ] `sha256` calculado em toda escrita
-- [ ] `storageKey` opaca — nenhum path local no domínio
+- [ ] `storageKey` opaca — nenhum path nem URL no domínio
 - [ ] Chaves prefixadas por `workspaceId`
 - [ ] Paths sanitizados; nada escapa da raiz do workspace
 - [ ] Validação de MIME e tamanho
 - [ ] **Nenhum binário no banco** *(auditoria §8)*
+- [ ] Nenhum SDK concreto de storage fora de `infrastructure/storage/`
 
-**Setup e CI**
-- [ ] `pnpm setup` cria diretórios locais
-- [ ] `pnpm setup` cria `.env.local` a partir de exemplo
-- [ ] `pnpm setup` roda generate, migrations e seed
-- [ ] `pnpm setup` verifica TeX, Poppler e provider de IA, e informa ausências sem instalar nada
-- [ ] CI: install locked, lint, typecheck, unit, build
+**Configuração**
+- [ ] Toda infraestrutura configurada por variável de ambiente
+- [ ] Nenhum endereço hard-coded
+- [ ] `.env.example` documenta as variáveis, sem valores
+
+**`pnpm setup`** *(2ª auditoria §19, §21)*
+- [ ] **Docker disponível** — obrigatório
+- [ ] **Imagem do renderer buildável** — obrigatório
+- [ ] **Renderer inicia e `GET /health` responde** — obrigatório
+- [ ] Provider de IA alcançável — informativo
+- [ ] **TeX no host detectado, marcado como fallback opcional — nunca bloqueia**
+- [ ] Cria diretórios locais e `.env.local` a partir de exemplo
+- [ ] Roda generate, migrations e seed
+- [ ] Reporta claramente qual verificação falhou
+- [ ] Não instala software de sistema silenciosamente
+
+**CI**
+- [ ] Install locked, lint, typecheck, unit, build
 
 **Aceite da fase**
 - [ ] `pnpm setup && pnpm dev` sobe a aplicação em `28080`
 - [ ] Nenhuma colisão com os containers já existentes na máquina
 - [ ] Publicação demo navegável
-- [ ] Upload e leitura de arquivo funcionam com `sha256` calculado
+- [ ] Upload e leitura funcionam pelo `LocalFileStorageProvider` com `sha256` calculado
+- [ ] **Ausência de TeX no host não impede o setup**
 - [ ] CI verde
 
 ---
@@ -314,33 +338,52 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-### Fase 6 — Worker de render autoritativo *(D27)*
+### Fase 6 — Worker de render autoritativo *(D27, D35)*
+
+**Contratos** *(D35)*
+- [ ] `RenderBundle` definido (`jobId`, `sourceLatex`, `profile`, `assets`, `options`)
+- [ ] `RenderResult` definido (`success`, `pdf`, `png`, `diagnostics`, `stdout`, `stderr`, `durationMs`)
+- [ ] Mecanismo de transporte dos assets decidido e documentado (multipart · tar/zip · stream)
+- [ ] Renderer recebe **apenas** `RenderBundle`
+- [ ] Renderer retorna **apenas** `RenderResult`
+
+**Isolamento do renderer** *(D35 — o ajuste que resolve a contradição do egress)*
+- [ ] Renderer **não** importa `StorageProvider`
+- [ ] Renderer **não** conhece Vercel Blob
+- [ ] Renderer **não** conhece S3
+- [ ] Renderer **não** conhece Prisma
+- [ ] Renderer **não** conhece `Workspace`
+- [ ] Renderer **não** acessa o banco
+- [ ] Worker funciona **sem credencial de storage**
+- [ ] Worker funciona **sem credencial de banco**
+- [ ] Worker funciona **sem API key de IA**
+- [ ] **A aplicação é quem persiste os artefatos** via `StorageProvider`
 
 **Worker containerizado**
 - [ ] `services/renderer` criado
 - [ ] Dockerfile com Node + TeX Live + Poppler
 - [ ] Imagem compila `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel`
-- [ ] `docker compose` expõe o worker em `28900` no WSL
+- [ ] `docker compose` expõe o worker em `28900`
 - [ ] Porta confirmada livre antes de subir
 - [ ] `POST /render`
 - [ ] `GET /render/:id`
-- [ ] `GET /health`
+- [ ] `GET /health` retorna `status`, `rendererVersion`, `pdfLatexVersion`, `pdfToCairoVersion`, `profileCount`
 - [ ] Autenticação por segredo compartilhado
 - [ ] Segredo nunca no repositório
-- [ ] Container sem rede de saída
+- [ ] **Sem rede de saída**
 - [ ] Limite de CPU
 - [ ] Limite de memória
 - [ ] Timeout por job
+- [ ] Filesystem efêmero
 - [ ] **A imagem é a mesma que irá para o droplet** — sem variante "de desenvolvimento"
 
 **Compilação**
-- [ ] `pdflatex` via `execFile` com argumentos — nunca string de shell
+- [ ] `pdflatex` via `execFile`/`spawn` com argumentos — nunca string de shell
 - [ ] Diretório temporário por job
 - [ ] `shell-escape` bloqueado
 - [ ] stdout, stderr e exit code capturados
 - [ ] `pdftocairo` gera PNG
 - [ ] DPI configurável
-- [ ] Artefatos gravados via `StorageProvider`
 
 **Profiles**
 - [ ] `LatexProfile` com documentclass, packages, macros, engine e defaults
@@ -351,8 +394,9 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **Lado da aplicação**
 - [ ] `RenderExecutor` implementado como `RenderWorkerExecutor`
-- [ ] `baseURL` configurável por ambiente — única diferença entre WSL e droplet
+- [ ] `baseURL` configurável por ambiente — única diferença entre local e droplet
 - [ ] Nenhum módulo editorial chama a compilação diretamente
+- [ ] Aplicação grava `pdf` e `png` do `RenderResult` via `StorageProvider`
 - [ ] `RenderJob` persistido
 - [ ] API de criação, status e resultado
 - [ ] Content hash cobre conteúdo, profile, template, preamble, assets, engine, parâmetros e versão do renderer
@@ -388,57 +432,59 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] `docker compose up` sobe o worker e a app conversa com ele
 - [ ] Render autoritativo nunca trava a edição
 - [ ] Cache hit demonstrado com medição
-- [ ] App continua utilizável com a internet desligada
+- [ ] **O worker roda sem nenhuma credencial e sem rede de saída**
 
 ---
 
 ### Fase 6.5 — Cloud Compatibility Spike *(D30)*
 
-> Prova arquitetural, não migração. Terminada a fase, **voltar ao desenvolvimento local**.
+> Objetivo único: provar que **banco e storage** trocam de implementação sem reescrever domínio e
+> use cases. **Render está fora do escopo** — já foi provado na Fase 6. Terminada a fase,
+> **voltar ao desenvolvimento local**.
 
-**Ambiente experimental**
-- [ ] PostgreSQL em Docker na porta `28432` (suíte local nos dois motores)
-- [ ] Projeto Neon PostgreSQL provisionado
+**Ambiente experimental (efêmero)**
+- [ ] Neon PostgreSQL provisionado
 - [ ] Vercel Blob provisionado
-- [ ] Deploy experimental na Vercel
-- [ ] Nada disso vira dependência do ambiente principal
+- [ ] PostgreSQL em Docker `28432` para rodar a suíte localmente
+- [ ] Ambiente principal permaneceu local e intocado
+- [ ] Tudo derrubado ao fim, mantendo só o relatório
+
+**Os dois pares**
+- [ ] `SQLite ↕ PostgreSQL` testado
+- [ ] `LocalFileStorage ↕ Vercel Blob` testado
 
 **Amostra mínima** *(auditoria §30)*
-- [ ] 1 workspace
-- [ ] 1 publication
-- [ ] 1 chapter
-- [ ] 1 section
+- [ ] 1 workspace · 1 publication · 1 chapter · 1 section
 - [ ] 10 questions com alternatives e tags
-- [ ] 1 PDF original
-- [ ] 3–5 assets
-- [ ] 1 crop
-- [ ] 1 SourceAnchor
-- [ ] 1 render PDF
-- [ ] 1 render PNG
+- [ ] 1 PDF original · 3–5 assets · 1 crop · 1 SourceAnchor
+- [ ] `render.pdf` e `render.png` **pré-gerados na Fase 6**, usados só como carga de teste
+- [ ] **Nenhuma compilação acontece nesta fase**
+
+**Entidades que devem continuar funcionando sem mudança de domínio** *(§31)*
+- [ ] `Question`
+- [ ] `Publication`
+- [ ] `DocumentNode`
+- [ ] `QuestionOption`
+- [ ] `Asset`
+- [ ] `SourceAnchor`
+- [ ] `Revision`
 
 **Testes obrigatórios** *(auditoria §31)*
 - [ ] Criação de publicação
 - [ ] Árvore
-- [ ] `Question`
-- [ ] `QuestionOption`
 - [ ] Tags
 - [ ] Save
 - [ ] Optimistic concurrency
 - [ ] Upload
-- [ ] `StorageProvider`
+- [ ] `StorageProvider` — upload, leitura, persistência, referência de `Asset`
 - [ ] Download
-- [ ] `SourceAnchor`
 - [ ] Crop
-- [ ] Render artifact
 - [ ] Hashes
 - [ ] Relations
 - [ ] Timestamps
 - [ ] UUIDs
 - [ ] **Suíte de integração roda contra SQLite**
 - [ ] **Suíte de integração roda contra PostgreSQL**
-
-> **Render fora do escopo desta fase.** Com D27 o worker é o mesmo container em WSL e em
-> droplet; a portabilidade do render já foi provada na Fase 6. Aqui só se testa banco e storage.
 
 **Entregável: `Cloud Compatibility Report`** *(auditoria §32)*
 - [ ] Diferenças SQLite/PostgreSQL
@@ -739,15 +785,25 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-### Fase 13 — Exportação e importação `.lbb` *(nova, D18)*
+### Fase 13 — Portabilidade `.lbb` *(D18, D32, D36, D37)*
+
+**Portable Schema versionado** *(D37)*
+- [ ] `PortableSchema` definido, **próprio e versionado**
+- [ ] **Não depende diretamente da migration atual do Prisma**
+- [ ] Export faz projeção **runtime → portable**
+- [ ] Import faz projeção **portable → runtime**
+- [ ] Migradores de formato previstos (`LBB v1 → v2 → runtime atual`)
+- [ ] `formatVersion` declarado no `manifest.json`
+- [ ] Versão desconhecida é recusada com mensagem clara — **nunca adivinhada**
 
 **Formato**
 - [ ] Módulo `portability` criado
-- [ ] Contrato `PortableArchive` definido
+- [ ] `PortableArchiveWriter` implementado
+- [ ] `PortableArchiveReader` implementado
 - [ ] `manifest.json` com `formatVersion`, workspace, contagens, data e checksums
-- [ ] `data.sqlite` gerado a partir do schema Prisma, não escrito à mão
 - [ ] Assets em `assets/<sha256[0:2]>/<sha256>.<ext>`
 - [ ] `data.sqlite` referencia assets por `sha256`, nunca por path
+- [ ] Independência de path garantida
 
 **Exportação**
 - [ ] Exporta um workspace inteiro
@@ -757,26 +813,28 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] UI de exportação
 
 **Importação**
-- [ ] Verifica `formatVersion` e recusa versão desconhecida com mensagem clara
+- [ ] Verifica `formatVersion`
 - [ ] Verifica checksums e recusa arquivo corrompido
 - [ ] Religa assets ao `StorageProvider` de destino
 - [ ] Colisão de `legacyId`/`uuid` gera relatório e exige decisão
-- [ ] Nada é sobrescrito em silêncio
+- [ ] **Nada é sobrescrito em silêncio**
 - [ ] Relatório de importação
 - [ ] UI de importação
 
-**Backup recorrente** *(D32)*
-- [ ] Rotina de backup reutiliza o **mesmo escritor** da exportação — nenhum formato paralelo
+**Backup recorrente** *(D32, corrigida por D36)*
+- [ ] **Backup não roda dentro do processo do renderer**
+- [ ] `services/backup` é processo/container próprio
+- [ ] **Backup reutiliza o mesmo `PortableArchiveWriter`** da exportação
+- [ ] Nenhum formato de restauração paralelo
 - [ ] Frequência configurável
 - [ ] Retenção configurável
 - [ ] Destino configurável
-- [ ] Executada no host do worker
 - [ ] Falha de backup fica visível na página de diagnóstico, nunca em silêncio
 - [ ] Último backup bem-sucedido registrado com data e tamanho
 
 **Aceite da fase**
-- [ ] **Round-trip:** exportar um workspace, importar num vazio e comparar dá identidade
-- [ ] **Um arquivo produzido pelo backup automático abre e restaura como um export manual**, provado pelo mesmo teste
+- [ ] **Round-trip exercitando as duas projeções:** exportar um workspace, importar num vazio e comparar dá identidade
+- [ ] **Um arquivo produzido pelo backup automático passa pelo mesmo teste de round-trip**
 - [ ] Arquivo de versão futura é recusado com mensagem clara
 - [ ] Arquivo corrompido é recusado com mensagem clara
 - [ ] Teste de round-trip incluído na suíte e ligado a qualquer mudança de schema
@@ -876,11 +934,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 **Diagnóstico** *(spec §25)*
 - [ ] Versão do app
 - [ ] Path do SQLite
-- [ ] TeX disponível e versão do `pdflatex`
-- [ ] `pdftocairo` disponível
 - [ ] Storage ativo e sanidade
-- [ ] Saúde do worker de render (`GET /health`)
-- [ ] Último backup: data, tamanho e resultado *(D32)*
+- [ ] **Saúde do worker consultada via `GET /health`**
+- [ ] `rendererVersion` exibida
+- [ ] `pdfLatexVersion` exibida
+- [ ] `pdfToCairoVersion` exibida
+- [ ] `profileCount` exibido
+- [ ] TeX do host exibido como **fallback opcional**, não como dependência
+- [ ] Último backup: data, tamanho e resultado *(D32/D36)*
 - [ ] Provider de IA e modelo
 - [ ] Ollama disponível
 - [ ] Tamanho do cache
@@ -905,6 +966,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **Critério de sucesso do produto local** *(auditoria §48)*
 - [ ] O app roda ponta a ponta com a internet desligada
+- [ ] Nenhuma configuração de infraestrutura hard-coded
 - [ ] Biblioteca local grande é utilizável
 - [ ] IA local funciona
 - [ ] Ferramentas TeX locais funcionam
@@ -933,8 +995,9 @@ Checklist arquitetural. Verificar a cada fase, não só na Fase 0.
 
 - [ ] Domain não importa Prisma
 - [ ] Domain não importa Vercel
-- [ ] Domain não importa Blob SDK
+- [ ] Domain não importa SDK de storage
 - [ ] Domain não importa Node filesystem
+- [ ] Renderer não conhece storage, banco, `Workspace` nem Prisma *(D35)*
 - [ ] Domain não executa `pdflatex`
 - [ ] Domain não importa SDK de IA
 - [ ] Components não conhecem implementação concreta de storage
@@ -953,8 +1016,8 @@ const asset       = await storageProvider.get(assetId);
 const result      = await renderExecutor.render(request);
 ```
 
-- [ ] Verdadeiro para SQLite + disco + `pdflatex` local
-- [ ] Verdadeiro para PostgreSQL + object storage + renderer cloud *(provado na Fase 6.5)*
+- [ ] Verdadeiro para SQLite + `LocalFileStorage` + renderer Docker local
+- [ ] Verdadeiro para PostgreSQL + object storage + mesmo renderer remoto *(provado na Fase 6.5)*
 
 **Áreas que a versão cloud não pode exigir reescrever** *(auditoria §49)*
 
@@ -976,8 +1039,8 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 | Porta | Serviço |
 |---:|---|
 | `28080` | Next.js (dev) |
+| `28900` | Worker/API de render LaTeX (Docker) |
 | `28432` | PostgreSQL em Docker — **apenas Fase 6.5** |
-| `28900` | Worker de render LaTeX (Docker no WSL) |
 | `28001` | Prisma Studio |
 | `28379` | Redis (reservado) |
 | `28025` | Mailpit (reservado) |
