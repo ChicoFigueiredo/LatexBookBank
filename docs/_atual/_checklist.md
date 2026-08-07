@@ -21,12 +21,12 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** Fase 0 em andamento · 0/19 fases concluídas
-**Última atualização:** 2026-08-07, após as issues #3–#11 e #21 (PRs #12–#22, nenhum mergeado).
+**Progresso:** Fase 0 concluída · 1/19 fases
+**Última atualização:** 2026-08-07, após as issues #3–#11, #21 e #23 (PRs #12–#24, nenhum mergeado).
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | **0** · 1 · 2 · 3 · 4 · 5 · 6 | ◐ Fase 0 em andamento |
+| A — fundação e IDE editorial | ✅0 · **1** · 2 · 3 · 4 · 5 · 6 | ◐ Fase 0 concluída; Fase 1 a iniciar |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -113,8 +113,8 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Schema núcleo: `Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`, `QuestionTag`, `Asset`, `SourceAnchor`
 - ✅ Migration inicial versionada
 - ✅ Client Prisma server-only *(lint + import `server-only`)*
-- [ ] `PrismaSqliteRepository` implementado — **existe só a porta; nenhuma implementação concreta**
-- [ ] DTOs de saída — objeto Prisma não vaza para o React *(auditoria §40; nada a projetar enquanto não há leitura na UI)*
+- ✅ Repositories concretos: `PrismaPublicationRepository`, `PrismaDocumentTreeRepository` *(#23)*
+- ✅ DTOs de saída — objeto Prisma não vaza para o React *(auditoria §40; teste afirma a ausência de `parentId`, `sortKey`, timestamps e `legacyId`)*
 - ✅ Seed de demonstração *(1 workspace · 1 publicação · 4 nós · 2 questões · 5 alternativas)*
 - ✅ **PostGIS não existe no projeto** *(D22 — afirmado por teste)*
 
@@ -163,14 +163,13 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 **Aceite da fase**
 - ✅ `bun run setup && bun run dev` sobe a aplicação em `28080`
 - ✅ Nenhuma colisão com os containers já existentes na máquina
-- [ ] Publicação demo navegável — **o seed cria os dados, mas a página ainda é placeholder**
+- ✅ Publicação demo navegável *(lista → árvore → questões com alternativas; verificado no app rodando)*
 - ✅ Upload e leitura funcionam pelo `LocalFileStorageProvider` com `sha256` calculado
 - ✅ **Ausência de TeX no host não impede o setup**
 - ✅ CI verde
 
-> **O que falta para fechar a Fase 0:** `PrismaSqliteRepository`, DTOs de saída e uma tela que
-> navegue a publicação demo. Os dois health checks do renderer ficam impedidos até a Fase 6, por
-> dependerem de código que ainda não existe.
+> **Fase 0 fechada**, salvo os dois health checks do renderer, impedidos até a Fase 6 por
+> dependerem de código que ainda não existe. Todo o resto é demonstrável.
 >
 > **Toolchain:** Bun 1.3.14 substituiu o pnpm (#21). Node não é mais necessário. O adapter do
 > Prisma passou de `better-sqlite3` para **libSQL**, porque o primeiro recusa o runtime do Bun.
@@ -1021,7 +1020,7 @@ Checklist arquitetural. Verificar a cada fase, não só na Fase 0.
 - ⛔ Renderer não conhece storage, banco, `Workspace` nem Prisma *(D35 — `services/renderer` chega na Fase 6)*
 - ✅ Domain não executa `pdflatex`
 - ✅ Domain não importa SDK de IA
-- [ ] Components não conhecem implementação concreta de storage *(não há componentes ainda)*
+- ✅ Components não conhecem implementação concreta de storage *(Server Components recebem DTO)*
 - ✅ Storage usa `storageKey`
 - ✅ Asset possui hash
 - [ ] Source original é preservado *(comportamento; verificável a partir da Fase 11)*
@@ -1037,7 +1036,7 @@ const asset       = await storageProvider.get(assetId);
 const result      = await renderExecutor.render(request);
 ```
 
-- [ ] Verdadeiro para SQLite + `LocalFileStorage` + renderer Docker local *(faltam repository concreto e renderer)*
+- [ ] Verdadeiro para SQLite + `LocalFileStorage` + renderer Docker local *(repositories prontos; falta o renderer, Fase 6)*
 - [ ] Verdadeiro para PostgreSQL + object storage + mesmo renderer remoto *(provado na Fase 6.5)*
 
 **Áreas que a versão cloud não pode exigir reescrever** *(auditoria §49)*
@@ -1231,7 +1230,7 @@ Aplicar integralmente ao fim de **cada** fase, antes do checkpoint humano.
 
 Estado ao fim da **Fase 0**:
 
-- [ ] Requisitos funcionais implementados *(4 itens em aberto — ver Fase 0)*
+- ✅ Requisitos funcionais implementados
 - ✅ TypeScript sem `any` injustificado
 - ✅ Lint passa
 - ✅ Typecheck passa
@@ -1245,7 +1244,7 @@ Estado ao fim da **Fase 0**:
 - ✅ Nenhuma secret no repositório
 - ✅ Nenhuma dependência circular intencional
 - ✅ Documentação atualizada
-- [ ] Critério de aceite demonstrável *(parcial — ver "Aceite da fase" da Fase 0)*
+- ✅ Critério de aceite demonstrável
 
 ---
 
