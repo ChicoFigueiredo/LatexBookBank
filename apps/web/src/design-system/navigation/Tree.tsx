@@ -20,6 +20,7 @@ const CSS = `
 .lbb-tree-caret[data-leaf="true"]{visibility:hidden;pointer-events:none}
 .lbb-tree-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lbb-tree-badge{font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted);flex-shrink:0}
+.lbb-tree-edit{flex:1;min-width:0;height:20px;padding:0 4px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-primary);font:inherit;font-size:var(--text-body);outline:none}
 .lbb-tree-group{position:relative;padding-left:14px;margin-left:8px}
 .lbb-tree-group::before{content:"";position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--border-subtle)}
 `;
@@ -99,6 +100,84 @@ export interface TreeProps {
   /** Chave de `localStorage`. Convenção: `lbb:tree:<escopo>`. */
   readonly storageKey?: string | null;
   readonly "aria-label"?: string;
+
+  /**
+   * Comandos de teclado, emitidos e não executados.
+   *
+   * A árvore não sabe criar nem excluir nada — ela reconhece o gesto e avisa. Confirmação de
+   * exclusão, chamada de API e tratamento de erro são de quem consome, porque é lá que existe
+   * `Modal`, rota e noção de o que o nó significa.
+   */
+  readonly onCommand?: (command: TreeCommand) => void;
+
+  /** Nó em renomeação inline. Quem controla é o consumidor, junto com `onCommand`. */
+  readonly editingId?: string | null;
+  readonly onEditCommit?: (id: string, title: string) => void;
+  readonly onEditCancel?: () => void;
+
+  /**
+   * Envolve cada linha — é por aqui que entra o `ContextMenu`, sem que a árvore precise conhecer
+   * menus. A costura existe porque o Radix embrulha o gatilho, e o gatilho é a linha, que nasce
+   * aqui dentro.
+   */
+  readonly wrapItem?: (node: TreeNode, row: ReactNode) => ReactNode;
+}
+
+/** Gestos que a árvore reconhece. O `nodeId` é sempre o nó focado quando a tecla foi apertada. */
+export type TreeCommand =
+  | { readonly kind: "rename"; readonly nodeId: string }
+  | { readonly kind: "delete"; readonly nodeId: string }
+  | { readonly kind: "createChild"; readonly nodeId: string }
+  | { readonly kind: "createSibling"; readonly nodeId: string }
+  | { readonly kind: "moveUp"; readonly nodeId: string }
+  | { readonly kind: "moveDown"; readonly nodeId: string };
+
+/**
+ * Campo de renomeação inline.
+ *
+ * Componente à parte porque precisa de estado próprio, e um `useState` dentro do `map` das
+ * linhas não é possível. `autoFocus` + `select()` deixam o nome antigo inteiro marcado: o gesto
+ * mais comum depois de F2 é substituir, não emendar.
+ *
+ * Enter aplica, Escape cancela, e sair do campo **aplica** — perder o que foi digitado por
+ * clicar fora é o comportamento que faz alguém desistir de renomear.
+ */
+function RenameField({
+  initial,
+  onCommit,
+  onCancel,
+}: {
+  readonly initial: string;
+  readonly onCommit: (title: string) => void;
+  readonly onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+
+  return (
+    <input
+      className="lbb-tree-edit"
+      value={value}
+      autoFocus
+      aria-label="Novo nome"
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => onCommit(value.trim())}
+      // O clique no campo não pode chegar à linha: selecionaria o nó e tiraria o foco daqui.
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        // A árvore inteira escuta setas, F2 e Delete. Sem isto, digitar um nome com "n" e Ctrl
+        // solto, ou apertar Delete para apagar um caractere, dispararia comando na árvore.
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCommit(value.trim());
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+    />
+  );
 }
 
 /**
@@ -124,6 +203,11 @@ export function Tree({
   defaultExpanded = [],
   storageKey = null,
   "aria-label": ariaLabel = "Árvore",
+  onCommand,
+  editingId = null,
+  onEditCommit,
+  onEditCancel,
+  wrapItem,
 }: TreeProps) {
   injectCss("lbb-tree-css", CSS);
 
@@ -212,12 +296,22 @@ export function Tree({
     switch (event.key) {
       case "ArrowDown": {
         event.preventDefault();
+        // Alt+↓ move o nó; ↓ sozinho só anda o foco. Sem o Alt, percorrer a árvore reordenaria
+        // o acervo a cada tecla.
+        if (event.altKey) {
+          onCommand?.({ kind: "moveDown", nodeId: node.id });
+          break;
+        }
         const next = visible[index + 1];
         if (next) focusRow(next.node.id);
         break;
       }
       case "ArrowUp": {
         event.preventDefault();
+        if (event.altKey) {
+          onCommand?.({ kind: "moveUp", nodeId: node.id });
+          break;
+        }
         const previous = visible[index - 1];
         if (previous) focusRow(previous.node.id);
         break;
@@ -263,6 +357,26 @@ export function Tree({
         select(node);
         onActivate?.(node.id, node);
         break;
+      case "F2":
+        event.preventDefault();
+        onCommand?.({ kind: "rename", nodeId: node.id });
+        break;
+      case "Delete":
+        event.preventDefault();
+        onCommand?.({ kind: "delete", nodeId: node.id });
+        break;
+      case "n":
+      case "N":
+        // Ctrl+N irmão, Ctrl+Shift+N filho (spec §4.1). `preventDefault` porque no navegador
+        // Ctrl+N abre janela nova — e perder a árvore para uma janela em branco seria pior que
+        // não ter o atalho.
+        if (!event.ctrlKey && !event.metaKey) break;
+        event.preventDefault();
+        onCommand?.({
+          kind: event.shiftKey ? "createChild" : "createSibling",
+          nodeId: node.id,
+        });
+        break;
       default:
         break;
     }
@@ -282,6 +396,56 @@ export function Tree({
       const index = visible.findIndex((v) => v.node.id === node.id);
       if (index === -1) return null;
 
+      const row = (
+        <button
+          type="button"
+          className="lbb-tree-row"
+          ref={(el) => {
+            if (el) rows.current.set(node.id, el);
+            else rows.current.delete(node.id);
+          }}
+          data-node-id={node.id}
+          data-depth={depth}
+          data-selected={node.id === selected ? "true" : "false"}
+          data-disabled={node.disabled ? "true" : "false"}
+          tabIndex={node.id === tabbableId ? 0 : -1}
+          onKeyDown={(e) => handleKeyDown(e, node, index)}
+          onFocus={() => setFocusId(node.id)}
+          onClick={() => select(node)}
+          onDoubleClick={() => {
+            if (!node.disabled) onActivate?.(node.id, node);
+          }}
+        >
+          <span className="lbb-tree-filete" aria-hidden="true" />
+          <span
+            className="lbb-tree-caret"
+            role="presentation"
+            data-open={isOpen ? "true" : "false"}
+            data-leaf={hasChildren ? "false" : "true"}
+            // O caret é o único gesto de expandir. `stopPropagation` impede que o clique nele
+            // também selecione — expandir para espiar não deve trocar o que está no editor.
+            onClick={(e) => {
+              e.stopPropagation();
+              toggle(node);
+            }}
+          >
+            <Icon name="chevron-right" size={13} />
+          </span>
+          {node.icon && <Icon name={node.icon} size={14} />}
+          {editingId === node.id ? (
+            <RenameField
+              initial={typeof node.label === "string" ? node.label : ""}
+              onCommit={(title) => onEditCommit?.(node.id, title)}
+              onCancel={() => onEditCancel?.()}
+            />
+          ) : (
+            <span className="lbb-tree-label">{node.label}</span>
+          )}
+          {node.badge != null && <span className="lbb-tree-badge">{node.badge}</span>}
+          {node.status}
+        </button>
+      );
+
       return (
         <li
           key={node.id}
@@ -290,45 +454,7 @@ export function Tree({
           aria-selected={node.id === selected}
           {...(node.disabled ? { "aria-disabled": true } : {})}
         >
-          <button
-            type="button"
-            className="lbb-tree-row"
-            ref={(el) => {
-              if (el) rows.current.set(node.id, el);
-              else rows.current.delete(node.id);
-            }}
-            data-node-id={node.id}
-            data-depth={depth}
-            data-selected={node.id === selected ? "true" : "false"}
-            data-disabled={node.disabled ? "true" : "false"}
-            tabIndex={node.id === tabbableId ? 0 : -1}
-            onKeyDown={(e) => handleKeyDown(e, node, index)}
-            onFocus={() => setFocusId(node.id)}
-            onClick={() => select(node)}
-            onDoubleClick={() => {
-              if (!node.disabled) onActivate?.(node.id, node);
-            }}
-          >
-            <span className="lbb-tree-filete" aria-hidden="true" />
-            <span
-              className="lbb-tree-caret"
-              role="presentation"
-              data-open={isOpen ? "true" : "false"}
-              data-leaf={hasChildren ? "false" : "true"}
-              // O caret é o único gesto de expandir. `stopPropagation` impede que o clique nele
-              // também selecione — expandir para espiar não deve trocar o que está no editor.
-              onClick={(e) => {
-                e.stopPropagation();
-                toggle(node);
-              }}
-            >
-              <Icon name="chevron-right" size={13} />
-            </span>
-            {node.icon && <Icon name={node.icon} size={14} />}
-            <span className="lbb-tree-label">{node.label}</span>
-            {node.badge != null && <span className="lbb-tree-badge">{node.badge}</span>}
-            {node.status}
-          </button>
+          {wrapItem ? wrapItem(node, row) : row}
           {hasChildren && isOpen && (
             <ul role="group" className="lbb-tree-group">
               {renderLevel(node.children ?? [], depth + 1)}

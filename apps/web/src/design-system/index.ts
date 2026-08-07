@@ -7,6 +7,7 @@
  */
 
 export { Icon, ICON_NAMES, type IconName, type IconProps } from "./Icon";
+export { useStoredState } from "./shared/use-stored-state";
 export { BrandMark, type BrandMarkProps, type BrandTone } from "./BrandMark";
 
 export { Button, type ButtonProps, type ButtonVariant, type ControlSize } from "./forms/Button";
@@ -49,7 +50,12 @@ export { Tabs, type TabsProps, type TabItem } from "./navigation/Tabs";
 export { Segmented, type SegmentedProps, type SegmentedOption } from "./navigation/Segmented";
 export { Breadcrumb, type BreadcrumbProps, type BreadcrumbItem } from "./navigation/Breadcrumb";
 export { PageHeader, type PageHeaderProps } from "./navigation/PageHeader";
-export { Tree, type TreeProps, type TreeNode } from "./navigation/Tree";
+export { Tree, type TreeProps, type TreeNode, type TreeCommand } from "./navigation/Tree";
+export {
+  filterTree,
+  type FilterTreeOptions,
+  type FilterTreeResult,
+} from "./navigation/filter-tree";
 
 export { Workbench, type WorkbenchProps, type WorkbenchModule } from "./shell/Workbench";
 export { Divider, type DividerProps } from "./shell/Divider";
