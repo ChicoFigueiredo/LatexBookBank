@@ -21,12 +21,12 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** Fase 0 concluída · 1/19 fases
-**Última atualização:** 2026-08-07, após as issues #3–#11, #21 e #23 (PRs #12–#24, nenhum mergeado).
+**Progresso:** ✅ Fase 0 · ◐ Fase 1 em andamento · 1/19 fases concluídas
+**Última atualização:** 2026-08-07, iniciando a Fase 1.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **1** · 2 · 3 · 4 · 5 · 6 | ◐ Fase 0 concluída; Fase 1 a iniciar |
+| A — fundação e IDE editorial | ✅0 · **◐1** · 2 · 3 · 4 · 5 · 6 | Fase 1 em andamento |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -41,7 +41,7 @@
 Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 - ✅ Node.js v24.16.0 disponível
-- ✅ pnpm 10.34.1 disponível
+- ✅ Bun 1.3.14 disponível *(substituiu o pnpm em #21)*
 - ✅ TeX Live 2023 com `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel`, `amsmath`, `standalone`
 - ✅ `pdftocairo` 24.02.0 disponível
 - ✅ Docker disponível
@@ -71,12 +71,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ### Fase 0 — Fundação e providers
 
-> **Estado:** 9 issues entregues (#3–#11), PRs #12–#20 abertos, nenhum mergeado.
-> CI verde · 80 testes · lint, typecheck e build passando.
-> **A fase ainda não fecha:** quatro itens abaixo continuam em aberto — ver "Aceite da fase".
+> **✅ Fase concluída.** 11 issues (#3–#11, #21, #23), PRs #12–#24 abertos, nenhum mergeado.
+> CI verde · 94 testes · lint, typecheck e build passando.
+> Único item impedido: os dois health checks do renderer, que dependem da Fase 6.
 
 **Bootstrap** — #3
-- ✅ Workspace pnpm criado com `apps/web`
+- ✅ Workspace criado com `apps/web` *(Bun workspaces desde #21)*
 - ✅ Next.js com App Router em `28080`
 - ✅ TypeScript strict, sem `any` injustificado
 - ✅ ESLint + Prettier configurados
@@ -1234,7 +1234,7 @@ Estado ao fim da **Fase 0**:
 - ✅ TypeScript sem `any` injustificado
 - ✅ Lint passa
 - ✅ Typecheck passa
-- ✅ Testes relevantes adicionados *(80)*
+- ✅ Testes relevantes adicionados *(94)*
 - ✅ Erro tratado
 - [ ] Loading state tratado *(não há UI assíncrona ainda)*
 - [ ] Empty state tratado *(idem)*

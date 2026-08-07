@@ -24,11 +24,11 @@ export default async function HomePage() {
   const publications = await repository.listByWorkspaceSlug("demo");
 
   return (
-    <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "48rem" }}>
+    <main style={{ padding: "var(--space-8)", maxWidth: "48rem" }}>
       <h1>LatexBookBank</h1>
-      <p style={{ color: "#666" }}>Fase 0 — fundação e providers.</p>
+      <p style={{ color: "var(--text-secondary)" }}>Fase 0 — fundação e providers.</p>
 
-      <h2 style={{ marginTop: "2rem" }}>Publicações</h2>
+      <h2 style={{ marginTop: "var(--space-8)" }}>Publicações</h2>
 
       {publications.length === 0 ? (
         <p>
@@ -38,10 +38,10 @@ export default async function HomePage() {
       ) : (
         <ul>
           {publications.map((publication) => (
-            <li key={publication.id} style={{ marginBottom: "0.5rem" }}>
+            <li key={publication.id} style={{ marginBottom: "var(--space-2)" }}>
               <Link href={`/publications/${publication.id}`}>{publication.title}</Link>
               {publication.publisher ? ` — ${publication.publisher}` : ""}{" "}
-              <span style={{ color: "#666" }}>
+              <span style={{ color: "var(--text-secondary)" }}>
                 ({publication.nodeCount} {publication.nodeCount === 1 ? "nó" : "nós"})
               </span>
             </li>
