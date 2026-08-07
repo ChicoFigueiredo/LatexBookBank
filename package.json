@@ -8,6 +8,7 @@
     "node": ">=20.9.0"
   },
   "scripts": {
+    "setup": "node scripts/setup.mjs",
     "dev": "pnpm --filter @latexbookbank/web dev",
     "build": "pnpm --filter @latexbookbank/web build",
     "start": "pnpm --filter @latexbookbank/web start",
