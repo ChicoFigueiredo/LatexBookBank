@@ -200,7 +200,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ feedback: `Callout`
 - ✅ feedback: `Banner`, `Modal`, `Toast` *(`role=alert` × `role=status`, foco preso e `closeOnScrim` desligável, afirmados por teste)*
 - ✅ navigation: `Tabs`, `Segmented`, `Breadcrumb`, `PageHeader`
-- [ ] navigation: `Tree` *(vai junto com a árvore — #28)*
+- ✅ navigation: `Tree` *(#28 — treeview ARIA; clique seleciona, caret expande: aqui um capítulo é conteúdo, não pasta)*
 - [ ] `AdminShell`, `Divider`, `CommandPalette` *(#28)*
 - ✅ `BrandMark` substituído pela identidade do LatexBookBank *(chave de grupo `{` + linhas compostas)*
 - ✅ Nenhum componente portado quebra sob SSR *(afirmado com `renderToStaticMarkup`)*
