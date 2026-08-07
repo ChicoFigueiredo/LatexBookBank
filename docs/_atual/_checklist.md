@@ -22,13 +22,13 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). **Fase 2
-fechada em mecânica**: CRUD, ordenação, busca e drag-and-drop. Restam os indicadores de estado,
-que dependem das Fases 3 e 6 para terem o que indicar. 258 testes · 23 PRs, nada mergeado.
+**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual); Fase 2
+fechada em mecânica. **Fase 3 aberta (#42, #43)** com a concorrência otimista já demonstrada
+contra o banco real. 269 testes · 24 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · 3 · 4 · 5 · 6 | Fase 1 no aceite visual; Fase 2 iniciada |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · 4 · 5 · 6 | Fases 1–3 em andamento |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -316,12 +316,13 @@ falta o que produz o estado
 - [ ] Minimap desligado por padrão
 - [ ] Model de editor por campo
 - [ ] Abas internas: Conteúdo, Resposta, Complemento, Metadados, Origem
-- [ ] Autosave com debounce
+- [ ] Autosave com debounce *(o lado do servidor está pronto — #43)*
 - [ ] `Ctrl+S` salva imediatamente
 - [ ] Dirty state visível
-- [ ] Concorrência otimista por `updatedAt`
-- [ ] Conflito detectado e apresentado
-- [ ] Conflito nunca sobrescreve em silêncio, com teste
+- ✅ Concorrência otimista por `updatedAt` *(#43 — `updateMany` com a versão **na cláusula**, não checagem em código: é o que fecha a janela entre ler e gravar)*
+- ✅ Conflito detectado e apresentado *(409 com os dois lados — esperado × encontrado)*
+- ✅ **Conflito nunca sobrescreve em silêncio, com teste** *(spec §42; duas edições concorrentes, a segunda recusada, nada gravado)*
+- ✅ Autosave sem alteração não grava *(dez disparos não movem o `updatedAt` — senão fabricaria conflito nas outras abas)*
 
 **Aceite da fase**
 - [ ] Editar, sair e voltar encontra o conteúdo salvo
