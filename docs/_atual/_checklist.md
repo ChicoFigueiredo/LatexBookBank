@@ -22,7 +22,7 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 em andamento · 1/19 fases concluídas
-**Última atualização:** 2026-08-07, iniciando a Fase 1.
+**Última atualização:** 2026-08-07 — #27 fechada: 24 componentes portados, 134 testes verdes.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -189,19 +189,20 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Regra de aderência incorporada ao lint *(adaptada do `_adherence.oxlintrc.json`)*
 - ✅ Lint rejeita hex cru fora dos tokens *(violação proposital recusada; pegou as páginas da Fase 0)*
 
-**Componentes portados `.jsx` → `.tsx`** — #27 *(2 levas)*
+**Componentes portados `.jsx` → `.tsx`** — #27 *(3 levas)*
 - ✅ `Icon` *(set recortado para este domínio: biblioteca, publicação, árvore, render, agente)*
 - ✅ forms: `Button`, `IconButton`, `Input`, `Field`
 - ✅ forms: `Select`, `Checkbox`, `Toggle`
-- [ ] forms restante: `Combobox`
+- ✅ forms: `Combobox` *(busca sem acento afirmada por teste — "matematica" acha "Matemática")*
 - ✅ display: `Badge`, `StatusDot`
 - ✅ display: `Chip`, `MetricCard`, `ArtifactStatus` *(ontologia remapeada; `proposto ≠ aplicado` afirmado por teste)*
 - ✅ feedback: `EmptyState`
 - ✅ feedback: `Callout`
-- [ ] feedback restantes: `Banner`, `Modal`, `Toast`
-- [ ] navigation: `Tabs`, `Segmented`, `Breadcrumb`, `PageHeader`, `Tree`
+- ✅ feedback: `Banner`, `Modal`, `Toast` *(`role=alert` × `role=status`, foco preso e `closeOnScrim` desligável, afirmados por teste)*
+- ✅ navigation: `Tabs`, `Segmented`, `Breadcrumb`, `PageHeader`
+- [ ] navigation: `Tree` *(vai junto com a árvore — #28)*
 - [ ] `AdminShell`, `Divider`, `CommandPalette` *(#28)*
-- [ ] `BrandMark` substituído pela identidade do LatexBookBank
+- ✅ `BrandMark` substituído pela identidade do LatexBookBank *(chave de grupo `{` + linhas compostas)*
 - ✅ Nenhum componente portado quebra sob SSR *(afirmado com `renderToStaticMarkup`)*
 
 **Primitivas complementares** *(D13 — lacuna do DS)*
