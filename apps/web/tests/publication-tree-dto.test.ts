@@ -28,6 +28,9 @@ const questionNode: TreeNodeRecord = {
   question: {
     id: "q1",
     type: "MULTIPLE_CHOICE",
+    updatedAt: new Date("2026-08-07T12:00:00.000Z"),
+    solutionLatex: "",
+    complementLatex: "",
     statementLatex: "Qual o montante?",
     difficulty: 2,
     board: "Cesgranrio",
@@ -105,5 +108,29 @@ describe("títulos ausentes", () => {
     const semNada: TreeNodeRecord = { ...questionNode, originalLabel: null, question: null };
     const [dto] = await getPublicationTree(fake([semNada]), "pub");
     expect(dto?.title).toBe("Sem título");
+  });
+});
+
+describe("versão da questão", () => {
+  /**
+   * `version` é token de concorrência, não timestamp de auditoria.
+   *
+   * O DTO barra `createdAt`/`updatedAt` para não vazar schema (auditoria §40), mas o cliente
+   * **precisa** devolver a versão ao salvar — sem ela não há como recusar uma sobrescrita
+   * (spec §42). A saída é expor o valor sob um nome que diz para que serve.
+   */
+  it("expõe `version` e não o `updatedAt` cru", async () => {
+    const [dto] = await getPublicationTree(fake([questionNode]), "pub");
+
+    expect(dto?.question?.version).toBe("2026-08-07T12:00:00.000Z");
+    expect(dto?.question).not.toHaveProperty("updatedAt");
+  });
+
+  it("os três campos editáveis chegam ao cliente", async () => {
+    const [dto] = await getPublicationTree(fake([questionNode]), "pub");
+
+    for (const field of ["statementLatex", "solutionLatex", "complementLatex"] as const) {
+      expect(dto?.question, field).toHaveProperty(field);
+    }
   });
 });

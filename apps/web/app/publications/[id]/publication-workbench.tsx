@@ -26,6 +26,7 @@ import {
 } from "@/design-system";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 
+import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
 import { useTreeEditing } from "./use-tree-editing";
 
@@ -420,7 +421,9 @@ export function PublicationWorkbench({
           </div>
         )}
 
-        {selected ? <NodeDetail node={selected} publisher={publisher} /> : null}
+        {selected ? (
+          <NodeDetail node={selected} publisher={publisher} publicationId={publicationId} />
+        ) : null}
 
         <Modal
           open={editing.pendingDelete !== null}
@@ -449,7 +452,15 @@ export function PublicationWorkbench({
   );
 }
 
-function NodeDetail({ node, publisher }: { node: TreeNodeDto; publisher: string | null }) {
+function NodeDetail({
+  node,
+  publisher,
+  publicationId,
+}: {
+  node: TreeNodeDto;
+  publisher: string | null;
+  publicationId: string;
+}) {
   return (
     <>
       <PageHeader
@@ -466,7 +477,26 @@ function NodeDetail({ node, publisher }: { node: TreeNodeDto; publisher: string 
       <div style={{ padding: "0 var(--space-7) var(--space-8)", maxWidth: "56rem" }}>
         {node.question ? (
           <>
-            <p style={{ whiteSpace: "pre-wrap" }}>{node.question.statementLatex}</p>
+            <div
+              style={{
+                height: "26rem",
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-md)",
+                overflow: "hidden",
+              }}
+            >
+              <QuestionEditor
+                key={node.question.id}
+                publicationId={publicationId}
+                questionId={node.question.id}
+                initialVersion={node.question.version}
+                initial={{
+                  statementLatex: node.question.statementLatex,
+                  solutionLatex: node.question.solutionLatex,
+                  complementLatex: node.question.complementLatex,
+                }}
+              />
+            </div>
 
             {node.question.options.length > 0 && (
               <ul style={{ listStyle: "none", padding: 0, marginTop: "var(--space-4)" }}>

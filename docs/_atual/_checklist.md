@@ -23,8 +23,8 @@
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
 **Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual); Fase 2
-fechada em mecânica. **Fase 3 aberta (#42, #43)** com a concorrência otimista já demonstrada
-contra o banco real. 269 testes · 24 PRs abertos, nada mergeado.
+fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autosave e conflito
+visível, tudo exercitado contra o banco real. 285 testes · 25 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -303,30 +303,32 @@ falta o que produz o estado
 
 ### Fase 3 — Monaco e autosave
 
-- [ ] Monaco como client component isolado, com dynamic import
-- [ ] Sem erro de hidratação
-- [ ] Estado de loading enquanto carrega
-- [ ] Redimensiona junto com o painel
-- [ ] Tema claro e escuro seguindo o tema do app
-- [ ] Language configuration LaTeX: brackets, comments, tokens, auto-close
-- [ ] Syntax highlighting
-- [ ] Line numbers
-- [ ] Bracket matching
-- [ ] Word wrap
-- [ ] Minimap desligado por padrão
-- [ ] Model de editor por campo
-- [ ] Abas internas: Conteúdo, Resposta, Complemento, Metadados, Origem
-- [ ] Autosave com debounce *(o lado do servidor está pronto — #43)*
-- [ ] `Ctrl+S` salva imediatamente
-- [ ] Dirty state visível
+- ✅ Monaco como client component isolado, com dynamic import *(#45 — `ssr: false` **não é otimização**: `monaco-editor` toca `window` no topo do módulo e quebraria no SSR)*
+- ✅ **Monaco servido localmente, nunca de CDN** *(o default do `@monaco-editor/react` é `jsdelivr`, e quebraria o §48 "roda com a internet desligada" — em silêncio)*
+- ✅ Sem erro de hidratação *(o `loading` é o mesmo antes e depois; build e app rodando sem aviso)*
+- ✅ Estado de loading enquanto carrega *(não colapsa o painel — senão o layout pularia)*
+- ✅ Redimensiona junto com o painel *(`automaticLayout`)*
+- ✅ Tema claro e escuro seguindo o tema do app
+- ✅ Language configuration LaTeX: brackets, comments, tokens, auto-close *(dado puro no domínio, afirmado por 14 testes)*
+- ✅ Syntax highlighting *(Monarch; ordem das regras testada — comentário antes de tudo, `$$` antes de `$`)*
+- ✅ Line numbers
+- ✅ Bracket matching
+- ✅ Word wrap *(enunciado é prosa, não código)*
+- ✅ Minimap desligado por padrão
+- ✅ Model de editor por campo
+- ✅ Abas internas: Conteúdo, Resposta, Complemento — [ ] Metadados e Origem *(dependem da Fase 7 e da 14)*
+- ✅ Autosave com debounce *(1,2 s; timer limpo na desmontagem)*
+- ✅ `Ctrl+S` salva imediatamente *(handler por ref — senão congelaria a questão aberta na montagem)*
+- ✅ Dirty state visível *(não salvo · salvando · salvo · conflito · erro)*
+- ✅ **Conflito pausa o autosave** *(sem isso ele voltaria em 1,2 s e insistiria até vencer)*
 - ✅ Concorrência otimista por `updatedAt` *(#43 — `updateMany` com a versão **na cláusula**, não checagem em código: é o que fecha a janela entre ler e gravar)*
 - ✅ Conflito detectado e apresentado *(409 com os dois lados — esperado × encontrado)*
 - ✅ **Conflito nunca sobrescreve em silêncio, com teste** *(spec §42; duas edições concorrentes, a segunda recusada, nada gravado)*
 - ✅ Autosave sem alteração não grava *(dez disparos não movem o `updatedAt` — senão fabricaria conflito nas outras abas)*
 
 **Aceite da fase**
-- [ ] Editar, sair e voltar encontra o conteúdo salvo
-- [ ] Teste de conflito passa
+- [ ] Editar, sair e voltar encontra o conteúdo salvo *(o ciclo salvar/recarregar foi exercitado pela API; falta digitar na tela)*
+- ✅ Teste de conflito passa
 
 ---
 

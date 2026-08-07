@@ -35,13 +35,16 @@ export async function PATCH(
   try {
     const body = await readJson(request);
 
-    const expected = body["expectedUpdatedAt"];
+    // `version` no contrato do cliente, `updatedAt` no banco. O valor é o mesmo; o nome muda
+    // porque a coluna é detalhe de persistência e o token de concorrência é contrato — e porque
+    // o DTO da árvore proíbe timestamps justamente para não vazar schema (auditoria §40).
+    const expected = body["expectedVersion"];
     if (typeof expected !== "string") {
-      throw new BadRequestError("`expectedUpdatedAt` é obrigatório (ISO-8601).");
+      throw new BadRequestError("`expectedVersion` é obrigatório (ISO-8601).");
     }
     const expectedUpdatedAt = new Date(expected);
     if (Number.isNaN(expectedUpdatedAt.getTime())) {
-      throw new BadRequestError("`expectedUpdatedAt` não é uma data ISO-8601 válida.");
+      throw new BadRequestError("`expectedVersion` não é uma data ISO-8601 válida.");
     }
 
     const nickname = body["nickname"];
@@ -68,7 +71,7 @@ export async function PATCH(
 
     return NextResponse.json({
       id: result.snapshot.id,
-      updatedAt: result.snapshot.updatedAt.toISOString(),
+      version: result.snapshot.updatedAt.toISOString(),
       // O cliente precisa saber se houve escrita: sem isto, o indicador de "salvo" piscaria a
       // cada autosave mesmo sem nada ter mudado, e viraria ruído que ninguém mais lê.
       written: result.written,
@@ -83,8 +86,8 @@ export async function PATCH(
           error: "conflict",
           message:
             "Esta questão mudou desde que você abriu. Recarregue para ver a versão atual antes de salvar.",
-          expectedUpdatedAt: String(error.expectedVersion),
-          actualUpdatedAt: String(error.actualVersion),
+          expectedVersion: String(error.expectedVersion),
+          actualVersion: String(error.actualVersion),
         },
         { status: 409 },
       );

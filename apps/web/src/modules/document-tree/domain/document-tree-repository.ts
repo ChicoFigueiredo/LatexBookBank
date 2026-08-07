@@ -23,7 +23,10 @@ export interface TreeNodeRecord {
 export interface TreeQuestionRecord {
   readonly id: string;
   readonly type: string;
+  readonly updatedAt: Date;
   readonly statementLatex: string;
+  readonly solutionLatex: string;
+  readonly complementLatex: string;
   readonly difficulty: number;
   readonly board: string | null;
   readonly year: number | null;
