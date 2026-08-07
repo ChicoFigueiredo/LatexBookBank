@@ -25,7 +25,17 @@ export interface OptionDto {
 export interface QuestionDto {
   readonly id: string;
   readonly type: string;
+  /**
+   * Token de concorrência otimista, não um timestamp de auditoria.
+   *
+   * O DTO não expõe `createdAt`/`updatedAt` de propósito (auditoria §40) — são colunas, e vazá-las
+   * amarraria a apresentação ao schema. Este campo é diferente: o cliente **precisa** devolvê-lo
+   * ao salvar, ou não há como recusar uma sobrescrita (spec §42). O nome diz para que serve.
+   */
+  readonly version: string;
   readonly statementLatex: string;
+  readonly solutionLatex: string;
+  readonly complementLatex: string;
   readonly difficultyLabel: string;
   readonly source: string | null;
   readonly options: readonly OptionDto[];
@@ -85,7 +95,10 @@ const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
       ? {
           id: node.question.id,
           type: node.question.type,
+          version: node.question.updatedAt.toISOString(),
           statementLatex: node.question.statementLatex,
+          solutionLatex: node.question.solutionLatex,
+          complementLatex: node.question.complementLatex,
           difficultyLabel: DIFFICULTY_LABELS[node.question.difficulty] ?? "—",
           source: [node.question.board, node.question.year].filter(Boolean).join(" · ") || null,
           options: node.question.options.map((option, index) => ({

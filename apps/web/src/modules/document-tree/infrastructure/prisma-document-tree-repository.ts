@@ -36,7 +36,10 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
           select: {
             id: true,
             type: true,
+            updatedAt: true,
             statementLatex: true,
+            solutionLatex: true,
+            complementLatex: true,
             difficulty: true,
             board: true,
             year: true,
