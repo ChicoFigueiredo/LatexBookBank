@@ -75,6 +75,27 @@ const boundaries = [
     files: ["src/modules/agents/**/*.{ts,tsx}"],
     rules: restrict(AGENT_RESTRICTIONS),
   },
+  {
+    /**
+     * SQL cru é a rota mais fácil para dependência de motor: uma função que só existe no SQLite
+     * passa despercebida até a Fase 6.5. Quando for mesmo necessário, ele fica confinado em
+     * `infrastructure/database/`, onde a diferença entre motores é assunto legítimo.
+     */
+    name: "boundary/no-raw-sql",
+    files: ["src/modules/**/*.{ts,tsx}", "app/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[property.name=/^\\$(queryRaw|executeRaw|queryRawUnsafe|executeRawUnsafe)$/]",
+          message:
+            "SQL cru fora de infrastructure/database/ amarra o domínio ao motor. " +
+            "Use o repository, ou confine o raw na camada de infraestrutura.",
+        },
+      ],
+    },
+  },
 ];
 
 export default boundaries;
