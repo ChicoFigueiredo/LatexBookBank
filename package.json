@@ -1,0 +1,23 @@
+{
+  "name": "latexbookbank",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Biblioteca técnica, IDE LaTeX editorial e banco de questões estruturado",
+  "packageManager": "pnpm@10.34.1",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @latexbookbank/web dev",
+    "build": "pnpm --filter @latexbookbank/web build",
+    "start": "pnpm --filter @latexbookbank/web start",
+    "lint": "pnpm -r --no-bail lint",
+    "typecheck": "pnpm -r --no-bail typecheck",
+    "test": "pnpm -r --no-bail test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  }
+}
