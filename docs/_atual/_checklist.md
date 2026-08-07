@@ -22,7 +22,8 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 em andamento · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — #27 fechada: 24 componentes portados, 134 testes verdes.
+**Última atualização:** 2026-08-07 — #27 fechada (PR #31) e #28 entregue (PR #32): workbench de
+seis zonas montado em `/publications/[id]`. 28 componentes · 166 testes · 16 PRs, nenhum mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -200,8 +201,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ feedback: `Callout`
 - ✅ feedback: `Banner`, `Modal`, `Toast` *(`role=alert` × `role=status`, foco preso e `closeOnScrim` desligável, afirmados por teste)*
 - ✅ navigation: `Tabs`, `Segmented`, `Breadcrumb`, `PageHeader`
-- [ ] navigation: `Tree` *(vai junto com a árvore — #28)*
-- [ ] `AdminShell`, `Divider`, `CommandPalette` *(#28)*
+- ✅ navigation: `Tree` *(#28 — treeview ARIA; clique seleciona, caret expande: aqui um capítulo é conteúdo, não pasta)*
+- ✅ `AdminShell` portado como **`Workbench`** *(#28 — o produto é um workbench, não um admin; as zonas são as da D14)*
+- ✅ `Divider` *(window splitter WAI-ARIA: ←/→, Home/End, Enter restaura; pointer capture no lugar de listeners globais)*
+- ✅ `CommandPalette` *(só monta quando abre — cada abertura nasce zerada, sem efeito de reset)*
 - ✅ `BrandMark` substituído pela identidade do LatexBookBank *(chave de grupo `{` + linhas compostas)*
 - ✅ Nenhum componente portado quebra sob SSR *(afirmado com `renderToStaticMarkup`)*
 
@@ -211,22 +214,27 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Radix headless para popover
 - [ ] Estilizadas apenas com tokens do DS; sem Tailwind, sem shadcn
 
-**Zonas do workbench** *(D14)*
-- [ ] Rail com módulos: Biblioteca, Publicações, Avaliações, Importação, Diagnóstico
-- [ ] Sidebar contextual reservada para a árvore
-- [ ] Main com divisão interna editor | preview
-- [ ] Aside para o painel agêntico, com FAB `✦` quando fechado
-- [ ] Topbar com breadcrumb, busca e ação primária
-- [ ] Statusbar (mono 11px)
-- [ ] Larguras das divisórias persistidas em `localStorage`
-- [ ] Estado do aside (aberto/fechado) persistido
-- [ ] Ctrl+K abre a paleta com comandos de navegação
+**Zonas do workbench** *(D14)* — #28, verificadas em `/publications/[id]` com o app rodando
+- ✅ Rail com módulos: Biblioteca, Publicações, Avaliações, Importação, Diagnóstico
+- ✅ Sidebar contextual reservada para a árvore
+- ✅ Main com divisão interna editor | preview *(estrutura e divisória prontas; o preview real é a Fase 5)*
+- ✅ Aside para o painel agêntico, com FAB `✦` quando fechado *(nasce fechado — spec §14.6)*
+- ✅ Topbar com breadcrumb, busca e ação primária *(slot `actions`)*
+- ✅ Statusbar (mono 11px)
+- ✅ Larguras das divisórias persistidas em `localStorage` *(via `useSyncExternalStore`, sem quebrar SSR nem hidratação)*
+- ✅ Estado do aside (aberto/fechado) persistido *(afirmado por teste de remontagem)*
+- ✅ Ctrl+K abre a paleta com comandos de navegação *(⌘K no macOS; afirmado por teste)*
+
+**Primitivas de teclado do shell** *(#28)*
+- ✅ Divisória operável só pelo teclado: ←/→ ±16 px, Home/End, Enter restaura
+- ✅ Módulo ativo marcado com `aria-current`, não só com cor
+- ✅ Toggle do aside mantém o nome e conta o estado por `aria-pressed`
 
 **Aceite da fase**
-- [ ] Utilizável em 1366×768
+- [ ] Utilizável em 1366×768 *(a aritmética fecha — rail 216 + árvore 280 + editor ≥ 420 com o aside fechado — mas falta olhar na tela)*
 - [ ] Excelente em 1920×1080
 - [ ] Redimensionar não quebra o layout
-- [ ] Larguras sobrevivem a refresh
+- ✅ Larguras sobrevivem a refresh
 - [ ] Checklist visual (§11 deste documento) passa nos itens aplicáveis
 
 ---
