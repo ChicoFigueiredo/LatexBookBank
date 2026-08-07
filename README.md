@@ -13,10 +13,16 @@ sem que nenhuma regra de negócio saiba qual infraestrutura está por trás.
 
 ```bash
 pnpm install
+pnpm run setup      # cria .env.local, aplica migrations, verifica dependências
+pnpm db:seed        # dados de demonstração
 pnpm dev            # http://localhost:28080
 ```
 
-Requisitos: Node ≥ 20.9 e pnpm 10.
+Requisitos: Node ≥ 20.9, pnpm 10 e Docker. TeX no host é **opcional** — o render roda no worker
+em Docker (Fase 6), e o `pdflatex` local serve só como fallback.
+
+> `pnpm run setup`, não `pnpm setup`: `setup` é comando reservado do pnpm e não executaria o
+> script deste projeto — ainda por cima imprimindo uma mensagem de sucesso enganosa.
 
 ## Scripts
 
@@ -28,6 +34,9 @@ Requisitos: Node ≥ 20.9 e pnpm 10.
 | `pnpm typecheck` | `tsc --noEmit` em todos os pacotes |
 | `pnpm test`      | Vitest em todos os pacotes         |
 | `pnpm format`    | Prettier                           |
+| `pnpm run setup` | Prepara o ambiente local           |
+| `pnpm db:seed`   | Popula dados de demonstração       |
+| `pnpm db:studio` | Prisma Studio em `28001`           |
 
 ## Portas
 
