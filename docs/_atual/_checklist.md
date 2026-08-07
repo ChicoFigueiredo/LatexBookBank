@@ -22,7 +22,7 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** Fase 0 em andamento · 0/19 fases concluídas
-**Última atualização:** 2026-08-07, após as issues #3–#11 (PRs #12–#20, nenhum mergeado).
+**Última atualização:** 2026-08-07, após as issues #3–#11 e #21 (PRs #12–#22, nenhum mergeado).
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -143,34 +143,37 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Nenhum endereço hard-coded
 - ✅ `.env.example` documenta as variáveis, sem valores
 
-**`pnpm run setup`** — #10 *(2ª auditoria §19, §21)*
+**`bun run setup`** — #10 *(2ª auditoria §19, §21)*
 - ✅ **Docker disponível** — obrigatório
 - ⛔ **Imagem do renderer buildável** — obrigatório *(`services/renderer` só existe na Fase 6)*
 - ⛔ **Renderer inicia e `GET /health` responde** — obrigatório *(idem)*
 - ✅ Provider de IA alcançável — informativo
 - ✅ **TeX no host detectado, marcado como fallback opcional — nunca bloqueia** *(verificado com PATH reduzido)*
 - ✅ Cria diretórios locais e `.env.local` a partir de exemplo
-- [ ] Roda generate, migrations e seed — **generate e migrations sim; seed ainda não**
+- ✅ Roda generate, migrations e seed *(seed idempotente — provado em banco limpo: 0 → 2 → 2)*
 - ✅ Reporta claramente qual verificação falhou
 - ✅ Não instala software de sistema silenciosamente
 
-> ⚠️ `pnpm setup` é comando **reservado do pnpm** e não executa este script — ainda por cima
-> imprimindo sucesso. Use `pnpm run setup`.
+> Com Bun não há a armadilha do pnpm, onde `setup` era comando reservado e pulava o script
+> imprimindo sucesso (#21).
 
 **CI** — #11
 - ✅ Install locked, lint, typecheck, unit, build
 
 **Aceite da fase**
-- ✅ `pnpm run setup && pnpm dev` sobe a aplicação em `28080`
+- ✅ `bun run setup && bun run dev` sobe a aplicação em `28080`
 - ✅ Nenhuma colisão com os containers já existentes na máquina
 - [ ] Publicação demo navegável — **o seed cria os dados, mas a página ainda é placeholder**
 - ✅ Upload e leitura funcionam pelo `LocalFileStorageProvider` com `sha256` calculado
 - ✅ **Ausência de TeX no host não impede o setup**
 - ✅ CI verde
 
-> **O que falta para fechar a Fase 0:** `PrismaSqliteRepository`, DTOs de saída, `seed` dentro do
-> `setup` e uma tela que navegue a publicação demo. Os dois health checks do renderer ficam
-> impedidos até a Fase 6, por dependerem de código que ainda não existe.
+> **O que falta para fechar a Fase 0:** `PrismaSqliteRepository`, DTOs de saída e uma tela que
+> navegue a publicação demo. Os dois health checks do renderer ficam impedidos até a Fase 6, por
+> dependerem de código que ainda não existe.
+>
+> **Toolchain:** Bun 1.3.14 substituiu o pnpm (#21). Node não é mais necessário. O adapter do
+> Prisma passou de `better-sqlite3` para **libSQL**, porque o primeiro recusa o runtime do Bun.
 
 ---
 
@@ -1068,9 +1071,9 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 ## 10. Checklist de aceite do MVP *(spec §33)*
 
 ### Aplicação
-- ✅ Sobe com `pnpm dev`
+- ✅ Sobe com `bun run dev`
 - ✅ Setup local documentado
-- ✅ SQLite criado automaticamente pelo `pnpm run setup` *(D24)*
+- ✅ SQLite criado automaticamente pelo `bun run setup` *(D24)*
 - ✅ Nenhuma dependência do WPF em runtime
 - [ ] UI premium e estável *(Fase 1)*
 
