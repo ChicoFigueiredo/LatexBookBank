@@ -26,6 +26,7 @@ export default async function PublicationPage({ params }: { params: Promise<{ id
 
   return (
     <PublicationWorkbench
+      publicationId={id}
       publicationTitle={publication.title}
       publisher={publication.publisher}
       nodes={nodes}

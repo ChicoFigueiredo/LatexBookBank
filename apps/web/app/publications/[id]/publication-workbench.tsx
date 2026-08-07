@@ -1,21 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   ArtifactStatus,
   Badge,
+  Banner,
+  Button,
   Callout,
+  ContextMenu,
   EmptyState,
+  Modal,
   PageHeader,
   Tree,
   Workbench,
   type Command,
+  type ContextMenuItem,
   type IconName,
   type TreeNode,
   type WorkbenchModule,
 } from "@/design-system";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
+
+import { useTreeEditing } from "./use-tree-editing";
 
 /**
  * Primeira tela montada sobre o workbench (D14): rail de módulos, árvore na sidebar, questão no
@@ -78,12 +85,14 @@ function nest(flat: readonly TreeNodeDto[]): TreeNode[] {
 }
 
 export interface PublicationWorkbenchProps {
+  readonly publicationId: string;
   readonly publicationTitle: string;
   readonly publisher: string | null;
   readonly nodes: readonly TreeNodeDto[];
 }
 
 export function PublicationWorkbench({
+  publicationId,
   publicationTitle,
   publisher,
   nodes,
@@ -92,6 +101,93 @@ export function PublicationWorkbench({
 
   const treeNodes = useMemo(() => nest(nodes), [nodes]);
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
+
+  const titleOf = useCallback(
+    (nodeId: string) => nodes.find((n) => n.id === nodeId)?.title ?? "este nó",
+    [nodes],
+  );
+
+  /**
+   * Vizinhos imediatos na ordem visível, para o Alt+↑/↓.
+   *
+   * "Irmão" aqui é quem tem a mesma profundidade **e** o mesmo pai. Como o DTO não expõe
+   * `parentId` (auditoria §40), o pai é o nó anterior de profundidade menor — a lista vem em
+   * pré-ordem, então isso é exato.
+   */
+  const siblingOrderOf = useCallback(
+    (nodeId: string) => {
+      const index = nodes.findIndex((n) => n.id === nodeId);
+      const node = nodes[index];
+      if (!node) return {};
+
+      const parentAt = (i: number): number => {
+        for (let j = i - 1; j >= 0; j--)
+          if ((nodes[j]?.depth ?? 0) < (nodes[i]?.depth ?? 0)) return j;
+        return -1;
+      };
+      const parent = parentAt(index);
+
+      const siblings = nodes
+        .map((n, i) => ({ n, i }))
+        .filter(({ n, i }) => n.depth === node.depth && parentAt(i) === parent)
+        .map(({ n }) => n.id);
+
+      const at = siblings.indexOf(nodeId);
+      return {
+        ...(at > 0 ? { previous: siblings[at - 1] as string } : {}),
+        ...(at >= 0 && at < siblings.length - 1 ? { next: siblings[at + 1] as string } : {}),
+      };
+    },
+    [nodes],
+  );
+
+  const editing = useTreeEditing({
+    publicationId,
+    titleOf,
+    siblingOrderOf,
+    onSelect: setSelectedId,
+  });
+
+  const menuFor = useCallback(
+    (nodeId: string): readonly (readonly ContextMenuItem[])[] => [
+      [
+        {
+          id: "child",
+          label: "Novo nó filho",
+          icon: "plus",
+          shortcut: "Ctrl+Shift+N",
+          onSelect: () => editing.handleCommand({ kind: "createChild", nodeId }),
+        },
+        {
+          id: "sibling",
+          label: "Novo irmão",
+          icon: "plus",
+          shortcut: "Ctrl+N",
+          onSelect: () => editing.handleCommand({ kind: "createSibling", nodeId }),
+        },
+      ],
+      [
+        {
+          id: "rename",
+          label: "Renomear",
+          icon: "pencil",
+          shortcut: "F2",
+          onSelect: () => editing.handleCommand({ kind: "rename", nodeId }),
+        },
+      ],
+      [
+        {
+          id: "delete",
+          label: "Excluir",
+          icon: "circle-x",
+          shortcut: "Del",
+          tone: "danger",
+          onSelect: () => editing.handleCommand({ kind: "delete", nodeId }),
+        },
+      ],
+    ],
+    [editing],
+  );
 
   const commands: readonly Command[] = useMemo(
     () =>
@@ -132,6 +228,15 @@ export function PublicationWorkbench({
             nodes={treeNodes}
             selected={selectedId}
             onSelect={setSelectedId}
+            onCommand={editing.handleCommand}
+            editingId={editing.editingId}
+            onEditCommit={editing.rename}
+            onEditCancel={editing.cancelEditing}
+            wrapItem={(node, row) => (
+              <ContextMenu key={node.id} groups={menuFor(node.id)}>
+                {row}
+              </ContextMenu>
+            )}
             // Raízes abertas na primeira visita: uma árvore que abre com uma linha só não
             // mostra que existe conteúdo embaixo. Depois disso o que vale é o que ficou salvo.
             defaultExpanded={treeNodes.map((node) => node.id)}
@@ -139,6 +244,23 @@ export function PublicationWorkbench({
             aria-label={`Árvore de ${publicationTitle}`}
           />
         )
+      }
+      actions={
+        <Button
+          size="sm"
+          variant="primary"
+          icon="plus"
+          disabled={editing.busy}
+          onClick={() =>
+            void editing.create(
+              selectedId
+                ? { kind: "after", siblingId: selectedId }
+                : { kind: "lastChild", parentId: null },
+            )
+          }
+        >
+          Novo nó
+        </Button>
       }
       asideTitle="Agente"
       aside={
@@ -158,7 +280,40 @@ export function PublicationWorkbench({
       }
       statusRight={<span>Fase 1 · shell</span>}
     >
-      {selected ? <NodeDetail node={selected} publisher={publisher} /> : null}
+      <>
+        {editing.error && (
+          <div style={{ padding: "var(--space-4) var(--space-7) 0" }}>
+            <Banner tone="danger" title={editing.error.title} onDismiss={editing.dismissError}>
+              {editing.error.message}
+            </Banner>
+          </div>
+        )}
+
+        {selected ? <NodeDetail node={selected} publisher={publisher} /> : null}
+
+        <Modal
+          open={editing.pendingDelete !== null}
+          onClose={editing.cancelDelete}
+          // Descartar por clique fora não serve para confirmação de exclusão: o gesto ambíguo
+          // vira "não fiz nada" na cabeça do usuário, e aqui o "não" precisa ser explícito.
+          closeOnScrim={false}
+          eyebrow="EXCLUIR"
+          title={`Excluir “${editing.pendingDeleteTitle ?? ""}”?`}
+          footer={
+            <>
+              <Button variant="ghost" onClick={editing.cancelDelete}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={() => void editing.confirmDelete()}>
+                Excluir
+              </Button>
+            </>
+          }
+        >
+          A exclusão é lógica e leva junto <strong>tudo que está abaixo deste nó</strong>. Restaurar
+          este nó traz a descendência de volta junto.
+        </Modal>
+      </>
     </Workbench>
   );
 }

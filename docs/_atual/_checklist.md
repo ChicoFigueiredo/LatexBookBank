@@ -23,7 +23,7 @@
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
 **Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2 com
-CRUD da árvore ponta a ponta (#35, #36); falta a UI (#37). 233 testes · 20 PRs, nada mergeado.
+árvore editável na tela (#35, #36, #37). 242 testes · 21 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -261,11 +261,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 **CRUD** — #36 *(use cases + rotas; exercitadas contra o banco real)*
 - ✅ Criar nó filho *(`POST /nodes`, 201)*
 - ✅ Criar nó irmão *(mesmo endpoint, `placement: before|after`)*
-- ✅ Renomear *(`PATCH /nodes/:nodeId`)* — [ ] inline com F2 *(é UI, #37)*
+- ✅ Renomear inline (F2) *(#37 — nome antigo marcado inteiro; Enter aplica, Esc cancela, sair do campo aplica)*
 - ✅ Excluir logicamente *(leva a descendência junto e devolve a lista — o cliente precisa poder avisar)*
 - ✅ Restaurar *(recusa com 409 se o ancestral continuar excluído, em vez de devolver nó invisível)*
 - [ ] Duplicar *(plano de subárvore pronto; falta clonar questão e alternativas)*
-- [ ] Menu de contexto *(é UI, #37)*
+- ✅ Menu de contexto *(#37 — via `wrapItem`, sem a árvore conhecer menus)*
+- ✅ Exclusão confirmada em `Modal`, sem descarte por clique fora *(o "não" precisa ser explícito)*
 
 **Ordenação e movimento** — #35
 - ✅ Fractional indexing implementado *(domínio puro, sem dependência; base-62 à la Figma)*
@@ -280,14 +281,15 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Reordenar
 - [ ] Drag-and-drop via `dnd-kit` *(é UI, #37)*
 
-**Busca e teclado**
+**Busca e teclado** — #37
+- ✅ `Ctrl+N` novo irmão *(com `preventDefault` — no navegador abriria janela nova)*
+- ✅ `Ctrl+Shift+N` novo filho
+- ✅ `Alt+↑/↓` mover *(seta sozinha só anda o foco; sem o Alt, percorrer reordenaria o acervo)*
+- ✅ `Del` excluir com confirmação
+- ✅ Teclas dentro do campo de renomeação não viram comando da árvore *(afirmado por teste)*
 - [ ] Busca e filtro por texto
 - [ ] Filtro por tipo, erro e incompleta
-- [ ] `Ctrl+N` novo irmão
-- [ ] `Ctrl+Shift+N` novo filho
-- [ ] `Alt+↑/↓` mover
-- [ ] `Del` excluir com confirmação
-- [ ] Atalhos não conflitam com o Monaco
+- [ ] Atalhos não conflitam com o Monaco *(verificável na Fase 3)*
 
 **Aceite da fase**
 - [ ] §33 "Árvore" completo (§10 deste documento)

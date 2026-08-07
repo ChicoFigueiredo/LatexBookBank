@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Tree, type TreeNode } from "@/design-system";
+import { ContextMenu, Tree, type TreeCommand, type TreeNode } from "@/design-system";
 
 /**
  * A árvore é a superfície mais usada do produto — dezenas de nós de relance, o dia inteiro. O que
@@ -160,5 +160,125 @@ describe("Tree — SSR", () => {
 
     expect(markup).toContain('role="tree"');
     expect(markup).toContain("Capítulo 2 — Limites");
+  });
+});
+
+describe("Tree — gestos de edição", () => {
+  const commandsFrom = (key: string, init: Partial<KeyboardEvent> = {}) => {
+    // Cada chamada é um render novo: sem limpar, `getAllByRole` pegaria a linha do render
+    // anterior e o spy nunca veria a tecla.
+    cleanup();
+    const onCommand = vi.fn<(c: TreeCommand) => void>();
+    render(<Tree nodes={NODES} onCommand={onCommand} />);
+    fireEvent.keyDown(screen.getAllByRole("button")[0] as HTMLElement, { key, ...init });
+    return onCommand;
+  };
+
+  it("F2 pede renomear, Del pede excluir", () => {
+    expect(commandsFrom("F2")).toHaveBeenCalledWith({ kind: "rename", nodeId: "cap-1" });
+    expect(commandsFrom("Delete")).toHaveBeenCalledWith({ kind: "delete", nodeId: "cap-1" });
+  });
+
+  it("Ctrl+N pede irmão; Ctrl+Shift+N pede filho", () => {
+    expect(commandsFrom("n", { ctrlKey: true })).toHaveBeenCalledWith({
+      kind: "createSibling",
+      nodeId: "cap-1",
+    });
+    expect(commandsFrom("N", { ctrlKey: true, shiftKey: true })).toHaveBeenCalledWith({
+      kind: "createChild",
+      nodeId: "cap-1",
+    });
+  });
+
+  it("N sem modificador não é comando — é alguém digitando", () => {
+    expect(commandsFrom("n")).not.toHaveBeenCalled();
+  });
+
+  it("Alt+↑/↓ movem; as setas sozinhas só andam o foco", () => {
+    expect(commandsFrom("ArrowDown", { altKey: true })).toHaveBeenCalledWith({
+      kind: "moveDown",
+      nodeId: "cap-1",
+    });
+    expect(commandsFrom("ArrowDown")).not.toHaveBeenCalled();
+  });
+});
+
+describe("Tree — renomeação inline", () => {
+  it("abre com o nome antigo inteiro marcado — o gesto comum é substituir", () => {
+    render(<Tree nodes={NODES} editingId="cap-1" />);
+    const field = screen.getByRole("textbox", { name: "Novo nome" }) as HTMLInputElement;
+
+    expect(field.value).toBe("Capítulo 1 — Funções");
+    expect(field.selectionStart).toBe(0);
+    expect(field.selectionEnd).toBe(field.value.length);
+  });
+
+  it("Enter aplica; Escape cancela sem aplicar", () => {
+    const onEditCommit = vi.fn();
+    const onEditCancel = vi.fn();
+    const { rerender } = render(
+      <Tree
+        nodes={NODES}
+        editingId="cap-1"
+        onEditCommit={onEditCommit}
+        onEditCancel={onEditCancel}
+      />,
+    );
+
+    const field = screen.getByRole("textbox", { name: "Novo nome" });
+    fireEvent.change(field, { target: { value: "  Funções  " } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(onEditCommit).toHaveBeenCalledWith("cap-1", "Funções");
+
+    rerender(
+      <Tree
+        nodes={NODES}
+        editingId="cap-2"
+        onEditCommit={onEditCommit}
+        onEditCancel={onEditCancel}
+      />,
+    );
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Novo nome" }), { key: "Escape" });
+    expect(onEditCancel).toHaveBeenCalledOnce();
+  });
+
+  it("sair do campo aplica — clicar fora não pode perder o que foi digitado", () => {
+    const onEditCommit = vi.fn();
+    render(<Tree nodes={NODES} editingId="cap-1" onEditCommit={onEditCommit} />);
+
+    const field = screen.getByRole("textbox", { name: "Novo nome" });
+    fireEvent.change(field, { target: { value: "Outro nome" } });
+    fireEvent.blur(field);
+
+    expect(onEditCommit).toHaveBeenCalledWith("cap-1", "Outro nome");
+  });
+
+  it("teclas dentro do campo não viram comando da árvore", () => {
+    const onCommand = vi.fn();
+    render(<Tree nodes={NODES} editingId="cap-1" onCommand={onCommand} />);
+
+    const field = screen.getByRole("textbox", { name: "Novo nome" });
+    fireEvent.keyDown(field, { key: "Delete" });
+    fireEvent.keyDown(field, { key: "n", ctrlKey: true });
+
+    expect(onCommand).not.toHaveBeenCalled();
+  });
+});
+
+describe("Tree — wrapItem", () => {
+  it("permite envolver cada linha sem a árvore conhecer menus", () => {
+    render(
+      <Tree
+        nodes={NODES}
+        wrapItem={(node, row) => (
+          <ContextMenu groups={[[{ id: "del", label: `Excluir ${node.id}`, tone: "danger" }]]}>
+            {row}
+          </ContextMenu>
+        )}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByText("Capítulo 1 — Funções"));
+    expect(screen.getByRole("menuitem", { name: "Excluir cap-1" })).toBeTruthy();
   });
 });
