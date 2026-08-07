@@ -189,14 +189,16 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Regra de aderência incorporada ao lint *(adaptada do `_adherence.oxlintrc.json`)*
 - ✅ Lint rejeita hex cru fora dos tokens *(violação proposital recusada; pegou as páginas da Fase 0)*
 
-**Componentes portados `.jsx` → `.tsx`** — #27 *(1ª leva)*
+**Componentes portados `.jsx` → `.tsx`** — #27 *(2 levas)*
 - ✅ `Icon` *(set recortado para este domínio: biblioteca, publicação, árvore, render, agente)*
 - ✅ forms: `Button`, `IconButton`, `Input`, `Field`
-- [ ] forms restantes: `Select`, `Checkbox`, `Toggle`, `Combobox`
+- ✅ forms: `Select`, `Checkbox`, `Toggle`
+- [ ] forms restante: `Combobox`
 - ✅ display: `Badge`, `StatusDot`
-- [ ] display restantes: `Chip`, `MetricCard`, `ArtifactStatus`
+- ✅ display: `Chip`, `MetricCard`, `ArtifactStatus` *(ontologia remapeada; `proposto ≠ aplicado` afirmado por teste)*
 - ✅ feedback: `EmptyState`
-- [ ] feedback restantes: `Banner`, `Callout`, `Modal`, `Toast`
+- ✅ feedback: `Callout`
+- [ ] feedback restantes: `Banner`, `Modal`, `Toast`
 - [ ] navigation: `Tabs`, `Segmented`, `Breadcrumb`, `PageHeader`, `Tree`
 - [ ] `AdminShell`, `Divider`, `CommandPalette` *(#28)*
 - [ ] `BrandMark` substituído pela identidade do LatexBookBank
