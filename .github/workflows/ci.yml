@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Um push novo torna o run anterior irrelevante; deixá-lo terminar só gasta fila.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # `prisma.config.ts` resolve `env("DATABASE_URL")` de forma ansiosa, então até
+      # `prisma generate` precisa da variável. Definir no nível do job vale para todos os
+      # passos e evita descobrir a falta um passo por vez.
+      DATABASE_URL: file:./ci.db
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # `--frozen-lockfile` recusa qualquer resolução divergente do lockfile: o CI verifica o
+      # que foi commitado, não uma árvore de dependências que ele mesmo decidiu.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # O client do Prisma é gerado, não versionado. Sem isto, typecheck e testes não acham
+      # os tipos e a falha aparece como erro de import, escondendo a causa.
+      - name: Generate Prisma Client
+        run: pnpm --filter @latexbookbank/web exec prisma generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # As regras de fronteira arquitetural rodam aqui: `tests/architecture-boundaries.test.ts`
+      # dirige o ESLint contra violações propositais, uma por regra.
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
