@@ -25,36 +25,49 @@ export default async function PublicationPage({ params }: { params: Promise<{ id
   const nodes = await getPublicationTree(new PrismaDocumentTreeRepository(), id);
 
   return (
-    <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "48rem" }}>
+    <main style={{ padding: "var(--space-8)", maxWidth: "48rem" }}>
       <Link href="/">← Publicações</Link>
-      <h1 style={{ marginTop: "1rem" }}>{publication.title}</h1>
+      <h1 style={{ marginTop: "var(--space-4)" }}>{publication.title}</h1>
 
       {nodes.length === 0 ? (
         <p>Publicação sem conteúdo.</p>
       ) : (
         <ol style={{ listStyle: "none", padding: 0 }}>
           {nodes.map((node) => (
-            <li key={node.id} style={{ marginLeft: `${node.depth * 1.5}rem`, marginTop: "1rem" }}>
-              <div style={{ color: "#666", fontSize: "0.75rem", textTransform: "uppercase" }}>
+            <li
+              key={node.id}
+              style={{
+                marginLeft: `calc(${node.depth} * var(--space-6))`,
+                marginTop: "var(--space-4)",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: "var(--text-meta)",
+                  textTransform: "uppercase",
+                  letterSpacing: "var(--tracking-wide)",
+                }}
+              >
                 {node.kind}
                 {node.originalLabel ? ` · ${node.originalLabel}` : ""}
               </div>
               <strong>{node.title}</strong>
 
               {node.question && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <p style={{ margin: "0.25rem 0" }}>{node.question.statementLatex}</p>
-                  <div style={{ color: "#666", fontSize: "0.8rem" }}>
+                <div style={{ marginTop: "var(--space-2)" }}>
+                  <p style={{ margin: "var(--space-1) 0" }}>{node.question.statementLatex}</p>
+                  <div style={{ color: "var(--text-secondary)", fontSize: "var(--text-body-sm)" }}>
                     {node.question.difficultyLabel}
                     {node.question.source ? ` · ${node.question.source}` : ""}
                   </div>
 
                   {node.question.options.length > 0 && (
-                    <ul style={{ listStyle: "none", padding: 0, marginTop: "0.5rem" }}>
+                    <ul style={{ listStyle: "none", padding: 0, marginTop: "var(--space-2)" }}>
                       {node.question.options.map((option) => (
                         <li key={option.id}>
                           <strong>{option.label})</strong> {option.statementLatex}
-                          {option.isCorrect && <span style={{ color: "green" }}> ✓</span>}
+                          {option.isCorrect && <span style={{ color: "var(--ok-text)" }}> ✓</span>}
                         </li>
                       ))}
                     </ul>

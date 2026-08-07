@@ -2,6 +2,7 @@ import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypeScript from "eslint-config-next/typescript";
 
 import boundaries from "./eslint.boundaries.mjs";
+import tokenAdherence from "./eslint.tokens.mjs";
 
 /**
  * Flat config nativo do `eslint-config-next` v16 — sem `FlatCompat`, sem `@eslint/eslintrc`.
@@ -11,13 +12,7 @@ import boundaries from "./eslint.boundaries.mjs";
  */
 const config = [
   {
-    ignores: [
-      ".next/**",
-      "node_modules/**",
-      "next-env.d.ts",
-      "coverage/**",
-      "src/generated/**",
-    ],
+    ignores: [".next/**", "node_modules/**", "next-env.d.ts", "coverage/**", "src/generated/**"],
   },
   ...nextCoreWebVitals,
   ...nextTypeScript,
@@ -35,6 +30,7 @@ const config = [
     },
   },
   ...boundaries,
+  ...tokenAdherence,
 ];
 
 export default config;

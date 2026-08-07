@@ -1,0 +1,314 @@
+/* ============================================================
+   LatexBookBank — tokens.css · identidade "Papel & Tinta"
+
+   Re-tokenização do Edulingo DS Admin v1 (D13, D15). O **contrato
+   semântico é idêntico** — mesmos nomes de variável — porque é isso
+   que mantém `AdminShell`, `Tree`, `ToolCallCard` e o resto do DS
+   reaproveitáveis sem reescrita. Só os valores mudam.
+
+   A metáfora é a do TeX: tipografia, papel e tinta. Superfícies de
+   papel quente herdadas do EduLingo (funcionam, e o tema claro é o
+   default correto para uma ferramenta de autoria); o anil institucional
+   dá lugar a um azul-tinta profundo, quase grafite.
+
+   O que saiu: `pedagogy.*` — não existe neste domínio.
+   O que ficou: `--ai` (lilás), exclusivo das superfícies do agente.
+
+   Densidade herdada: controles 26/32/38 px, corpo 13 px, base 4 px.
+   É a "densidade de IDE" que a spec §34 exige.
+
+   Nunca hex direto em CSS de feature — sempre var(--token semântico).
+   O lint de aderência recusa.
+   ============================================================ */
+
+/* ============================================================
+   DEFAULT — Claro / Papel
+   ============================================================ */
+:root {
+  color-scheme: light;
+
+  /* ---- Cor · fundos e superfícies (papel) ------------------ */
+  --bg: #f7f5f1; /* papel de fundo da aplicação */
+  --surface-sunken: #efece6; /* rail, wells, code, áreas rebaixadas */
+  --surface: #ffffff; /* painéis: árvore, editor, cards */
+  --surface-raised: #fbfaf7; /* elevada: hover, inputs em painel, linhas */
+  --surface-overlay: #ffffff; /* dropdowns, popovers, modais */
+
+  /* ---- Cor · bordas (traço leve, de página impressa) ------- */
+  --border-subtle: #ede9e1;
+  --border-default: #e3ded5;
+  --border-strong: #857d71;
+
+  /* ---- Cor · texto (tinta sobre papel) --------------------- */
+  --text-strong: #17150f;
+  --text-primary: #1f1d1a;
+  --text-secondary: #5f5a52;
+  --text-muted: #a8a093;
+  --text-disabled: #c4bdb0;
+  --text-inverse: #ffffff;
+
+  /* ---- Cor · accent institucional (azul-tinta) -------------
+     Onde o EduLingo usa anil, aqui é a tinta de caneta: mais escura,
+     menos saturada, e legível sobre papel sem competir com o texto. */
+  --accent: #1e3a5f;
+  --accent-hover: #17304f;
+  --accent-active: #12273f;
+  --accent-text: #17304f; /* links, texto acentuado */
+  --accent-surface: #eaeff5; /* seleção, nav ativa, linhas ativas */
+  --accent-border: #c3d2e2;
+  --on-accent: #ffffff;
+
+  /* ---- Cor · accent quente (SÉPIA) -------------------------
+     Uso raro (≤1/tela): marca, selo, destaque editorial. */
+  --accent-warm: #8c5a2b;
+  --accent-warm-text: #6f4620;
+  --accent-warm-surface: #f8f1e8;
+  --accent-warm-border: #e5d3bd;
+
+  /* ---- Cor · estados semânticos (status.*) ------------------ */
+  --ok: #1e9070;
+  --ok-text: #115d48;
+  --ok-surface: #eaf7f2;
+  --ok-border: #cde9df;
+  --warn: #c08a17;
+  --warn-text: #855708;
+  --warn-surface: #fef7e8;
+  --warn-border: #f0e2be;
+  --danger: #c0432f;
+  --danger-text: #8c2f21;
+  --danger-surface: #fdefec;
+  --danger-border: #f3d2ca;
+  --info: #2c7da8;
+  --info-text: #1d5e80;
+  --info-surface: #ebf4fa;
+  --info-border: #cde3ef;
+
+  /* ---- Cor · IA (agente) — lilás exclusivo -----------------
+     Namespace próprio, herdado do DS: superfície de IA nunca se
+     confunde com status nem com ação do usuário (spec §14.6). */
+  --ai: #6640a8;
+  --ai-text: #533488;
+  --ai-surface: #f5f1fc;
+  --ai-border: #e0d5f2;
+
+  /* ---- Cor · interação -------------------------------------- */
+  --focus-ring: #1e3a5f;
+  --selection: #dbe4ef;
+  --hover-overlay: rgba(31, 29, 26, 0.04);
+  --active-overlay: rgba(31, 29, 26, 0.075);
+  --scrim: rgba(23, 21, 15, 0.42);
+  --disabled-opacity: 0.45;
+
+  /* ---- Elevação (sombra quente, discreta — papel) ---------- */
+  --shadow-sm: 0 1px 2px rgba(31, 29, 26, 0.06);
+  --shadow-md: 0 4px 14px rgba(31, 29, 26, 0.1);
+  --shadow-lg: 0 12px 36px rgba(31, 29, 26, 0.16);
+
+  /* ---- Tipografia ------------------------------------------- */
+  --font-ui: system-ui, "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-ui);
+  /* Mono é estrutural aqui, não decorativa: LaTeX, ids, logs de
+     compilação e a statusbar dependem de largura fixa. */
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+
+  --text-micro: 10px;
+  --text-meta: 11px;
+  --text-body-sm: 12px;
+  --text-body: 13px;
+  --text-card-title: 13px;
+  --text-section: 15px;
+  --text-page-title: 18px;
+  --text-display: 22px;
+  --text-hero: 28px;
+
+  --weight-regular: 400;
+  --weight-medium: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+  --tracking-wide: 0.05em;
+
+  /* ---- Espaçamento (base 4px — densidade produtiva) -------- */
+  --space-05: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---- Radius (contido — nada "fofinho") ------------------ */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* ---- Controles ------------------------------------------- */
+  --control-h-sm: 26px;
+  --control-h-md: 32px;
+  --control-h-lg: 38px;
+
+  /* ---- Movimento ------------------------------------------- */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-slow: 260ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
+
+  /* ---- Layout do workbench (D14) ---------------------------
+     rail: módulos · sidebar: árvore · main: editor|preview · aside: agente */
+  --rail-w: 216px;
+  --rail-w-collapsed: 56px;
+  --sidebar-w: 280px;
+  --chat-w: 380px;
+  --footer-h: 26px;
+  --z-dropdown: 200;
+  --z-toast: 800;
+  --z-modal: 900;
+  --z-palette: 950;
+}
+
+/* ============================================================
+   Alternativo — Tinta Noite (dark)
+   ============================================================ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #16191d;
+  --surface-sunken: #101317;
+  --surface: #1d2126;
+  --surface-raised: #252a31;
+  --surface-overlay: #2b3138;
+
+  --border-subtle: #262b32;
+  --border-default: #333a43;
+  --border-strong: #7b8493;
+
+  --text-strong: #f7f8fa;
+  --text-primary: #f1f2f5;
+  --text-secondary: #a9b0bb;
+  --text-muted: #7b8493;
+  --text-disabled: #545c68;
+  --text-inverse: #16191d;
+
+  /* No escuro a tinta precisa clarear para manter contraste. */
+  --accent: #5b87bd;
+  --accent-hover: #7aa1d1;
+  --accent-active: #4a739f;
+  --accent-text: #a9c6e6;
+  --accent-surface: #1c2a3a;
+  --accent-border: #35506e;
+  --on-accent: #0e1319;
+
+  --accent-warm: #c98d55;
+  --accent-warm-text: #ddab7c;
+  --accent-warm-surface: #2e2318;
+  --accent-warm-border: #56412a;
+
+  --ok: #3fab8b;
+  --ok-text: #6ec7aa;
+  --ok-surface: #13291f;
+  --ok-border: #275842;
+  --warn: #f4c14e;
+  --warn-text: #f4c14e;
+  --warn-surface: #2e2712;
+  --warn-border: #5c4e20;
+  --danger: #e16a57;
+  --danger-text: #ec8f80;
+  --danger-surface: #331a16;
+  --danger-border: #6b342b;
+  --info: #5aa9d6;
+  --info-text: #8cc5e6;
+  --info-surface: #152833;
+  --info-border: #2a5266;
+
+  --ai: #b69ae6;
+  --ai-text: #d4c4f1;
+  --ai-surface: #211b33;
+  --ai-border: #453766;
+
+  --focus-ring: #8fb4dd;
+  --selection: #24384e;
+  --hover-overlay: rgba(255, 255, 255, 0.045);
+  --active-overlay: rgba(255, 255, 255, 0.08);
+  --scrim: rgba(6, 8, 10, 0.62);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.55);
+}
+
+/* ============================================================
+   Acessibilidade — Alto Contraste (AAA). Foco âmbar.
+   ============================================================ */
+[data-theme="high-contrast"] {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --surface-sunken: #000000;
+  --surface: #0a0a0a;
+  --surface-raised: #141414;
+  --surface-overlay: #1a1a1a;
+
+  --border-subtle: rgba(255, 255, 255, 0.45);
+  --border-default: #ffffff;
+  --border-strong: #ffffff;
+
+  --text-strong: #ffffff;
+  --text-primary: #ffffff;
+  --text-secondary: #e8e8e8;
+  --text-muted: #c9c9c9;
+  --text-disabled: #8a8a8a;
+  --text-inverse: #000000;
+
+  --accent: #a7c8ff;
+  --accent-hover: #c7dcff;
+  --accent-active: #c7dcff;
+  --accent-text: #a7c8ff;
+  --accent-surface: rgba(167, 200, 255, 0.18);
+  --accent-border: #a7c8ff;
+  --on-accent: #000000;
+
+  --accent-warm: #ffd84d;
+  --accent-warm-text: #ffd84d;
+  --accent-warm-surface: rgba(255, 216, 77, 0.16);
+  --accent-warm-border: #ffd84d;
+
+  --ok: #57e3a6;
+  --ok-text: #57e3a6;
+  --ok-surface: rgba(87, 227, 166, 0.16);
+  --ok-border: #57e3a6;
+  --warn: #ffd84d;
+  --warn-text: #ffd84d;
+  --warn-surface: rgba(255, 216, 77, 0.15);
+  --warn-border: #ffd84d;
+  --danger: #ff9c86;
+  --danger-text: #ff9c86;
+  --danger-surface: rgba(255, 156, 134, 0.16);
+  --danger-border: #ff9c86;
+  --info: #7cc7ff;
+  --info-text: #7cc7ff;
+  --info-surface: rgba(124, 199, 255, 0.15);
+  --info-border: #7cc7ff;
+
+  --ai: #cdb2ff;
+  --ai-text: #cdb2ff;
+  --ai-surface: rgba(205, 178, 255, 0.14);
+  --ai-border: #cdb2ff;
+
+  --focus-ring: #ffd84d;
+  --selection: rgba(167, 200, 255, 0.22);
+  --hover-overlay: rgba(255, 255, 255, 0.1);
+  --active-overlay: rgba(255, 255, 255, 0.16);
+  --scrim: rgba(0, 0, 0, 0.72);
+
+  /* Alto contraste separa por borda, não por sombra. */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}
