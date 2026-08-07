@@ -22,8 +22,8 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — Fase 1 fechada em código (#27, #28, #29); falta só o aceite
-visual. Fase 2 aberta (#34–#37), fractional indexing entregue. 200 testes · 18 PRs, nada mergeado.
+**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2 com
+CRUD da árvore ponta a ponta (#35, #36); falta a UI (#37). 233 testes · 20 PRs, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -242,8 +242,8 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ### Fase 2 — Árvore de documento
 
-**API e renderização**
-- [ ] `GET /api/publications/:id/tree`
+**API e renderização** — #36
+- ✅ `GET /api/publications/:id/tree` *(200 com a árvore, 404 explicado, `Cache-Control: no-store`; verificado no app rodando)*
 - [ ] Renderização recursiva com profundidade arbitrária
 - [ ] Virtualização
 - [ ] Ícones por `NodeKind`
@@ -258,25 +258,27 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Questão validada
 - [ ] Modificações agênticas pendentes
 
-**CRUD**
-- [ ] Criar nó filho
-- [ ] Criar nó irmão
-- [ ] Renomear inline (F2)
-- [ ] Duplicar
-- [ ] Excluir logicamente
-- [ ] Restaurar
-- [ ] Menu de contexto
+**CRUD** — #36 *(use cases + rotas; exercitadas contra o banco real)*
+- ✅ Criar nó filho *(`POST /nodes`, 201)*
+- ✅ Criar nó irmão *(mesmo endpoint, `placement: before|after`)*
+- ✅ Renomear *(`PATCH /nodes/:nodeId`)* — [ ] inline com F2 *(é UI, #37)*
+- ✅ Excluir logicamente *(leva a descendência junto e devolve a lista — o cliente precisa poder avisar)*
+- ✅ Restaurar *(recusa com 409 se o ancestral continuar excluído, em vez de devolver nó invisível)*
+- [ ] Duplicar *(plano de subárvore pronto; falta clonar questão e alternativas)*
+- [ ] Menu de contexto *(é UI, #37)*
 
 **Ordenação e movimento** — #35
 - ✅ Fractional indexing implementado *(domínio puro, sem dependência; base-62 à la Figma)*
 - ✅ Testes de propriedade do ranking *(mil inserções no mesmo ponto e 500 aleatórias: ordem estrita, total, sem colisão)*
 - ✅ Teste de rebalanceamento de rank *(300 inserções degeneram a chave; `rebalanceKeys` devolve a < 8 caracteres)*
 - ✅ **Colação registrada como D38** *(no PostgreSQL, `sortKey` exige `COLLATE "C"` — a colação padrão inverteria a lista em silêncio)*
-- [ ] Mover como filho
-- [ ] Mover como irmão
-- [ ] Reordenar
-- [ ] Drag-and-drop via `dnd-kit`
-- [ ] Ciclos rejeitados, com teste
+- ✅ **Álgebra de posicionamento** *(#36 — `firstChild`/`lastChild`/`before`/`after` cobrem criar, mover e reordenar)*
+- ✅ **Ciclos rejeitados, com teste** *(mover para dentro do próprio ramo, em qualquer profundidade; ciclo já gravado no banco não trava a coleta)*
+- ✅ Plano de duplicação de subárvore em pré-ordem *(pai sempre antes dos filhos)*
+- ✅ Mover como filho *(`PATCH` com `placement`; ciclo devolve 409, não 400 — o pedido é válido, o estado é que recusa)*
+- ✅ Mover como irmão
+- ✅ Reordenar
+- [ ] Drag-and-drop via `dnd-kit` *(é UI, #37)*
 
 **Busca e teclado**
 - [ ] Busca e filtro por texto
