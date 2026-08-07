@@ -5,8 +5,9 @@ const src = fileURLToPath(new URL("./src", import.meta.url));
 
 export default defineConfig({
   test: {
+    // Node por padrão; os testes de componente pedem DOM via `@vitest-environment happy-dom`.
     environment: "node",
-    include: ["tests/**/*.test.ts", "src/**/*.test.ts"],
+    include: ["tests/**/*.test.{ts,tsx}", "src/**/*.test.{ts,tsx}"],
   },
   resolve: {
     alias: {
