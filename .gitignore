@@ -28,3 +28,6 @@ coverage/
 # sistema
 .DS_Store
 *.log
+
+# client gerado pelo Prisma (recriado por `prisma generate`)
+apps/web/src/generated/

@@ -15,9 +15,18 @@
     "typecheck": "pnpm -r --no-bail typecheck",
     "test": "pnpm -r --no-bail test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @latexbookbank/web db:migrate",
+    "db:seed": "pnpm --filter @latexbookbank/web db:seed",
+    "db:reset": "pnpm --filter @latexbookbank/web db:reset",
+    "db:studio": "pnpm --filter @latexbookbank/web db:studio"
   },
   "devDependencies": {
     "prettier": "^3.4.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }

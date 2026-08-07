@@ -6,3 +6,6 @@ apps/web/data
 # Documentos com formatação própria — planejamento, checklist e prompts de auditoria.
 # O Prettier reflui tabelas e quebras de linha, e esses arquivos são lidos como documento.
 docs/
+
+# código gerado pelo Prisma
+apps/web/src/generated
