@@ -54,3 +54,7 @@ export { Tree, type TreeProps, type TreeNode } from "./navigation/Tree";
 export { Workbench, type WorkbenchProps, type WorkbenchModule } from "./shell/Workbench";
 export { Divider, type DividerProps } from "./shell/Divider";
 export { CommandPalette, type CommandPaletteProps, type Command } from "./shell/CommandPalette";
+
+export { Tooltip, TooltipProvider, type TooltipProps } from "./overlays/Tooltip";
+export { Popover, type PopoverProps } from "./overlays/Popover";
+export { ContextMenu, type ContextMenuProps, type ContextMenuItem } from "./overlays/ContextMenu";
