@@ -26,6 +26,7 @@ import {
 } from "@/design-system";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 
+import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
 import { useTreeEditing } from "./use-tree-editing";
 
 /**
@@ -180,6 +181,30 @@ export function PublicationWorkbench({
     [nodes],
   );
 
+  /**
+   * O nó e tudo abaixo dele, na ordem visível.
+   *
+   * A lista vem em pré-ordem, então a descendência é o bloco contíguo logo depois do nó, enquanto
+   * a profundidade for maior. Sem `parentId` no DTO (auditoria §40), é assim que se conhece o
+   * ramo — e é o que permite recusar o drop dentro dele **antes** de largar.
+   */
+  const subtreeOf = useCallback(
+    (nodeId: string): readonly string[] => {
+      const start = nodes.findIndex((n) => n.id === nodeId);
+      if (start === -1) return [];
+
+      const baseDepth = nodes[start]?.depth ?? 0;
+      const ids = [nodeId];
+      for (let i = start + 1; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (!node || node.depth <= baseDepth) break;
+        ids.push(node.id);
+      }
+      return ids;
+    },
+    [nodes],
+  );
+
   const editing = useTreeEditing({
     publicationId,
     titleOf,
@@ -212,6 +237,13 @@ export function PublicationWorkbench({
           icon: "pencil",
           shortcut: "F2",
           onSelect: () => editing.handleCommand({ kind: "rename", nodeId }),
+        },
+        {
+          id: "duplicate",
+          label: "Duplicar",
+          icon: "history",
+          shortcut: "Ctrl+D",
+          onSelect: () => editing.handleCommand({ kind: "duplicate", nodeId }),
         },
       ],
       [
@@ -317,28 +349,30 @@ export function PublicationWorkbench({
               />
             )
           ) : (
-            <Tree
-              nodes={treeNodes}
-              selected={selected?.id}
-              onSelect={setSelectedId}
-              onCommand={editing.handleCommand}
-              editingId={editing.editingId}
-              onEditCommit={editing.rename}
-              onEditCancel={editing.cancelEditing}
-              wrapItem={(node, row) => (
-                <ContextMenu key={node.id} groups={menuFor(node.id)}>
-                  {row}
-                </ContextMenu>
-              )}
-              // Raízes abertas na primeira visita: uma árvore que abre com uma linha só não
-              // mostra que existe conteúdo embaixo. Depois disso o que vale é o que ficou salvo.
-              defaultExpanded={treeNodes.map((node) => node.id)}
-              storageKey={`lbb:tree:${publicationTitle}`}
-              aria-label={`Árvore de ${publicationTitle}`}
-              // Filtrando, os expandidos passam a ser controlados: são os ancestrais dos
-              // resultados. Sem isso, o filtro mostraria só as raízes e pareceria vazio.
-              {...(filtering ? { expanded: filtered.expanded } : {})}
-            />
+            <TreeDnd subtreeOf={subtreeOf} onMove={editing.move}>
+              <Tree
+                nodes={treeNodes}
+                selected={selected?.id}
+                onSelect={setSelectedId}
+                onCommand={editing.handleCommand}
+                editingId={editing.editingId}
+                onEditCommit={editing.rename}
+                onEditCancel={editing.cancelEditing}
+                wrapItem={(node, row) => (
+                  <ContextMenu key={node.id} groups={menuFor(node.id)}>
+                    <DraggableTreeRow nodeId={node.id}>{row}</DraggableTreeRow>
+                  </ContextMenu>
+                )}
+                // Raízes abertas na primeira visita: uma árvore que abre com uma linha só não
+                // mostra que existe conteúdo embaixo. Depois disso o que vale é o que ficou salvo.
+                defaultExpanded={treeNodes.map((node) => node.id)}
+                storageKey={`lbb:tree:${publicationTitle}`}
+                aria-label={`Árvore de ${publicationTitle}`}
+                // Filtrando, os expandidos passam a ser controlados: são os ancestrais dos
+                // resultados. Sem isso, o filtro mostraria só as raízes e pareceria vazio.
+                {...(filtering ? { expanded: filtered.expanded } : {})}
+              />
+            </TreeDnd>
           )}
         </>
       }

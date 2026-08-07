@@ -8,6 +8,7 @@ import {
   NodeNotFoundError,
   assertMoveIsLegal,
   collectSubtree,
+  planDuplicate,
   resolvePlacement,
   type Placement,
 } from "@modules/document-tree/domain/tree-mutations";
@@ -162,4 +163,23 @@ export async function restoreNode(
 
   await writer.restoreMany(restoring);
   return restoring;
+}
+
+/**
+ * Duplica um nó e tudo abaixo dele.
+ *
+ * O domínio decide **onde** a cópia entra e em que ordem os nós nascem; a infraestrutura resolve
+ * os ids e copia o conteúdo, numa transação. A separação não é cerimônia: é o que permite testar
+ * o plano — pré-ordem, posição da raiz, ordem relativa dos filhos — sem banco.
+ */
+export async function duplicateNode(
+  { reader, writer }: Deps,
+  publicationId: string,
+  nodeId: string,
+  placement: Placement,
+): Promise<string> {
+  const records = await reader.listByPublication(publicationId);
+  const plan = planDuplicate(records, nodeId, placement);
+
+  return writer.duplicateSubtree(publicationId, plan);
 }

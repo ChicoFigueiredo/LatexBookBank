@@ -2,6 +2,7 @@ import "server-only";
 
 import type {
   DeletedNodeRecord,
+  PlannedNode,
   DocumentTreeRepository,
   DocumentTreeWriter,
   NewNode,
@@ -132,6 +133,126 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         kind: row.kind,
         deletedAt: row.deletedAt as Date,
       };
+    });
+  }
+
+  /**
+   * Duplica a subárvore em **uma** transação: nós, questões, alternativas e tags.
+   *
+   * Três coisas que a cópia deliberadamente **não** herda:
+   *
+   * - **`legacyId`.** Além de violar a unicidade `(publicationId, legacyId)`, seria mentira: a
+   *   cópia não é a linha do acervo legado. Perder o vínculo é o ponto.
+   * - **`validationStatus`.** Duplicar é quase sempre o começo de uma variante — copia-se para
+   *   mudar. Herdar "validada" convidaria a publicar uma variante que ninguém revisou com o selo
+   *   de quem revisou o original. A cópia nasce `UNVALIDATED` e `DRAFT`.
+   *
+   * O que **é** herdado, e por quê:
+   *
+   * - `sourceAnchorId` — a proveniência é do conteúdo, não da linha: as duas questões vieram do
+   *   mesmo recorte, e D29 trata a fonte como imutável e compartilhável.
+   * - `originalLabel` — a primeira versão disto não copiava, pelo mesmo argumento do `legacyId`.
+   *   Duplicar uma seção contra o banco real mostrou o resultado: dois nós "Sem título", porque
+   *   as questões do acervo não têm `title` e se identificam justamente pelo rótulo do livro. É
+   *   texto descritivo, não chave — a distinção que importa é essa, e não a de "estar na página".
+   */
+  async duplicateSubtree(publicationId: string, plan: readonly PlannedNode[]): Promise<string> {
+    const rootPlan = plan[0];
+    if (!rootPlan) throw new Error("Plano de duplicação vazio.");
+
+    return prisma.$transaction(async (tx) => {
+      const idMap = new Map<string, string>();
+
+      /**
+       * O `parentId` da **raiz** da cópia é um nó que já existe — o destino escolhido —, não uma
+       * cópia. Passá-lo pelo mapa devolveria `null`, e a subárvore inteira apareceria na raiz da
+       * publicação em vez de dentro do destino. Para os demais, o pai é sempre uma cópia já
+       * criada (a pré-ordem garante), e não achá-la é bug, não caso normal.
+       */
+      const resolveParent = (step: PlannedNode, isRoot: boolean): string | null => {
+        if (isRoot || step.parentId === null) return step.parentId;
+        const mapped = idMap.get(step.parentId);
+        if (!mapped)
+          throw new Error(`Plano fora de pré-ordem: pai ${step.parentId} ainda não foi criado.`);
+        return mapped;
+      };
+
+      for (const step of plan) {
+        const source = await tx.documentNode.findUniqueOrThrow({
+          where: { id: step.sourceId },
+          select: {
+            kind: true,
+            title: true,
+            numberingStyle: true,
+            originalLabel: true,
+            question: {
+              select: {
+                type: true,
+                nickname: true,
+                statementLatex: true,
+                solutionLatex: true,
+                complementLatex: true,
+                originalLatex: true,
+                difficulty: true,
+                year: true,
+                board: true,
+                institution: true,
+                role: true,
+                roleLevel: true,
+                publisher: true,
+                videoUrl: true,
+                sourceAnchorId: true,
+                options: {
+                  orderBy: { sortKey: "asc" },
+                  select: {
+                    sortKey: true,
+                    statementLatex: true,
+                    solutionLatex: true,
+                    originalLatex: true,
+                    isCorrect: true,
+                    weight: true,
+                  },
+                },
+                tags: { select: { tagId: true } },
+              },
+            },
+          },
+        });
+
+        const isRoot = step.sourceId === rootPlan.sourceId;
+        const { question } = source;
+
+        const createdQuestion = question
+          ? await tx.question.create({
+              data: {
+                ...question,
+                status: "DRAFT",
+                validationStatus: "UNVALIDATED",
+                options: { create: question.options.map((option) => ({ ...option })) },
+                tags: { create: question.tags.map((tag) => ({ tagId: tag.tagId })) },
+              },
+              select: { id: true },
+            })
+          : null;
+
+        const created = await tx.documentNode.create({
+          data: {
+            publicationId,
+            parentId: resolveParent(step, isRoot),
+            kind: source.kind,
+            title: isRoot && source.title ? `${source.title} (cópia)` : source.title,
+            sortKey: step.sortKey,
+            numberingStyle: source.numberingStyle,
+            originalLabel: source.originalLabel,
+            ...(createdQuestion ? { questionId: createdQuestion.id } : {}),
+          },
+          select: { id: true },
+        });
+
+        idMap.set(step.sourceId, created.id);
+      }
+
+      return idMap.get(rootPlan.sourceId) as string;
     });
   }
 }

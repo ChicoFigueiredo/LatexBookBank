@@ -127,6 +127,7 @@ export interface TreeProps {
 export type TreeCommand =
   | { readonly kind: "rename"; readonly nodeId: string }
   | { readonly kind: "delete"; readonly nodeId: string }
+  | { readonly kind: "duplicate"; readonly nodeId: string }
   | { readonly kind: "createChild"; readonly nodeId: string }
   | { readonly kind: "createSibling"; readonly nodeId: string }
   | { readonly kind: "moveUp"; readonly nodeId: string }
@@ -360,6 +361,14 @@ export function Tree({
       case "F2":
         event.preventDefault();
         onCommand?.({ kind: "rename", nodeId: node.id });
+        break;
+      case "d":
+      case "D":
+        // Ctrl+D é "adicionar favorito" no navegador. Aqui vale mais duplicar o nó, e o
+        // `preventDefault` evita a barra de favoritos abrindo por cima da árvore.
+        if (!event.ctrlKey && !event.metaKey) break;
+        event.preventDefault();
+        onCommand?.({ kind: "duplicate", nodeId: node.id });
         break;
       case "Delete":
         event.preventDefault();

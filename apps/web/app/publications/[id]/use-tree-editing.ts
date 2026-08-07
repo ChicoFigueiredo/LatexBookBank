@@ -118,6 +118,25 @@ export function useTreeEditing({ publicationId, titleOf, siblingOrderOf, onSelec
     [base, call],
   );
 
+  const duplicate = useCallback(
+    async (nodeId: string) => {
+      const created = await call(
+        `${base}/${nodeId}/duplicate`,
+        {
+          method: "POST",
+          body: JSON.stringify({ placement: { kind: "after", siblingId: nodeId } }),
+        },
+        "Não foi possível duplicar o nó",
+      );
+      const id =
+        typeof created === "object" && created !== null && "id" in created
+          ? String((created as { id: unknown }).id)
+          : null;
+      if (id) onSelect(id);
+    },
+    [base, call, onSelect],
+  );
+
   const rename = useCallback(
     async (nodeId: string, title: string) => {
       setEditingId(null);
@@ -154,6 +173,9 @@ export function useTreeEditing({ publicationId, titleOf, siblingOrderOf, onSelec
         case "createSibling":
           void create({ kind: "after", siblingId: command.nodeId });
           break;
+        case "duplicate":
+          void duplicate(command.nodeId);
+          break;
         case "moveUp": {
           const { previous } = siblingOrderOf(command.nodeId);
           if (previous) void move(command.nodeId, { kind: "before", siblingId: previous });
@@ -166,7 +188,7 @@ export function useTreeEditing({ publicationId, titleOf, siblingOrderOf, onSelec
         }
       }
     },
-    [create, move, siblingOrderOf],
+    [create, duplicate, move, siblingOrderOf],
   );
 
   return {
@@ -178,6 +200,8 @@ export function useTreeEditing({ publicationId, titleOf, siblingOrderOf, onSelec
     handleCommand,
     rename,
     create,
+    duplicate,
+    move,
     confirmDelete,
     cancelDelete: () => setPendingDelete(null),
     cancelEditing: () => setEditingId(null),
