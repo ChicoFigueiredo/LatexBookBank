@@ -178,16 +178,16 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ### Fase 1 — Design system e shell
 
-**Tokens e temas**
-- [ ] `tokens.css` portado e re-tokenizado para a identidade do LatexBookBank (D15)
-- [ ] Contrato semântico dos tokens preservado (nomes de variável inalterados)
-- [ ] Namespace `pedagogy.*` removido
-- [ ] Namespace `--ai` preservado para as superfícies do agente
-- [ ] Tema claro/papel como default
-- [ ] Tema dark coerente
-- [ ] Tema alto contraste (AAA)
-- [ ] `_adherence.oxlintrc.json` incorporado ao lint
-- [ ] Lint rejeita hex cru fora dos tokens (verificado com violação proposital)
+**Tokens e temas** — #26 · identidade **Papel & Tinta**
+- ✅ `tokens.css` portado e re-tokenizado para a identidade do LatexBookBank (D15)
+- ✅ Contrato semântico dos tokens preservado *(nomes inalterados — afirmado por teste)*
+- ✅ Namespace `pedagogy.*` removido *(afirmado por teste)*
+- ✅ Namespace `--ai` preservado para as superfícies do agente
+- ✅ Tema claro/papel como default
+- ✅ Tema dark coerente *(teste: cobre todo token de cor do claro)*
+- ✅ Tema alto contraste (AAA) *(idem)*
+- ✅ Regra de aderência incorporada ao lint *(adaptada do `_adherence.oxlintrc.json`)*
+- ✅ Lint rejeita hex cru fora dos tokens *(violação proposital recusada; pegou as páginas da Fase 0)*
 
 **Componentes portados `.jsx` → `.tsx`**
 - [ ] `Icon` (lucide, stroke 1.5, grid 16)
