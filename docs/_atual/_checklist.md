@@ -1,22 +1,28 @@
 # LatexBookBank Web — Checklist de Execução
 
 > Instrumento de controle de [`_planejamento.md`](./_planejamento.md).
-> Origem: [`../prompts/LatexBookBank_Web_Especificacao_Mestra.md`](../prompts/LatexBookBank_Web_Especificacao_Mestra.md).
+> Origem: [`../prompts/260806-01.LatexBookBank_Web_Especificacao_Mestra.md`](../prompts/260806-01.LatexBookBank_Web_Especificacao_Mestra.md).
 >
 > **Como usar.** Marque só o que estiver demonstrável — um item marcado significa que existe
-> comando, teste ou tela que prova. Ao fim de cada fase, o Definition of Done da §12 deste
+> comando, teste ou tela que prova. Ao fim de cada fase, o Definition of Done da §14 deste
 > documento precisa passar inteiro antes do checkpoint humano.
+>
+> **Revisão 2026-08-07** — incorporada a
+> [auditoria arquitetural](../prompts/260807-01.Auditoria-Planejamento.e.Checklist.md).
+> Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D31 adicionadas;
+> D16, D17 e D20 revistas.
 
-**Progresso:** Fase 0 de 16 · 0/17 fases concluídas
+**Progresso:** Fase 0 de 17 · 0/19 fases concluídas
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | 0 · 1 · 2 · 3 · 4 · 5 · 6 | ☐ não iniciada |
+| — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
-| D — acervo legado | 11 · 12 | ☐ não iniciada |
-| E — ingestão visual | 13 · 14 | ☐ não iniciada |
-| F — diferencial de produto | 15 · 16 | ☐ não iniciada |
+| D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
+| E — ingestão visual | 14 · 15 | ☐ não iniciada |
+| F — diferencial de produto | 16 · 17 | ☐ não iniciada |
 
 ---
 
@@ -35,13 +41,21 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [x] Acervo legado mapeado: 13 bibliotecas, 64 publicações, 297 nós, 1.247 alternativas
 - [x] `LatexMetadata.db` mapeado: 653 autocompletes, 2.741 símbolos, 13 grupos
 - [x] Design system inventariado e decisão de adoção registrada (D13)
+- [x] Portas Docker varridas; bloco `28xxx` verificado livre e fora da faixa efêmera (D19)
+- [x] Restrição confirmada: `pdflatex` não roda em função serverless (§2.8 do planejamento)
+- [x] Auditoria arquitetural cruzada e incorporada (D21–D31)
+- [x] **Inventário de volume executado (D31):** acervo = 109 MB em 409 arquivos; 326 conteúdos
+      distintos; 9 grupos duplicados; 0,77 MB recuperáveis; `ITA/Material` (3,2 GB) e `Listas/`
+      (327 MB) identificados como material externo, fora do escopo
+- [x] Arquitetura do render decidida: worker/API em Docker — WSL local, droplet em produção (D27)
 - [ ] Repositório GitLab `bqcf/bqcf.windows` inspecionado *(bloqueado: exige autenticação)*
+- [ ] Confirmação do CEO sobre a reconciliação de D16/D17 *(local-first agora, nuvem provada na 6.5)*
 
 ---
 
 ## Wave A — fundação e IDE editorial
 
-### Fase 0 — Fundação
+### Fase 0 — Fundação e providers
 
 **Bootstrap**
 - [ ] Workspace pnpm criado com `apps/web`
@@ -50,30 +64,57 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] ESLint + Prettier configurados
 - [ ] Aliases de import
 - [ ] Scripts `dev`, `build`, `lint`, `typecheck`, `test`
-- [ ] Estrutura modular criada (`modules/`, `shared/`, `infrastructure/`)
+- [ ] Estrutura modular da §4.6 do planejamento criada
+- [ ] `infrastructure/` com `database/{sqlite,postgres}`, `storage/{local,vercel-blob}`, `rendering/{local,cloud}`, `ai/{openai-compatible}`
 - [ ] Convenções documentadas no README
 
-**Fronteiras arquiteturais (falham o lint quando violadas)**
+**Regras de boundary (falham o CI quando violadas)** *(auditoria §37)*
+- [ ] `domain/**` não importa `prisma`
+- [ ] `domain/**` não importa `next`
+- [ ] `domain/**` não importa `@vercel/blob`
+- [ ] `domain/**` não importa `node:fs`
+- [ ] `domain/**` não importa SDK de IA
+- [ ] `domain/**` não executa `pdflatex`
 - [ ] Nenhum componente React importa Prisma
-- [ ] Nenhum módulo de domínio importa `next/*`
-- [ ] O renderer não importa React
-- [ ] Regras verificadas com violação proposital antes de marcar
+- [ ] O agente não tem caminho de escrita no banco
+- [ ] Todas as regras verificadas com violação proposital antes de marcar
 
-**Persistência**
-- [ ] Prisma + SQLite configurados
-- [ ] Schema núcleo: `Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`, `QuestionTag`
+**Os quatro contratos** *(D23 — e apenas quatro)*
+- [ ] `Repository` (por agregado) definido
+- [ ] `StorageProvider` definido (`put`/`get`/`exists`/`delete`)
+- [ ] `RenderExecutor` definido
+- [ ] `AiProvider` definido
+- [ ] Nenhuma interface criada sem necessidade real de múltiplas implementações
+- [ ] Sem factories desnecessárias, sem framework de DI
+
+**Persistência — SQLite** *(D24)*
+- [ ] Prisma com `provider = "sqlite"`
+- [ ] Schema núcleo: `Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`, `QuestionTag`, `Asset`, `SourceAnchor`
 - [ ] Migration inicial versionada
 - [ ] Client Prisma server-only
-- [ ] Interfaces de repository definidas
-- [ ] Implementação Prisma das interfaces
-- [ ] Seed de demonstração (publicação com capítulo, seção e questões)
+- [ ] Implementação Prisma dos repositories
+- [ ] DTOs de saída — objeto Prisma não vaza para o React *(auditoria §40)*
+- [ ] Seed de demonstração
+- [ ] **PostGIS não existe no projeto** *(D22)*
 
-**Preparação PostgreSQL** *(spec §39)*
-- [ ] UUIDs em todas as entidades
-- [ ] `workspaceId` presente onde a spec exige
-- [ ] Timestamps em UTC
-- [ ] Nenhuma feature SQLite-only no domínio
-- [ ] Estratégia de migrations futuras documentada
+**Portabilidade SQLite → PostgreSQL desde a Fase 0** *(auditoria §7)*
+- [ ] UUID para IDs novos
+- [ ] `workspaceId` onde faz sentido
+- [ ] Timestamps UTC
+- [ ] Constraints explícitas
+- [ ] Índices documentados
+- [ ] Sem SQL raw espalhado
+- [ ] Nenhuma regra de negócio dependente de comportamento particular do SQLite
+- [ ] Testes de domínio independentes do provider
+
+**Storage**
+- [ ] `LocalFileStorageProvider` implementado
+- [ ] `sha256` calculado em toda escrita
+- [ ] `storageKey` opaca — nenhum path local no domínio
+- [ ] Chaves prefixadas por `workspaceId`
+- [ ] Paths sanitizados; nada escapa da raiz do workspace
+- [ ] Validação de MIME e tamanho
+- [ ] **Nenhum binário no banco** *(auditoria §8)*
 
 **Setup e CI**
 - [ ] `pnpm setup` cria diretórios locais
@@ -83,8 +124,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] CI: install locked, lint, typecheck, unit, build
 
 **Aceite da fase**
-- [ ] `pnpm setup && pnpm dev` sobe a aplicação
+- [ ] `pnpm setup && pnpm dev` sobe a aplicação em `28080`
+- [ ] Nenhuma colisão com os containers já existentes na máquina
 - [ ] Publicação demo navegável
+- [ ] Upload e leitura de arquivo funcionam com `sha256` calculado
 - [ ] CI verde
 
 ---
@@ -136,7 +179,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Excelente em 1920×1080
 - [ ] Redimensionar não quebra o layout
 - [ ] Larguras sobrevivem a refresh
-- [ ] Checklist visual (§9 deste documento) passa nos itens aplicáveis
+- [ ] Checklist visual (§11 deste documento) passa nos itens aplicáveis
 
 ---
 
@@ -187,7 +230,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Atalhos não conflitam com o Monaco
 
 **Aceite da fase**
-- [ ] §33 "Árvore" completo (§8 deste documento)
+- [ ] §33 "Árvore" completo (§10 deste documento)
 - [ ] Estado da árvore persiste entre sessões
 
 ---
@@ -271,39 +314,56 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-### Fase 6 — Render autoritativo
+### Fase 6 — Worker de render autoritativo *(D27)*
 
-**Profiles**
-- [ ] `LatexProfile` com documentclass, packages, macros, engine e defaults
-- [ ] Profile "Legacy Compatibility" a partir de `latex-includes.tex`
-- [ ] `tikz` compila
-- [ ] `pgfplots` compila
-- [ ] `siunitx` compila
-- [ ] `xlop` compila
-- [ ] `cancel` compila
+**Worker containerizado**
+- [ ] `services/renderer` criado
+- [ ] Dockerfile com Node + TeX Live + Poppler
+- [ ] Imagem compila `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel`
+- [ ] `docker compose` expõe o worker em `28900` no WSL
+- [ ] Porta confirmada livre antes de subir
+- [ ] `POST /render`
+- [ ] `GET /render/:id`
+- [ ] `GET /health`
+- [ ] Autenticação por segredo compartilhado
+- [ ] Segredo nunca no repositório
+- [ ] Container sem rede de saída
+- [ ] Limite de CPU
+- [ ] Limite de memória
+- [ ] Timeout por job
+- [ ] **A imagem é a mesma que irá para o droplet** — sem variante "de desenvolvimento"
 
-**Pipeline**
-- [ ] `LatexBuilder` alimentado pelo `QuestionTypePlugin`
-- [ ] Template e preamble aplicados
-- [ ] Assets referenciados corretamente
+**Compilação**
 - [ ] `pdflatex` via `execFile` com argumentos — nunca string de shell
 - [ ] Diretório temporário por job
-- [ ] Timeout de compilação
 - [ ] `shell-escape` bloqueado
 - [ ] stdout, stderr e exit code capturados
 - [ ] `pdftocairo` gera PNG
 - [ ] DPI configurável
-- [ ] Artifact salvo
+- [ ] Artefatos gravados via `StorageProvider`
 
-**Job, cache e coalescing**
+**Profiles**
+- [ ] `LatexProfile` com documentclass, packages, macros, engine e defaults
+- [ ] Profile "Legacy Compatibility" a partir de `latex-includes.tex`
+- [ ] `LatexBuilder` alimentado pelo `QuestionTypePlugin`
+- [ ] Template e preamble aplicados
+- [ ] Assets referenciados corretamente
+
+**Lado da aplicação**
+- [ ] `RenderExecutor` implementado como `RenderWorkerExecutor`
+- [ ] `baseURL` configurável por ambiente — única diferença entre WSL e droplet
+- [ ] Nenhum módulo editorial chama a compilação diretamente
 - [ ] `RenderJob` persistido
 - [ ] API de criação, status e resultado
-- [ ] Content hash cobre LaTeX final, template, preamble, assets, engine, parâmetros e versão do renderer
+- [ ] Content hash cobre conteúdo, profile, template, preamble, assets, engine, parâmetros e versão do renderer
 - [ ] Cache hit retorna artefato anterior e marca `cacheHit`
 - [ ] Invalidação por versão do renderer
 - [ ] Render pendente é cancelado quando ainda não iniciou
 - [ ] Render intermediário é descartado
 - [ ] Estado final converge para o último pedido, com teste
+- [ ] Worker indisponível degrada com mensagem clara, sem perder edição
+- [ ] `RenderArtifact` pode ser descartado e reconstruído *(auditoria §41)*
+- [ ] `preview.png` nunca vira conteúdo canônico
 
 **Interface**
 - [ ] Aba PDF
@@ -319,14 +379,85 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Diagnósticos decorados no Monaco
 - [ ] Clique no log navega para a linha
 
-**Otimização**
+**Otimização** *(auditoria §21 — medir, não assumir)*
 - [ ] Tempo base medido e registrado
-- [ ] Preâmbulo pré-compilado (`mylatexformat`) implementado
-- [ ] Ganho registrado com número antes/depois
+- [ ] Preâmbulo pré-compilado (`mylatexformat`) embutido na imagem
+- [ ] Ganho registrado com número antes × depois
 
 **Aceite da fase**
+- [ ] `docker compose up` sobe o worker e a app conversa com ele
 - [ ] Render autoritativo nunca trava a edição
 - [ ] Cache hit demonstrado com medição
+- [ ] App continua utilizável com a internet desligada
+
+---
+
+### Fase 6.5 — Cloud Compatibility Spike *(D30)*
+
+> Prova arquitetural, não migração. Terminada a fase, **voltar ao desenvolvimento local**.
+
+**Ambiente experimental**
+- [ ] PostgreSQL em Docker na porta `28432` (suíte local nos dois motores)
+- [ ] Projeto Neon PostgreSQL provisionado
+- [ ] Vercel Blob provisionado
+- [ ] Deploy experimental na Vercel
+- [ ] Nada disso vira dependência do ambiente principal
+
+**Amostra mínima** *(auditoria §30)*
+- [ ] 1 workspace
+- [ ] 1 publication
+- [ ] 1 chapter
+- [ ] 1 section
+- [ ] 10 questions com alternatives e tags
+- [ ] 1 PDF original
+- [ ] 3–5 assets
+- [ ] 1 crop
+- [ ] 1 SourceAnchor
+- [ ] 1 render PDF
+- [ ] 1 render PNG
+
+**Testes obrigatórios** *(auditoria §31)*
+- [ ] Criação de publicação
+- [ ] Árvore
+- [ ] `Question`
+- [ ] `QuestionOption`
+- [ ] Tags
+- [ ] Save
+- [ ] Optimistic concurrency
+- [ ] Upload
+- [ ] `StorageProvider`
+- [ ] Download
+- [ ] `SourceAnchor`
+- [ ] Crop
+- [ ] Render artifact
+- [ ] Hashes
+- [ ] Relations
+- [ ] Timestamps
+- [ ] UUIDs
+- [ ] **Suíte de integração roda contra SQLite**
+- [ ] **Suíte de integração roda contra PostgreSQL**
+
+> **Render fora do escopo desta fase.** Com D27 o worker é o mesmo container em WSL e em
+> droplet; a portabilidade do render já foi provada na Fase 6. Aqui só se testa banco e storage.
+
+**Entregável: `Cloud Compatibility Report`** *(auditoria §32)*
+- [ ] Diferenças SQLite/PostgreSQL
+- [ ] Problemas de migrations
+- [ ] Problemas do Prisma
+- [ ] Diferenças de constraints
+- [ ] Diferenças de índices
+- [ ] Problemas de storage
+- [ ] Problemas de paths
+- [ ] Problemas de uploads
+- [ ] Problemas de assets
+- [ ] Mudanças necessárias — ou "nenhum problema encontrado"
+
+**Aceite da fase**
+- [ ] Relatório escrito e commitado
+- [ ] Suíte verde nos dois motores, ou lista explícita do que falhou e por quê
+- [ ] Nenhuma reescrita de domínio foi necessária — ou a fronteira violada está identificada
+- [ ] **Desenvolvimento voltou ao modo local**
+- [ ] O spike não consumiu semanas *(guarda-corpo de D30)*
 
 ---
 
@@ -368,7 +499,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] `validate_question` com regras, warnings e inconsistências
 
 **Aceite da fase**
-- [ ] §33 "Questão" completo (§8 deste documento)
+- [ ] §33 "Questão" completo (§10 deste documento)
 
 ---
 
@@ -488,7 +619,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Origem (compara com o crop quando disponível)
 
 **Aceite da fase**
-- [ ] §35 completo (§10 deste documento)
+- [ ] §35 completo (§12 deste documento)
 - [ ] E2E do fluxo crítico passa ponta a ponta
 
 ---
@@ -509,9 +640,16 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-## Wave D — acervo legado
+## Wave D — acervo legado e portabilidade
 
-### Fase 11 — Importação
+### Fase 11 — Importação do legado *(roda localmente — auditoria §43)*
+
+**Escopo do scanner** *(§2.10)*
+- [ ] Detecta bibliotecas a partir de `padrao.knowchicoconfig`
+- [ ] `ITA/Material` (3,2 GB) explicitamente ignorado
+- [ ] `Listas/` (327 MB, repos git de terceiros) explicitamente ignorado
+- [ ] O relatório declara o que foi ignorado e por quê
+- [ ] Importador tem acesso direto ao filesystem — nenhum upload exigido para começar
 
 **Leitura segura**
 - [ ] Banco legado aberto estritamente read-only
@@ -553,6 +691,8 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] LaTeX: enunciado, resposta, complemento, origem
 
 **Assets**
+- [ ] Gravados via `LocalFileStorageProvider`
+- [ ] `sha256` calculado por arquivo
 - [ ] `pub<N>/cover.jpg` → `Asset(COVER)`
 - [ ] `<Título>.detail.json` → `metadataJson`
 - [ ] `preview.png` **não** importado (é cache de render)
@@ -576,7 +716,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 **Aceite da fase**
 - [ ] As 13 bibliotecas importam
 - [ ] Contagens batem com o levantamento (64 pubs, 297 nós, 1.247 alternativas) ou cada divergência está explicada no relatório
-- [ ] §33 "Legado" completo (§8 deste documento)
+- [ ] §33 "Legado" completo (§10 deste documento)
 
 ---
 
@@ -592,28 +732,70 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Filtro por tipo
 - [ ] Filtro por dificuldade
 - [ ] Integração com `Ctrl+K`
-- [ ] Benchmark do FTS5 executado
-- [ ] Decisão sobre FTS5 documentada com números
+- [ ] Avaliação do FTS5 do SQLite
+- [ ] Benchmark executado sobre o acervo importado
+- [ ] Decisão documentada com números
+- [ ] `QuestionSearchService` permanece agnóstico — o full-text do PostgreSQL pode substituir sem tocar em use case
+
+---
+
+### Fase 13 — Exportação e importação `.lbb` *(nova, D18)*
+
+**Formato**
+- [ ] Módulo `portability` criado
+- [ ] Contrato `PortableArchive` definido
+- [ ] `manifest.json` com `formatVersion`, workspace, contagens, data e checksums
+- [ ] `data.sqlite` gerado a partir do schema Prisma, não escrito à mão
+- [ ] Assets em `assets/<sha256[0:2]>/<sha256>.<ext>`
+- [ ] `data.sqlite` referencia assets por `sha256`, nunca por path
+
+**Exportação**
+- [ ] Exporta um workspace inteiro
+- [ ] Assets duplicados aparecem uma única vez no zip
+- [ ] Checksums calculados e gravados
+- [ ] Progresso visível para acervos grandes
+- [ ] UI de exportação
+
+**Importação**
+- [ ] Verifica `formatVersion` e recusa versão desconhecida com mensagem clara
+- [ ] Verifica checksums e recusa arquivo corrompido
+- [ ] Religa assets ao `StorageProvider` de destino
+- [ ] Colisão de `legacyId`/`uuid` gera relatório e exige decisão
+- [ ] Nada é sobrescrito em silêncio
+- [ ] Relatório de importação
+- [ ] UI de importação
+
+**Backup recorrente** *(D32)*
+- [ ] Rotina de backup reutiliza o **mesmo escritor** da exportação — nenhum formato paralelo
+- [ ] Frequência configurável
+- [ ] Retenção configurável
+- [ ] Destino configurável
+- [ ] Executada no host do worker
+- [ ] Falha de backup fica visível na página de diagnóstico, nunca em silêncio
+- [ ] Último backup bem-sucedido registrado com data e tamanho
+
+**Aceite da fase**
+- [ ] **Round-trip:** exportar um workspace, importar num vazio e comparar dá identidade
+- [ ] **Um arquivo produzido pelo backup automático abre e restaura como um export manual**, provado pelo mesmo teste
+- [ ] Arquivo de versão futura é recusado com mensagem clara
+- [ ] Arquivo corrompido é recusado com mensagem clara
+- [ ] Teste de round-trip incluído na suíte e ligado a qualquer mudança de schema
 
 ---
 
 ## Wave E — ingestão visual
 
-### Fase 13 — Assets, PDF e crop
+### Fase 14 — Assets, PDF e crop
 
-**Asset store**
-- [ ] Paths sanitizados
-- [ ] Nenhum path escapa do workspace, com teste
+**Ingestão**
+- [ ] Upload por file picker
+- [ ] Drag-and-drop
+- [ ] `Ctrl+V` de imagem
 - [ ] sha256 do conteúdo
 - [ ] MIME e extensão validados
 - [ ] Limite de upload
 - [ ] Metadata (tamanho, dimensões, filename original)
-- [ ] Storage key, sem path local no domínio
-
-**Entrada**
-- [ ] Upload por file picker
-- [ ] Drag-and-drop
-- [ ] `Ctrl+V` de imagem
+- [ ] Nenhuma chave de storage escapa do prefixo do workspace, com teste
 - [ ] Inserção assistida de figura: width, height, caption, label
 - [ ] Snippet `figure/includegraphics` gerado
 
@@ -624,18 +806,24 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Desenhar retângulo de crop
 - [ ] Ajustar o retângulo
 - [ ] Salvar crop
-- [ ] `SourceAnchor` criado com página e bounding box
+- [ ] `SourceAnchor` criado com `pageNumber` e bbox **normalizada 0..1** *(D28)*
+- [ ] Nenhuma coordenada absoluta persistida
+- [ ] Crop reconstruível a partir de PDF + página + bbox, com teste
+- [ ] `rotation` suportado quando aplicável
 - [ ] `Asset(CROP)` criado
 - [ ] Imagem original preservada
+- [ ] `SOURCE_PDF` nunca substituído por OCR, PNG, crop ou texto extraído *(D29)*
+- [ ] Asset fonte é imutável: arquivo alterado gera novo Asset
+- [ ] Cadeia de proveniência navegável: Question → SourceAnchor → fonte → page+bbox → CROP
 - [ ] Opções após o crop: inserir como imagem, reconhecer matemática, reconhecer texto, anexar como referência
 
 **Aceite da fase**
-- [ ] §33 "Assets" completo (§8 deste documento)
+- [ ] §33 "Assets" completo (§10 deste documento)
 - [ ] "Voltar à origem" funciona a partir de uma questão
 
 ---
 
-### Fase 14 — Reconhecimento matemático
+### Fase 15 — Reconhecimento matemático
 
 - [ ] `MathRecognitionProvider` definido
 - [ ] Resultado com latex, confidence, alternatives, provider, model e metadados
@@ -652,7 +840,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ## Wave F — diferencial de produto
 
-### Fase 15 — Avaliações e variantes
+### Fase 16 — Avaliações e variantes
 
 **Randomização**
 - [ ] PRNG determinístico
@@ -683,13 +871,16 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-### Fase 16 — Endurecimento e preparação SaaS
+### Fase 17 — Endurecimento
 
 **Diagnóstico** *(spec §25)*
 - [ ] Versão do app
 - [ ] Path do SQLite
 - [ ] TeX disponível e versão do `pdflatex`
 - [ ] `pdftocairo` disponível
+- [ ] Storage ativo e sanidade
+- [ ] Saúde do worker de render (`GET /health`)
+- [ ] Último backup: data, tamanho e resultado *(D32)*
 - [ ] Provider de IA e modelo
 - [ ] Ollama disponível
 - [ ] Tamanho do cache
@@ -703,13 +894,21 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Logs estruturados de persistência
 - [ ] Prompts completos fora do log por padrão
 
-**Preparação SaaS**
-- [ ] Spike PostgreSQL: schema migrado
-- [ ] Suíte de integração roda nos dois providers
-- [ ] Diferenças documentadas em relatório
-- [ ] `StorageProvider` com implementação local e interface pronta para S3
+**Segurança e autorização**
 - [ ] `workspaceId` em todas as entidades relevantes
 - [ ] Guard central de autorização, mesmo em single-user
+- [ ] Secrets apenas em `.env.local`
+
+**Revisão arquitetural final**
+- [ ] Regras de boundary da §4.5 revisadas e verdes
+- [ ] Nenhuma abstração cerimonial acrescentada além dos quatro contratos
+
+**Critério de sucesso do produto local** *(auditoria §48)*
+- [ ] O app roda ponta a ponta com a internet desligada
+- [ ] Biblioteca local grande é utilizável
+- [ ] IA local funciona
+- [ ] Ferramentas TeX locais funcionam
+- [ ] Fontes gráficas complexas são preservadas e editáveis
 
 **E2E** *(spec §27)*
 - [ ] Abrir publicação
@@ -724,14 +923,73 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Aplicar
 - [ ] Render novamente
 
+> Deploy em produção **não** faz parte deste plano. A prova de viabilidade é a Fase 6.5.
+
 ---
 
-## 8. Checklist de aceite do MVP *(spec §33)*
+## 8. Fronteiras de provider *(auditoria §36)*
+
+Checklist arquitetural. Verificar a cada fase, não só na Fase 0.
+
+- [ ] Domain não importa Prisma
+- [ ] Domain não importa Vercel
+- [ ] Domain não importa Blob SDK
+- [ ] Domain não importa Node filesystem
+- [ ] Domain não executa `pdflatex`
+- [ ] Domain não importa SDK de IA
+- [ ] Components não conhecem implementação concreta de storage
+- [ ] Storage usa `storageKey`
+- [ ] Asset possui hash
+- [ ] Source original é preservado
+- [ ] Crop guarda `SourceAnchor`
+- [ ] Bounding boxes são normalizadas
+- [ ] **PostGIS não existe no projeto**
+
+**Critério de sucesso arquitetural** *(auditoria §47)* — este código não pode saber onde executa:
+
+```ts
+const publication = await publicationRepository.get(id);
+const asset       = await storageProvider.get(assetId);
+const result      = await renderExecutor.render(request);
+```
+
+- [ ] Verdadeiro para SQLite + disco + `pdflatex` local
+- [ ] Verdadeiro para PostgreSQL + object storage + renderer cloud *(provado na Fase 6.5)*
+
+**Áreas que a versão cloud não pode exigir reescrever** *(auditoria §49)*
+
+- [ ] `Question` · `QuestionOption` · `DocumentNode` · `Publication` · `Asset` · `SourceAnchor`
+- [ ] `QuestionTypePlugin` · Validation · Randomization · Assessment · Agent Patch · Revision
+
+---
+
+## 9. Higiene de portas *(D19)*
+
+Verificar sempre que uma nova dependência de infraestrutura entrar.
+
+- [ ] Nenhum serviço do projeto usa porta padrão conhecida (3000, 5432, 6379, 8080)
+- [ ] Todas as portas do projeto estão no bloco `28xxx`
+- [ ] Todas as portas estão abaixo de 32768 (fora da faixa efêmera do kernel)
+- [ ] Varredura de conflito refeita antes de adicionar qualquer serviço novo
+- [ ] Portas documentadas no README
+
+| Porta | Serviço |
+|---:|---|
+| `28080` | Next.js (dev) |
+| `28432` | PostgreSQL em Docker — **apenas Fase 6.5** |
+| `28900` | Worker de render LaTeX (Docker no WSL) |
+| `28001` | Prisma Studio |
+| `28379` | Redis (reservado) |
+| `28025` | Mailpit (reservado) |
+
+---
+
+## 10. Checklist de aceite do MVP *(spec §33)*
 
 ### Aplicação
 - [ ] Sobe com `pnpm dev`
 - [ ] Setup local documentado
-- [ ] SQLite criado automaticamente
+- [ ] SQLite criado automaticamente pelo `pnpm setup` *(D24)*
 - [ ] Nenhuma dependência do WPF em runtime
 - [ ] UI premium e estável
 
@@ -804,9 +1062,15 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Import snippets LaTeX
 - [ ] Relatório
 
+### Portabilidade *(novo, D18/D32)*
+- [ ] Exporta workspace em `.lbb`
+- [ ] Importa `.lbb`
+- [ ] Round-trip preserva identidade
+- [ ] Backup recorrente produz `.lbb` restaurável
+
 ---
 
-## 9. Checklist visual *(spec §34)*
+## 11. Checklist visual *(spec §34)*
 
 - [ ] Nenhum painel parece "CRUD de sistema interno de 2014"
 - [ ] A árvore tem densidade próxima de IDE
@@ -827,7 +1091,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-## 10. Checklist do painel agêntico *(spec §35)*
+## 12. Checklist do painel agêntico *(spec §35)*
 
 - [ ] O modelo sabe exatamente qual questão está aberta
 - [ ] Seleção do Monaco pode ser anexada
@@ -853,18 +1117,22 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-## 11. Segurança *(spec §24)*
+## 13. Segurança *(spec §24, adaptada à nova topologia)*
 
 - [ ] Secrets somente em `.env.local`
 - [ ] API key nunca exposta ao browser
 - [ ] Paths sanitizados
 - [ ] Nenhum path de usuário escapa do workspace
+- [ ] Chaves de storage prefixadas por `workspaceId`, sem escape
 - [ ] MIME e extensão validados
 - [ ] Upload limitado
 - [ ] Hash de conteúdo usado
 - [ ] Nenhum shell montado por concatenação de string
 - [ ] Tempo de compilação limitado
 - [ ] Shell escape bloqueado no LaTeX
+- [ ] Filesystem efêmero nunca usado como storage persistente *(auditoria §23)*
+- [ ] Container do worker sem rede de saída
+- [ ] Segredo compartilhado do worker fora do repositório e rotacionável
 - [ ] Ação agêntica registrada
 - [ ] Nenhuma tool arbitrária vinda do modelo
 - [ ] Todo patch do agente validado antes de apresentar e de aplicar
@@ -873,7 +1141,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ---
 
-## 12. Definition of Done — por fase *(spec §28)*
+## 14. Definition of Done — por fase *(spec §28)*
 
 Aplicar integralmente ao fim de **cada** fase, antes do checkpoint humano.
 
@@ -895,7 +1163,7 @@ Aplicar integralmente ao fim de **cada** fase, antes do checkpoint humano.
 
 ---
 
-## 13. Regras invioláveis *(spec §42)*
+## 15. Regras invioláveis *(spec §42)*
 
 Verificar em toda revisão de fase:
 
@@ -915,3 +1183,9 @@ Verificar em toda revisão de fase:
 - [ ] Batch agent não implementado antes de aprovação e revisão funcionarem
 - [ ] Erro de compilação nunca escondido
 - [ ] Experiência de teclado nunca sacrificada
+- [ ] PostGIS nunca entra no projeto
+- [ ] Nenhum binário armazenado como BLOB no banco
+- [ ] `SOURCE_PDF` nunca substituído por derivado
+- [ ] Asset fonte tratado como imutável
+- [ ] Bounding box sempre normalizada
+- [ ] Abstração criada apenas onde há múltiplas implementações reais
