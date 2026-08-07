@@ -19,6 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    env:
+      # `prisma.config.ts` resolve `env("DATABASE_URL")` de forma ansiosa, então até
+      # `prisma generate` precisa da variável. Definir no nível do job vale para todos os
+      # passos e evita descobrir a falta um passo por vez.
+      DATABASE_URL: file:./ci.db
+
     steps:
       - uses: actions/checkout@v4
 
@@ -52,5 +58,3 @@ jobs:
 
       - name: Build
         run: pnpm build
-        env:
-          DATABASE_URL: file:./ci.db
