@@ -4,6 +4,7 @@ import {
   DeletedAncestorError,
   createNode,
   deleteNode,
+  duplicateNode,
   moveNode,
   renameNode,
   restoreNode,
@@ -13,6 +14,7 @@ import type {
   DocumentTreeRepository,
   DocumentTreeWriter,
   NewNode,
+  PlannedNode,
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
 import { CyclicMoveError, NodeNotFoundError } from "@modules/document-tree/domain/tree-mutations";
@@ -93,6 +95,28 @@ class InMemoryTree implements DocumentTreeRepository, DocumentTreeWriter {
 
   async restoreMany(nodeIds: readonly string[]): Promise<void> {
     for (const row of this.rows) if (nodeIds.includes(row.id)) row.deletedAt = null;
+  }
+
+  async duplicateSubtree(_publicationId: string, plan: readonly PlannedNode[]): Promise<string> {
+    const idMap = new Map<string, string>();
+
+    for (const [index, step] of plan.entries()) {
+      const source = this.rows.find((r) => r.id === step.sourceId);
+      const id = `copia-${++this.sequence}`;
+      // A raiz da cópia entra sob um nó que já existe; as demais, sob a cópia do próprio pai.
+      const parentId =
+        index === 0 || step.parentId === null ? step.parentId : (idMap.get(step.parentId) ?? null);
+      this.rows.push({
+        id,
+        parentId,
+        title: source?.title ?? null,
+        sortKey: step.sortKey,
+        deletedAt: null,
+      });
+      idMap.set(step.sourceId, id);
+    }
+
+    return idMap.get(plan[0]?.sourceId ?? "") as string;
   }
 
   async listDeleted(): Promise<readonly DeletedNodeRecord[]> {
@@ -252,5 +276,45 @@ describe("restaurar", () => {
 
   it("recusa restaurar o que não está na lixeira", async () => {
     await expect(restoreNode(deps, PUB, "cap2")).rejects.toThrow(NodeNotFoundError);
+  });
+});
+
+describe("duplicar", () => {
+  it("copia a subárvore inteira, preservando a hierarquia", async () => {
+    const newRootId = await duplicateNode(deps, PUB, "cap1", {
+      kind: "after",
+      siblingId: "cap1",
+    });
+
+    const rows = tree.snapshot();
+    const copies = rows.filter((r) => r.id.startsWith("copia-"));
+    expect(copies).toHaveLength(4); // cap1 + sec1 + sub1 + sec2
+
+    const root = rows.find((r) => r.id === newRootId);
+    expect(root?.parentId).toBe(null);
+
+    // Cada cópia aponta para uma cópia, nunca para o original.
+    const copyIds = new Set(copies.map((c) => c.id));
+    for (const copy of copies) {
+      if (copy.id === newRootId) continue;
+      expect(copyIds.has(copy.parentId as string), `${copy.id} aponta para cópia`).toBe(true);
+    }
+  });
+
+  it("a cópia entra na posição pedida, sem mexer no original", async () => {
+    const before = tree.snapshot().filter((r) => !r.id.startsWith("copia-"));
+
+    const newRootId = await duplicateNode(deps, PUB, "sub1", {
+      kind: "lastChild",
+      parentId: "sec2",
+    });
+
+    expect(tree.snapshot().find((r) => r.id === newRootId)?.parentId).toBe("sec2");
+    expect(tree.snapshot().filter((r) => !r.id.startsWith("copia-"))).toEqual(before);
+  });
+
+  it("duplicar uma folha cria um nó só", async () => {
+    await duplicateNode(deps, PUB, "sub1", { kind: "after", siblingId: "sub1" });
+    expect(tree.snapshot().filter((r) => r.id.startsWith("copia-"))).toHaveLength(1);
   });
 });

@@ -81,6 +81,22 @@ export interface DocumentTreeWriter {
 
   /** Nós excluídos de uma publicação — a lixeira, e o que `restore` precisa consultar. */
   listDeleted(publicationId: string): Promise<readonly DeletedNodeRecord[]>;
+
+  /**
+   * Duplica uma subárvore inteira, em uma transação, e devolve o id da nova raiz.
+   *
+   * Recebe o plano em pré-ordem já resolvido pelo domínio (`planDuplicate`). A tradução de
+   * `sourceId` para o id novo do pai é feita aqui, dentro da transação, porque é onde os ids
+   * nascem — o domínio não tem como saber.
+   */
+  duplicateSubtree(publicationId: string, plan: readonly PlannedNode[]): Promise<string>;
+}
+
+/** Espelha `PlannedNode` de `tree-mutations`, sem criar dependência de domínio → domínio. */
+export interface PlannedNode {
+  readonly sourceId: string;
+  readonly parentId: string | null;
+  readonly sortKey: string;
 }
 
 export interface DeletedNodeRecord {

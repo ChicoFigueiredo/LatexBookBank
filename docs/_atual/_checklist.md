@@ -22,9 +22,9 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2:
-#33 "Árvore" do MVP completo; faltam duplicar, drag-and-drop e os indicadores de estado.
-251 testes · 21 PRs abertos, nada mergeado.
+**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2 com
+CRUD completo, incluindo duplicação de subárvore; faltam drag-and-drop e os indicadores de estado.
+254 testes · 22 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -266,7 +266,8 @@ falta o que produz o estado
 - ✅ Renomear inline (F2) *(#37 — nome antigo marcado inteiro; Enter aplica, Esc cancela, sair do campo aplica)*
 - ✅ Excluir logicamente *(leva a descendência junto e devolve a lista — o cliente precisa poder avisar)*
 - ✅ Restaurar *(recusa com 409 se o ancestral continuar excluído, em vez de devolver nó invisível)*
-- [ ] Duplicar *(plano de subárvore pronto; falta clonar questão e alternativas)*
+- ✅ Duplicar *(subárvore inteira numa transação: nós, questão, alternativas e tags; `Ctrl+D`)*
+- ✅ A cópia não herda `legacyId` nem `validationStatus` *(não é a linha do legado, e ninguém revisou a variante)*
 - ✅ Menu de contexto *(#37 — via `wrapItem`, sem a árvore conhecer menus)*
 - ✅ Exclusão confirmada em `Modal`, sem descarte por clique fora *(o "não" precisa ser explícito)*
 
@@ -295,7 +296,7 @@ falta o que produz o estado
 - [ ] Atalhos não conflitam com o Monaco *(verificável na Fase 3)*
 
 **Aceite da fase**
-- [ ] §33 "Árvore" completo (§10 deste documento) *(falta duplicar e drag-and-drop)*
+- [ ] §33 "Árvore" completo (§10 deste documento) *(§33 em si está ✅; falta drag-and-drop, que a spec §4.1 pede)*
 - ✅ Estado da árvore persiste entre sessões *(expandidos e nó corrente; nó excluído entre sessões cai no primeiro em vez de abrir vazio)*
 
 ---

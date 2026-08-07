@@ -213,6 +213,13 @@ export function PublicationWorkbench({
           shortcut: "F2",
           onSelect: () => editing.handleCommand({ kind: "rename", nodeId }),
         },
+        {
+          id: "duplicate",
+          label: "Duplicar",
+          icon: "history",
+          shortcut: "Ctrl+D",
+          onSelect: () => editing.handleCommand({ kind: "duplicate", nodeId }),
+        },
       ],
       [
         {
