@@ -12,6 +12,10 @@ import { PrismaPublicationRepository } from "@modules/publications/infrastructur
  * banco: é o antipadrão do legado que a spec §8.5 manda eliminar. Reordenar as alternativas
  * troca a letra e o gabarito segue a alternativa, não a posição.
  */
+
+/** Dinâmica: o conteúdo muda a cada edição, e no build não há banco a consultar. */
+export const dynamic = "force-dynamic";
+
 export default async function PublicationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

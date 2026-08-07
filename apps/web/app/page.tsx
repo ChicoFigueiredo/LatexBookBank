@@ -11,6 +11,14 @@ import { PrismaPublicationRepository } from "@modules/publications/infrastructur
  * **Sem estilo de propósito.** O design system é a Fase 1; esta tela existe para provar o
  * caminho de dados ponta a ponta, não a aparência.
  */
+
+/**
+ * Dinâmica, não estática: a lista muda conforme o autor cria e importa publicações, e um
+ * snapshot de build serviria dados velhos. No build também não há banco a consultar — foi
+ * exatamente assim que o CI pegou isto.
+ */
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const repository = new PrismaPublicationRepository();
   const publications = await repository.listByWorkspaceSlug("demo");

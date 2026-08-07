@@ -44,6 +44,12 @@ jobs:
         run: bun x prisma generate
         working-directory: apps/web
 
+      # O build renderiza rotas que consultam o banco. Sem schema, a falha aparece como
+      # "no such table" no meio do build — e é o CI que precisa provar que a app sobe do zero.
+      - name: Apply migrations
+        run: bun x prisma migrate deploy
+        working-directory: apps/web
+
       - name: Lint
         run: bun run lint
 
