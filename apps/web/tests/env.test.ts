@@ -22,7 +22,7 @@ describe("configuração de ambiente", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(EnvError);
       expect((error as Error).message).toContain("DATABASE_URL ausente");
-      expect((error as Error).message).toContain("pnpm setup");
+      expect((error as Error).message).toContain("bun run setup");
     }
   });
 

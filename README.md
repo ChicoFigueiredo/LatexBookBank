@@ -12,31 +12,28 @@ sem que nenhuma regra de negócio saiba qual infraestrutura está por trás.
 ## Começando
 
 ```bash
-pnpm install
-pnpm run setup      # cria .env.local, aplica migrations, verifica dependências
-pnpm db:seed        # dados de demonstração
-pnpm dev            # http://localhost:28080
+bun install
+bun run setup       # .env.local, migrations, seed e verificação de dependências
+bun run dev         # http://localhost:28080
 ```
 
-Requisitos: Node ≥ 20.9, pnpm 10 e Docker. TeX no host é **opcional** — o render roda no worker
-em Docker (Fase 6), e o `pdflatex` local serve só como fallback.
-
-> `pnpm run setup`, não `pnpm setup`: `setup` é comando reservado do pnpm e não executaria o
-> script deste projeto — ainda por cima imprimindo uma mensagem de sucesso enganosa.
+Requisitos: **Bun ≥ 1.3** e Docker. Node **não** é necessário — o CLI do Prisma roda sob Bun.
+TeX no host é **opcional**: o render roda no worker em Docker (Fase 6), e o `pdflatex` local
+serve só como fallback.
 
 ## Scripts
 
-| Comando          | O que faz                          |
-| ---------------- | ---------------------------------- |
-| `pnpm dev`       | Sobe o app em `28080`              |
-| `pnpm build`     | Build de produção                  |
-| `pnpm lint`      | ESLint em todos os pacotes         |
-| `pnpm typecheck` | `tsc --noEmit` em todos os pacotes |
-| `pnpm test`      | Vitest em todos os pacotes         |
-| `pnpm format`    | Prettier                           |
-| `pnpm run setup` | Prepara o ambiente local           |
-| `pnpm db:seed`   | Popula dados de demonstração       |
-| `pnpm db:studio` | Prisma Studio em `28001`           |
+| Comando             | O que faz                          |
+| ------------------- | ---------------------------------- |
+| `bun run setup`     | Prepara o ambiente local           |
+| `bun run dev`       | Sobe o app em `28080`              |
+| `bun run build`     | Build de produção                  |
+| `bun run lint`      | ESLint em todos os pacotes         |
+| `bun run typecheck` | `tsc --noEmit` em todos os pacotes |
+| `bun run test`      | Vitest em todos os pacotes         |
+| `bun run format`    | Prettier                           |
+| `bun db:seed`       | Popula dados de demonstração       |
+| `bun db:studio`     | Prisma Studio em `28001`           |
 
 ## Portas
 

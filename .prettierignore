@@ -1,6 +1,6 @@
 .next
 node_modules
-pnpm-lock.yaml
+bun.lock
 apps/web/data
 
 # Documentos com formatação própria — planejamento, checklist e prompts de auditoria.
