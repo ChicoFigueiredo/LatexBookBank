@@ -8,6 +8,7 @@
 
 export { Icon, ICON_NAMES, type IconName, type IconProps } from "./Icon";
 export { useStoredState } from "./shared/use-stored-state";
+export { injectCss } from "./shared/inject-css";
 export { BrandMark, type BrandMarkProps, type BrandTone } from "./BrandMark";
 
 export { Button, type ButtonProps, type ButtonVariant, type ControlSize } from "./forms/Button";

@@ -201,6 +201,7 @@ export function useTreeEditing({ publicationId, titleOf, siblingOrderOf, onSelec
     rename,
     create,
     duplicate,
+    move,
     confirmDelete,
     cancelDelete: () => setPendingDelete(null),
     cancelEditing: () => setEditingId(null),

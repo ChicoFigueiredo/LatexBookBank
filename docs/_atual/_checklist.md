@@ -22,9 +22,9 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2 com
-CRUD completo, incluindo duplicação de subárvore; faltam drag-and-drop e os indicadores de estado.
-254 testes · 22 PRs abertos, nada mergeado.
+**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). **Fase 2
+fechada em mecânica**: CRUD, ordenação, busca e drag-and-drop. Restam os indicadores de estado,
+que dependem das Fases 3 e 6 para terem o que indicar. 258 testes · 23 PRs, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -282,7 +282,7 @@ falta o que produz o estado
 - ✅ Mover como filho *(`PATCH` com `placement`; ciclo devolve 409, não 400 — o pedido é válido, o estado é que recusa)*
 - ✅ Mover como irmão
 - ✅ Reordenar
-- [ ] Drag-and-drop via `dnd-kit` *(é UI, #37)*
+- ✅ Drag-and-drop via `dnd-kit` *(três zonas por linha: antes · virar filho · depois; ciclo recusado **durante** o arraste, com a linha em vermelho)*
 
 **Busca e teclado** — #37
 - ✅ `Ctrl+N` novo irmão *(com `preventDefault` — no navegador abriria janela nova)*
@@ -296,7 +296,7 @@ falta o que produz o estado
 - [ ] Atalhos não conflitam com o Monaco *(verificável na Fase 3)*
 
 **Aceite da fase**
-- [ ] §33 "Árvore" completo (§10 deste documento) *(§33 em si está ✅; falta drag-and-drop, que a spec §4.1 pede)*
+- ✅ §33 "Árvore" completo (§10 deste documento)
 - ✅ Estado da árvore persiste entre sessões *(expandidos e nó corrente; nó excluído entre sessões cai no primeiro em vez de abrir vazio)*
 
 ---
