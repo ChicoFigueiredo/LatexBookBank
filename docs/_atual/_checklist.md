@@ -22,8 +22,9 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2 com
-árvore editável na tela (#35, #36, #37). 242 testes · 21 PRs abertos, nada mergeado.
+**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2:
+#33 "Árvore" do MVP completo; faltam duplicar, drag-and-drop e os indicadores de estado.
+251 testes · 21 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -242,16 +243,17 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ### Fase 2 — Árvore de documento
 
-**API e renderização** — #36
+**API e renderização** — #36, #37
 - ✅ `GET /api/publications/:id/tree` *(200 com a árvore, 404 explicado, `Cache-Control: no-store`; verificado no app rodando)*
-- [ ] Renderização recursiva com profundidade arbitrária
-- [ ] Virtualização
-- [ ] Ícones por `NodeKind`
-- [ ] Estado selecionado destacado
-- [ ] Breadcrumb refletindo o nó atual
-- [ ] Expandidos e selecionado persistidos
+- ✅ Renderização recursiva com profundidade arbitrária *(`nest()` reconstrói do `depth`, sem `parentId` vazar do DTO)*
+- ✅ Ícones por `NodeKind`
+- ✅ Estado selecionado destacado *(fundo + filete; `aria-selected` no `treeitem`)*
+- ✅ Breadcrumb refletindo o nó atual
+- ✅ Expandidos e selecionado persistidos *(expandidos pela `Tree`; seleção pelo workbench, que é quem depende dela — via `useStoredState`, sem quebrar hidratação)*
+- [ ] Virtualização *(o acervo tem 297 nós na maior publicação; medir antes de otimizar)*
 
-**Indicadores de estado** *(spec §4.1)*
+**Indicadores de estado** *(spec §4.1)* — `TreeNode.status` já aceita um `ArtifactStatus`;
+falta o que produz o estado
 - [ ] Conteúdo não salvo
 - [ ] Erro de render
 - [ ] Questão incompleta
@@ -287,13 +289,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ `Alt+↑/↓` mover *(seta sozinha só anda o foco; sem o Alt, percorrer reordenaria o acervo)*
 - ✅ `Del` excluir com confirmação
 - ✅ Teclas dentro do campo de renomeação não viram comando da árvore *(afirmado por teste)*
-- [ ] Busca e filtro por texto
-- [ ] Filtro por tipo, erro e incompleta
+- ✅ Busca e filtro por texto *(#37 — ignora acento; o resultado arrasta os ancestrais e vem com eles abertos)*
+- ✅ Filtro por tipo *(`NodeKind` presentes na publicação; combina com a busca por E)*
+- [ ] Filtro por erro e incompleta *(depende dos indicadores — Fases 3 e 6 é que produzem o estado)*
 - [ ] Atalhos não conflitam com o Monaco *(verificável na Fase 3)*
 
 **Aceite da fase**
-- [ ] §33 "Árvore" completo (§10 deste documento)
-- [ ] Estado da árvore persiste entre sessões
+- [ ] §33 "Árvore" completo (§10 deste documento) *(falta duplicar e drag-and-drop)*
+- ✅ Estado da árvore persiste entre sessões *(expandidos e nó corrente; nó excluído entre sessões cai no primeiro em vez de abrir vazio)*
 
 ---
 
@@ -1095,13 +1098,13 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 - [ ] UI premium e estável *(Fase 1)*
 
 ### Árvore
-- [ ] Cria filho
-- [ ] Cria irmão
-- [ ] Renomeia
-- [ ] Move
-- [ ] Reordena
-- [ ] Não permite ciclos
-- [ ] Estado persiste
+- ✅ Cria filho
+- ✅ Cria irmão
+- ✅ Renomeia
+- ✅ Move
+- ✅ Reordena
+- ✅ Não permite ciclos *(409, com teste em qualquer profundidade)*
+- ✅ Estado persiste
 
 ### Questão
 - [ ] Discursiva
