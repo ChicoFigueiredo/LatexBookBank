@@ -21,13 +21,13 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** ✅ Fase 0 · ◐ Fase 1 em andamento · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — #27, #28 e #29 entregues. Falta da Fase 1 só o aceite
-visual. 31 componentes · 181 testes · 17 PRs abertos, nenhum mergeado.
+**Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
+**Última atualização:** 2026-08-07 — Fase 1 fechada em código (#27, #28, #29); falta só o aceite
+visual. Fase 2 aberta (#34–#37), fractional indexing entregue. 200 testes · 18 PRs, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · 2 · 3 · 4 · 5 · 6 | Fase 1 em andamento |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · 3 · 4 · 5 · 6 | Fase 1 no aceite visual; Fase 2 iniciada |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -267,10 +267,11 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Restaurar
 - [ ] Menu de contexto
 
-**Ordenação e movimento**
-- [ ] Fractional indexing implementado
-- [ ] Testes de propriedade do ranking
-- [ ] Teste de rebalanceamento de rank
+**Ordenação e movimento** — #35
+- ✅ Fractional indexing implementado *(domínio puro, sem dependência; base-62 à la Figma)*
+- ✅ Testes de propriedade do ranking *(mil inserções no mesmo ponto e 500 aleatórias: ordem estrita, total, sem colisão)*
+- ✅ Teste de rebalanceamento de rank *(300 inserções degeneram a chave; `rebalanceKeys` devolve a < 8 caracteres)*
+- ✅ **Colação registrada como D38** *(no PostgreSQL, `sortKey` exige `COLLATE "C"` — a colação padrão inverteria a lista em silêncio)*
 - [ ] Mover como filho
 - [ ] Mover como irmão
 - [ ] Reordenar
