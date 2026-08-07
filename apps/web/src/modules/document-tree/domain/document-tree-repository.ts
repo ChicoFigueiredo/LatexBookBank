@@ -41,3 +41,52 @@ export interface DocumentTreeRepository {
   /** Nós não excluídos de uma publicação, já ordenados por `sortKey`. */
   listByPublication(publicationId: string): Promise<readonly TreeNodeRecord[]>;
 }
+
+/** Dados de criação de um nó. `sortKey` e `parentId` vêm resolvidos pelo domínio. */
+export interface NewNode {
+  readonly publicationId: string;
+  readonly parentId: string | null;
+  readonly kind: NodeKind;
+  readonly title: string | null;
+  readonly sortKey: string;
+  readonly numberingStyle?: NumberingStyle;
+}
+
+/**
+ * Porta de escrita da árvore.
+ *
+ * Separada da leitura de propósito: quase todo consumidor só lê, e um contrato que exige
+ * implementar escrita para renderizar uma árvore empurraria stub vazio para dentro de teste.
+ *
+ * Nenhum método aqui decide regra. Ciclo, posição e ordem são resolvidos no domínio antes de
+ * chegar; o que estas funções fazem é gravar o que já foi decidido.
+ */
+export interface DocumentTreeWriter {
+  create(node: NewNode): Promise<string>;
+
+  rename(nodeId: string, title: string | null): Promise<void>;
+
+  move(nodeId: string, parentId: string | null, sortKey: string): Promise<void>;
+
+  /**
+   * Exclusão lógica de um conjunto de nós, em uma transação.
+   *
+   * Recebe a lista inteira — nó e descendentes — porque excluir só o pai deixaria os filhos
+   * apontando para um nó excluído: eles sumiriam da árvore sem estar marcados, e voltariam
+   * sozinhos se alguém restaurasse o pai.
+   */
+  softDeleteMany(nodeIds: readonly string[]): Promise<void>;
+
+  restoreMany(nodeIds: readonly string[]): Promise<void>;
+
+  /** Nós excluídos de uma publicação — a lixeira, e o que `restore` precisa consultar. */
+  listDeleted(publicationId: string): Promise<readonly DeletedNodeRecord[]>;
+}
+
+export interface DeletedNodeRecord {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly title: string | null;
+  readonly kind: NodeKind;
+  readonly deletedAt: Date;
+}

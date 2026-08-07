@@ -22,8 +22,8 @@
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
-**Última atualização:** 2026-08-07 — Fase 1 fechada em código; falta só o aceite visual. Fase 2:
-ordenação (#35) e regras de movimento + API da árvore (#36). 219 testes · 19 PRs, nada mergeado.
+**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual). Fase 2 com
+CRUD da árvore ponta a ponta (#35, #36); falta a UI (#37). 233 testes · 20 PRs, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -258,14 +258,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Questão validada
 - [ ] Modificações agênticas pendentes
 
-**CRUD**
-- [ ] Criar nó filho
-- [ ] Criar nó irmão
-- [ ] Renomear inline (F2)
-- [ ] Duplicar
-- [ ] Excluir logicamente
-- [ ] Restaurar
-- [ ] Menu de contexto
+**CRUD** — #36 *(use cases + rotas; exercitadas contra o banco real)*
+- ✅ Criar nó filho *(`POST /nodes`, 201)*
+- ✅ Criar nó irmão *(mesmo endpoint, `placement: before|after`)*
+- ✅ Renomear *(`PATCH /nodes/:nodeId`)* — [ ] inline com F2 *(é UI, #37)*
+- ✅ Excluir logicamente *(leva a descendência junto e devolve a lista — o cliente precisa poder avisar)*
+- ✅ Restaurar *(recusa com 409 se o ancestral continuar excluído, em vez de devolver nó invisível)*
+- [ ] Duplicar *(plano de subárvore pronto; falta clonar questão e alternativas)*
+- [ ] Menu de contexto *(é UI, #37)*
 
 **Ordenação e movimento** — #35
 - ✅ Fractional indexing implementado *(domínio puro, sem dependência; base-62 à la Figma)*
@@ -275,10 +275,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ **Álgebra de posicionamento** *(#36 — `firstChild`/`lastChild`/`before`/`after` cobrem criar, mover e reordenar)*
 - ✅ **Ciclos rejeitados, com teste** *(mover para dentro do próprio ramo, em qualquer profundidade; ciclo já gravado no banco não trava a coleta)*
 - ✅ Plano de duplicação de subárvore em pré-ordem *(pai sempre antes dos filhos)*
-- [ ] Mover como filho *(domínio pronto; falta a escrita no repository)*
-- [ ] Mover como irmão *(idem)*
-- [ ] Reordenar *(idem)*
-- [ ] Drag-and-drop via `dnd-kit`
+- ✅ Mover como filho *(`PATCH` com `placement`; ciclo devolve 409, não 400 — o pedido é válido, o estado é que recusa)*
+- ✅ Mover como irmão
+- ✅ Reordenar
+- [ ] Drag-and-drop via `dnd-kit` *(é UI, #37)*
 
 **Busca e teclado**
 - [ ] Busca e filtro por texto
