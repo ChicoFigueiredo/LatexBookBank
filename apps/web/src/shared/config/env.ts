@@ -33,7 +33,7 @@ class EnvError extends Error {
   constructor(problems: readonly string[]) {
     super(
       `Configuração de ambiente inválida:\n${problems.map((p) => `  · ${p}`).join("\n")}\n\n` +
-        "Rode `pnpm setup`, ou copie `apps/web/.env.example` para `apps/web/.env.local`.",
+        "Rode `bun run setup`, ou copie `apps/web/.env.example` para `apps/web/.env.local`.",
     );
     this.name = "EnvError";
   }

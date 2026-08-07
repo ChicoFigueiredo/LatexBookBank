@@ -1,11 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm run setup` — deixa o ambiente local pronto, e diz claramente o que falta.
- *
- * **Use `pnpm run setup`, não `pnpm setup`.** `setup` é comando reservado do próprio pnpm (ele
- * instala o pnpm), então `pnpm setup` não executa este script e ainda imprime uma mensagem de
- * sucesso enganosa. A spec §26 pede o nome `setup`; mantivemos o nome do script e documentamos
- * a forma de invocar.
+ * `bun run setup` — deixa o ambiente local pronto, e diz claramente o que falta.
  *
  * A ordem de importância vem da segunda auditoria (§19, §21): o caminho principal do render é o
  * worker em Docker, então **Docker é a dependência obrigatória e o TeX do host é fallback
@@ -93,6 +88,14 @@ if (await exists(envLocal)) {
 
 console.log("\nDependências externas");
 
+const bunVersion = await probe("bun", ["--version"]);
+record(
+  "Bun",
+  bunVersion ? "ok" : "fail",
+  bunVersion ?? "ausente",
+  bunVersion ? OPTIONAL : OBLIGATORY,
+);
+
 const docker = await probe("docker", ["--version"]);
 if (docker) {
   record("Docker", "ok", firstLine(docker), OBLIGATORY);
@@ -121,17 +124,16 @@ record(
 
 console.log("\nBanco");
 try {
-  await run("pnpm", ["--filter", "@latexbookbank/web", "exec", "prisma", "migrate", "deploy"], {
-    cwd: root,
-    timeout: 120_000,
-  });
+  await run("bun", ["x", "prisma", "migrate", "deploy"], { cwd: web, timeout: 120_000 });
   record("migrations", "ok", "aplicadas");
 
-  await run("pnpm", ["--filter", "@latexbookbank/web", "exec", "prisma", "generate"], {
-    cwd: root,
-    timeout: 120_000,
-  });
+  await run("bun", ["x", "prisma", "generate"], { cwd: web, timeout: 120_000 });
   record("Prisma Client", "ok", "gerado");
+
+  // O seed só roda quando o banco está vazio: rodá-lo de novo duplicaria a publicação demo,
+  // porque `create` não é idempotente como o `upsert` do workspace.
+  await run("bun", ["x", "prisma", "db", "seed"], { cwd: web, timeout: 120_000 });
+  record("seed", "ok", "aplicado");
 } catch (error) {
   record("migrations", "fail", String(error).split("\n")[0], OBLIGATORY);
 }
@@ -153,10 +155,10 @@ const blocking = results.filter((r) => r.status === "fail" && r.level === OBLIGA
 
 console.log("");
 if (blocking.length === 0) {
-  console.log("Ambiente pronto.  pnpm dev  →  http://localhost:28080\n");
+  console.log("Ambiente pronto.  bun run dev  →  http://localhost:28080\n");
 } else {
   console.log("Faltam dependências obrigatórias:\n");
   for (const item of blocking) console.log(`  ✗ ${item.name} — ${item.detail}`);
-  console.log("\nNada foi instalado automaticamente: instale e rode `pnpm run setup` de novo.\n");
+  console.log("\nNada foi instalado automaticamente: instale e rode `bun run setup` de novo.\n");
   process.exitCode = 1;
 }

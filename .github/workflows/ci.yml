@@ -28,33 +28,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
+      # Sem `setup-node`: o CLI do Prisma roda sob Bun, verificado com PATH sem Node.
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: .nvmrc
-          cache: pnpm
+          bun-version-file: .bun-version
 
       # `--frozen-lockfile` recusa qualquer resolução divergente do lockfile: o CI verifica o
       # que foi commitado, não uma árvore de dependências que ele mesmo decidiu.
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       # O client do Prisma é gerado, não versionado. Sem isto, typecheck e testes não acham
       # os tipos e a falha aparece como erro de import, escondendo a causa.
       - name: Generate Prisma Client
-        run: pnpm --filter @latexbookbank/web exec prisma generate
+        run: bun x prisma generate
+        working-directory: apps/web
 
       - name: Lint
-        run: pnpm lint
+        run: bun run lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: bun run typecheck
 
       # As regras de fronteira arquitetural rodam aqui: `tests/architecture-boundaries.test.ts`
       # dirige o ESLint contra violações propositais, uma por regra.
       - name: Test
-        run: pnpm test
+        run: bun run test
 
       - name: Build
-        run: pnpm build
+        run: bun run build

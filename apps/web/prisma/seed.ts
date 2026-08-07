@@ -1,17 +1,13 @@
-import { existsSync } from "node:fs";
-
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 import { PrismaClient } from "../src/generated/prisma/client.ts";
 
-for (const file of [".env.local", ".env"]) {
-  if (existsSync(file)) process.loadEnvFile(file);
-}
+// O Bun carrega `.env` e `.env.local` sozinho, então não há nada a fazer aqui.
 
 const url = process.env["DATABASE_URL"];
-if (!url) throw new Error("DATABASE_URL ausente. Rode `pnpm setup`.");
+if (!url) throw new Error("DATABASE_URL ausente. Rode `bun run setup`.");
 
-const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url }) });
+const prisma = new PrismaClient({ adapter: new PrismaLibSql({ url }) });
 
 /**
  * Seed de demonstração.
@@ -23,6 +19,14 @@ const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url }) });
  * Os `sortKey` são fracionários desde já: reordenar não pode exigir reescrever irmãos.
  */
 async function main(): Promise<void> {
+  // Idempotente por escolha: o `setup` roda o seed toda vez, e um segundo `create` duplicaria
+  // a publicação demo em silêncio — o tipo de ruído que faz alguém desconfiar do próprio banco.
+  const existing = await prisma.publication.findFirst({ where: { nickname: "MatFin" } });
+  if (existing) {
+    console.log("Seed já aplicado; nada a fazer.");
+    return;
+  }
+
   const workspace = await prisma.workspace.upsert({
     where: { slug: "demo" },
     update: {},

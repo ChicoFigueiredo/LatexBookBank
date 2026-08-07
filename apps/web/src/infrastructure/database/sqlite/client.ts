@@ -1,6 +1,6 @@
 import "server-only";
 
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 import { PrismaClient } from "@/generated/prisma/client";
 
@@ -11,7 +11,12 @@ import { PrismaClient } from "@/generated/prisma/client";
  * módulo, mesmo por engano transitivo. É a mesma fronteira que o lint já protege (`domain/**`
  * não importa prisma), aqui reforçada pelo bundler: duas redes, porque uma falha em silêncio.
  *
- * O Prisma 7 exige driver adapter; o endereço do banco vem de `DATABASE_URL`, nunca de literal.
+ * O Prisma 7 exige driver adapter. Usamos **libSQL** e não `better-sqlite3`: o adapter deste
+ * último recusa explicitamente o runtime do Bun (`'better-sqlite3' is not yet supported in Bun`),
+ * mesmo com o binding nativo compilado. O libSQL fala o mesmo SQLite, roda sob Bun e sob Node, e
+ * de quebra abre caminho para Turso caso um dia o banco precise sair da máquina.
+ *
+ * O endereço do banco vem de `DATABASE_URL`, nunca de literal.
  */
 
 const createClient = (): PrismaClient => {
@@ -19,11 +24,11 @@ const createClient = (): PrismaClient => {
 
   if (!url) {
     throw new Error(
-      "DATABASE_URL ausente. Rode `pnpm setup` ou copie `.env.example` para `.env.local`.",
+      "DATABASE_URL ausente. Rode `bun run setup` ou copie `.env.example` para `.env.local`.",
     );
   }
 
-  return new PrismaClient({ adapter: new PrismaBetterSqlite3({ url }) });
+  return new PrismaClient({ adapter: new PrismaLibSql({ url }) });
 };
 
 /**

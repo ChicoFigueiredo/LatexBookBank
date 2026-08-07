@@ -7,6 +7,12 @@
 > comando, teste ou tela que prova. Ao fim de cada fase, o Definition of Done da §14 deste
 > documento precisa passar inteiro antes do checkpoint humano.
 >
+> | Marcador | Significado |
+> |---|---|
+> | ✅ | Feito e demonstrável |
+> | ⛔ | Impedido — a razão vem em itálico ao lado |
+> | `[ ]` | Não feito |
+>
 > **Revisão 2026-08-07** — incorporada a
 > [auditoria arquitetural](../prompts/260807-01.Auditoria-Planejamento.e.Checklist.md).
 > **Revisão 3 · 2026-08-07** — incorporada a
@@ -15,11 +21,12 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** Fase 0 de 17 · 0/19 fases concluídas
+**Progresso:** Fase 0 em andamento · 0/19 fases concluídas
+**Última atualização:** 2026-08-07, após as issues #3–#11 e #21 (PRs #12–#22, nenhum mergeado).
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | 0 · 1 · 2 · 3 · 4 · 5 · 6 | ☐ não iniciada |
+| A — fundação e IDE editorial | **0** · 1 · 2 · 3 · 4 · 5 · 6 | ◐ Fase 0 em andamento |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -33,29 +40,29 @@
 
 Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
-- [x] Node.js v24.16.0 disponível
-- [x] pnpm 10.34.1 disponível
-- [x] TeX Live 2023 com `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel`, `amsmath`, `standalone`
-- [x] `pdftocairo` 24.02.0 disponível
-- [x] Docker disponível
-- [x] Ollama rodando com 13 modelos
-- [x] `/mnt/d` é ext4 — sem penalidade de I/O do WSL
-- [x] Preâmbulo legado compila limpo: `pdflatex` 2,1 s + `pdftocairo` 0,26 s
-- [x] Acervo legado mapeado: 13 bibliotecas, 64 publicações, 297 nós, 1.247 alternativas
-- [x] `LatexMetadata.db` mapeado: 653 autocompletes, 2.741 símbolos, 13 grupos
-- [x] Design system inventariado e decisão de adoção registrada (D13)
-- [x] Portas Docker varridas; bloco `28xxx` verificado livre e fora da faixa efêmera (D19)
-- [x] Restrição confirmada: `pdflatex` não roda em função serverless (§2.8 do planejamento)
-- [x] Auditoria arquitetural cruzada e incorporada (D21–D31)
-- [x] **Inventário de volume executado (D31):** acervo = 109 MB em 409 arquivos; 326 conteúdos
+- ✅ Node.js v24.16.0 disponível
+- ✅ pnpm 10.34.1 disponível
+- ✅ TeX Live 2023 com `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel`, `amsmath`, `standalone`
+- ✅ `pdftocairo` 24.02.0 disponível
+- ✅ Docker disponível
+- ✅ Ollama rodando com 13 modelos
+- ✅ `/mnt/d` é ext4 — sem penalidade de I/O do WSL
+- ✅ Preâmbulo legado compila limpo: `pdflatex` 2,1 s + `pdftocairo` 0,26 s
+- ✅ Acervo legado mapeado: 13 bibliotecas, 64 publicações, 297 nós, 1.247 alternativas
+- ✅ `LatexMetadata.db` mapeado: 653 autocompletes, 2.741 símbolos, 13 grupos
+- ✅ Design system inventariado e decisão de adoção registrada (D13)
+- ✅ Portas Docker varridas; bloco `28xxx` verificado livre e fora da faixa efêmera (D19)
+- ✅ Restrição confirmada: `pdflatex` não roda em função serverless (§2.8 do planejamento)
+- ✅ Auditoria arquitetural cruzada e incorporada (D21–D31)
+- ✅ **Inventário de volume executado (D31):** acervo = 109 MB em 409 arquivos; 326 conteúdos
       distintos; 9 grupos duplicados; 0,77 MB recuperáveis; `ITA/Material` (3,2 GB) e `Listas/`
       (327 MB) identificados como material externo, fora do escopo
-- [x] Arquitetura do render decidida: worker/API em Docker — WSL local, droplet em produção (D27)
-- [x] Contrato do renderer definido como storage-agnostic: `RenderBundle` → `RenderResult` (D35)
-- [x] Backup separado do processo do renderer (D36)
-- [x] `.lbb` definido com Portable Schema versionado (D37)
-- [ ] Repositório GitLab `bqcf/bqcf.windows` inspecionado *(bloqueado: exige autenticação)*
-- [ ] Parecer específico sobre D33/D34 *(suspensas; o parecer não as menciona, sugerindo que avaliou o estado anterior a elas)*
+- ✅ Arquitetura do render decidida: worker/API em Docker — WSL local, droplet em produção (D27)
+- ✅ Contrato do renderer definido como storage-agnostic: `RenderBundle` → `RenderResult` (D35)
+- ✅ Backup separado do processo do renderer (D36)
+- ✅ `.lbb` definido com Portable Schema versionado (D37)
+- ⛔ Repositório GitLab `bqcf/bqcf.windows` inspecionado *(exige autenticação; não bloqueia nenhuma fase)*
+- [ ] Parecer específico sobre D33/D34 *(suspensas; o parecer não as menciona)*
 - [ ] Destino cloud dos assets escolhido quando for a hora: Vercel Blob × DO Spaces
 
 ---
@@ -64,95 +71,109 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ### Fase 0 — Fundação e providers
 
-**Bootstrap**
-- [ ] Workspace pnpm criado com `apps/web`
-- [ ] Next.js com App Router em `28080`
-- [ ] TypeScript strict, sem `any` injustificado
-- [ ] ESLint + Prettier configurados
-- [ ] Aliases de import
-- [ ] Scripts `dev`, `build`, `lint`, `typecheck`, `test`
-- [ ] Estrutura modular da §4.6 do planejamento criada
-- [ ] `infrastructure/` com `database/`, `storage/`, `rendering/worker/`, `ai/`
-- [ ] **Nenhum diretório `rendering/local` ou `rendering/cloud`**
-- [ ] `rendering/local-process/` só existe se o fallback for realmente implementado
-- [ ] Convenções documentadas no README
+> **Estado:** 9 issues entregues (#3–#11), PRs #12–#20 abertos, nenhum mergeado.
+> CI verde · 80 testes · lint, typecheck e build passando.
+> **A fase ainda não fecha:** quatro itens abaixo continuam em aberto — ver "Aceite da fase".
 
-**Regras de boundary (falham o CI quando violadas)** *(auditoria §37)*
-- [ ] `domain/**` não importa `prisma`
-- [ ] `domain/**` não importa `next`
-- [ ] `domain/**` não importa SDK de storage
-- [ ] `domain/**` não importa `node:fs`
-- [ ] `domain/**` não importa SDK de IA
-- [ ] `domain/**` não executa `pdflatex`
-- [ ] Nenhum componente React importa Prisma
-- [ ] O agente não tem caminho de escrita no banco
-- [ ] Todas as regras verificadas com violação proposital antes de marcar
+**Bootstrap** — #3
+- ✅ Workspace pnpm criado com `apps/web`
+- ✅ Next.js com App Router em `28080`
+- ✅ TypeScript strict, sem `any` injustificado
+- ✅ ESLint + Prettier configurados
+- ✅ Aliases de import
+- ✅ Scripts `dev`, `build`, `lint`, `typecheck`, `test`
+- ✅ Estrutura modular da §4.6 do planejamento criada
+- ✅ `infrastructure/` com `database/`, `storage/`, `rendering/worker/`, `ai/`
+- ✅ **Nenhum diretório `rendering/local` ou `rendering/cloud`**
+- ✅ `rendering/local-process/` só existe se o fallback for realmente implementado *(não existe)*
+- ✅ Convenções documentadas no README
 
-**As quatro fronteiras primárias** *(D23)*
-- [ ] `Repository` (por agregado) definido
-- [ ] `StorageProvider` definido (`put`/`get`/`exists`/`delete`)
-- [ ] `RenderExecutor` definido — recebe `RenderBundle`, devolve `RenderResult`
-- [ ] `AiProvider` definido
-- [ ] Outros contratos de domínio criados só quando representam comportamento real
-- [ ] Pergunta de controle aplicada antes de cada interface nova
-- [ ] Sem factories desnecessárias, sem DI framework, sem service locator
+**Regras de boundary (falham o CI quando violadas)** — #4 *(auditoria §37)*
+- ✅ `domain/**` não importa `prisma`
+- ✅ `domain/**` não importa `next`
+- ✅ `domain/**` não importa SDK de storage
+- ✅ `domain/**` não importa `node:fs`
+- ✅ `domain/**` não importa SDK de IA
+- ✅ `domain/**` não executa `pdflatex` *(via bloqueio de `child_process`)*
+- ✅ Nenhum componente React importa Prisma
+- ✅ O agente não tem caminho de escrita no banco
+- ✅ Todas as regras verificadas com violação proposital antes de marcar
 
-**Persistência — SQLite** *(D24)*
-- [ ] Prisma com `provider = "sqlite"`
-- [ ] Schema núcleo: `Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`, `QuestionTag`, `Asset`, `SourceAnchor`
-- [ ] Migration inicial versionada
-- [ ] Client Prisma server-only
-- [ ] `PrismaSqliteRepository` implementado
-- [ ] DTOs de saída — objeto Prisma não vaza para o React *(auditoria §40)*
-- [ ] Seed de demonstração
-- [ ] **PostGIS não existe no projeto** *(D22)*
+**As quatro fronteiras primárias** — #5 *(D23)*
+- ✅ `Repository` — convenção por agregado documentada; `ConcurrencyConflictError` e `TransactionRunner` definidos
+- ✅ `StorageProvider` definido (`put`/`get`/`exists`/`delete`)
+- ✅ `RenderExecutor` definido — recebe `RenderBundle`, devolve `RenderResult`
+- ✅ `AiProvider` definido
+- ✅ Outros contratos de domínio criados só quando representam comportamento real
+- ✅ Pergunta de controle aplicada antes de cada interface nova
+- ✅ Sem factories desnecessárias, sem DI framework, sem service locator
 
-**Portabilidade SQLite → PostgreSQL desde a Fase 0** *(auditoria §7)*
-- [ ] UUID para IDs novos
-- [ ] `workspaceId` onde faz sentido
-- [ ] Timestamps UTC
-- [ ] Constraints explícitas
-- [ ] Índices documentados
-- [ ] Sem SQL raw espalhado
-- [ ] Nenhuma regra de negócio dependente de comportamento particular do SQLite
-- [ ] Testes de domínio independentes do provider
+**Persistência — SQLite** — #6 *(D24)*
+- ✅ Prisma com `provider = "sqlite"`
+- ✅ Schema núcleo: `Workspace`, `Publication`, `DocumentNode`, `Question`, `QuestionOption`, `Tag`, `QuestionTag`, `Asset`, `SourceAnchor`
+- ✅ Migration inicial versionada
+- ✅ Client Prisma server-only *(lint + import `server-only`)*
+- [ ] `PrismaSqliteRepository` implementado — **existe só a porta; nenhuma implementação concreta**
+- [ ] DTOs de saída — objeto Prisma não vaza para o React *(auditoria §40; nada a projetar enquanto não há leitura na UI)*
+- ✅ Seed de demonstração *(1 workspace · 1 publicação · 4 nós · 2 questões · 5 alternativas)*
+- ✅ **PostGIS não existe no projeto** *(D22 — afirmado por teste)*
 
-**Storage** *(D26)*
-- [ ] `LocalFileStorageProvider` implementado
-- [ ] `sha256` calculado em toda escrita
-- [ ] `storageKey` opaca — nenhum path nem URL no domínio
-- [ ] Chaves prefixadas por `workspaceId`
-- [ ] Paths sanitizados; nada escapa da raiz do workspace
-- [ ] Validação de MIME e tamanho
-- [ ] **Nenhum binário no banco** *(auditoria §8)*
-- [ ] Nenhum SDK concreto de storage fora de `infrastructure/storage/`
+**Portabilidade SQLite → PostgreSQL desde a Fase 0** — #7 *(auditoria §7)*
+- ✅ UUID para IDs novos *(afirmado por teste)*
+- ✅ `workspaceId` onde faz sentido *(afirmado por teste)*
+- ✅ Timestamps UTC *(afirmado por teste)*
+- ✅ Constraints explícitas
+- ✅ Índices documentados *(afirmados por teste)*
+- ✅ Sem SQL raw espalhado *(regra de lint com violação proposital)*
+- ✅ Nenhuma regra de negócio dependente de comportamento particular do SQLite
+- ✅ Testes de domínio independentes do provider
 
-**Configuração**
-- [ ] Toda infraestrutura configurada por variável de ambiente
-- [ ] Nenhum endereço hard-coded
-- [ ] `.env.example` documenta as variáveis, sem valores
+**Storage** — #8 *(D26)*
+- ✅ `LocalFileStorageProvider` implementado
+- ✅ `sha256` calculado em toda escrita
+- ✅ `storageKey` opaca — nenhum path nem URL no domínio
+- ✅ Chaves prefixadas por `workspaceId`
+- ✅ Paths sanitizados; nada escapa da raiz do workspace *(4 formatos de escape testados)*
+- ✅ Validação de MIME e tamanho
+- ✅ **Nenhum binário no banco** *(auditoria §8 — afirmado por teste)*
+- ✅ Nenhum SDK concreto de storage fora de `infrastructure/storage/`
 
-**`pnpm setup`** *(2ª auditoria §19, §21)*
-- [ ] **Docker disponível** — obrigatório
-- [ ] **Imagem do renderer buildável** — obrigatório
-- [ ] **Renderer inicia e `GET /health` responde** — obrigatório
-- [ ] Provider de IA alcançável — informativo
-- [ ] **TeX no host detectado, marcado como fallback opcional — nunca bloqueia**
-- [ ] Cria diretórios locais e `.env.local` a partir de exemplo
-- [ ] Roda generate, migrations e seed
-- [ ] Reporta claramente qual verificação falhou
-- [ ] Não instala software de sistema silenciosamente
+**Configuração** — #9
+- ✅ Toda infraestrutura configurada por variável de ambiente
+- ✅ Nenhum endereço hard-coded
+- ✅ `.env.example` documenta as variáveis, sem valores
 
-**CI**
-- [ ] Install locked, lint, typecheck, unit, build
+**`bun run setup`** — #10 *(2ª auditoria §19, §21)*
+- ✅ **Docker disponível** — obrigatório
+- ⛔ **Imagem do renderer buildável** — obrigatório *(`services/renderer` só existe na Fase 6)*
+- ⛔ **Renderer inicia e `GET /health` responde** — obrigatório *(idem)*
+- ✅ Provider de IA alcançável — informativo
+- ✅ **TeX no host detectado, marcado como fallback opcional — nunca bloqueia** *(verificado com PATH reduzido)*
+- ✅ Cria diretórios locais e `.env.local` a partir de exemplo
+- ✅ Roda generate, migrations e seed *(seed idempotente — provado em banco limpo: 0 → 2 → 2)*
+- ✅ Reporta claramente qual verificação falhou
+- ✅ Não instala software de sistema silenciosamente
+
+> Com Bun não há a armadilha do pnpm, onde `setup` era comando reservado e pulava o script
+> imprimindo sucesso (#21).
+
+**CI** — #11
+- ✅ Install locked, lint, typecheck, unit, build
 
 **Aceite da fase**
-- [ ] `pnpm setup && pnpm dev` sobe a aplicação em `28080`
-- [ ] Nenhuma colisão com os containers já existentes na máquina
-- [ ] Publicação demo navegável
-- [ ] Upload e leitura funcionam pelo `LocalFileStorageProvider` com `sha256` calculado
-- [ ] **Ausência de TeX no host não impede o setup**
-- [ ] CI verde
+- ✅ `bun run setup && bun run dev` sobe a aplicação em `28080`
+- ✅ Nenhuma colisão com os containers já existentes na máquina
+- [ ] Publicação demo navegável — **o seed cria os dados, mas a página ainda é placeholder**
+- ✅ Upload e leitura funcionam pelo `LocalFileStorageProvider` com `sha256` calculado
+- ✅ **Ausência de TeX no host não impede o setup**
+- ✅ CI verde
+
+> **O que falta para fechar a Fase 0:** `PrismaSqliteRepository`, DTOs de saída e uma tela que
+> navegue a publicação demo. Os dois health checks do renderer ficam impedidos até a Fase 6, por
+> dependerem de código que ainda não existe.
+>
+> **Toolchain:** Bun 1.3.14 substituiu o pnpm (#21). Node não é mais necessário. O adapter do
+> Prisma passou de `better-sqlite3` para **libSQL**, porque o primeiro recusa o runtime do Bun.
 
 ---
 
@@ -993,20 +1014,20 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 Checklist arquitetural. Verificar a cada fase, não só na Fase 0.
 
-- [ ] Domain não importa Prisma
-- [ ] Domain não importa Vercel
-- [ ] Domain não importa SDK de storage
-- [ ] Domain não importa Node filesystem
-- [ ] Renderer não conhece storage, banco, `Workspace` nem Prisma *(D35)*
-- [ ] Domain não executa `pdflatex`
-- [ ] Domain não importa SDK de IA
-- [ ] Components não conhecem implementação concreta de storage
-- [ ] Storage usa `storageKey`
-- [ ] Asset possui hash
-- [ ] Source original é preservado
-- [ ] Crop guarda `SourceAnchor`
-- [ ] Bounding boxes são normalizadas
-- [ ] **PostGIS não existe no projeto**
+- ✅ Domain não importa Prisma
+- ✅ Domain não importa Vercel
+- ✅ Domain não importa SDK de storage
+- ✅ Domain não importa Node filesystem
+- ⛔ Renderer não conhece storage, banco, `Workspace` nem Prisma *(D35 — `services/renderer` chega na Fase 6)*
+- ✅ Domain não executa `pdflatex`
+- ✅ Domain não importa SDK de IA
+- [ ] Components não conhecem implementação concreta de storage *(não há componentes ainda)*
+- ✅ Storage usa `storageKey`
+- ✅ Asset possui hash
+- [ ] Source original é preservado *(comportamento; verificável a partir da Fase 11)*
+- [ ] Crop guarda `SourceAnchor` *(Fase 14)*
+- ✅ Bounding boxes são normalizadas *(schema)*
+- ✅ **PostGIS não existe no projeto**
 
 **Critério de sucesso arquitetural** *(auditoria §47)* — este código não pode saber onde executa:
 
@@ -1016,7 +1037,7 @@ const asset       = await storageProvider.get(assetId);
 const result      = await renderExecutor.render(request);
 ```
 
-- [ ] Verdadeiro para SQLite + `LocalFileStorage` + renderer Docker local
+- [ ] Verdadeiro para SQLite + `LocalFileStorage` + renderer Docker local *(faltam repository concreto e renderer)*
 - [ ] Verdadeiro para PostgreSQL + object storage + mesmo renderer remoto *(provado na Fase 6.5)*
 
 **Áreas que a versão cloud não pode exigir reescrever** *(auditoria §49)*
@@ -1030,11 +1051,11 @@ const result      = await renderExecutor.render(request);
 
 Verificar sempre que uma nova dependência de infraestrutura entrar.
 
-- [ ] Nenhum serviço do projeto usa porta padrão conhecida (3000, 5432, 6379, 8080)
-- [ ] Todas as portas do projeto estão no bloco `28xxx`
-- [ ] Todas as portas estão abaixo de 32768 (fora da faixa efêmera do kernel)
-- [ ] Varredura de conflito refeita antes de adicionar qualquer serviço novo
-- [ ] Portas documentadas no README
+- ✅ Nenhum serviço do projeto usa porta padrão conhecida (3000, 5432, 6379, 8080)
+- ✅ Todas as portas do projeto estão no bloco `28xxx`
+- ✅ Todas as portas estão abaixo de 32768 (fora da faixa efêmera do kernel)
+- ✅ Varredura de conflito refeita antes de adicionar qualquer serviço novo
+- ✅ Portas documentadas no README
 
 | Porta | Serviço |
 |---:|---|
@@ -1050,11 +1071,11 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 ## 10. Checklist de aceite do MVP *(spec §33)*
 
 ### Aplicação
-- [ ] Sobe com `pnpm dev`
-- [ ] Setup local documentado
-- [ ] SQLite criado automaticamente pelo `pnpm setup` *(D24)*
-- [ ] Nenhuma dependência do WPF em runtime
-- [ ] UI premium e estável
+- ✅ Sobe com `bun run dev`
+- ✅ Setup local documentado
+- ✅ SQLite criado automaticamente pelo `bun run setup` *(D24)*
+- ✅ Nenhuma dependência do WPF em runtime
+- [ ] UI premium e estável *(Fase 1)*
 
 ### Árvore
 - [ ] Cria filho
@@ -1208,21 +1229,23 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 
 Aplicar integralmente ao fim de **cada** fase, antes do checkpoint humano.
 
-- [ ] Requisitos funcionais implementados
-- [ ] TypeScript sem `any` injustificado
-- [ ] Lint passa
-- [ ] Typecheck passa
-- [ ] Testes relevantes adicionados
-- [ ] Erro tratado
-- [ ] Loading state tratado
-- [ ] Empty state tratado
-- [ ] Acessibilidade básica
-- [ ] Teclado testado quando aplicável
-- [ ] Dark e light testados quando aplicável
-- [ ] Nenhuma secret no repositório
-- [ ] Nenhuma dependência circular intencional
-- [ ] Documentação atualizada
-- [ ] Critério de aceite demonstrável
+Estado ao fim da **Fase 0**:
+
+- [ ] Requisitos funcionais implementados *(4 itens em aberto — ver Fase 0)*
+- ✅ TypeScript sem `any` injustificado
+- ✅ Lint passa
+- ✅ Typecheck passa
+- ✅ Testes relevantes adicionados *(80)*
+- ✅ Erro tratado
+- [ ] Loading state tratado *(não há UI assíncrona ainda)*
+- [ ] Empty state tratado *(idem)*
+- [ ] Acessibilidade básica *(Fase 1)*
+- [ ] Teclado testado quando aplicável *(Fase 1)*
+- [ ] Dark e light testados quando aplicável *(Fase 1)*
+- ✅ Nenhuma secret no repositório
+- ✅ Nenhuma dependência circular intencional
+- ✅ Documentação atualizada
+- [ ] Critério de aceite demonstrável *(parcial — ver "Aceite da fase" da Fase 0)*
 
 ---
 
@@ -1232,8 +1255,8 @@ Verificar em toda revisão de fase:
 
 - [ ] O agente não é um chat desacoplado do domínio
 - [ ] O renderer não está dentro de componente React
-- [ ] Prisma não é chamado no client
-- [ ] Nenhum XAML foi portado
+- ✅ Prisma não é chamado no client
+- ✅ Nenhum XAML foi portado
 - [ ] Semântica e dados preservados, não a estrutura interna do código antigo
 - [ ] Todo novo tipo de questão entra pelo registry
 - [ ] Toda randomização é reproduzível
@@ -1241,14 +1264,14 @@ Verificar em toda revisão de fase:
 - [ ] Toda fonte original é preservada
 - [ ] `legacyId` nunca apagado após o import
 - [ ] PNG nunca usado como fonte da questão
-- [ ] Letra de alternativa nunca tratada como identidade
+- ✅ Letra de alternativa nunca tratada como identidade *(schema + teste de projeção)*
 - [ ] LaTeX nunca executado de forma insegura
 - [ ] Batch agent não implementado antes de aprovação e revisão funcionarem
 - [ ] Erro de compilação nunca escondido
 - [ ] Experiência de teclado nunca sacrificada
-- [ ] PostGIS nunca entra no projeto
-- [ ] Nenhum binário armazenado como BLOB no banco
+- ✅ PostGIS nunca entra no projeto
+- ✅ Nenhum binário armazenado como BLOB no banco
 - [ ] `SOURCE_PDF` nunca substituído por derivado
 - [ ] Asset fonte tratado como imutável
-- [ ] Bounding box sempre normalizada
-- [ ] Abstração criada apenas onde há múltiplas implementações reais
+- ✅ Bounding box sempre normalizada
+- ✅ Abstração criada apenas onde há múltiplas implementações reais

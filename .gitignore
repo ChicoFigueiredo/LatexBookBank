@@ -2,7 +2,7 @@ _antigo/
 
 # dependências
 node_modules/
-.pnpm-store/
+.bun-cache/
 
 # build
 .next/
