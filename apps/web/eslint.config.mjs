@@ -1,11 +1,13 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypeScript from "eslint-config-next/typescript";
 
+import boundaries from "./eslint.boundaries.mjs";
+
 /**
  * Flat config nativo do `eslint-config-next` v16 — sem `FlatCompat`, sem `@eslint/eslintrc`.
  *
- * As regras de fronteira arquitetural (domain não importa prisma/next/node:fs/SDK de IA,
- * renderer não conhece storage nem domínio) entram na issue #4, escopadas por `files`.
+ * As regras de fronteira arquitetural vivem em `eslint.boundaries.mjs`, escopadas por `files`,
+ * e são exercitadas por `tests/architecture-boundaries.test.ts`.
  */
 const config = [
   {
@@ -26,6 +28,7 @@ const config = [
       ],
     },
   },
+  ...boundaries,
 ];
 
 export default config;
