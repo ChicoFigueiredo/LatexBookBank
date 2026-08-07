@@ -189,17 +189,18 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Regra de aderência incorporada ao lint *(adaptada do `_adherence.oxlintrc.json`)*
 - ✅ Lint rejeita hex cru fora dos tokens *(violação proposital recusada; pegou as páginas da Fase 0)*
 
-**Componentes portados `.jsx` → `.tsx`**
-- [ ] `Icon` (lucide, stroke 1.5, grid 16)
-- [ ] `AdminShell`
-- [ ] `Divider` (WAI-ARIA window splitter)
-- [ ] `CommandPalette`
-- [ ] forms: `Button`, `IconButton`, `Input`, `Select`, `Checkbox`, `Toggle`, `Field`, `Combobox`
-- [ ] display: `Badge`, `Chip`, `StatusDot`, `MetricCard`, `ArtifactStatus`
+**Componentes portados `.jsx` → `.tsx`** — #27 *(1ª leva)*
+- ✅ `Icon` *(set recortado para este domínio: biblioteca, publicação, árvore, render, agente)*
+- ✅ forms: `Button`, `IconButton`, `Input`, `Field`
+- [ ] forms restantes: `Select`, `Checkbox`, `Toggle`, `Combobox`
+- ✅ display: `Badge`, `StatusDot`
+- [ ] display restantes: `Chip`, `MetricCard`, `ArtifactStatus`
+- ✅ feedback: `EmptyState`
+- [ ] feedback restantes: `Banner`, `Callout`, `Modal`, `Toast`
 - [ ] navigation: `Tabs`, `Segmented`, `Breadcrumb`, `PageHeader`, `Tree`
-- [ ] feedback: `Banner`, `Callout`, `EmptyState`, `Modal`, `Toast`
+- [ ] `AdminShell`, `Divider`, `CommandPalette` *(#28)*
 - [ ] `BrandMark` substituído pela identidade do LatexBookBank
-- [ ] Nenhum componente portado quebra sob SSR
+- ✅ Nenhum componente portado quebra sob SSR *(afirmado com `renderToStaticMarkup`)*
 
 **Primitivas complementares** *(D13 — lacuna do DS)*
 - [ ] Radix headless para context menu
