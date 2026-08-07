@@ -130,6 +130,10 @@ model DocumentNode {
   ///
   /// No import, derivado da ordem de `IdQuestao` e **nunca** do campo `Ordem` legado, que vale
   /// 0 em praticamente todas as linhas — confiar nele embaralharia o acervo em silêncio (D12).
+  ///
+  /// ⚠️ A ordem é a de **bytes** (base-62, maiúsculas antes de minúsculas). O SQLite compara
+  /// TEXT em binário e serve direto; no PostgreSQL esta coluna precisa de `COLLATE "C"`, ou a
+  /// colação padrão ignora caixa e inverte a lista em silêncio (D38).
   sortKey String
 
   /// `NumberingStyle`: ARABIC · ROMAN · LETTER. Vem de `Questoes_Numeracao` (0/13/27), que a
