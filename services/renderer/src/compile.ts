@@ -14,6 +14,7 @@ import {
 } from "@latexbookbank/render-contract";
 
 import { hasErrors, parseLatexLog } from "./diagnostics.ts";
+import { bodyWithFormat, ensureFormat, FORMATS_DIR } from "./format-cache.ts";
 
 /**
  * A compilação.
@@ -81,6 +82,10 @@ function run(
           HOME: cwd,
           TEXMFVAR: join(cwd, ".texmf-var"),
           SOURCE_DATE_EPOCH: "0",
+          // O `:` final devolve o caminho padrão do kpathsea. Sem ele, o `pdflatex` deixaria de
+          // achar o próprio `pdflatex.fmt` e **toda** compilação falharia, inclusive as que não
+          // usam formato pré-compilado.
+          TEXFORMATS: `${FORMATS_DIR}:`,
         },
       },
       (error, stdout, stderr) => {
@@ -176,7 +181,16 @@ export async function compile(
       await writeFile(join(dir, asset.name), bytes);
     }
 
-    await writeFile(join(dir, "main.tex"), buildDocument(bundle), "utf8");
+    // O preâmbulo domina o custo: medido nesta imagem, 1886 ms sem formato contra 508 ms com ele.
+    // `null` significa "não deu" — e aí compila do jeito normal, porque uma otimização que
+    // quebra o produto quando falha não é otimização.
+    const format = await ensureFormat(bundle.profile, bundle.options.timeoutMs);
+
+    await writeFile(
+      join(dir, "main.tex"),
+      format === null ? buildDocument(bundle) : bodyWithFormat(bundle.sourceLatex),
+      "utf8",
+    );
 
     let stdout = "";
     let stderr = "";
@@ -192,6 +206,7 @@ export async function compile(
           "-halt-on-error",
           "-no-shell-escape",
           "-file-line-error",
+          ...(format === null ? [] : [`-fmt=${format}`]),
           "-output-directory",
           dir,
           "main.tex",

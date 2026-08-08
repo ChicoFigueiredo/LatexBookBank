@@ -46,7 +46,11 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=512m,mode=1777
-      - /home/renderer:size=64m
+      # `uid`/`gid` explícitos: tmpfs monta root-owned por padrão, e sem isto o usuário do worker
+      # **não escreve no próprio HOME** — verificado dentro do contêiner. Não quebrava a
+      # compilação porque o `compile.ts` aponta `HOME` para o diretório do job, mas era um piso
+      # falso: qualquer coisa que confiasse no HOME falharia, e o TeX escreve cache de fonte lá.
+      - /home/renderer:size=64m,uid=1000,gid=1000,mode=0700
     security_opt:
       - no-new-privileges:true
     # `cap_drop: ALL` porque compilar LaTeX não precisa de capacidade nenhuma do kernel.
