@@ -7,6 +7,7 @@ import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/lat
 import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor";
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
+import { PreviewPane } from "@modules/preview/ui/PreviewPane";
 
 /**
  * O editor da questão: abas por campo, autosave com debounce e conflito visível.
@@ -20,11 +21,18 @@ const AUTOSAVE_DELAY_MS = 1200;
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
+/** Alternativas, só para o preview: quem as edita é a Fase 7. */
+export interface QuestionEditorOption {
+  readonly statementLatex: string;
+  readonly isCorrect: boolean;
+}
+
 export interface QuestionEditorProps {
   readonly publicationId: string;
   readonly questionId: string;
   readonly initial: Readonly<Record<QuestionFieldId, string>>;
   readonly initialVersion: string;
+  readonly options?: readonly QuestionEditorOption[];
 }
 
 export function QuestionEditor({
@@ -32,12 +40,14 @@ export function QuestionEditor({
   questionId,
   initial,
   initialVersion,
+  options = [],
 }: QuestionEditorProps) {
   const [field, setField] = useState<QuestionFieldId>("statementLatex");
   const [draft, setDraft] = useState<Record<QuestionFieldId, string>>({ ...initial });
   const [state, setState] = useState<SaveState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(true);
 
   // A versão vive em ref, não em state: ela muda a cada gravação e não desenha nada. Em state,
   // cada salvamento re-renderizaria o editor inteiro — e o Monaco perde a posição do cursor.
@@ -151,6 +161,14 @@ export function QuestionEditor({
           >
             Símbolos
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-pressed={previewOpen}
+            onClick={() => setPreviewOpen((open) => !open)}
+          >
+            Preview
+          </Button>
           <Button size="sm" variant="ghost" disabled={blocked} onClick={() => void save()}>
             Salvar
           </Button>
@@ -182,6 +200,28 @@ export function QuestionEditor({
             ariaLabel={`Editor LaTeX — ${QUESTION_FIELDS.find((f) => f.id === field)?.label}`}
           />
         </div>
+
+        {/* O preview divide o centro com o editor (D14/§11). É a metade direita do "Main", e
+            fica aberto por padrão porque é o feedback que justifica a fase inteira. */}
+        {previewOpen && (
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              borderLeft: "1px solid var(--border-default)",
+            }}
+          >
+            <PreviewPane
+              source={{
+                statementLatex: draft.statementLatex,
+                solutionLatex: draft.solutionLatex,
+                complementLatex: draft.complementLatex,
+                options,
+              }}
+            />
+          </div>
+        )}
 
         {/* Painel, não overlay: a palette é ferramenta de trabalho contínuo, e um popover que
             fecha a cada inserção obrigaria a reabri-lo para cada símbolo de uma equação. */}

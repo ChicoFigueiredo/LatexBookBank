@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   ArtifactStatus,
-  Badge,
   Banner,
   Button,
   Callout,
@@ -474,12 +473,12 @@ function NodeDetail({
         }
       />
 
-      <div style={{ padding: "0 var(--space-7) var(--space-8)", maxWidth: "56rem" }}>
+      <div style={{ padding: "0 var(--space-7) var(--space-8)", maxWidth: "min(100%, 96rem)" }}>
         {node.question ? (
           <>
             <div
               style={{
-                height: "26rem",
+                height: "34rem",
                 border: "1px solid var(--border-default)",
                 borderRadius: "var(--radius-md)",
                 overflow: "hidden",
@@ -495,29 +494,12 @@ function NodeDetail({
                   solutionLatex: node.question.solutionLatex,
                   complementLatex: node.question.complementLatex,
                 }}
+                options={node.question.options.map((option) => ({
+                  statementLatex: option.statementLatex,
+                  isCorrect: option.isCorrect,
+                }))}
               />
             </div>
-
-            {node.question.options.length > 0 && (
-              <ul style={{ listStyle: "none", padding: 0, marginTop: "var(--space-4)" }}>
-                {node.question.options.map((option) => (
-                  <li
-                    key={option.id}
-                    style={{
-                      display: "flex",
-                      gap: "var(--space-2)",
-                      alignItems: "baseline",
-                      marginBottom: "var(--space-2)",
-                    }}
-                  >
-                    {/* A letra vem da projeção, nunca do banco (spec §8.5). */}
-                    <strong style={{ fontFamily: "var(--font-mono)" }}>{option.label})</strong>
-                    <span style={{ flex: 1 }}>{option.statementLatex}</span>
-                    {option.isCorrect && <Badge tone="ok">gabarito</Badge>}
-                  </li>
-                ))}
-              </ul>
-            )}
           </>
         ) : (
           <EmptyState
