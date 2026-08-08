@@ -1,0 +1,515 @@
+// ⚠️ GERADO — não edite.
+//
+// Saída de `bun run db:derive-postgres`, a partir de `schema.prisma`. Editar aqui é perder a
+// edição no próximo build, e pior: fazer os dois motores divergirem em silêncio.
+//
+// Existe para a Fase 6.5 (D30): provar que banco troca de implementação sem reescrever domínio.
+
+// LatexBookBank — schema núcleo (issue #6)
+//
+// Banco primário local: SQLite (D24). PostgreSQL é alvo futuro, validado na Fase 6.5 (D25).
+//
+// Duas restrições do conector SQLite moldam este arquivo, e ambas são registradas aqui porque
+// vão reaparecer no Cloud Compatibility Report:
+//
+//   1. **Sem `enum`.** O conector SQLite não suporta enums. Todo vocabulário fechado é `String`,
+//      com o tipo real declarado em TypeScript e validado na fronteira. Manter `String` mesmo
+//      após o PostgreSQL é o que preserva domínio idêntico nos dois motores.
+//   2. **Sem `Json`.** Idem. Campos `*Json` são `String` contendo JSON serializado.
+//
+// Nenhum binário no banco (auditoria §8): `Asset` guarda metadados e uma `storageKey` opaca;
+// o conteúdo vive no `StorageProvider`.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // O loader ESM do Node não resolve import sem extensão. Emitir `.ts` deixa o seed rodar com
+  // `node --experimental-strip-types`, sem precisar de um runner TypeScript só para isso.
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Uma biblioteca. O legado já organiza o acervo em 13 bibliotecas independentes, e cada uma
+/// vira um Workspace (D11) — o que dá sentido real ao conceito que a spec §8.1 pedia.
+model Workspace {
+  id   String @id @default(uuid())
+  name String
+  slug String @unique
+
+  /// `IdBiblio` de `padrao.knowchicoconfig`.
+  legacyId         Int?    @unique
+  /// Pasta de origem, guardada só para auditoria do import.
+  legacySourcePath String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  publications Publication[]
+  assets       Asset[]
+  tags         Tag[]
+  renderJobs   RenderJob[]
+
+  @@map("workspaces")
+}
+
+/// Livro, apostila ou prova — a fonte de onde as questões vêm.
+model Publication {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  title           String
+  subtitle        String?
+  nickname        String?
+  isbn            String?
+  otherIdentifier String?
+  publisher       String?
+  publicationDate DateTime?
+  notes           String?
+
+  coverAssetId     String?
+  sourcePdfAssetId String?
+
+  /// `idPublication` legado — chave de idempotência do import.
+  legacyId        Int?
+  /// O legado já tinha UUID; guardá-lo reforça o upsert.
+  legacyUuid      String?
+  legacyUpdatedAt DateTime?
+  importedAt      DateTime?
+  /// `PublicationSeries` e `Flags` legados, de semântica desconhecida mas preservados.
+  metadataJson    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authors PublicationAuthor[]
+  nodes   DocumentNode[]
+  anchors SourceAnchor[]
+  assets  Asset[]
+
+  @@unique([workspaceId, legacyId])
+  @@index([workspaceId])
+  @@map("publications")
+}
+
+model Author {
+  id   String @id @default(uuid())
+  name String @unique
+
+  publications PublicationAuthor[]
+
+  @@map("authors")
+}
+
+model PublicationAuthor {
+  publicationId String
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        Author      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  position      Int         @default(0)
+
+  @@id([publicationId, authorId])
+  @@map("publication_authors")
+}
+
+/// Nó da árvore de conteúdo, com profundidade arbitrária.
+///
+/// Substitui o antipadrão legado de usar `Questao` também como capítulo e seção: lá, nós
+/// estruturais e questões dividiam a mesma tabela, distinguidos pelo sinal de `TipoQuestao`.
+model DocumentNode {
+  id            String      @id @default(uuid())
+  publicationId String
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   DocumentNode?  @relation("NodeChildren", fields: [parentId], references: [id])
+  children DocumentNode[] @relation("NodeChildren")
+
+  /// `NodeKind`: BOOK · PART · CHAPTER · SECTION · SUBSECTION · CONTENT · QUESTION_GROUP ·
+  /// QUESTION · FIGURE · NOTE
+  kind  String
+  title String?
+  slug  String?
+
+  /// Fractional index. Reordenar não pode exigir reescrever milhares de linhas (spec §8.3).
+  ///
+  /// No import, derivado da ordem de `IdQuestao` e **nunca** do campo `Ordem` legado, que vale
+  /// 0 em praticamente todas as linhas — confiar nele embaralharia o acervo em silêncio (D12).
+  ///
+  /// ⚠️ A ordem é a de **bytes** (base-62, maiúsculas antes de minúsculas). O SQLite compara
+  /// TEXT em binário e serve direto; no PostgreSQL esta coluna precisa de `COLLATE "C"`, ou a
+  /// colação padrão ignora caixa e inverte a lista em silêncio (D38).
+  /// ⚠️ PostgreSQL exige `COLLATE "C"` nesta coluna (D38). Ver `prisma/postgres-collation.sql`.
+  sortKey String
+
+  /// `NumberingStyle`: ARABIC · ROMAN · LETTER. Vem de `Questoes_Numeracao` (0/13/27), que a
+  /// spec §8.3 não previa.
+  numberingStyle String  @default("ARABIC")
+  /// Rótulo original do livro — "I", "1", "II". Informação editorial insubstituível.
+  originalLabel  String?
+
+  questionId String?   @unique
+  question   Question? @relation(fields: [questionId], references: [id])
+
+  sourceAnchorId String?
+  sourceAnchor   SourceAnchor? @relation(fields: [sourceAnchorId], references: [id])
+
+  /// Exclusão lógica. `collapsed` NÃO está aqui: estado de UI vive em localStorage, porque
+  /// `IsExpanded`/`IsSelected` no banco foi antipadrão do legado.
+  deletedAt DateTime?
+
+  legacyId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([publicationId, legacyId])
+  @@index([publicationId, parentId, sortKey])
+  @@index([parentId])
+  @@map("document_nodes")
+}
+
+/// O conteúdo de uma questão. A árvore é responsabilidade do DocumentNode.
+model Question {
+  id String @id @default(uuid())
+
+  /// `QuestionType`: DISCURSIVE · MULTIPLE_CHOICE · TRUE_FALSE · CESPE · MULTIPLE_CORRECT ·
+  /// SUM_OF_CORRECT · RELATED_ITEMS
+  type     String
+  nickname String?
+
+  statementLatex  String  @default("")
+  solutionLatex   String  @default("")
+  complementLatex String  @default("")
+  /// LaTeX como veio da origem, preservado mesmo depois de editado.
+  originalLatex   String?
+
+  /// Escala legada: 0 · 2 · 5 · 7 · 10 (Muito Fácil → Muito Difícil). Não é 1–5.
+  difficulty Int @default(5)
+
+  year        Int?
+  board       String?
+  institution String?
+  role        String?
+  roleLevel   String?
+  publisher   String?
+  videoUrl    String?
+
+  /// `QuestionStatus`: DRAFT · READY · ARCHIVED
+  status           String @default("DRAFT")
+  /// `ValidationStatus`: UNVALIDATED · VALID · INVALID
+  validationStatus String @default("UNVALIDATED")
+
+  sourceAnchorId String?
+  sourceAnchor   SourceAnchor? @relation(fields: [sourceAnchorId], references: [id])
+
+  legacyId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  node       DocumentNode?
+  options    QuestionOption[]
+  tags       QuestionTag[]
+  assets     Asset[]
+  renderJobs RenderJob[]
+
+  @@index([type])
+  @@index([difficulty])
+  @@index([board, year])
+  @@map("questions")
+}
+
+/// Alternativa. A letra A/B/C **não** é identidade — é projeção da ordem (spec §8.5).
+model QuestionOption {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  /// ⚠️ PostgreSQL exige `COLLATE "C"` nesta coluna (D38). Ver `prisma/postgres-collation.sql`.
+
+  sortKey String
+
+  statementLatex String  @default("")
+  solutionLatex  String  @default("")
+  originalLatex  String?
+
+  /// Fonte da verdade do gabarito. No legado, `Questao.Correta` era vestigial (sempre 0) e o
+  /// gabarito real estava aqui — 230 corretas para exatamente 230 questões.
+  isCorrect Boolean @default(false)
+  weight    Float?
+
+  /// A letra `a`–`e` do legado, guardada **apenas para auditoria do import**.
+  /// Nunca usada como identidade nem para renderizar.
+  legacyMarcacao String?
+  legacyId       Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([questionId, sortKey])
+  @@map("question_options")
+}
+
+model Tag {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name String
+  /// `TagKind`: SUBJECT · TOPIC · SKILL · SOURCE · CURRICULUM · CUSTOM
+  kind String @default("CUSTOM")
+
+  createdAt DateTime @default(now())
+
+  questions QuestionTag[]
+
+  @@unique([workspaceId, name])
+  @@map("tags")
+}
+
+model QuestionTag {
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tagId      String
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+  @@map("question_tags")
+}
+
+/// Metadados de um arquivo. O conteúdo vive no StorageProvider, nunca aqui (auditoria §8).
+///
+/// Fontes (`SOURCE_*`, `FIGURE_SOURCE_*`, `CROP`) são patrimônio e imutáveis: arquivo alterado
+/// gera **novo** Asset. Derivados (`RENDER_*`) são reconstruíveis e descartáveis (D29).
+model Asset {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  publicationId String?
+  publication   Publication? @relation(fields: [publicationId], references: [id])
+  questionId    String?
+  question      Question?    @relation(fields: [questionId], references: [id])
+
+  /// `AssetKind` — ver `src/modules/assets/domain/asset-kind.ts`.
+  kind String
+
+  /// Chave opaca resolvida pelo StorageProvider. Nunca um path local nem uma URL.
+  storageKey       String  @unique
+  mimeType         String
+  originalFilename String?
+
+  /// Identidade, integridade, deduplicação, cache e auditoria (D29).
+  sha256    String
+  sizeBytes Int
+  width     Int?
+  height    Int?
+
+  metadataJson String?
+
+  createdAt DateTime @default(now())
+
+  /// Preenchido só em derivado (`RENDER_*`): diz qual compilação produziu este arquivo.
+  /// É o que permite descartar todos os artefatos de um job de uma vez (D29, auditoria §41).
+  renderJobId String?
+  renderJob   RenderJob? @relation(fields: [renderJobId], references: [id], onDelete: Cascade)
+
+  anchorsAsSource SourceAnchor[] @relation("AnchorSource")
+  anchorsAsCrop   SourceAnchor[] @relation("AnchorCrop")
+
+  @@index([renderJobId])
+  @@index([workspaceId, kind])
+  @@index([sha256])
+  @@map("assets")
+}
+
+/// De onde o conteúdo veio. Permite voltar à origem de qualquer questão.
+///
+/// Coordenadas **normalizadas entre 0 e 1** (D28): reconstroem o recorte independentemente de
+/// DPI, resolução e tamanho do preview — e tornam PostGIS estruturalmente desnecessário, não
+/// apenas proibido (D22).
+model SourceAnchor {
+  id            String      @id @default(uuid())
+  publicationId String
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  sourceAssetId String
+  sourceAsset   Asset  @relation("AnchorSource", fields: [sourceAssetId], references: [id])
+
+  pageNumber Int
+
+  xNormalized      Float
+  yNormalized      Float
+  widthNormalized  Float
+  heightNormalized Float
+  rotation         Float?
+
+  /// O crop é derivado útil; o anchor é a fonte lógica. Guardamos os dois (auditoria §18).
+  cropAssetId String?
+  cropAsset   Asset?  @relation("AnchorCrop", fields: [cropAssetId], references: [id])
+
+  sourceText       String?
+  extractionMethod String?
+  extractionModel  String?
+  metadataJson     String?
+
+  createdAt DateTime @default(now())
+
+  nodes     DocumentNode[]
+  questions Question[]
+
+  @@index([publicationId, pageNumber])
+  @@map("source_anchors")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Conhecimento LaTeX (Fase 4, issue #47)
+//
+// Importado de `LatexMetadata.db`, que no legado já era um banco **independente do acervo**. Por
+// isso nada aqui pende de `Workspace`: o vocabulário do LaTeX é o mesmo nas 13 bibliotecas, e
+// pendurá-lo num workspace obrigaria a importar treze vezes o mesmo conteúdo.
+//
+// `legacyId` não nulo marca a linha como vinda do import. É o que permite reimportar sem apagar
+// o que for criado dentro do produto — o importador só troca o que ele mesmo escreveu.
+// ---------------------------------------------------------------------------------------------
+
+/// Um item de autocomplete. O corpo já está no formato de snippet do Monaco: o delimitador
+/// legado `§nome§` é traduzido para `${1:nome}` na importação, não na hora de sugerir.
+model LatexSnippet {
+  id String @id @default(uuid())
+
+  /// Palavra que dispara a sugestão, **sem** a barra: `alpha`, não `\alpha`.
+  trigger String
+  label   String
+  body    String
+
+  documentation   String?
+  /// `PrimaryPriority` do legado — desempata a ordem da lista.
+  priority        Int     @default(0)
+  /// Redundante com o corpo, mas evita varrer 651 strings para montar um ícone na lista.
+  hasPlaceholders Boolean @default(false)
+
+  legacyId Int? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([trigger, body])
+  @@index([trigger])
+  @@map("latex_snippets")
+}
+
+/// Um grupo da palette de símbolos: `greek`, `arrows`, `operators`…
+model LatexSymbolGroup {
+  id   String @id @default(uuid())
+  name String @unique
+
+  sortOrder Int  @default(0)
+  legacyId  Int? @unique
+
+  symbols LatexSymbol[]
+
+  @@map("latex_symbol_groups")
+}
+
+/// Um símbolo da palette.
+model LatexSymbol {
+  id      String           @id @default(uuid())
+  groupId String
+  group   LatexSymbolGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  command         String
+  /// Caractere equivalente, quando existe — 867 dos 2.741 têm.
+  unicode         String?
+  /// Pacote exigido; a string vazia do legado vira `null`.
+  requiredPackage String?
+  /// Só é válido dentro de modo matemático.
+  mathMode        Boolean @default(false)
+
+  /// Miniatura em **SVG**, que é markup e não binário — por isso pode ficar aqui sem ferir a
+  /// auditoria §8. O `PNGSimbol` do legado (1,1 MB de BLOB) fica de fora, por regra.
+  previewSvg String?
+
+  sortOrder Int  @default(0)
+  legacyId  Int? @unique
+
+  @@unique([groupId, command])
+  @@index([groupId, sortOrder])
+  @@map("latex_symbols")
+}
+
+/// Um botão do ribbon legado: template pronto para inserir, com atalho opcional.
+///
+/// Grupo e subgrupo são **colunas de texto**, não tabelas: o legado tem 2 grupos e 5 subgrupos
+/// para 29 botões, e normalizar duas linhas seria cerimônia sem consumidor.
+///
+/// A imagem (`vImagemBase64`) **não** é importada: binário não entra no banco (auditoria §8).
+/// Quando a palette precisar de ícone, ele vira Asset via `StorageProvider`.
+model LatexIconMenu {
+  id String @id @default(uuid())
+
+  groupName    String
+  subGroupName String
+  name         String
+  template     String
+  shortcut     String?
+
+  sortOrder Int  @default(0)
+  legacyId  Int? @unique
+
+  @@index([groupName, subGroupName, sortOrder])
+  @@map("latex_icon_menus")
+}
+
+/// Uma compilação autoritativa (Fase 6, D27/D35).
+///
+/// O worker não persiste nada — ele devolve bytes e a aplicação grava. Este modelo é o registro
+/// do que foi compilado, e o `contentHash` é o que faz o cache funcionar: mesma entrada, mesmo
+/// PDF, sem chamar o `pdflatex` de novo.
+///
+/// Um `RenderJob` é **descartável**. Apagá-lo leva os artefatos junto por cascade, e recompilar
+/// reconstrói tudo — é a política de derivado da D29, e é o que separa render de patrimônio.
+model RenderJob {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// De onde veio. Opcional porque a Fase 16 vai renderizar prova montada, que não é questão.
+  questionId String?
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  /// A chave do cache: cobre conteúdo, perfil, preâmbulo, assets, engine, parâmetros e a versão
+  /// do renderer. Ver `src/modules/rendering/domain/content-hash.ts`.
+  contentHash     String
+  profileId       String
+  /// Redundante com o hash de propósito: permite responder "o que ainda está na versão antiga?"
+  /// sem recalcular hash nenhum.
+  rendererVersion String
+
+  /// `RenderJobState`: QUEUED · RUNNING · DONE · FAILED · CANCELLED
+  state   String
+  success Boolean @default(false)
+
+  durationMs      Int    @default(0)
+  /// `RenderDiagnostic[]` serializado — o conector SQLite não tem `Json`.
+  diagnosticsJson String @default("[]")
+
+  /// Log cru, para a aba "Log". Truncado com marca explícita: o log do `pgfplots` passa de 1 MB,
+  /// e guardar isso inteiro por job encheria o banco com texto que ninguém lê duas vezes.
+  stdout String @default("")
+  stderr String @default("")
+
+  createdAt DateTime @default(now())
+
+  /// PDF e PNGs. Vivem como Asset porque é o `StorageProvider` que guarda o conteúdo — no banco
+  /// fica só a chave opaca (auditoria §8).
+  artifacts Asset[]
+
+  @@unique([workspaceId, contentHash])
+  @@index([questionId, createdAt])
+  @@map("render_jobs")
+}

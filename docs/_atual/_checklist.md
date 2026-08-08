@@ -41,12 +41,12 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-536 testes (486 no app + 50 no renderer) · 36 PRs abertos, nada mergeado.
+543 testes (493 no app + 50 no renderer) · 37 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
-| — prova arquitetural | **6.5** | ☐ não iniciada |
+| — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
@@ -573,16 +573,24 @@ falta o que produz o estado
 > use cases. **Render está fora do escopo** — já foi provado na Fase 6. Terminada a fase,
 > **voltar ao desenvolvimento local**.
 
-**Ambiente experimental (efêmero)**
-- [ ] Neon PostgreSQL provisionado
-- [ ] Vercel Blob provisionado
-- [ ] PostgreSQL em Docker `28432` para rodar a suíte localmente
-- [ ] Ambiente principal permaneceu local e intocado
-- [ ] Tudo derrubado ao fim, mantendo só o relatório
+**Ambiente experimental (efêmero)** *(#77)*
+- ⛔ Neon PostgreSQL provisionado — *exige conta; o spike usou PostgreSQL 16.14 em Docker, mesmo motor e mesma família de colação, outro provedor*
+- ⛔ Vercel Blob provisionado — *exige credencial **e** a decisão sobre o destino dos assets na nuvem (Vercel Blob × DO Spaces), que continua sendo do Chico*
+- ✅ PostgreSQL em Docker `28432`
+- ✅ Ambiente principal permaneceu local e intocado
+- ✅ Tudo derrubado ao fim, mantendo só o relatório
 
 **Os dois pares**
-- [ ] `SQLite ↕ PostgreSQL` testado
-- [ ] `LocalFileStorage ↕ Vercel Blob` testado
+- ◐ `SQLite ↕ PostgreSQL` — *schema traduzido e o D38 provado na tabela real; falta a suíte de integração (ver bloqueio do `db push` abaixo)*
+- ⛔ `LocalFileStorage ↕ Vercel Blob` — *bloqueado pela decisão e pela credencial*
+
+**O achado da fase** *(#77)*
+- ✅ **D38 provado empiricamente, na tabela `document_nodes` real** *(`ANTES: a0 a1 a2 a3 a4 Zv Zw Zx Zy ZyG ZyV Zz` — invertido; `DEPOIS: Zv Zw … a0 a1 …` — igual ao SQLite, com a **mesma consulta**, mudando só a colação da coluna)*
+- ✅ ⚠️ **A primeira medição rodou em Alpine e não acusou nada** *(musl não implementa colação por locale: `en_US.utf8` lá ordena por bytes. Validar contra a imagem Alpine teria dado tudo verde e o defeito apareceria só no Neon, que é glibc. **Todo teste de compatibilidade PostgreSQL deste projeto precisa rodar em imagem glibc.**)*
+- ✅ Schema PostgreSQL **derivado**, não mantido à mão *(dois schemas divergem sempre, e no campo que ninguém olha; a derivação **falha** se um `sortKey` sumir)*
+- ✅ Tradução coube em **3 ajustes**, e o DDL gerou as 16 tabelas sem erro
+- ✅ `prisma/postgres-collation.sql` — *o Prisma não tem atributo de colação; num arquivo, e não num comentário, porque comentário não roda*
+- ⛔ `prisma db push` contra o banco do spike — *o CLI do Prisma 7 classifica como destrutivo e exige consentimento explícito; a sessão rodava sem supervisão e a operação foi abortada. O DDL veio de `migrate diff` (não destrutivo) e foi aplicado por `psql` — prova a tradução do schema, **não** o caminho `prisma migrate` ponta a ponta.*
 
 **Amostra mínima** *(auditoria §30)*
 - [ ] 1 workspace · 1 publication · 1 chapter · 1 section
@@ -617,7 +625,7 @@ falta o que produz o estado
 - [ ] **Suíte de integração roda contra SQLite**
 - [ ] **Suíte de integração roda contra PostgreSQL**
 
-**Entregável: `Cloud Compatibility Report`** *(auditoria §32)*
+**Entregável: [`Cloud Compatibility Report`](./cloud-compatibility-report.md)** — ◐ *parcial, escrito e commitado* *(auditoria §32)*
 - [ ] Diferenças SQLite/PostgreSQL
 - [ ] Problemas de migrations
 - [ ] Problemas do Prisma
