@@ -37,9 +37,9 @@ bloqueada comprovada nos dois sentidos**, e o `RenderWorkerExecutor` ligando a a
 worker, com `RenderJob` persistido, artefatos no `StorageProvider`, cache por content hash,
 perfis de compilação, API de render e as abas PDF/PNG/Log. **Verificado ponta a ponta**: uma
 questão real do acervo demo compila pela API, mostra `R$` e as alternativas a)–e), a segunda
-chamada acerta o cache e o artefato baixa pela rota do app. Falta a coalescência de renders e o
-preâmbulo pré-compilado.
-522 testes (478 no app + 44 no renderer) · 34 PRs abertos, nada mergeado.
+chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-compilado corta a
+compilação de 1886 ms para 508 ms. Falta a coalescência de renders.
+528 testes (478 no app + 50 no renderer) · 35 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -531,6 +531,13 @@ falta o que produz o estado
 - ✅ Worker indisponível degrada com aviso, **não** com erro *(pintar de vermelho mandaria a pessoa procurar defeito no texto dela)*
 - ✅ `cacheHit` visível
 - ✅ Compilação concorrente barrada *(apertar `Ctrl+Enter` três vezes não dispara três `pdflatex` — e é justamente enquanto a primeira demora que a pessoa aperta de novo)*
+
+**Preâmbulo pré-compilado** *(#73)*
+- ✅ Formato `mylatexformat` por hash de preâmbulo, construído sob demanda e cacheado em `/tmp`
+- ✅ **Ganho medido, com o PDF conferido em cada execução** *(`pdflatex` sozinho, dentro da imagem: **1886 ms → 508 ms**, mediana de 5; construir o formato custa 2313 ms, uma vez. Ponta a ponta pelo worker, em contêiner novo: primeira compilação 3474 ms, seguintes 606–1010 ms)*
+- ✅ Falha do formato cai para a compilação normal *(otimização que quebra o produto quando não funciona é só uma segunda forma de falhar)*
+- ✅ ⚠️ **Bug do contêiner corrigido no caminho**: o tmpfs de `/home/renderer` montava root-owned e o usuário do worker **não escrevia no próprio HOME**. Não quebrava a compilação porque o `compile.ts` aponta `HOME` para o diretório do job — era um piso falso.
+- ⛔ **Três medições anteriores foram inválidas e descartadas** — *cronometraram compilações que falharam. A causa final foi o `echo` do `dash` interpretando `\b`, transformando `\begin{document}` em backspace + "egin". O critério passou a ser: medição só conta com o PDF conferido no mesmo script.*
 - [ ] Aba Source (`.tex` montado)
 - [ ] `Ctrl+Enter` dispara render
 - [ ] Copiar LaTeX final
