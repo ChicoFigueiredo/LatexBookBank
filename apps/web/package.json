@@ -14,7 +14,8 @@
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio --port 28001",
     "db:generate": "prisma generate",
-    "db:import-latex": "bun scripts/import-latex-knowledge.ts"
+    "db:import-latex": "bun scripts/import-latex-knowledge.ts",
+    "db:derive-postgres": "bun scripts/derive-postgres-schema.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
