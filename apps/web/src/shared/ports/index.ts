@@ -40,14 +40,15 @@ export type {
 export { AssetNotFoundError, asStorageKey, StorageKeyEscapeError } from "./storage-provider";
 
 export type {
-  DiagnosticSeverity,
-  LatexEngine,
-  RenderAsset,
+  RenderArtifactDescriptor,
   RenderBundle,
   RenderDiagnostic,
-  RendererHealth,
   RenderExecutor,
+  RenderHealth,
+  RenderJobStatus,
   RenderOptions,
+  RenderOutcome,
+  RenderProfile,
   RenderResult,
 } from "./render-executor";
 export { RendererUnavailableError } from "./render-executor";
