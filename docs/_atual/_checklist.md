@@ -41,7 +41,7 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-632 testes (582 no app + 50 no renderer) · 41 PRs abertos, nada mergeado.
+657 testes (607 no app + 50 no renderer) · 42 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -333,7 +333,7 @@ falta o que produz o estado
 - ✅ Word wrap *(enunciado é prosa, não código)*
 - ✅ Minimap desligado por padrão
 - ✅ Model de editor por campo
-- ✅ Abas internas: Conteúdo, Resposta, Complemento — [ ] Metadados e Origem *(dependem da Fase 7 e da 14)*
+- ✅ Abas internas: Conteúdo, Resposta, Complemento e **Metadados** *(#87); [ ] Origem *(depende da Fase 14)*
 - ✅ Autosave com debounce *(1,2 s; timer limpo na desmontagem)*
 - ✅ `Ctrl+S` salva imediatamente *(handler por ref — senão congelaria a questão aberta na montagem)*
 - ✅ Dirty state visível *(não salvo · salvando · salvo · conflito · erro)*
@@ -683,15 +683,13 @@ falta o que produz o estado
 - ✅ Patches numa transação *(meio patch aplicado deixaria **duas** corretas — o estado que a validação chama de erro)*
 - ✅ **Teste: o gabarito sobrevive à reordenação das alternativas** *(#79)*
 
-**Metadados e tags**
-- [ ] Dificuldade na escala legada (0, 2, 5, 7, 10)
-- [ ] Ano
-- [ ] Banca
-- [ ] Instituição
-- [ ] Cargo
-- [ ] Nível do cargo
-- [ ] Origem
-- [ ] Video URL
+**Metadados e tags** *(#87)*
+- ✅ Dificuldade na escala legada (0, 2, 5, 7, 10) — **não** 1–5 *(mapear para 1–5 perderia a granularidade que o acervo já usa e tornaria o import não reversível)*
+- ✅ Ano *(1900 até o ano seguinte: o acervo tem provas históricas transcritas, e prova de janeiro é cadastrada em novembro)*
+- ✅ Banca · Instituição · Cargo · Nível do cargo · Origem *(texto livre de propósito: "CESPE" virou "CEBRASPE" no meio dos vinte anos, e vocabulário fechado obrigaria a escolher qual nome está certo antes de o dado existir)*
+- ✅ Video URL, **só `http`/`https`** *(`javascript:` num campo que a tela vira link é XSS armazenado, e o campo aceita colagem de qualquer lugar)*
+- ✅ Ano com erro de digitação é **recusado**, não corrigido *(gravar `2024` a partir de `20244` seria adivinhação, e adivinhação em dado de origem é como um acervo perde a confiabilidade)*
+- ✅ Aba Metadados na tela *(fecha também o item que a Fase 3 deixou pendente)*
 - ✅ Criar e remover tag *(#85 — aplicar uma tag existente **reaproveita** a existente; sem isso o filtro começa a mentir depois do primeiro mês de uso)*
 - ✅ **Normalização: o mesmo assunto escrito de dois jeitos não vira duas tags** *("Função Quadrática", "função quadratica" e "  FUNÇÃO  QUADRÁTICA " são uma. A caixa da tela fica como a pessoa digitou; quem cuida da duplicata é a chave)*
 - ✅ Busca ignora acento, e o custo está assumido *(digitar sem acento é o erro mais comum em português; "sabia"/"sabiá" colidem, e vale para **tag**, não para conteúdo de questão)*
