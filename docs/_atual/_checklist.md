@@ -31,11 +31,12 @@ cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o fo
 não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
 **Fase 5 fechada em código** (#53, #55): o `PreviewModel`, o leitor de LaTeX e o preview na tela,
 com MathJax local. Falta só a conferência visual, que fica com o Chico.
-**Fase 6 em andamento** (#57, #59, #61, #63): contratos isolados por teste, worker compilando e
-exposto por HTTP, imagem verificada dentro do contêiner e compose com **saída de rede bloqueada,
-comprovada nos dois sentidos**. Falta o lado da aplicação — `RenderWorkerExecutor`, `RenderJob`,
-cache por content hash e as abas PDF/PNG/Log.
-468 testes (424 no app + 44 no renderer) · 30 PRs abertos, nada mergeado.
+**Fase 6 em andamento** (#57, #59, #61, #63, #65): contratos isolados por teste, worker
+compilando e exposto por HTTP, imagem verificada dentro do contêiner, compose com **saída de rede
+bloqueada comprovada nos dois sentidos**, e o `RenderWorkerExecutor` ligando a aplicação ao
+worker. Falta persistir `RenderJob`, gravar artefatos pelo `StorageProvider`, o cache e as abas
+PDF/PNG/Log.
+486 testes (442 no app + 44 no renderer) · 31 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -479,16 +480,22 @@ falta o que produz o estado
 - [ ] Template e preamble aplicados
 - [ ] Assets referenciados corretamente
 
-**Lado da aplicação**
-- [ ] `RenderExecutor` implementado como `RenderWorkerExecutor`
-- [ ] `baseURL` configurável por ambiente — única diferença entre local e droplet
-- [ ] Nenhum módulo editorial chama a compilação diretamente
+**Lado da aplicação** *(#65)*
+- ✅ **Port reconciliado com o contrato** *(o `render-executor.ts` da Fase 0 declarava `RenderBundle`/`RenderResult` por conta própria, antes de o D35 existir — e as duas definições já divergiam: perfil era nome aqui e objeto lá, asset trazia bytes aqui e metadados lá. Duas definições da mesma coisa não empatam: uma fica errada e ninguém descobre qual até a integração falhar)*
+- ✅ `RenderExecutor` implementado como `RenderWorkerExecutor`
+- ✅ `baseURL` configurável por ambiente — única diferença entre local e droplet *(nenhum `if (produção)` no arquivo)*
+- ✅ Executor **sem estado** *(a primeira versão guardava os bytes dos assets numa propriedade, e dois renders concorrentes teriam sobrescrito os assets um do outro)*
+- ✅ Valida o bundle **antes** de subir os assets pela rede, com o mesmo código do worker
+- ✅ Recusa artefato truncado *(gravar isso no storage criaria arquivo corrompido com hash correto no banco — o pior tipo de dado ruim, porque parece íntegro)*
+- ✅ Worker indisponível degrada com mensagem clara *(`RendererUnavailableError` diz "o texto continua salvo"; erro genérico seria indistinguível de LaTeX quebrado e mandaria a pessoa procurar defeito no texto dela)*
+- ✅ Content hash cobre conteúdo, profile, preamble, classe, assets, engine, DPI, passadas e **versão do renderer**
+- ✅ O hash **não** cobre `jobId` nem timeout *(um é identidade de execução, o outro muda quanto esperamos e não o que sai)*
+- [ ] Nenhum módulo editorial chama a compilação diretamente *(ninguém chama ainda)*
 - [ ] Aplicação grava `pdf` e `png` do `RenderResult` via `StorageProvider`
 - [ ] `RenderJob` persistido
 - [ ] API de criação, status e resultado
-- [ ] Content hash cobre conteúdo, profile, template, preamble, assets, engine, parâmetros e versão do renderer
 - [ ] Cache hit retorna artefato anterior e marca `cacheHit`
-- [ ] Invalidação por versão do renderer
+- [ ] Invalidação por versão do renderer *(o hash já muda; falta o lado que guarda)*
 - [ ] Render pendente é cancelado quando ainda não iniciou
 - [ ] Render intermediário é descartado
 - [ ] Estado final converge para o último pedido, com teste
