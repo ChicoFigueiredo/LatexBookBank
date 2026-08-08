@@ -41,13 +41,13 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-657 testes (607 no app + 50 no renderer) · 42 PRs abertos, nada mergeado.
+666 testes (616 no app + 50 no renderer) · 43 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
 | — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
-| B — banco de questões | **◐7** | Registry de tipos de pé |
+| B — banco de questões | **◐7** | Domínio completo; falta acabamento de tela |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
 | E — ingestão visual | 14 · 15 | ☐ não iniciada |
@@ -696,11 +696,14 @@ falta o que produz o estado
 - ✅ Autocomplete ordenado por **uso**, não por alfabeto *(as dez mais usadas cobrem a maioria dos casos; a ordem alfabética as esconderia atrás de qualquer coisa com "a")*
 - ✅ Prefixo vence conteúdo *(quem digita "fun" quer "Função", não "Interpretação de funções" — ainda que a segunda seja sete vezes mais usada)*
 - ✅ Colar uma lista aplica em sequência *(em paralelo, duas grafias da mesma tag criariam duas linhas)*
-- [ ] Filtro por tag *(o ranking está pronto; falta a tela)*
+- ✅ Filtro por tag *(#89 — o `filterTree` já aceitava predicado arbitrário desde a Fase 2, e foi essa decisão que fez o filtro por tag caber em vinte linhas em vez de mexer na árvore)*
+- ✅ Selecionar duas tags filtra por **todas**, não por qualquer uma *(selecionar a segunda é o gesto de **estreitar**; com "ou" ela ampliaria o resultado, e a pessoa concluiria que o filtro quebrou)*
+- ✅ O filtro compara pela chave de tag *(filtrar por "funcao" encontra questão marcada com "Função")*
+- ✅ Contagem por tag vem do **conjunto visível**, não do acervo *(o número serve para decidir se vale clicar agora; um total global diria "300" numa publicação com três)*
 - ✅ `validate_question` com regras, warnings e inconsistências *(#79, #85 — regras nos plugins; **aviso não invalida**, senão a lista de problemas vira ruído que ninguém abre. Tipo sem plugin fica `UNVALIDATED`, não `INVALID`: dizer que ela está errada seria mentira — o que falta é o produto saber avaliá-la.)*
 
 **Aceite da fase**
-- [ ] §33 "Questão" completo (§10 deste documento)
+- ◐ §33 "Questão" completo *(o domínio inteiro está de pé e testado; falta o controle de tag na barra da árvore e a conferência visual)*
 
 ---
 

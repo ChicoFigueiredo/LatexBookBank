@@ -39,6 +39,14 @@ export interface QuestionDto {
   readonly difficultyLabel: string;
   readonly source: string | null;
   readonly options: readonly OptionDto[];
+  /**
+   * Tags aplicadas, só os nomes.
+   *
+   * Nome e não id: o DTO é o que a árvore desenha e filtra, e um id seria uma segunda consulta
+   * para descobrir o que mostrar. A identidade importa na hora de aplicar ou remover — e aí a
+   * tela pede a lista de tags do workspace, que já vem com id.
+   */
+  readonly tags: readonly string[];
 }
 
 export interface TreeNodeDto {
@@ -101,6 +109,7 @@ const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
           complementLatex: node.question.complementLatex,
           difficultyLabel: DIFFICULTY_LABELS[node.question.difficulty] ?? "—",
           source: [node.question.board, node.question.year].filter(Boolean).join(" · ") || null,
+          tags: node.question.tags.map((link) => link.tag.name),
           options: node.question.options.map((option, index) => ({
             id: option.id,
             label: optionLabelAt(index),

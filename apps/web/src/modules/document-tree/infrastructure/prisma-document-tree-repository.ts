@@ -47,6 +47,9 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
               orderBy: { sortKey: "asc" },
               select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },
             },
+            // Só o nome: é o que a árvore desenha e filtra. Trazer o id obrigaria a uma segunda
+            // consulta para descobrir o que mostrar.
+            tags: { select: { tag: { select: { name: true } } } },
           },
         },
       },
