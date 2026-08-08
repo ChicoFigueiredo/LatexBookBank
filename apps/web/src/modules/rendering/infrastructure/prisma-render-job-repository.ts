@@ -163,3 +163,20 @@ export class PrismaRenderJobRepository implements RenderJobRepository {
     return toRecord(row);
   }
 }
+
+/**
+ * Um artefato de render, pela chave que o cliente conhece.
+ *
+ * Fica no módulo, e não no Route Handler, porque a fronteira de lint é explícita: nada em `app/**`
+ * fala com o banco. Não é formalidade — é o que impede a rota de crescer com regra de negócio
+ * dentro, e foi o lint que cobrou, não eu que lembrei.
+ */
+export async function findRenderArtifact(
+  jobId: string,
+  name: string,
+): Promise<{ storageKey: string; mimeType: string; sizeBytes: number } | null> {
+  return prisma.asset.findFirst({
+    where: { renderJobId: jobId, originalFilename: name },
+    select: { storageKey: true, mimeType: true, sizeBytes: true },
+  });
+}
