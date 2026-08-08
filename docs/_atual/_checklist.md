@@ -41,7 +41,7 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-594 testes (544 no app + 50 no renderer) · 39 PRs abertos, nada mergeado.
+606 testes (556 no app + 50 no renderer) · 40 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -674,7 +674,13 @@ falta o que produz o estado
 - ✅ Clicar de novo na correta **não chama o banco** *(comportamento de rádio; desmarcar deixaria a questão sem gabarito, e uma transação para não mudar nada é só custo)*
 - ✅ Embaralhar visualização **sem tocar no banco** *(o legado embaralhava gravando, e era isso que fazia o gabarito seguir a letra em vez da alternativa)*
 - ✅ **Teste: o gabarito sobrevive a uma sessão de edição inteira** — mover, acrescentar, remover e marcar *(a spec cita o embaralhamento; o dia a dia é isto)*
-- [ ] Interface de arrastar as alternativas *(o cálculo está pronto; falta a tela)*
+- ✅ Interface de arrastar as alternativas *(#83 — `draggable` nativo, não `@dnd-kit`: a árvore precisa de aninhamento, zonas e teclado; aqui são cinco linhas numa coluna, e a biblioteca seria peso por um caso que o nativo resolve)*
+- ✅ Subir/descer por botão *(para quem não usa mouse — e mais preciso que o arrasto para mover uma casa, que é o movimento mais comum)*
+- ✅ Marcar correta com `role="radio"` e `aria-checked` *(em múltipla escolha marcar uma desmarca a outra, e é o leitor de tela que precisa saber disso, não só a cor da borda)*
+- ✅ Embaralhado, a tela **diz que nada foi gravado** *(sem o selo, a pessoa sai achando que gravou a nova ordem)*
+- ✅ Embaralhado, editar e reordenar ficam bloqueados *(mover "para a terceira posição" da lista embaralhada gravaria uma ordem que ninguém viu como definitiva)*
+- ✅ API de criar, remover, mover, marcar e editar texto *(`deleteMany`/`updateMany` com os **dois** ids: `delete` por id sozinho apagaria alternativa de outra questão se alguém montasse a requisição à mão)*
+- ✅ Patches numa transação *(meio patch aplicado deixaria **duas** corretas — o estado que a validação chama de erro)*
 - ✅ **Teste: o gabarito sobrevive à reordenação das alternativas** *(#79)*
 
 **Metadados e tags**
