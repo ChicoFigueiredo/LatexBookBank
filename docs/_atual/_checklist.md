@@ -21,14 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · 1/19 fases concluídas
+**Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · ◐ Fase 3 · ◐ Fase 4 · 1/19 fases concluídas
 **Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual); Fase 2
 fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autosave e conflito
-visível, tudo exercitado contra o banco real. 285 testes · 25 PRs abertos, nada mergeado.
+visível. **Fase 4 com o importador de pé** (#47): o conhecimento LaTeX do legado está no banco —
+652 autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens fechando contra o
+levantamento. Falta o lado do editor (completion provider e palette).
+306 testes · **22 PRs abertos, nada mergeado** *(o número anterior, 25, estava errado — conferido com `gh pr list`)*.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · 4 · 5 · 6 | Fases 1–3 em andamento |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · **◐4** · 5 · 6 | Fases 1–4 em andamento |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -334,16 +337,17 @@ falta o que produz o estado
 
 ### Fase 4 — Conhecimento LaTeX do legado
 
-**Importador**
-- [ ] Leitura de `LatexMetadata.db` estritamente read-only
-- [ ] Import idempotente
-- [ ] Relatório com contagens
-- [ ] 653 autocompletes importados
-- [ ] 2.741 símbolos importados
-- [ ] 13 grupos de símbolos importados
-- [ ] 29 menus de ícones importados
-- [ ] Categorias preservadas
-- [ ] Delimitador legado `§` convertido em placeholders nativos do Monaco
+**Importador** *(#47)*
+- ✅ Leitura de `LatexMetadata.db` estritamente read-only *(`immutable=1` + `SQLITE_OPEN_URI`: escrita recusada pelo motor **e** nenhum `-shm`/`-wal` criado ao lado do original — só `READONLY` deixava dois arquivos novos dentro do acervo)*
+- ✅ Import idempotente *(rodado duas vezes contra o banco real; o retrato das 3.420 linhas é idêntico)*
+- ✅ Relatório com contagens *(`origem = gravados + duplicatas + descartados`, com asserção de fechamento)*
+- ✅ 653 autocompletes lidos → **652 gravados** *(1 duplicata: `\addtocontents` está duas vezes no legado, uma com descrição e outra sem)*
+- ✅ 2.741 símbolos lidos → **2.740 gravados** *(1 duplicata: `\neq` repetido no grupo `math`)*
+- ✅ 13 grupos de símbolos importados
+- ✅ 29 menus de ícones lidos → **28 gravados** *(`Asteristic`, id 8, tem o template nulo no legado — botão que não insere nada)*
+- ✅ Categorias preservadas *(13 grupos de símbolos; grupo e subgrupo dos ícones vêm por join)*
+- ✅ Delimitador legado `§` convertido em placeholders nativos do Monaco *(também nos templates dos ícones; `$`, `\` e `}` escapados — sem isso `$ log_{b} a $`, que existe no acervo, abriria uma tabulação fantasma)*
+- ✅ **Nenhum binário no banco** *(o `PNGSimbol` — 1,1 MB de BLOB — fica fora; a miniatura é o SVG, que é markup)*
 
 **Editor**
 - [ ] Completion provider com trigger `\`
@@ -356,8 +360,8 @@ falta o que produz o estado
 - [ ] Inserção no cursor
 
 **Aceite da fase**
-- [ ] Contagens do relatório conferem com as do levantamento
-- [ ] Autocomplete e snippets funcionam com o acervo legado real
+- ✅ Contagens do relatório conferem com as do levantamento *(653 · 13 · 2.741 · 29 — as quatro fecham, com a diferença explicada linha a linha)*
+- [ ] Autocomplete e snippets funcionam com o acervo legado real *(depende do completion provider acima)*
 
 ---
 

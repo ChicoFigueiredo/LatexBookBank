@@ -347,3 +347,102 @@ model SourceAnchor {
   @@index([publicationId, pageNumber])
   @@map("source_anchors")
 }
+
+// ---------------------------------------------------------------------------------------------
+// Conhecimento LaTeX (Fase 4, issue #47)
+//
+// Importado de `LatexMetadata.db`, que no legado já era um banco **independente do acervo**. Por
+// isso nada aqui pende de `Workspace`: o vocabulário do LaTeX é o mesmo nas 13 bibliotecas, e
+// pendurá-lo num workspace obrigaria a importar treze vezes o mesmo conteúdo.
+//
+// `legacyId` não nulo marca a linha como vinda do import. É o que permite reimportar sem apagar
+// o que for criado dentro do produto — o importador só troca o que ele mesmo escreveu.
+// ---------------------------------------------------------------------------------------------
+
+/// Um item de autocomplete. O corpo já está no formato de snippet do Monaco: o delimitador
+/// legado `§nome§` é traduzido para `${1:nome}` na importação, não na hora de sugerir.
+model LatexSnippet {
+  id String @id @default(uuid())
+
+  /// Palavra que dispara a sugestão, **sem** a barra: `alpha`, não `\alpha`.
+  trigger String
+  label   String
+  body    String
+
+  documentation String?
+  /// `PrimaryPriority` do legado — desempata a ordem da lista.
+  priority Int @default(0)
+  /// Redundante com o corpo, mas evita varrer 651 strings para montar um ícone na lista.
+  hasPlaceholders Boolean @default(false)
+
+  legacyId Int? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([trigger, body])
+  @@index([trigger])
+  @@map("latex_snippets")
+}
+
+/// Um grupo da palette de símbolos: `greek`, `arrows`, `operators`…
+model LatexSymbolGroup {
+  id   String @id @default(uuid())
+  name String @unique
+
+  sortOrder Int  @default(0)
+  legacyId  Int? @unique
+
+  symbols LatexSymbol[]
+
+  @@map("latex_symbol_groups")
+}
+
+/// Um símbolo da palette.
+model LatexSymbol {
+  id      String           @id @default(uuid())
+  groupId String
+  group   LatexSymbolGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  command String
+  /// Caractere equivalente, quando existe — 867 dos 2.741 têm.
+  unicode String?
+  /// Pacote exigido; a string vazia do legado vira `null`.
+  requiredPackage String?
+  /// Só é válido dentro de modo matemático.
+  mathMode Boolean @default(false)
+
+  /// Miniatura em **SVG**, que é markup e não binário — por isso pode ficar aqui sem ferir a
+  /// auditoria §8. O `PNGSimbol` do legado (1,1 MB de BLOB) fica de fora, por regra.
+  previewSvg String?
+
+  sortOrder Int  @default(0)
+  legacyId  Int? @unique
+
+  @@unique([groupId, command])
+  @@index([groupId, sortOrder])
+  @@map("latex_symbols")
+}
+
+/// Um botão do ribbon legado: template pronto para inserir, com atalho opcional.
+///
+/// Grupo e subgrupo são **colunas de texto**, não tabelas: o legado tem 2 grupos e 5 subgrupos
+/// para 29 botões, e normalizar duas linhas seria cerimônia sem consumidor.
+///
+/// A imagem (`vImagemBase64`) **não** é importada: binário não entra no banco (auditoria §8).
+/// Quando a palette precisar de ícone, ele vira Asset via `StorageProvider`.
+model LatexIconMenu {
+  id String @id @default(uuid())
+
+  groupName    String
+  subGroupName String
+  name         String
+  template     String
+  shortcut     String?
+
+  sortOrder Int  @default(0)
+  legacyId  Int? @unique
+
+  @@index([groupName, subGroupName, sortOrder])
+  @@map("latex_icon_menus")
+}

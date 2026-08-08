@@ -84,7 +84,9 @@ describe("predicado combina com a busca por E", () => {
 
 describe("rótulo que não é texto", () => {
   it("não casa por acidente, e `textOf` resolve quando precisa", () => {
-    const nodes: readonly TreeNode[] = [{ id: "x", label: { type: "span", props: {}, key: null } as never }];
+    const nodes: readonly TreeNode[] = [
+      { id: "x", label: { type: "span", props: {}, key: null } as never },
+    ];
 
     expect(filterTree(nodes, { query: "span" }).matchCount).toBe(0);
     expect(filterTree(nodes, { query: "alfa", textOf: () => "alfa" }).matchCount).toBe(1);

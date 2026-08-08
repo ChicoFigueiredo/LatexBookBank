@@ -9,3 +9,9 @@ docs/
 
 # código gerado pelo Prisma
 apps/web/src/generated
+
+# Arquivos que o Next reescreve a cada `build` e a cada `dev`, com formatação própria. Deixar o
+# Prettier reformatá-los faz a árvore ficar suja depois de todo build — e o `format:check` do CI
+# falhar por causa de um arquivo que ninguém editou.
+apps/web/tsconfig.json
+apps/web/next-env.d.ts
