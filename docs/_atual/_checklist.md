@@ -31,10 +31,11 @@ cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o fo
 não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
 **Fase 5 fechada em código** (#53, #55): o `PreviewModel`, o leitor de LaTeX e o preview na tela,
 com MathJax local. Falta só a conferência visual, que fica com o Chico.
-**Fase 6 em andamento** (#57, #59): contratos num pacote próprio com o isolamento afirmado por
-teste, e o `services/renderer` compilando de verdade — `pdflatex` sem shell, diretório por job,
-log traduzido em diagnóstico. Falta o HTTP, o Dockerfile e o lado da aplicação.
-448 testes (424 no app + 24 no renderer) · 28 PRs abertos, nada mergeado.
+**Fase 6 em andamento** (#57, #59, #61): contratos num pacote próprio com o isolamento afirmado
+por teste, e o `services/renderer` compilando de verdade e exposto por HTTP com segredo
+compartilhado — exercitado ponta a ponta contra o `pdflatex` real. Falta verificar a imagem
+Docker, o compose sem rede de saída e o lado da aplicação.
+468 testes (424 no app + 44 no renderer) · 29 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -430,16 +431,21 @@ falta o que produz o estado
 - [ ] **A aplicação é quem persiste os artefatos** via `StorageProvider`
 
 **Worker containerizado**
-- [ ] `services/renderer` criado
-- [ ] Dockerfile com Node + TeX Live + Poppler
-- [ ] Imagem compila `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel`
+- ✅ `services/renderer` criado
+- ◐ Dockerfile com Bun + TeX Live + Poppler *(escrito; a lista de pacotes saiu de `kpsewhich` contra os `.sty` que o acervo usa, não de tutorial — **imagem ainda não verificada**, o build estava rodando quando esta linha foi escrita)*
+- [ ] Imagem compila `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel` *(pacotes escolhidos por `kpsewhich`; falta compilar dentro do contêiner para provar)*
 - [ ] `docker compose` expõe o worker em `28900`
 - [ ] Porta confirmada livre antes de subir
-- [ ] `POST /render`
-- [ ] `GET /render/:id`
-- [ ] `GET /health` retorna `status`, `rendererVersion`, `pdfLatexVersion`, `pdfToCairoVersion`, `profileCount`
-- [ ] Autenticação por segredo compartilhado
-- [ ] Segredo nunca no repositório
+- ✅ `POST /render` *(#61 — `multipart/form-data`; compila dentro da requisição, porque um render de questão leva 1–3 s e uma fila traria estado, expiração e um segundo caminho de erro para economizar uma espera que a aplicação já trata como assíncrona)*
+- ✅ `GET /render/:id` e `DELETE /render/:id`
+- ✅ `GET /render/:id/artifacts/:name` devolve os bytes *(autenticado; o `%PDF` é conferido no teste)*
+- ✅ `GET /health` retorna `status`, `rendererVersion`, `pdfLatexVersion`, `pdfToCairoVersion`, `profileCount` *(fora da autenticação de propósito — quem consulta é o orquestrador, que não tem o segredo; `profileCount` é **zero**, que é a resposta honesta: o perfil vem resolvido no bundle, o worker não tem catálogo)*
+- ✅ Autenticação por segredo compartilhado, **comparação em tempo constante** *(a diferença entre errar no primeiro e no último byte é medível pela rede, e o worker responde rápido justamente porque não faz mais nada antes de comparar)*
+- ✅ **O worker recusa subir sem segredo** *(gerar um aleatório faria ele subir, "funcionar", e ninguém descobriria que está aberto até alguém varrer a porta)*
+- ✅ Segredo nunca no repositório *(vem de `RENDERER_SECRET`)*
+- ✅ Jobs só em memória *(sem banco não há credencial de banco; render é reconstruível — D29/§41 — e job concluído expira em 10 min, senão os artefatos viram vazamento com nome de cache)*
+- ✅ Render pendente cancelado antes de começar *(quem cancela muda o estado; `start` é quem decide não gastar um `pdflatex`)*
+- ✅ Nenhum framework HTTP *(o `Bun.serve` já lê multipart; quatro rotas à mão são menos código que a configuração de qualquer biblioteca, e uma dependência a menos para auditar numa imagem que compila entrada de terceiro)*
 - [ ] **Sem rede de saída**
 - [ ] Limite de CPU
 - [ ] Limite de memória
