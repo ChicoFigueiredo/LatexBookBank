@@ -41,7 +41,7 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-563 testes (513 no app + 50 no renderer) · 38 PRs abertos, nada mergeado.
+594 testes (544 no app + 50 no renderer) · 39 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -667,10 +667,14 @@ falta o que produz o estado
 - ✅ Nenhum vínculo de gabarito por letra
 - ✅ **Teste: o gabarito sobrevive à reordenação** *(vinte embaralhamentos com sementes diferentes; a correta continua sendo a mesma alternativa — é exatamente o que o legado não passava, porque `Marcacao` vivia na linha)*
 - [ ] `legacyMarcacao` guardado apenas para auditoria
-- [ ] Adicionar e remover alternativa
-- [ ] Reordenar por drag
-- [ ] Marcar correta
-- [ ] Botão "embaralhar visualização"
+- ✅ Adicionar e remover alternativa *(#81 — nova nunca nasce marcada como correta: alternativa em branco com gabarito passa despercebida até alguém imprimir a prova)*
+- ✅ Remover a **única** correta é permitido *(quem reescreve precisa tirar antes de pôr; recusar aqui viraria dança de ordem obrigatória — quem acusa é a validação)*
+- ✅ Reordenar por fractional index *(grava **só** a alternativa movida; é para isso que o fractional index existe)*
+- ✅ Marcar correta, com exclusividade **por tabela de tipo**, não por `switch` *(acrescentar um tipo é acrescentar uma linha, e há teste exigindo que a tabela cubra todo o vocabulário)*
+- ✅ Clicar de novo na correta **não chama o banco** *(comportamento de rádio; desmarcar deixaria a questão sem gabarito, e uma transação para não mudar nada é só custo)*
+- ✅ Embaralhar visualização **sem tocar no banco** *(o legado embaralhava gravando, e era isso que fazia o gabarito seguir a letra em vez da alternativa)*
+- ✅ **Teste: o gabarito sobrevive a uma sessão de edição inteira** — mover, acrescentar, remover e marcar *(a spec cita o embaralhamento; o dia a dia é isto)*
+- [ ] Interface de arrastar as alternativas *(o cálculo está pronto; falta a tela)*
 - ✅ **Teste: o gabarito sobrevive à reordenação das alternativas** *(#79)*
 
 **Metadados e tags**
