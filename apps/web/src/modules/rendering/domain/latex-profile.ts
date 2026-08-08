@@ -57,6 +57,11 @@ export const LEGACY_COMPATIBILITY_PROFILE: RenderProfile = {
     "\\usepackage{subcaption}",
     "\\usepackage{enumitem}",
     "\\usepackage{siunitx}",
+    // O acervo escreve valores em reais como `\SI{1000}{\real}`, e `\real` **não** existe no
+    // siunitx — é uma unidade que precisa ser declarada. Sem esta linha, toda questão de
+    // matemática financeira falha com "Undefined control sequence", que foi exatamente o que a
+    // primeira compilação de uma questão real devolveu.
+    "\\DeclareSIUnit{\\real}{R\\$}",
     "\\usepackage[section]{placeins}",
     "\\usepackage{multirow}",
     "\\usepackage{array,tabularx,makecell}",
@@ -109,6 +114,11 @@ export const QUESTION_PREVIEW_PROFILE: RenderProfile = {
     "\\usepackage{graphicx}",
     "\\usepackage{enumitem}",
     "\\usepackage{siunitx}",
+    // O acervo escreve valores em reais como `\SI{1000}{\real}`, e `\real` **não** existe no
+    // siunitx — é uma unidade que precisa ser declarada. Sem esta linha, toda questão de
+    // matemática financeira falha com "Undefined control sequence", que foi exatamente o que a
+    // primeira compilação de uma questão real devolveu.
+    "\\DeclareSIUnit{\\real}{R\\$}",
     "\\usepackage[makeroom]{cancel}",
     "\\usepackage{xlop}",
     "\\usepackage{xcolor}",

@@ -8,6 +8,8 @@ import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor"
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
+import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
+import { useRender } from "@modules/rendering/ui/use-render";
 
 /**
  * O editor da questão: abas por campo, autosave com debounce e conflito visível.
@@ -48,6 +50,7 @@ export function QuestionEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [rightTab, setRightTab] = useState<"rapido" | "render">("rapido");
 
   // A versão vive em ref, não em state: ela muda a cada gravação e não desenha nada. Em state,
   // cada salvamento re-renderizaria o editor inteiro — e o Monaco perde a posição do cursor.
@@ -128,6 +131,15 @@ export function QuestionEditor({
 
   const blocked = state === "conflict";
 
+  const { status: renderStatus, render } = useRender({ publicationId, questionId });
+
+  // Compilar troca para a aba do resultado: quem aperta `Ctrl+Enter` quer ver o PDF, e deixar a
+  // pessoa na aba do preview rápido faria a compilação parecer que não aconteceu.
+  const compile = useCallback(() => {
+    setRightTab("render");
+    render();
+  }, [render]);
+
   // A palette manda o comando; quem sabe transformá-lo em snippet com a seleção dentro é o
   // domínio. Assim `\\textbf` selecionado vira `\\textbf{palavra}` em vez de perder a palavra.
   const insertSymbol = useCallback((command: string) => {
@@ -193,6 +205,7 @@ export function QuestionEditor({
             value={draft[field]}
             onChange={handleChange}
             onSave={() => void save()}
+            onRender={compile}
             onReady={(api) => {
               editor.current = api;
             }}
@@ -209,17 +222,49 @@ export function QuestionEditor({
               flex: 1,
               minWidth: 0,
               minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
               borderLeft: "1px solid var(--border-default)",
             }}
           >
-            <PreviewPane
-              source={{
-                statementLatex: draft.statementLatex,
-                solutionLatex: draft.solutionLatex,
-                complementLatex: draft.complementLatex,
-                options,
+            <div
+              style={{
+                display: "flex",
+                gap: "var(--space-1)",
+                padding: "var(--space-2) var(--space-3) 0",
               }}
-            />
+            >
+              {/* Aproximado e autoritativo lado a lado, na mesma coluna: são a mesma pergunta
+                  ("como isto vai ficar?") respondida com precisão e custo diferentes. */}
+              <Tabs
+                tabs={[
+                  { id: "rapido", label: "Preview rápido" },
+                  { id: "render", label: "PDF compilado" },
+                ]}
+                value={rightTab}
+                onChange={(id) => setRightTab(id as "rapido" | "render")}
+                aria-label="Modo de visualização"
+              />
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0 }}>
+              {rightTab === "rapido" ? (
+                <PreviewPane
+                  source={{
+                    statementLatex: draft.statementLatex,
+                    solutionLatex: draft.solutionLatex,
+                    complementLatex: draft.complementLatex,
+                    options,
+                  }}
+                />
+              ) : (
+                <RenderPanel
+                  status={renderStatus}
+                  onRender={compile}
+                  sourceLatex={draft.statementLatex}
+                />
+              )}
+            </div>
           </div>
         )}
 

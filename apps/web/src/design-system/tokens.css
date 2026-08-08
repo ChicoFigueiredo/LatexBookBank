@@ -31,6 +31,10 @@
   --bg: #f7f5f1; /* papel de fundo da aplicação */
   --surface-sunken: #efece6; /* rail, wells, code, áreas rebaixadas */
   --surface: #ffffff; /* painéis: árvore, editor, cards */
+  /* Papel. Branco nos três temas, de propósito: é o fundo de um PDF renderizado, e o PNG do
+     `pdftocairo` é transparente onde não há tinta — sem isto, a página inteira sumiria no dark.
+     Não é "surface esquecida no claro": é a única cor da paleta que representa algo físico. */
+  --surface-paper: #ffffff;
   --surface-raised: #fbfaf7; /* elevada: hover, inputs em painel, linhas */
   --surface-overlay: #ffffff; /* dropdowns, popovers, modais */
 
@@ -182,6 +186,10 @@
   --bg: #16191d;
   --surface-sunken: #101317;
   --surface: #1d2126;
+  /* Repetido nos três temas de propósito: o guard exige que toda cor do claro seja reafirmada,
+     e é bom que exija — assim quem editar o dark encontra a decisão aqui, e não num arquivo de
+     exceções. Papel é papel: o PDF não muda de cor com o tema da tela. */
+  --surface-paper: #ffffff;
   --surface-raised: #252a31;
   --surface-overlay: #2b3138;
 
@@ -252,6 +260,10 @@
   --bg: #000000;
   --surface-sunken: #000000;
   --surface: #0a0a0a;
+  /* Repetido nos três temas de propósito: o guard exige que toda cor do claro seja reafirmada,
+     e é bom que exija — assim quem editar o dark encontra a decisão aqui, e não num arquivo de
+     exceções. Papel é papel: o PDF não muda de cor com o tema da tela. */
+  --surface-paper: #ffffff;
   --surface-raised: #141414;
   --surface-overlay: #1a1a1a;
 

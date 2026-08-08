@@ -35,8 +35,11 @@ com MathJax local. Falta só a conferência visual, que fica com o Chico.
 compilando e exposto por HTTP, imagem verificada dentro do contêiner, compose com **saída de rede
 bloqueada comprovada nos dois sentidos**, e o `RenderWorkerExecutor` ligando a aplicação ao
 worker, com `RenderJob` persistido, artefatos no `StorageProvider`, cache por content hash,
-perfis de compilação e a API de render. Falta a interface — abas PDF/PNG/Log e `Ctrl+Enter`.
-510 testes (466 no app + 44 no renderer) · 33 PRs abertos, nada mergeado.
+perfis de compilação, API de render e as abas PDF/PNG/Log. **Verificado ponta a ponta**: uma
+questão real do acervo demo compila pela API, mostra `R$` e as alternativas a)–e), a segunda
+chamada acerta o cache e o artefato baixa pela rota do app. Falta a coalescência de renders e o
+preâmbulo pré-compilado.
+522 testes (478 no app + 44 no renderer) · 34 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -517,10 +520,17 @@ falta o que produz o estado
 - [ ] `RenderArtifact` pode ser descartado e reconstruído *(auditoria §41)*
 - [ ] `preview.png` nunca vira conteúdo canônico
 
-**Interface**
-- [ ] Aba PDF
-- [ ] Aba PNG
-- [ ] Aba Log
+**Interface** *(#71)*
+- ✅ Aba PDF *(`<object>` e não `<iframe>`: o fallback fica dentro do elemento e aparece sozinho onde o navegador não tem leitor)*
+- ✅ Aba PNG *(sobre `--surface-paper`, token novo: o PNG do `pdftocairo` é transparente onde não há tinta, e sem fundo a página sumiria no tema escuro)*
+- ✅ Aba Log
+- ✅ Aba Fonte *(o corpo que foi realmente enviado — é o que responde "o que exatamente foi mandado?" quando o resultado surpreende)*
+- ✅ `Ctrl+Enter` compila *(registrado **no editor**, não numa escuta de janela: atalho global roubaria o Enter de qualquer campo da tela)*
+- ✅ Render mostra progresso *(texto, não roda girando: roda não diz se travou)*
+- ✅ Diagnóstico com linha, não stack trace *(erros e avisos na lista; `Overfull \hbox` fica num contador, senão a lista vira ruído — que é o mesmo que não ter lista)*
+- ✅ Worker indisponível degrada com aviso, **não** com erro *(pintar de vermelho mandaria a pessoa procurar defeito no texto dela)*
+- ✅ `cacheHit` visível
+- ✅ Compilação concorrente barrada *(apertar `Ctrl+Enter` três vezes não dispara três `pdflatex` — e é justamente enquanto a primeira demora que a pessoa aperta de novo)*
 - [ ] Aba Source (`.tex` montado)
 - [ ] `Ctrl+Enter` dispara render
 - [ ] Copiar LaTeX final
