@@ -12,7 +12,7 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "types": ["node"]
+    "types": ["bun"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }
