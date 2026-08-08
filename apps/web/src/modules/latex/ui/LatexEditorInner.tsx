@@ -51,6 +51,8 @@ export interface LatexEditorInnerProps {
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly onSave?: () => void;
+  /** `Ctrl+Enter` — compilação autoritativa (spec §12). */
+  readonly onRender?: () => void;
   readonly readOnly?: boolean;
   readonly theme?: "light" | "dark";
   readonly ariaLabel?: string;
@@ -61,6 +63,7 @@ export default function LatexEditorInner({
   value,
   onChange,
   onSave,
+  onRender,
   readOnly = false,
   theme = "light",
   ariaLabel = "Editor LaTeX",
@@ -72,6 +75,7 @@ export default function LatexEditorInner({
   useLatexCompletion();
 
   const saveRef = useRef(onSave);
+  const renderRef = useRef(onRender);
   const readyRef = useRef(onReady);
 
   useEffect(() => {
@@ -84,9 +88,20 @@ export default function LatexEditorInner({
     saveRef.current = onSave;
   }, [onSave]);
 
+  useEffect(() => {
+    renderRef.current = onRender;
+  }, [onRender]);
+
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       saveRef.current?.();
+    });
+
+    // `Ctrl+Enter` registrado no editor, e não numa escuta de janela: um atalho global roubaria
+    // o Enter de qualquer campo de texto da tela, e o `Ctrl+K` do workbench já mostrou que
+    // atalho que vaza do editor é pior que atalho nenhum.
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      renderRef.current?.();
     });
 
     readyRef.current?.({
