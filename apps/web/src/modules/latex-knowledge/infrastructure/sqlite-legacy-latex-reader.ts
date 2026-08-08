@@ -10,6 +10,7 @@ import type {
   LegacyReadResult,
 } from "../domain/latex-knowledge";
 import { hasPlaceholders, normalizeTrigger, toMonacoSnippet } from "../domain/monaco-snippet";
+import { svgFontToPath } from "../domain/svg-font-to-path";
 
 /**
  * Leitor do `LatexMetadata.db` legado.
@@ -77,6 +78,17 @@ interface LegacyIconMenuRow {
   readonly vSubGrupo: string | null;
 }
 
+/**
+ * A miniatura já renderizável, ou `null`.
+ *
+ * Um SVG que não converte é pior que nenhum: ocuparia espaço no banco para desenhar nada. Guardar
+ * `null` faz o símbolo cair no caractere Unicode ou no próprio comando, que é informação de verdade.
+ */
+const toRenderableSvg = (raw: string | null | undefined): string | null => {
+  const source = blankToNull(raw);
+  return source === null ? null : svgFontToPath(source);
+};
+
 /** String vazia e string só de espaços viram `null`: no domínio, ausência é `null` e ponto. */
 const blankToNull = (value: string | null | undefined): string | null => {
   const trimmed = value?.trim() ?? "";
@@ -130,7 +142,10 @@ export class SqliteLegacyLatexReader implements LegacyLatexMetadataReader {
             unicode: blankToNull(row.UnicodeSimbol),
             requiredPackage: blankToNull(row.Package),
             mathMode: row.MathMode !== 0,
-            previewSvg: blankToNull(row.SVGSimbolOriginal),
+            // A miniatura do legado usa SVG font, que nenhum navegador atual renderiza — sai em
+            // branco, sem erro. A conversão para `<path>` acontece aqui, na importação, porque é
+            // determinística e o resultado é 47% menor que a origem.
+            previewSvg: toRenderableSvg(row.SVGSimbolOriginal),
             sortOrder: row.PictureIndex,
             legacyId: row.IdSimbol,
           },

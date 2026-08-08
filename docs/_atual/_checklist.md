@@ -21,18 +21,19 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · ◐ Fase 3 · ◐ Fase 4 · 1/19 fases concluídas
+**Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · ◐ Fase 3 · ✅ Fase 4 · 2/19 fases concluídas
 **Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual); Fase 2
 fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autosave e conflito
-visível. **Fase 4 com o importador e o autocomplete de pé** (#47, #49): o conhecimento LaTeX do legado
-está no banco — 652 autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens
-fechando contra o levantamento — e os autocompletes já sugerem dentro do Monaco. Falta a palette
-de símbolos.
-324 testes · 23 PRs abertos, nada mergeado.
+visível. **Fase 4 fechada** (#47, #49, #51): o conhecimento LaTeX do legado está no banco — 652
+autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens fechando contra o
+levantamento —, os autocompletes sugerem dentro do Monaco e a palette de símbolos insere no
+cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o formato do legado
+não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
+348 testes · 24 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · **◐4** · 5 · 6 | Fases 1–4 em andamento |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **5** · 6 | Fase 5 é a próxima |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -356,13 +357,16 @@ falta o que produz o estado
 - ✅ Prioridade e documentação nos itens *(`sortText` com `padStart` — sem ele, `"9"` viria depois de `"10"` e a prioridade se inverteria)*
 - ✅ Snippets com navegação por tab *(348 dos 652 têm ponto de parada)*
 - ✅ Seleção incorporada ao snippet quando aplicável *(`${1:${TM_SELECTED_TEXT:padrão}}` — sem seleção cai no padrão original)*
-- [ ] Palette de símbolos agrupada
-- [ ] Busca na palette
-- [ ] Inserção no cursor
+- ✅ Palette de símbolos agrupada *(#51 — 13 grupos; índice de 291 KB numa carga, miniaturas por grupo sob demanda porque `fontawesome5` sozinho pesa 1,26 MB)*
+- ✅ Busca na palette *(por comando, Unicode e pacote; sem acento e sem exigir a barra; buscando, o resultado **atravessa** os grupos)*
+- ✅ Inserção no cursor *(via `snippetController2`, que é quem resolve `${1:…}` e `$TM_SELECTED_TEXT`)*
+- ✅ **Miniaturas convertidas de SVG font para `<path>` na importação** *(#51 — as 2.596 do legado usam `<font>`/`<glyph>`, removido de Chrome, Firefox e Safari: renderizavam **em branco, sem erro**. Convertidas, e 47% menores. Conferido de olho: α β Σ ∫ ← ⇒ ∞ > ± ≤ saem corretos)*
+- ✅ Miniatura desenhada como **máscara CSS** *(sem `dangerouslySetInnerHTML` — máscara não executa script; e diferente de `<img>`, segue `currentColor` e portanto o tema)*
+- ✅ Corte de renderização **contado na tela** *("mostrando 400 de 1.566"; lista truncada em silêncio faz parecer que o símbolo não existe)*
 
 **Aceite da fase**
 - ✅ Contagens do relatório conferem com as do levantamento *(653 · 13 · 2.741 · 29 — as quatro fecham, com a diferença explicada linha a linha)*
-- [ ] Autocomplete e snippets funcionam com o acervo legado real *(depende do completion provider acima)*
+- ✅ Autocomplete e snippets funcionam com o acervo legado real *(652 itens servidos e ordenados; 2.740 símbolos na palette, verificados contra o banco real)*
 
 ---
 
