@@ -38,8 +38,10 @@ worker, com `RenderJob` persistido, artefatos no `StorageProvider`, cache por co
 perfis de compilação, API de render e as abas PDF/PNG/Log. **Verificado ponta a ponta**: uma
 questão real do acervo demo compila pela API, mostra `R$` e as alternativas a)–e), a segunda
 chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-compilado corta a
-compilação de 1886 ms para 508 ms. Falta a coalescência de renders.
-528 testes (478 no app + 50 no renderer) · 35 PRs abertos, nada mergeado.
+compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
+restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
+Fase 7) e a conferência visual.
+536 testes (486 no app + 50 no renderer) · 36 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -530,7 +532,11 @@ falta o que produz o estado
 - ✅ Diagnóstico com linha, não stack trace *(erros e avisos na lista; `Overfull \hbox` fica num contador, senão a lista vira ruído — que é o mesmo que não ter lista)*
 - ✅ Worker indisponível degrada com aviso, **não** com erro *(pintar de vermelho mandaria a pessoa procurar defeito no texto dela)*
 - ✅ `cacheHit` visível
-- ✅ Compilação concorrente barrada *(apertar `Ctrl+Enter` três vezes não dispara três `pdflatex` — e é justamente enquanto a primeira demora que a pessoa aperta de novo)*
+- ✅ Compilação concorrente **coalescida** *(#75 — a primeira versão apenas **ignorava** o pedido concorrente, o que descarta o intermediário mas também o **último**: a pessoa editava, pedia de novo e ficava olhando o PDF anterior concluindo que o produto não atualizou)*
+- ✅ Render intermediário descartado *(o resultado obsoleto **não é entregue** — não há filtro depois a esquecer)*
+- ✅ **Estado final converge para o último pedido, com teste**
+- ✅ Três pedidos durante uma execução geram **uma** reexecução, não três *(todos pedem a mesma coisa: "compile o estado atual")*
+- ✅ Trocar de questão cria um coalescer novo *(com um `useRef`, um pedido pendente da questão anterior compilaria depois da troca e sobrescreveria a tela com o PDF errado)*
 
 **Preâmbulo pré-compilado** *(#73)*
 - ✅ Formato `mylatexformat` por hash de preâmbulo, construído sob demanda e cacheado em `/tmp`
