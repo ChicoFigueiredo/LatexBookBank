@@ -34,9 +34,12 @@ const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag"]);
 
 /**
  * Imutáveis por design (D29): registram `createdAt` e nunca `updatedAt`.
- * Arquivo de origem alterado gera um Asset novo; um anchor descreve um recorte que já aconteceu.
+ *
+ * Arquivo de origem alterado gera um Asset novo; um anchor descreve um recorte que já aconteceu;
+ * e um `RenderJob` é uma compilação que ocorreu — mudar entrada não edita o job, cria outro, que
+ * é justamente o que faz o `contentHash` servir de cache.
  */
-const IMMUTABLE_MODELS = new Set(["Asset", "SourceAnchor"]);
+const IMMUTABLE_MODELS = new Set(["Asset", "SourceAnchor", "RenderJob"]);
 
 /**
  * Sem mutação relevante a rastrear.
@@ -55,7 +58,7 @@ const NO_TIMESTAMPS = new Set([
   "LatexIconMenu",
 ]);
 
-describe("o schema tem os 15 modelos esperados", () => {
+describe("o schema tem os 16 modelos esperados", () => {
   it("nenhum foi perdido nem acrescentado sem passar por aqui", () => {
     expect(models.map((m) => m.name).sort()).toEqual([
       "Asset",
@@ -70,6 +73,7 @@ describe("o schema tem os 15 modelos esperados", () => {
       "Question",
       "QuestionOption",
       "QuestionTag",
+      "RenderJob",
       "SourceAnchor",
       "Tag",
       "Workspace",
@@ -188,6 +192,14 @@ describe("índices declarados", () => {
       const model = models.find((m) => m.name === name);
       expect(model?.body, `${name} sem legacyId único`).toMatch(/legacyId\s+Int\?\s+@unique/);
     }
+  });
+
+  it("o cache de render é garantido por unique, não por convenção", () => {
+    // Sem o unique, duas compilações simultâneas da mesma entrada criariam dois jobs e o cache
+    // passaria a depender de qual o `findFirst` devolvesse — não determinístico, e por isso pior
+    // que não ter cache.
+    const job = models.find((m) => m.name === "RenderJob");
+    expect(job?.body).toMatch(/@@unique\(\[workspaceId,\s*contentHash\]\)/);
   });
 
   it("o conhecimento LaTeX guarda a miniatura como SVG, nunca como binário", () => {
