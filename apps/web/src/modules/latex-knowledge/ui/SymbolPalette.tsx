@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 
-import { Input, Select } from "@/design-system";
+import { Input, Select, injectCss } from "@/design-system";
 import {
   paletteView,
   symbolPreview,
   type SymbolEntry,
   type SymbolPreview,
 } from "@modules/latex-knowledge/domain/symbol-palette";
+import { maskUrlFor } from "@shared/css-mask";
 
 /**
  * A palette de símbolos: 2.740 comandos em 13 grupos, buscáveis, inseridos no cursor.
@@ -207,6 +208,22 @@ export function SymbolPalette({ onInsert }: SymbolPaletteProps) {
  *   escuro;
  * - máscara não executa nada **e** a cor vem do `background`, que é o texto do tema.
  */
+/**
+ * A máscara vem de uma **variável CSS**, e não de oito propriedades inline por célula.
+ *
+ * Além de mais leve com 400 células na tela, é o que torna a técnica **observável em teste**: o
+ * React grava propriedade customizada com `setProperty`, que o happy-dom implementa, enquanto
+ * `style.maskImage` é atribuição camelCase que ele ignora em silêncio. Funcionava no navegador e
+ * sumia no teste — a pior combinação possível, e foi assim que apareceu, no preview da Fase 5.
+ */
+const SYMBOL_CSS = `
+.lbb-symbol{display:block;width:22px;height:22px;background-color:currentColor;
+  -webkit-mask-image:var(--lbb-symbol-src);mask-image:var(--lbb-symbol-src);
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;
+  -webkit-mask-size:contain;mask-size:contain}
+`;
+
 function SymbolCell({
   preview,
   entry,
@@ -216,6 +233,8 @@ function SymbolCell({
   readonly entry: SymbolEntry;
   readonly onInsert: (command: string) => void;
 }) {
+  injectCss("lbb-symbol-css", SYMBOL_CSS);
+
   const title = [
     entry.command,
     entry.requiredPackage ? `pacote ${entry.requiredPackage}` : null,
@@ -244,21 +263,9 @@ function SymbolCell({
     >
       {preview.kind === "svg" ? (
         <span
+          className="lbb-symbol"
           aria-hidden="true"
-          style={{
-            display: "block",
-            width: 22,
-            height: 22,
-            backgroundColor: "currentColor",
-            WebkitMaskImage: `url("data:image/svg+xml,${encodeURIComponent(preview.svg)}")`,
-            maskImage: `url("data:image/svg+xml,${encodeURIComponent(preview.svg)}")`,
-            WebkitMaskRepeat: "no-repeat",
-            maskRepeat: "no-repeat",
-            WebkitMaskPosition: "center",
-            maskPosition: "center",
-            WebkitMaskSize: "contain",
-            maskSize: "contain",
-          }}
+          style={{ "--lbb-symbol-src": maskUrlFor(preview.svg) } as CSSProperties}
         />
       ) : preview.kind === "unicode" ? (
         <span aria-hidden="true" style={{ fontSize: 18 }}>
