@@ -31,11 +31,14 @@ cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o fo
 não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
 **Fase 5 fechada em código** (#53, #55): o `PreviewModel`, o leitor de LaTeX e o preview na tela,
 com MathJax local. Falta só a conferência visual, que fica com o Chico.
-409 testes · 26 PRs abertos, nada mergeado.
+**Fase 6 começada** (#57): contratos `RenderBundle`/`RenderResult` num pacote próprio, com
+transporte decidido e o isolamento do worker afirmado por teste. CI verde nas 18 PRs que têm
+checks — as anteriores a #20 são de antes de o pipeline existir.
+424 testes · 27 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **6** | Fase 6 é a próxima |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -405,20 +408,22 @@ falta o que produz o estado
 
 ### Fase 6 — Worker de render autoritativo *(D27, D35)*
 
-**Contratos** *(D35)*
-- [ ] `RenderBundle` definido (`jobId`, `sourceLatex`, `profile`, `assets`, `options`)
-- [ ] `RenderResult` definido (`success`, `pdf`, `png`, `diagnostics`, `stdout`, `stderr`, `durationMs`)
-- [ ] Mecanismo de transporte dos assets decidido e documentado (multipart · tar/zip · stream)
-- [ ] Renderer recebe **apenas** `RenderBundle`
-- [ ] Renderer retorna **apenas** `RenderResult`
+**Contratos** *(D35 · #57 — `packages/render-contract`)*
+- ✅ `RenderBundle` definido *(`jobId`, `sourceLatex`, `profile`, `assets`, `options`; o perfil vai **resolvido**, com preâmbulo dentro — catálogo no worker seria estado, e estado faz duas réplicas divergirem)*
+- ✅ `RenderResult` definido *(`success`, `pdf`, `png`, `diagnostics`, `stdout`, `stderr`, `durationMs`, `rendererVersion`)*
+- ✅ `pdf`/`png` são **descritores**, não bytes *(o status é consultado em laço e o download é um só; `sha256` no descritor deixa a app pular o download do que já está no storage)*
+- ✅ **Transporte decidido: `multipart/form-data`** *(JSON com base64 custaria 33% e encheria o log de megabytes ilegíveis; tar/zip trocaria um formato que todo servidor lê por biblioteca dos dois lados **e** por descompactação de entrada de terceiro, que é superfície de ataque conhecida)*
+- ✅ Validação no contrato, não dentro do worker *(a app valida antes de enviar e o worker ao receber, com o **mesmo** código — duas checagens escritas separadamente divergem justamente no caso esquisito)*
+- ✅ Nome de asset por **lista do que pode**, não do que não pode *(`../x`, `/etc/passwd`, `a/b` e as tentativas ainda não pensadas falham juntas)*
+- ✅ `\write18` recusado no contrato *(a defesa de verdade é rodar sem `-shell-escape`; esta é a segunda camada, porque a primeira é uma flag que alguém pode acrescentar "para testar")*
+- [ ] Renderer recebe **apenas** `RenderBundle` *(depende do worker existir)*
+- [ ] Renderer retorna **apenas** `RenderResult` *(idem)*
 
 **Isolamento do renderer** *(D35 — o ajuste que resolve a contradição do egress)*
-- [ ] Renderer **não** importa `StorageProvider`
-- [ ] Renderer **não** conhece Vercel Blob
-- [ ] Renderer **não** conhece S3
-- [ ] Renderer **não** conhece Prisma
-- [ ] Renderer **não** conhece `Workspace`
-- [ ] Renderer **não** acessa o banco
+- ✅ **O contrato não importa nada** *(#57 — zero dependências, com teste; é o que impede o worker de alcançar o domínio por caminho transitivo)*
+- ✅ O contrato não menciona `StorageProvider`, `storageKey`, Prisma, S3, Vercel Blob nem `Workspace` *(teste de fronteira sobre o código, ignorando comentários)*
+- ✅ `jobId` é a **única** identidade *(nada de `questionId` ou `publicationId` — se o worker soubesse o que compila, "não conhece o domínio" viraria frase em vez de propriedade)*
+- [ ] Renderer **não** acessa o banco *(depende do worker existir)*
 - [ ] Worker funciona **sem credencial de storage**
 - [ ] Worker funciona **sem credencial de banco**
 - [ ] Worker funciona **sem API key de IA**
