@@ -31,10 +31,10 @@ cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o fo
 não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
 **Fase 5 fechada em código** (#53, #55): o `PreviewModel`, o leitor de LaTeX e o preview na tela,
 com MathJax local. Falta só a conferência visual, que fica com o Chico.
-**Fase 6 começada** (#57): contratos `RenderBundle`/`RenderResult` num pacote próprio, com
-transporte decidido e o isolamento do worker afirmado por teste. CI verde nas 18 PRs que têm
-checks — as anteriores a #20 são de antes de o pipeline existir.
-424 testes · 27 PRs abertos, nada mergeado.
+**Fase 6 em andamento** (#57, #59): contratos num pacote próprio com o isolamento afirmado por
+teste, e o `services/renderer` compilando de verdade — `pdflatex` sem shell, diretório por job,
+log traduzido em diagnóstico. Falta o HTTP, o Dockerfile e o lado da aplicação.
+448 testes (424 no app + 24 no renderer) · 28 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -447,13 +447,20 @@ falta o que produz o estado
 - [ ] Filesystem efêmero
 - [ ] **A imagem é a mesma que irá para o droplet** — sem variante "de desenvolvimento"
 
-**Compilação**
-- [ ] `pdflatex` via `execFile`/`spawn` com argumentos — nunca string de shell
-- [ ] Diretório temporário por job
-- [ ] `shell-escape` bloqueado
-- [ ] stdout, stderr e exit code capturados
-- [ ] `pdftocairo` gera PNG
-- [ ] DPI configurável
+**Compilação** *(#59 — exercitada contra o `pdflatex` real, sem dublê)*
+- ✅ `pdflatex` via `execFile` com **vetor de argumentos** — nunca string de shell *(sem shell no caminho não há o que escapar; o acervo legado tem nome de arquivo com espaço, acento e parêntese)*
+- ✅ Diretório temporário por job, apagado no `finally` *(é o que faz `\include` só enxergar o que veio no bundle, e o que impede um job de ler o que outro deixou)*
+- ✅ `shell-escape` bloqueado em duas camadas *(`-no-shell-escape` explícito — "por padrão" depende do `texmf.cnf` da distribuição — e `\write18` recusado antes de tocar o disco)*
+- ✅ stdout, stderr e código de saída capturados *(saída ≠ 0 do `pdflatex` é resultado normal, não exceção; falha de verdade é o binário não existir, e essa lança)*
+- ✅ Ambiente podado *(o worker não repassa o que recebeu; `TEXMFVAR` vai para o diretório do job, senão dois jobs disputam o mesmo cache de fonte)*
+- ✅ Timeout mata o processo e vira diagnóstico
+- ✅ `pdftocairo` gera PNG, uma por página *(a contagem vem do diretório, não de supor uma página — lista de exercícios tem várias)*
+- ✅ DPI configurável, com teste que compara o tamanho da imagem
+- ✅ Dimensões do PNG lidas do `IHDR` *(dois números não justificam uma biblioteca de imagem dentro do worker; cada dependência a menos é uma a menos para auditar)*
+- ✅ Asset conferido por `sha256` antes de gravar *(manifesto que não bate com o conteúdo é erro: ou o transporte corrompeu, ou trocaram o arquivo)*
+- ✅ **Log do LaTeX traduzido em `RenderDiagnostic[]`** *(erro vira linha + mensagem; `Overfull \hbox` entra como `info`, senão o painel ficaria amarelo até ninguém olhar; o caminho do diretório temporário **não** vaza)*
+- ✅ Tradução não inventa *(linha que não casa fica só no log cru, que vai inteiro para a aba)*
+- ✅ **PDF conferido de olho** *(questão com negrito, display math, fração e lista numerada — acentos e tipografia corretos)*
 
 **Profiles**
 - [ ] `LatexProfile` com documentclass, packages, macros, engine e defaults

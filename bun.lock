@@ -50,6 +50,18 @@
         "typescript": "^5.7.3",
       },
     },
+    "services/renderer": {
+      "name": "@latexbookbank/renderer",
+      "version": "0.0.0",
+      "dependencies": {
+        "@latexbookbank/render-contract": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^22.10.5",
+        "typescript": "^5.7.3",
+        "vitest": "^3.0.2",
+      },
+    },
   },
   "trustedDependencies": [
     "@prisma/engines",
@@ -261,6 +273,8 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@latexbookbank/render-contract": ["@latexbookbank/render-contract@workspace:packages/render-contract"],
+
+    "@latexbookbank/renderer": ["@latexbookbank/renderer@workspace:services/renderer"],
 
     "@latexbookbank/web": ["@latexbookbank/web@workspace:apps/web"],
 
