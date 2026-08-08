@@ -34,9 +34,9 @@ com MathJax local. Falta só a conferência visual, que fica com o Chico.
 **Fase 6 em andamento** (#57, #59, #61, #63, #65): contratos isolados por teste, worker
 compilando e exposto por HTTP, imagem verificada dentro do contêiner, compose com **saída de rede
 bloqueada comprovada nos dois sentidos**, e o `RenderWorkerExecutor` ligando a aplicação ao
-worker, com `RenderJob` persistido, artefatos no `StorageProvider` e cache por content hash.
-Falta a API e as abas PDF/PNG/Log.
-499 testes (455 no app + 44 no renderer) · 32 PRs abertos, nada mergeado.
+worker, com `RenderJob` persistido, artefatos no `StorageProvider`, cache por content hash,
+perfis de compilação e a API de render. Falta a interface — abas PDF/PNG/Log e `Ctrl+Enter`.
+510 testes (466 no app + 44 no renderer) · 33 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -473,12 +473,18 @@ falta o que produz o estado
 - ✅ Tradução não inventa *(linha que não casa fica só no log cru, que vai inteiro para a aba)*
 - ✅ **PDF conferido de olho** *(questão com negrito, display math, fração e lista numerada — acentos e tipografia corretos)*
 
-**Profiles**
-- [ ] `LatexProfile` com documentclass, packages, macros, engine e defaults
-- [ ] Profile "Legacy Compatibility" a partir de `latex-includes.tex`
-- [ ] `LatexBuilder` alimentado pelo `QuestionTypePlugin`
-- [ ] Template e preamble aplicados
-- [ ] Assets referenciados corretamente
+**Profiles** *(#69)*
+- ✅ `LatexProfile` com documentclass, packages, macros e engine *(**resolvido**: leva o preâmbulo consigo. Catálogo no worker seria estado, e estado faz duas réplicas divergirem)*
+- ✅ Profile **Legacy Compatibility** a partir do `latex-includes.tex` real *(34 packages, na ordem original — `fontenc` antes de `inputenc`, `xcolor` antes de quem o usa; reordenar por gosto só aparece três questões depois)*
+- ✅ As três macros do legado *(`\tikzmark`, `\colorcancel`, `\ontop`; sem elas, as questões de álgebra param de compilar)*
+- ✅ Profile **Question Preview**, enxuto *(o legado carrega 34 packages; `abntex2cite` e `rotating` para desenhar três linhas custam segundos que a pessoa espera olhando. Recorta no conteúdo, senão uma questão de quatro linhas vira uma imagem 90% branca)*
+- ✅ Teste confere o perfil contra o **arquivo legado real**, e se declara pulado onde ele não existe *(o CI não tem o acervo; um teste vermelho por isso viraria ruído até alguém desativá-lo)*
+- ✅ **Os dois perfis compilam na imagem, conferidos de olho** *(integral, `\colorcancel` vermelho, `9,8 m s⁻²` e as letras vindas do `label`)*
+- ✅ `LatexBuilder` monta o bundle a partir da questão *(letra da alternativa vem de `label=\alph*)`, nunca escrita no texto — D9)*
+- ✅ Resposta **omitida por padrão** *(é o que se mostra ao aluno; incluir o gabarito por engano seria o pior defeito possível)*
+- ⛔ **`iwona` fora da imagem** — *só existe em `texlive-fonts-extra`, 1,41 GB, que mais que dobraria a imagem por uma fonte decorativa. Sem ela o documento cai na Latin Modern, e **a matemática muda junto**, porque o legado carrega `iwona` com a opção `math`. Registrado dentro do perfil, onde quem comparar dois PDFs vai procurar.*
+- [ ] `QuestionTypePlugin` alimentando o builder *(a montagem hoje é literal; o plugin é da Fase 7)*
+- [ ] Assets referenciados corretamente *(depende dos assets da Fase 11)*
 
 **Lado da aplicação** *(#65)*
 - ✅ **Port reconciliado com o contrato** *(o `render-executor.ts` da Fase 0 declarava `RenderBundle`/`RenderResult` por conta própria, antes de o D35 existir — e as duas definições já divergiam: perfil era nome aqui e objeto lá, asset trazia bytes aqui e metadados lá. Duas definições da mesma coisa não empatam: uma fica errada e ninguém descobre qual até a integração falhar)*
@@ -499,8 +505,11 @@ falta o que produz o estado
 - ✅ Isolamento por workspace no cache *(coincidência de conteúdo entre duas bibliotecas do mesmo dono é o caso comum, não o raro)*
 - ✅ Log cru truncado **pelo meio** *(o começo tem a versão do TeX, o fim tem o erro fatal; cortar só o fim perderia a linha que explica a falha)*
 - ✅ Ordem das páginas preservada *(comparação numérica: sem ela `page-10` viria antes de `page-2` e a leitura sairia embaralhada a partir da décima)*
-- [ ] Nenhum módulo editorial chama a compilação diretamente *(ninguém chama ainda)*
-- [ ] API de criação, status e resultado
+- ✅ Nenhum módulo editorial chama a compilação diretamente *(o caminho é `POST /api/publications/:id/questions/:questionId/render`; o Route Handler só traduz HTTP)*
+- ✅ API de criação e resultado *(#69 — 503 distingue **não configurado** de **fora do ar**: um se resolve editando `.env.local`, o outro subindo o contêiner)*
+- ✅ Download por `jobId` + nome, nunca por `storageKey` *(a chave é opaca e do servidor; devolvê-la amarraria o browser a como o storage organiza os arquivos)*
+- ✅ Artefato descartado responde 404 com a razão, não 500 *(derivado pode sumir — D29 — e isso é estado legítimo)*
+- ✅ A fronteira de lint cobrou de novo, e com razão *(nada em `app/**` fala com o banco; as duas leituras foram para o módulo)*
 - [ ] Render pendente é cancelado quando ainda não iniciou
 - [ ] Render intermediário é descartado
 - [ ] Estado final converge para o último pedido, com teste

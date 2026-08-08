@@ -11,6 +11,12 @@
 #   siunitx.sty             -> texlive-science
 #   xlop.sty                -> texlive-plain-generic
 #   cancel.sty, standalone  -> texlive-latex-extra
+#   abntex2cite.sty         -> texlive-publishers   (61 MB)
+#   lmodern                 -> lmodern              (33 MB)
+#
+# Do preâmbulo legado (`latex-includes.tex`, 37 packages) falta exatamente **um**: `iwona`, que
+# só existe em `texlive-fonts-extra` — 1,41 GB, mais que dobraria a imagem por uma fonte
+# decorativa. A divergência está registrada no perfil, com o que ela muda na aparência.
 #
 # `texlive-full` traria tudo e resolveria o problema com 5 GB. Instalar o que se usa mantém a
 # imagem no tamanho em que dá para inspecionar o que há dentro dela.
@@ -31,6 +37,8 @@ RUN apt-get update \
         texlive-plain-generic \
         texlive-fonts-recommended \
         texlive-lang-portuguese \
+        texlive-publishers \
+        lmodern \
         poppler-utils \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
