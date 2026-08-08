@@ -21,7 +21,7 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · ◐ Fase 3 · ✅ Fase 4 · 2/19 fases concluídas
+**Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · ◐ Fase 3 · ✅ Fase 4 · ◐ Fase 5 · 2/19 fases concluídas
 **Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual); Fase 2
 fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autosave e conflito
 visível. **Fase 4 fechada** (#47, #49, #51): o conhecimento LaTeX do legado está no banco — 652
@@ -29,11 +29,13 @@ autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens fec
 levantamento —, os autocompletes sugerem dentro do Monaco e a palette de símbolos insere no
 cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o formato do legado
 não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
-348 testes · 24 PRs abertos, nada mergeado.
+**Fase 5 começada** (#53): o `PreviewModel` e o leitor de LaTeX estão de pé, com 38 testes só
+para eles. Falta o lado da tela — MathJax, sanitizer, debounce e o aviso.
+386 testes · 25 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **5** · 6 | Fase 5 é a próxima |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · 6 | Fase 5 em andamento |
 | — prova arquitetural | **6.5** | ☐ não iniciada |
 | B — banco de questões | 7 | ☐ não iniciada |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
@@ -372,19 +374,23 @@ falta o que produz o estado
 
 ### Fase 5 — Fast Preview
 
-- [ ] `PreviewModel` derivado do `QuestionAggregate`
-- [ ] Enunciado
-- [ ] Alternativas
-- [ ] Resposta
-- [ ] Parágrafos e marcadores
-- [ ] Matemática inline
-- [ ] Matemática display
-- [ ] Imagens
-- [ ] Caixas simples
+**Modelo** *(#53 — `QuestionAggregate → PreviewModel`, spec §11)*
+- ✅ `PreviewModel` derivado do `QuestionAggregate` *(entrada declarada no próprio módulo: o preview precisa de quatro textos e uma lista, e amarrá-lo ao agregado inteiro faria toda mudança no schema bater aqui)*
+- ✅ Enunciado
+- ✅ Alternativas *(letra **derivada da posição** — D9; no legado ela vivia na linha e reordenar deixava o gabarito apontando para a letra errada)*
+- ✅ Resposta *(e complemento)*
+- ✅ Parágrafos e marcadores *(linha em branco separa, quebra simples não; `itemize`, `enumerate` e `description`, com aninhamento)*
+- ✅ Matemática inline *(`$…$` e `\(…\)`)*
+- ✅ Matemática display *(`$$…$$`, `\[…\]`, `equation`, `align`, `gather`, `multline`, com e sem asterisco)*
+- ✅ Imagens *(`\includegraphics`; largura relativa vira fração, absoluta vira `null` — o preview não sabe a largura da página)*
+- ✅ Caixas simples *(`tcolorbox`, `framed`, `mdframed`, `quote`)*
+- ✅ **Degradação declarada: comando desconhecido some, argumento fica** *(`\xlop{1234}` vira `1234`; travar na primeira macro do acervo seria pior que aproximar)*
+- ✅ `\%` não é comentário *(o acervo é de matemática — metade das questões de porcentagem sumiria)*
+- ✅ `~` vira espaço **inquebrável**, não espaço comum
 - [ ] MathJax integrado
 - [ ] Sanitizer aplicado a qualquer HTML gerado
 - [ ] Debounce configurável
-- [ ] Aviso visível: "Preview rápido — pode diferir do PDF final"
+- [ ] Aviso visível: "Preview rápido — pode diferir do PDF final" *(constante `PREVIEW_DISCLAIMER` pronta; falta a tela)*
 
 **Aceite da fase**
 - [ ] Latência entre editar e ver o preview parece imediata
