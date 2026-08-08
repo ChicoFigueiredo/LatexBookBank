@@ -41,7 +41,7 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-606 testes (556 no app + 50 no renderer) · 40 PRs abertos, nada mergeado.
+632 testes (582 no app + 50 no renderer) · 41 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -692,10 +692,14 @@ falta o que produz o estado
 - [ ] Nível do cargo
 - [ ] Origem
 - [ ] Video URL
-- [ ] Criar e remover tag
-- [ ] Autocomplete de tags
-- [ ] Filtro por tag
-- ◐ `validate_question` com regras, warnings e inconsistências *(#79 — as regras estão nos plugins, com `error` e `warning` separados de propósito: confundi-los esvazia os dois, e o acervo tem centenas de questões com aviso legítimo. Pega `$` sem par, chave sem fechar, gabarito ausente e duplicado. Falta o caso de uso que grava `validationStatus`.)*
+- ✅ Criar e remover tag *(#85 — aplicar uma tag existente **reaproveita** a existente; sem isso o filtro começa a mentir depois do primeiro mês de uso)*
+- ✅ **Normalização: o mesmo assunto escrito de dois jeitos não vira duas tags** *("Função Quadrática", "função quadratica" e "  FUNÇÃO  QUADRÁTICA " são uma. A caixa da tela fica como a pessoa digitou; quem cuida da duplicata é a chave)*
+- ✅ Busca ignora acento, e o custo está assumido *(digitar sem acento é o erro mais comum em português; "sabia"/"sabiá" colidem, e vale para **tag**, não para conteúdo de questão)*
+- ✅ Autocomplete ordenado por **uso**, não por alfabeto *(as dez mais usadas cobrem a maioria dos casos; a ordem alfabética as esconderia atrás de qualquer coisa com "a")*
+- ✅ Prefixo vence conteúdo *(quem digita "fun" quer "Função", não "Interpretação de funções" — ainda que a segunda seja sete vezes mais usada)*
+- ✅ Colar uma lista aplica em sequência *(em paralelo, duas grafias da mesma tag criariam duas linhas)*
+- [ ] Filtro por tag *(o ranking está pronto; falta a tela)*
+- ✅ `validate_question` com regras, warnings e inconsistências *(#79, #85 — regras nos plugins; **aviso não invalida**, senão a lista de problemas vira ruído que ninguém abre. Tipo sem plugin fica `UNVALIDATED`, não `INVALID`: dizer que ela está errada seria mentira — o que falta é o produto saber avaliá-la.)*
 
 **Aceite da fase**
 - [ ] §33 "Questão" completo (§10 deste documento)
