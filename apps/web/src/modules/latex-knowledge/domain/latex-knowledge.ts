@@ -114,6 +114,17 @@ export interface LatexKnowledgeRepository {
   replaceAll(knowledge: LatexKnowledge): Promise<LatexKnowledgeCounts>;
 }
 
+/**
+ * Porta de leitura, separada da de escrita.
+ *
+ * Quem lê é o editor, a cada sessão; quem escreve é um script que roda uma vez por instalação.
+ * Juntar os dois numa interface só faria o editor depender de um método que ele nunca chama —
+ * e faria qualquer teste do editor ter de fingir que sabe importar.
+ */
+export interface LatexKnowledgeReader {
+  listSnippets(): Promise<readonly LatexSnippet[]>;
+}
+
 export interface LatexKnowledgeCounts {
   readonly snippets: number;
   readonly symbolGroups: number;

@@ -24,10 +24,11 @@
 **Progresso:** ✅ Fase 0 · ◐ Fase 1 (só o aceite visual) · ◐ Fase 2 · ◐ Fase 3 · ◐ Fase 4 · 1/19 fases concluídas
 **Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual); Fase 2
 fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autosave e conflito
-visível. **Fase 4 com o importador de pé** (#47): o conhecimento LaTeX do legado está no banco —
-652 autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens fechando contra o
-levantamento. Falta o lado do editor (completion provider e palette).
-306 testes · **22 PRs abertos, nada mergeado** *(o número anterior, 25, estava errado — conferido com `gh pr list`)*.
+visível. **Fase 4 com o importador e o autocomplete de pé** (#47, #49): o conhecimento LaTeX do legado
+está no banco — 652 autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens
+fechando contra o levantamento — e os autocompletes já sugerem dentro do Monaco. Falta a palette
+de símbolos.
+324 testes · 23 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -349,12 +350,12 @@ falta o que produz o estado
 - ✅ Delimitador legado `§` convertido em placeholders nativos do Monaco *(também nos templates dos ícones; `$`, `\` e `}` escapados — sem isso `$ log_{b} a $`, que existe no acervo, abriria uma tabulação fantasma)*
 - ✅ **Nenhum binário no banco** *(o `PNGSimbol` — 1,1 MB de BLOB — fica fora; a miniatura é o SVG, que é markup)*
 
-**Editor**
-- [ ] Completion provider com trigger `\`
-- [ ] `Ctrl+Space` dispara completion
-- [ ] Prioridade e documentação nos itens
-- [ ] Snippets com navegação por tab
-- [ ] Seleção incorporada ao snippet quando aplicável
+**Editor** *(#49 — autocomplete)*
+- ✅ Completion provider com trigger `\` *(o intervalo substituído **inclui a barra**: a definição de "palavra" do Monaco não a inclui, e sem isso aceitar `\alp` gravaria `\\alpha`)*
+- ✅ `Ctrl+Space` dispara completion *(sem barra digitada, vale o intervalo da palavra e a barra do item entra junto)*
+- ✅ Prioridade e documentação nos itens *(`sortText` com `padStart` — sem ele, `"9"` viria depois de `"10"` e a prioridade se inverteria)*
+- ✅ Snippets com navegação por tab *(348 dos 652 têm ponto de parada)*
+- ✅ Seleção incorporada ao snippet quando aplicável *(`${1:${TM_SELECTED_TEXT:padrão}}` — sem seleção cai no padrão original)*
 - [ ] Palette de símbolos agrupada
 - [ ] Busca na palette
 - [ ] Inserção no cursor

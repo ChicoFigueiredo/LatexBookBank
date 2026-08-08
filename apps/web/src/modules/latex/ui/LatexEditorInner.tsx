@@ -4,6 +4,7 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import { useCallback, useEffect, useRef } from "react";
 
 import { LATEX_LANGUAGE_ID } from "@modules/latex/domain/latex-language";
+import { useLatexCompletion } from "@modules/latex-knowledge/ui/use-latex-completion";
 
 import { EditorLoading } from "./EditorLoading";
 import { LATEX_EDITOR_OPTIONS, setupMonaco } from "./monaco-setup";
@@ -40,6 +41,11 @@ export default function LatexEditorInner({
   theme = "light",
   ariaLabel = "Editor LaTeX",
 }: LatexEditorInnerProps) {
+  // O conhecimento LaTeX do legado (#47) vira sugestão aqui. É um hook e não uma chamada no
+  // `onMount` porque o provider é global por linguagem: quem o registra precisa também saber
+  // desfazer isso quando o último editor sair de cena.
+  useLatexCompletion();
+
   const saveRef = useRef(onSave);
 
   // O handler do Ctrl+S é registrado uma vez no `onMount`; sem o ref, ele congelaria a primeira
