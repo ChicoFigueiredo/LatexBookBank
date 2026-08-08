@@ -49,8 +49,11 @@ export interface LatexSymbol {
    * Miniatura em SVG.
    *
    * SVG é **markup, não binário** — por isso pode viver no banco sem ferir a auditoria §8, ao
-   * contrário do `PNGSimbol` do legado, que fica de fora. Ainda assim é conteúdo de terceiro:
-   * quem renderizar precisa sanitizar.
+   * contrário do `PNGSimbol` do legado, que fica de fora. Ainda assim é conteúdo de terceiro, e a
+   * palette o desenha como máscara CSS: markup que vira máscara não executa script nenhum.
+   *
+   * O que chega aqui já passou pela conversão de SVG font para `<path>` — o formato original do
+   * legado não renderiza em navegador algum.
    */
   readonly previewSvg: string | null;
   readonly sortOrder: number;
@@ -130,4 +133,29 @@ export interface LatexKnowledgeCounts {
   readonly symbolGroups: number;
   readonly symbols: number;
   readonly iconMenus: number;
+}
+
+/** O que a palette precisa: o índice sem miniatura, e as miniaturas de um grupo por vez. */
+export interface LatexSymbolReader {
+  /**
+   * Todos os símbolos **sem** `previewSvg`.
+   *
+   * 291 KB medidos para os 2.740. Com as miniaturas passaria de 2 MB, e `fontawesome5` sozinho
+   * responde por 1,26 MB deles — carregar tudo para mostrar treze grupos seria pagar adiantado
+   * por doze.
+   */
+  listSymbolIndex(): Promise<readonly LatexSymbolIndexEntry[]>;
+
+  /** As miniaturas de um grupo, por comando. */
+  listPreviews(groupName: string): Promise<Readonly<Record<string, string>>>;
+
+  listSymbolGroupNames(): Promise<readonly string[]>;
+}
+
+export interface LatexSymbolIndexEntry {
+  readonly command: string;
+  readonly groupName: string;
+  readonly unicode: string | null;
+  readonly requiredPackage: string | null;
+  readonly mathMode: boolean;
 }

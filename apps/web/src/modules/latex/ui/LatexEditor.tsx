@@ -20,4 +20,4 @@ export const LatexEditor = dynamic(() => import("./LatexEditorInner"), {
   loading: () => <EditorLoading />,
 });
 
-export type { LatexEditorInnerProps as LatexEditorProps } from "./LatexEditorInner";
+export type { LatexEditorApi, LatexEditorInnerProps as LatexEditorProps } from "./LatexEditorInner";

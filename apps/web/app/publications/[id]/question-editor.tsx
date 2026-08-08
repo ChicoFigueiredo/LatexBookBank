@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Tabs } from "@/design-system";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
-import { LatexEditor } from "@modules/latex/ui/LatexEditor";
+import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor";
+import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
+import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 
 /**
  * O editor da questão: abas por campo, autosave com debounce e conflito visível.
@@ -35,10 +37,12 @@ export function QuestionEditor({
   const [draft, setDraft] = useState<Record<QuestionFieldId, string>>({ ...initial });
   const [state, setState] = useState<SaveState>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // A versão vive em ref, não em state: ela muda a cada gravação e não desenha nada. Em state,
   // cada salvamento re-renderizaria o editor inteiro — e o Monaco perde a posição do cursor.
   const version = useRef(initialVersion);
+  const editor = useRef<LatexEditorApi | null>(null);
   const draftRef = useRef(draft);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -114,6 +118,12 @@ export function QuestionEditor({
 
   const blocked = state === "conflict";
 
+  // A palette manda o comando; quem sabe transformá-lo em snippet com a seleção dentro é o
+  // domínio. Assim `\\textbf` selecionado vira `\\textbf{palavra}` em vez de perder a palavra.
+  const insertSymbol = useCallback((command: string) => {
+    editor.current?.insertSnippet(withSelectionInFirstPlaceholder(command));
+  }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div
@@ -133,6 +143,14 @@ export function QuestionEditor({
         />
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <SaveIndicator state={state} />
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-pressed={paletteOpen}
+            onClick={() => setPaletteOpen((open) => !open)}
+          >
+            Símbolos
+          </Button>
           <Button size="sm" variant="ghost" disabled={blocked} onClick={() => void save()}>
             Salvar
           </Button>
@@ -151,14 +169,35 @@ export function QuestionEditor({
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <LatexEditor
-          value={draft[field]}
-          onChange={handleChange}
-          onSave={() => void save()}
-          readOnly={blocked}
-          ariaLabel={`Editor LaTeX — ${QUESTION_FIELDS.find((f) => f.id === field)?.label}`}
-        />
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+          <LatexEditor
+            value={draft[field]}
+            onChange={handleChange}
+            onSave={() => void save()}
+            onReady={(api) => {
+              editor.current = api;
+            }}
+            readOnly={blocked}
+            ariaLabel={`Editor LaTeX — ${QUESTION_FIELDS.find((f) => f.id === field)?.label}`}
+          />
+        </div>
+
+        {/* Painel, não overlay: a palette é ferramenta de trabalho contínuo, e um popover que
+            fecha a cada inserção obrigaria a reabri-lo para cada símbolo de uma equação. */}
+        {paletteOpen && (
+          <aside
+            aria-label="Símbolos LaTeX"
+            style={{
+              width: 280,
+              flexShrink: 0,
+              minHeight: 0,
+              borderLeft: "1px solid var(--border-default)",
+            }}
+          >
+            <SymbolPalette onInsert={insertSymbol} />
+          </aside>
+        )}
       </div>
     </div>
   );

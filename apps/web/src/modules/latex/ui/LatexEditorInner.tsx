@@ -24,6 +24,29 @@ import { LATEX_EDITOR_OPTIONS, setupMonaco } from "./monaco-setup";
  */
 setupMonaco();
 
+/**
+ * O que o resto do app pode pedir ao editor.
+ *
+ * Uma superfície imperativa mínima, e só porque inserir no cursor **é** imperativo: a palette não
+ * conhece o texto, conhece a posição. Expor o editor inteiro convidaria o resto do app a mexer no
+ * modelo por fora, e aí o autosave deixaria de ser a única porta de escrita.
+ */
+export interface LatexEditorApi {
+  /** Insere um corpo de snippet na seleção corrente, resolvendo `${1:…}` e `$TM_SELECTED_TEXT`. */
+  readonly insertSnippet: (body: string) => void;
+}
+
+/**
+ * O contrato do `snippetController2` do Monaco, restrito ao que usamos.
+ *
+ * `dispose` entra porque `getContribution` exige `IEditorContribution`; quem descarta a
+ * contribuição é o editor, não nós.
+ */
+interface SnippetController {
+  insert(template: string): void;
+  dispose(): void;
+}
+
 export interface LatexEditorInnerProps {
   readonly value: string;
   readonly onChange: (value: string) => void;
@@ -31,6 +54,7 @@ export interface LatexEditorInnerProps {
   readonly readOnly?: boolean;
   readonly theme?: "light" | "dark";
   readonly ariaLabel?: string;
+  readonly onReady?: (api: LatexEditorApi) => void;
 }
 
 export default function LatexEditorInner({
@@ -40,6 +64,7 @@ export default function LatexEditorInner({
   readOnly = false,
   theme = "light",
   ariaLabel = "Editor LaTeX",
+  onReady,
 }: LatexEditorInnerProps) {
   // O conhecimento LaTeX do legado (#47) vira sugestão aqui. É um hook e não uma chamada no
   // `onMount` porque o provider é global por linguagem: quem o registra precisa também saber
@@ -47,6 +72,11 @@ export default function LatexEditorInner({
   useLatexCompletion();
 
   const saveRef = useRef(onSave);
+  const readyRef = useRef(onReady);
+
+  useEffect(() => {
+    readyRef.current = onReady;
+  }, [onReady]);
 
   // O handler do Ctrl+S é registrado uma vez no `onMount`; sem o ref, ele congelaria a primeira
   // versão do callback e passaria a salvar a questão que estava aberta quando o editor montou.
@@ -57,6 +87,18 @@ export default function LatexEditorInner({
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       saveRef.current?.();
+    });
+
+    readyRef.current?.({
+      insertSnippet: (body) => {
+        // `snippetController2` e não `executeEdits`: é ele que interpreta `${1:…}` e resolve
+        // `$TM_SELECTED_TEXT`. Com `executeEdits` o texto entraria cru, com as chaves à mostra.
+        const controller = editor.getContribution<SnippetController>("snippetController2");
+        // O foco vem antes: sem ele o snippet é inserido, mas o cursor fica na palette e o Tab
+        // navega os botões em vez dos pontos de parada.
+        editor.focus();
+        controller?.insert(body);
+      },
     });
   }, []);
 
