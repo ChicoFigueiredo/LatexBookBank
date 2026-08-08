@@ -1,0 +1,86 @@
+# Worker de render (Fase 6, D27/D35).
+#
+#   echo "RENDERER_SECRET=$(openssl rand -base64 36)" >> .env
+#   docker compose up -d
+#
+# O `.env` da raiz é ignorado pelo git e o compose o lê sozinho. Vale usá-lo em vez de exportar a
+# variável na mão: com `${RENDERER_SECRET:?}`, **todo** comando do compose — inclusive `logs` e
+# `exec` — exige a variável, e descobrir isso no meio de uma investigação é irritante.
+#
+# ## Por que dois contêineres para um serviço
+#
+# A exigência é "**sem rede de saída**", e ela não é decorativa: o worker compila LaTeX vindo de um
+# acervo de vinte anos, e LaTeX tem histórico de leitura de arquivo e execução de comando. Se um
+# dia algo escapar do TeX, a diferença entre um susto e um incidente é o processo comprometido não
+# conseguir falar com lugar nenhum.
+#
+# O Docker não tem "publique esta porta e bloqueie a saída". Uma rede `internal: true` bloqueia a
+# saída **e** a publicação de porta — testado: com o renderer sozinho numa rede interna, o `curl`
+# do host devolve `000`. E um contêiner em duas redes ganha rota padrão pela que tem gateway, o
+# que devolve a saída que queríamos tirar.
+#
+# A saída é separar ingresso de execução. O `renderer-ingress` fica nas duas redes e só encaminha
+# TCP; o `renderer` fica **somente** na interna. Verificado nos dois sentidos: o host alcança
+# `/health` pelo ingresso, e um `fetch` de dentro do renderer falha.
+#
+# Em produção o app também é contêiner e entra na rede interna, e aí o ingresso deixa de ser
+# necessário. Ele existe porque, no desenvolvimento, o app roda no host.
+
+services:
+  renderer:
+    build:
+      context: .
+      dockerfile: services/renderer/Dockerfile
+    image: latexbookbank/renderer:dev
+    # **Sem `ports`.** Publicar aqui reintroduziria exatamente o que a rede interna tira.
+    networks:
+      - render-internal
+    environment:
+      # Nunca no repositório: vem do ambiente de quem sobe. Sem ele o worker recusa iniciar.
+      RENDERER_SECRET: ${RENDERER_SECRET:?defina RENDERER_SECRET — o worker recusa subir sem ele}
+      RENDERER_VERSION: ${RENDERER_VERSION:-0.0.0-dev}
+      RENDERER_HOST: 0.0.0.0
+      RENDERER_PORT: "28900"
+    # Filesystem efêmero: nada do que o job escreve sobrevive ao contêiner. O `pdflatex` só
+    # precisa de `/tmp`, que é onde o diretório do job é criado.
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+      - /home/renderer:size=64m
+    security_opt:
+      - no-new-privileges:true
+    # `cap_drop: ALL` porque compilar LaTeX não precisa de capacidade nenhuma do kernel.
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          # Um `pgfplots` pesado ocupa um núcleo por alguns segundos; dois evitam que um job
+          # sozinho torne o worker indisponível para o próximo.
+          cpus: "2.0"
+          # TeX Live com `pgfplots` passa de 512 MB em documento grande. 1 GB é folga suficiente
+          # para o job legítimo e teto baixo para o patológico.
+          memory: 1g
+    restart: unless-stopped
+
+  # Só encaminha TCP. Está nas duas redes porque é a única forma de publicar a porta sem dar
+  # saída ao renderer; não executa nada do produto e não vê o segredo.
+  renderer-ingress:
+    image: alpine/socat:latest
+    command: TCP-LISTEN:28900,fork,reuseaddr TCP:renderer:28900
+    ports:
+      # `127.0.0.1` e não `0.0.0.0`: em desenvolvimento o worker não deveria estar visível na rede
+      # local. Em produção quem expõe é o reverse proxy do droplet.
+      - "127.0.0.1:28900:28900"
+    networks:
+      - default
+      - render-internal
+    depends_on:
+      - renderer
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+networks:
+  render-internal:
+    internal: true

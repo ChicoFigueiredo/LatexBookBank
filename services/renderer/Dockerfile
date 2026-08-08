@@ -42,11 +42,31 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 RUN useradd --create-home --shell /usr/sbin/nologin renderer
 WORKDIR /app
 
+# Manifestos primeiro, e só eles: assim a camada de dependências só é refeita quando uma
+# dependência muda, e não a cada alteração de código.
+#
+# `bun install` roda **dentro** da imagem, e não é detalhe de gosto. A primeira versão deste
+# arquivo não instalava nada e mesmo assim funcionava — porque o `node_modules` do host tinha
+# entrado junto no contexto. Quer dizer: a imagem carregava `vitest`, `typescript` e os links
+# simbólicos da máquina de quem construiu. Funcionava por acidente, e por acidente é como voltaria
+# a quebrar.
+#
+# O manifesto do `apps/web` vem junto mesmo sem nada dele ser instalado: o lockfile descreve o
+# workspace inteiro, e com um membro faltando o `bun install` conclui que o lockfile mudou e
+# recusa (`--frozen-lockfile`). Copiar o manifesto — não o código — é o que mantém a instalação
+# reprodutível sem trazer o app para dentro da imagem do worker.
+COPY package.json bun.lock ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/render-contract/package.json ./packages/render-contract/
+COPY services/renderer/package.json ./services/renderer/
+RUN bun install --frozen-lockfile --production --filter @latexbookbank/renderer
+
 # O contrato entra como pacote, não copiado por dentro: é o mesmo arquivo que a aplicação importa,
 # e duplicá-lo aqui seria criar a chance de os dois lados divergirem sem ninguém perceber.
-COPY packages/render-contract ./packages/render-contract
-COPY services/renderer ./services/renderer
+COPY packages/render-contract/src ./packages/render-contract/src
+COPY services/renderer/src ./services/renderer/src
 
+RUN chown -R renderer:renderer /app
 USER renderer
 ENV RENDERER_HOST=0.0.0.0 \
     RENDERER_PORT=28900 \

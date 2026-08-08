@@ -31,11 +31,11 @@ cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o fo
 não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
 **Fase 5 fechada em código** (#53, #55): o `PreviewModel`, o leitor de LaTeX e o preview na tela,
 com MathJax local. Falta só a conferência visual, que fica com o Chico.
-**Fase 6 em andamento** (#57, #59, #61): contratos num pacote próprio com o isolamento afirmado
-por teste, e o `services/renderer` compilando de verdade e exposto por HTTP com segredo
-compartilhado — exercitado ponta a ponta contra o `pdflatex` real. Falta verificar a imagem
-Docker, o compose sem rede de saída e o lado da aplicação.
-468 testes (424 no app + 44 no renderer) · 29 PRs abertos, nada mergeado.
+**Fase 6 em andamento** (#57, #59, #61, #63): contratos isolados por teste, worker compilando e
+exposto por HTTP, imagem verificada dentro do contêiner e compose com **saída de rede bloqueada,
+comprovada nos dois sentidos**. Falta o lado da aplicação — `RenderWorkerExecutor`, `RenderJob`,
+cache por content hash e as abas PDF/PNG/Log.
+468 testes (424 no app + 44 no renderer) · 30 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -432,10 +432,11 @@ falta o que produz o estado
 
 **Worker containerizado**
 - ✅ `services/renderer` criado
-- ◐ Dockerfile com Bun + TeX Live + Poppler *(escrito; a lista de pacotes saiu de `kpsewhich` contra os `.sty` que o acervo usa, não de tutorial — **imagem ainda não verificada**, o build estava rodando quando esta linha foi escrita)*
-- [ ] Imagem compila `tikz`, `pgfplots`, `siunitx`, `xlop`, `cancel` *(pacotes escolhidos por `kpsewhich`; falta compilar dentro do contêiner para provar)*
-- [ ] `docker compose` expõe o worker em `28900`
-- [ ] Porta confirmada livre antes de subir
+- ✅ Dockerfile com Bun + TeX Live + Poppler *(#63 — 1,32 GB; a lista de pacotes saiu de `kpsewhich` contra os `.sty` que o acervo usa, não de tutorial)*
+- ✅ **Imagem compila `tikz`, `pgfplots`, `siunitx`, `xlop` e `cancel`** *(verificado **dentro do contêiner** e conferido de olho: o `x` riscado, `9,8 m s⁻²`, a conta armada 12×34=408, a reta e a parábola)*
+- ✅ `bun install` **dentro** da imagem *(a primeira versão não instalava nada e funcionava — porque o `node_modules` do host tinha entrado no contexto, levando `vitest` e `typescript` para dentro da imagem de produção. Funcionava por acidente)*
+- ✅ `docker compose` expõe o worker em `28900` *(só em `127.0.0.1`: em desenvolvimento o worker não deveria estar visível na rede local)*
+- ✅ Porta confirmada livre antes de subir
 - ✅ `POST /render` *(#61 — `multipart/form-data`; compila dentro da requisição, porque um render de questão leva 1–3 s e uma fila traria estado, expiração e um segundo caminho de erro para economizar uma espera que a aplicação já trata como assíncrona)*
 - ✅ `GET /render/:id` e `DELETE /render/:id`
 - ✅ `GET /render/:id/artifacts/:name` devolve os bytes *(autenticado; o `%PDF` é conferido no teste)*
@@ -446,12 +447,15 @@ falta o que produz o estado
 - ✅ Jobs só em memória *(sem banco não há credencial de banco; render é reconstruível — D29/§41 — e job concluído expira em 10 min, senão os artefatos viram vazamento com nome de cache)*
 - ✅ Render pendente cancelado antes de começar *(quem cancela muda o estado; `start` é quem decide não gastar um `pdflatex`)*
 - ✅ Nenhum framework HTTP *(o `Bun.serve` já lê multipart; quatro rotas à mão são menos código que a configuração de qualquer biblioteca, e uma dependência a menos para auditar numa imagem que compila entrada de terceiro)*
-- [ ] **Sem rede de saída**
-- [ ] Limite de CPU
-- [ ] Limite de memória
-- [ ] Timeout por job
-- [ ] Filesystem efêmero
-- [ ] **A imagem é a mesma que irá para o droplet** — sem variante "de desenvolvimento"
+- ✅ **Sem rede de saída — verificado, não prometido** *(`fetch` de dentro do renderer falha; `/health` pelo ingresso responde 200)*
+- ✅ Topologia decidida por experimento *(o Docker não tem "publique a porta e bloqueie a saída": rede `internal: true` bloqueia **as duas** — com o renderer sozinho nela o `curl` do host devolve `000` —, e contêiner em duas redes ganha rota padrão pela que tem gateway. Daí separar ingresso de execução: o `socat` fica nas duas redes, o renderer só na interna)*
+- ✅ Limite de CPU *(2 núcleos)*
+- ✅ Limite de memória *(1 GB)*
+- ✅ Timeout por job *(no contrato e no `execFile`)*
+- ✅ Filesystem efêmero *(`read_only` + `tmpfs`; `/app` recusa escrita, `/tmp` é o único gravável)*
+- ✅ Usuário sem privilégio, `cap_drop: ALL`, `no-new-privileges`
+- ✅ **A imagem é a mesma que irá para o droplet** — sem variante "de desenvolvimento"
+- ⛔ **Divergência de TeX Live entre teste e produção** — *a imagem é `bookworm` e traz TeX Live 2022; a máquina de desenvolvimento tem 2023, e é contra ela que os testes de compilação rodam. Um pacote presente em 2023 e ausente em 2022 passaria no teste e falharia no droplet. Fechar isso pede rodar a suíte **dentro do contêiner** no CI.*
 
 **Compilação** *(#59 — exercitada contra o `pdflatex` real, sem dublê)*
 - ✅ `pdflatex` via `execFile` com **vetor de argumentos** — nunca string de shell *(sem shell no caminho não há o que escapar; o acervo legado tem nome de arquivo com espaço, acento e parêntese)*
