@@ -31,6 +31,8 @@ export interface TreeQuestionRecord {
   readonly board: string | null;
   readonly year: number | null;
   readonly options: readonly TreeOptionRecord[];
+  /** Vínculos de tag, na forma da tabela de junção. */
+  readonly tags: readonly { readonly tag: { readonly name: string } }[];
 }
 
 export interface TreeOptionRecord {

@@ -35,6 +35,7 @@ const questionNode: TreeNodeRecord = {
     difficulty: 2,
     board: "Cesgranrio",
     year: 2014,
+    tags: [],
     options: [
       { id: "o1", sortKey: "a0", statementLatex: "1020", isCorrect: false },
       { id: "o2", sortKey: "a1", statementLatex: "1120", isCorrect: true },
