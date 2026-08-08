@@ -34,9 +34,9 @@ com MathJax local. Falta só a conferência visual, que fica com o Chico.
 **Fase 6 em andamento** (#57, #59, #61, #63, #65): contratos isolados por teste, worker
 compilando e exposto por HTTP, imagem verificada dentro do contêiner, compose com **saída de rede
 bloqueada comprovada nos dois sentidos**, e o `RenderWorkerExecutor` ligando a aplicação ao
-worker. Falta persistir `RenderJob`, gravar artefatos pelo `StorageProvider`, o cache e as abas
-PDF/PNG/Log.
-486 testes (442 no app + 44 no renderer) · 31 PRs abertos, nada mergeado.
+worker, com `RenderJob` persistido, artefatos no `StorageProvider` e cache por content hash.
+Falta a API e as abas PDF/PNG/Log.
+499 testes (455 no app + 44 no renderer) · 32 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -490,12 +490,17 @@ falta o que produz o estado
 - ✅ Worker indisponível degrada com mensagem clara *(`RendererUnavailableError` diz "o texto continua salvo"; erro genérico seria indistinguível de LaTeX quebrado e mandaria a pessoa procurar defeito no texto dela)*
 - ✅ Content hash cobre conteúdo, profile, preamble, classe, assets, engine, DPI, passadas e **versão do renderer**
 - ✅ O hash **não** cobre `jobId` nem timeout *(um é identidade de execução, o outro muda quanto esperamos e não o que sai)*
+- ✅ Aplicação grava `pdf` e `png` via `StorageProvider` *(#67 — **storage antes do banco**: inverter criaria linha apontando para chave inexistente, e uma linha assim é pior que nenhuma, porque a interface acha que tem PDF e o download falha)*
+- ✅ O registro guarda o `sha256` **do storage**, não o do worker *(descreve o que foi gravado, não o que se esperava gravar)*
+- ✅ `RenderJob` persistido *(job e artefatos numa transação só; artefato é `Asset` derivado com `renderJobId`, e apagar o job leva tudo por cascade — política de derivado da D29)*
+- ✅ Cache hit devolve o artefato anterior e marca `cacheHit` *(sem a marca, um render instantâneo pareceria falha de atualização e a pessoa clicaria de novo)*
+- ✅ **Falha também entra no cache** *(recompilar o mesmo LaTeX quebrado dá o mesmo erro; gastar `pdflatex` para reconfirmar é desperdício que a pessoa sente)*
+- ✅ Invalidação por versão do renderer, com teste
+- ✅ Isolamento por workspace no cache *(coincidência de conteúdo entre duas bibliotecas do mesmo dono é o caso comum, não o raro)*
+- ✅ Log cru truncado **pelo meio** *(o começo tem a versão do TeX, o fim tem o erro fatal; cortar só o fim perderia a linha que explica a falha)*
+- ✅ Ordem das páginas preservada *(comparação numérica: sem ela `page-10` viria antes de `page-2` e a leitura sairia embaralhada a partir da décima)*
 - [ ] Nenhum módulo editorial chama a compilação diretamente *(ninguém chama ainda)*
-- [ ] Aplicação grava `pdf` e `png` do `RenderResult` via `StorageProvider`
-- [ ] `RenderJob` persistido
 - [ ] API de criação, status e resultado
-- [ ] Cache hit retorna artefato anterior e marca `cacheHit`
-- [ ] Invalidação por versão do renderer *(o hash já muda; falta o lado que guarda)*
 - [ ] Render pendente é cancelado quando ainda não iniciou
 - [ ] Render intermediário é descartado
 - [ ] Estado final converge para o último pedido, com teste

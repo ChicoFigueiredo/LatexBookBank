@@ -14,8 +14,8 @@
 // o conteúdo vive no `StorageProvider`.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
   // O loader ESM do Node não resolve import sem extensão. Emitir `.ts` deixa o seed rodar com
   // `node --experimental-strip-types`, sem precisar de um runner TypeScript só para isso.
   importFileExtension = "ts"
@@ -33,7 +33,7 @@ model Workspace {
   slug String @unique
 
   /// `IdBiblio` de `padrao.knowchicoconfig`.
-  legacyId Int? @unique
+  legacyId         Int?    @unique
   /// Pasta de origem, guardada só para auditoria do import.
   legacySourcePath String?
 
@@ -43,6 +43,7 @@ model Workspace {
   publications Publication[]
   assets       Asset[]
   tags         Tag[]
+  renderJobs   RenderJob[]
 
   @@map("workspaces")
 }
@@ -66,13 +67,13 @@ model Publication {
   sourcePdfAssetId String?
 
   /// `idPublication` legado — chave de idempotência do import.
-  legacyId Int?
+  legacyId        Int?
   /// O legado já tinha UUID; guardá-lo reforça o upsert.
-  legacyUuid       String?
-  legacyUpdatedAt  DateTime?
-  importedAt       DateTime?
+  legacyUuid      String?
+  legacyUpdatedAt DateTime?
+  importedAt      DateTime?
   /// `PublicationSeries` e `Flags` legados, de semântica desconhecida mas preservados.
-  metadataJson String?
+  metadataJson    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -138,9 +139,9 @@ model DocumentNode {
 
   /// `NumberingStyle`: ARABIC · ROMAN · LETTER. Vem de `Questoes_Numeracao` (0/13/27), que a
   /// spec §8.3 não previa.
-  numberingStyle String @default("ARABIC")
+  numberingStyle String  @default("ARABIC")
   /// Rótulo original do livro — "I", "1", "II". Informação editorial insubstituível.
-  originalLabel String?
+  originalLabel  String?
 
   questionId String?   @unique
   question   Question? @relation(fields: [questionId], references: [id])
@@ -176,7 +177,7 @@ model Question {
   solutionLatex   String  @default("")
   complementLatex String  @default("")
   /// LaTeX como veio da origem, preservado mesmo depois de editado.
-  originalLatex String?
+  originalLatex   String?
 
   /// Escala legada: 0 · 2 · 5 · 7 · 10 (Muito Fácil → Muito Difícil). Não é 1–5.
   difficulty Int @default(5)
@@ -190,7 +191,7 @@ model Question {
   videoUrl    String?
 
   /// `QuestionStatus`: DRAFT · READY · ARCHIVED
-  status String @default("DRAFT")
+  status           String @default("DRAFT")
   /// `ValidationStatus`: UNVALIDATED · VALID · INVALID
   validationStatus String @default("UNVALIDATED")
 
@@ -202,10 +203,11 @@ model Question {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  node    DocumentNode?
-  options QuestionOption[]
-  tags    QuestionTag[]
-  assets  Asset[]
+  node       DocumentNode?
+  options    QuestionOption[]
+  tags       QuestionTag[]
+  assets     Asset[]
+  renderJobs RenderJob[]
 
   @@index([type])
   @@index([difficulty])
@@ -287,8 +289,8 @@ model Asset {
   kind String
 
   /// Chave opaca resolvida pelo StorageProvider. Nunca um path local nem uma URL.
-  storageKey String @unique
-  mimeType   String
+  storageKey       String  @unique
+  mimeType         String
   originalFilename String?
 
   /// Identidade, integridade, deduplicação, cache e auditoria (D29).
@@ -301,9 +303,15 @@ model Asset {
 
   createdAt DateTime @default(now())
 
+  /// Preenchido só em derivado (`RENDER_*`): diz qual compilação produziu este arquivo.
+  /// É o que permite descartar todos os artefatos de um job de uma vez (D29, auditoria §41).
+  renderJobId String?
+  renderJob   RenderJob? @relation(fields: [renderJobId], references: [id], onDelete: Cascade)
+
   anchorsAsSource SourceAnchor[] @relation("AnchorSource")
   anchorsAsCrop   SourceAnchor[] @relation("AnchorCrop")
 
+  @@index([renderJobId])
   @@index([workspaceId, kind])
   @@index([sha256])
   @@map("assets")
@@ -369,9 +377,9 @@ model LatexSnippet {
   label   String
   body    String
 
-  documentation String?
+  documentation   String?
   /// `PrimaryPriority` do legado — desempata a ordem da lista.
-  priority Int @default(0)
+  priority        Int     @default(0)
   /// Redundante com o corpo, mas evita varrer 651 strings para montar um ícone na lista.
   hasPlaceholders Boolean @default(false)
 
@@ -404,13 +412,13 @@ model LatexSymbol {
   groupId String
   group   LatexSymbolGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  command String
+  command         String
   /// Caractere equivalente, quando existe — 867 dos 2.741 têm.
-  unicode String?
+  unicode         String?
   /// Pacote exigido; a string vazia do legado vira `null`.
   requiredPackage String?
   /// Só é válido dentro de modo matemático.
-  mathMode Boolean @default(false)
+  mathMode        Boolean @default(false)
 
   /// Miniatura em **SVG**, que é markup e não binário — por isso pode ficar aqui sem ferir a
   /// auditoria §8. O `PNGSimbol` do legado (1,1 MB de BLOB) fica de fora, por regra.
@@ -445,4 +453,53 @@ model LatexIconMenu {
 
   @@index([groupName, subGroupName, sortOrder])
   @@map("latex_icon_menus")
+}
+
+/// Uma compilação autoritativa (Fase 6, D27/D35).
+///
+/// O worker não persiste nada — ele devolve bytes e a aplicação grava. Este modelo é o registro
+/// do que foi compilado, e o `contentHash` é o que faz o cache funcionar: mesma entrada, mesmo
+/// PDF, sem chamar o `pdflatex` de novo.
+///
+/// Um `RenderJob` é **descartável**. Apagá-lo leva os artefatos junto por cascade, e recompilar
+/// reconstrói tudo — é a política de derivado da D29, e é o que separa render de patrimônio.
+model RenderJob {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// De onde veio. Opcional porque a Fase 16 vai renderizar prova montada, que não é questão.
+  questionId String?
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  /// A chave do cache: cobre conteúdo, perfil, preâmbulo, assets, engine, parâmetros e a versão
+  /// do renderer. Ver `src/modules/rendering/domain/content-hash.ts`.
+  contentHash     String
+  profileId       String
+  /// Redundante com o hash de propósito: permite responder "o que ainda está na versão antiga?"
+  /// sem recalcular hash nenhum.
+  rendererVersion String
+
+  /// `RenderJobState`: QUEUED · RUNNING · DONE · FAILED · CANCELLED
+  state   String
+  success Boolean @default(false)
+
+  durationMs      Int    @default(0)
+  /// `RenderDiagnostic[]` serializado — o conector SQLite não tem `Json`.
+  diagnosticsJson String @default("[]")
+
+  /// Log cru, para a aba "Log". Truncado com marca explícita: o log do `pgfplots` passa de 1 MB,
+  /// e guardar isso inteiro por job encheria o banco com texto que ninguém lê duas vezes.
+  stdout String @default("")
+  stderr String @default("")
+
+  createdAt DateTime @default(now())
+
+  /// PDF e PNGs. Vivem como Asset porque é o `StorageProvider` que guarda o conteúdo — no banco
+  /// fica só a chave opaca (auditoria §8).
+  artifacts Asset[]
+
+  @@unique([workspaceId, contentHash])
+  @@index([questionId, createdAt])
+  @@map("render_jobs")
 }
