@@ -27,7 +27,7 @@ fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autos
 visível. **Fase 4 com o importador de pé** (#47): o conhecimento LaTeX do legado está no banco —
 652 autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens fechando contra o
 levantamento. Falta o lado do editor (completion provider e palette).
-306 testes · 26 PRs abertos, nada mergeado.
+306 testes · **22 PRs abertos, nada mergeado** *(o número anterior, 25, estava errado — conferido com `gh pr list`)*.
 
 | Wave | Fases | Estado |
 |---|---|---|
