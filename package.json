@@ -20,7 +20,8 @@
     "db:migrate": "bun run --filter @latexbookbank/web db:migrate",
     "db:seed": "bun run --filter @latexbookbank/web db:seed",
     "db:reset": "bun run --filter @latexbookbank/web db:reset",
-    "db:studio": "bun run --filter @latexbookbank/web db:studio"
+    "db:studio": "bun run --filter @latexbookbank/web db:studio",
+    "db:import-latex": "bun run --filter @latexbookbank/web db:import-latex"
   },
   "devDependencies": {
     "prettier": "^3.4.2"

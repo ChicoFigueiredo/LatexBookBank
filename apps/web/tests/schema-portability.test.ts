@@ -38,15 +38,33 @@ const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag"]);
  */
 const IMMUTABLE_MODELS = new Set(["Asset", "SourceAnchor"]);
 
-/** Sem mutação relevante a rastrear. */
-const NO_TIMESTAMPS = new Set(["Author", "Tag"]);
+/**
+ * Sem mutação relevante a rastrear.
+ *
+ * Os três modelos de conhecimento LaTeX entram aqui porque são **dado de referência reposto por
+ * inteiro** a cada importação (#47): um `updatedAt` neles diria quando o importador rodou pela
+ * última vez, que é justamente o que o relatório do import já informa. `LatexSnippet` fica de
+ * fora da lista porque um dia vai receber itens criados dentro do produto — daí o `legacyId`
+ * anulável — e aí a data de criação passa a significar alguma coisa.
+ */
+const NO_TIMESTAMPS = new Set([
+  "Author",
+  "Tag",
+  "LatexSymbolGroup",
+  "LatexSymbol",
+  "LatexIconMenu",
+]);
 
-describe("o schema tem os 11 modelos esperados", () => {
+describe("o schema tem os 15 modelos esperados", () => {
   it("nenhum foi perdido nem acrescentado sem passar por aqui", () => {
     expect(models.map((m) => m.name).sort()).toEqual([
       "Asset",
       "Author",
       "DocumentNode",
+      "LatexIconMenu",
+      "LatexSnippet",
+      "LatexSymbol",
+      "LatexSymbolGroup",
       "Publication",
       "PublicationAuthor",
       "Question",
@@ -162,5 +180,20 @@ describe("índices declarados", () => {
 
     const node = models.find((m) => m.name === "DocumentNode");
     expect(node?.body).toMatch(/@@unique\(\[publicationId,\s*legacyId\]\)/);
+
+    // O conhecimento LaTeX é global (não pende de Workspace), então `legacyId` sozinho é a
+    // identidade — e é por ele que o importador sabe o que é dele e pode repor sem apagar o
+    // que for criado dentro do produto (#47).
+    for (const name of ["LatexSnippet", "LatexSymbolGroup", "LatexSymbol", "LatexIconMenu"]) {
+      const model = models.find((m) => m.name === name);
+      expect(model?.body, `${name} sem legacyId único`).toMatch(/legacyId\s+Int\?\s+@unique/);
+    }
+  });
+
+  it("o conhecimento LaTeX guarda a miniatura como SVG, nunca como binário", () => {
+    // A auditoria §8 proíbe BLOB no banco. O legado tem `PNGSimbol` (1,1 MB); ele não entra.
+    const symbol = models.find((m) => m.name === "LatexSymbol");
+    expect(symbol?.body).toMatch(/previewSvg\s+String\?/);
+    expect(symbol?.body).not.toMatch(/Bytes/);
   });
 });
