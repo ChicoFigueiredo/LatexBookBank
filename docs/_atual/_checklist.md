@@ -41,13 +41,13 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-543 testes (493 no app + 50 no renderer) · 37 PRs abertos, nada mergeado.
+563 testes (513 no app + 50 no renderer) · 38 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
 | — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
-| B — banco de questões | 7 | ☐ não iniciada |
+| B — banco de questões | **◐7** | Registry de tipos de pé |
 | C — agente | 8 · 9 · 10 | ☐ não iniciada |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
 | E — ingestão visual | 14 · 15 | ☐ não iniciada |
@@ -650,24 +650,28 @@ falta o que produz o estado
 
 ### Fase 7 — Tipos, alternativas e metadados
 
-**Registry**
-- [ ] `QuestionTypePlugin` com `validate`, `buildLatex`, `buildFastPreview` e `randomize` opcional
-- [ ] Plugin Discursiva
-- [ ] Plugin Múltipla Escolha com quantidade arbitrária de alternativas
-- [ ] Nenhum `switch` global sobre tipo de questão
+**Registry** *(#79)*
+- ✅ `QuestionTypePlugin` com `validate`, `buildLatex`, `buildFastPreview` e `randomize` opcional
+- ✅ Plugin Discursiva *(**sem** `randomize` — não há o que embaralhar, e a ausência é legível; método vazio herdado seria pior, porque alguém teria de lembrar de não chamá-lo)*
+- ✅ Plugin Múltipla Escolha com quantidade **arbitrária** de alternativas *(o legado fixava cinco; o acervo tem verdadeiro/falso com duas e concurso com seis)*
+- ✅ **Nenhum `switch` global sobre tipo de questão — com guard varrendo `src/` e `app/`** *(sem o guard, a regra é recomendação, e recomendação some na terceira pressa; um `switch` esquecido não dá erro de compilação, dá comportamento errado numa tela só)*
+- ✅ Registro explícito, sem descoberta por convenção *(ler `plugins/index.ts` responde "quais tipos o produto trata hoje" sem rodar nada)*
+- ✅ Tipo sem plugin devolve `null`, não exceção *(acervo importado pode ter tipo ainda não suportado, e a interface precisa mostrar isso em vez de quebrar a página)*
+- ✅ **Duplicação da regra da letra reconciliada** *(`optionLabelAt` já existia no domínio de questões; eu tinha escrito uma segunda cópia no preview e quase uma terceira no plugin. Agora há uma, com teste de identidade de referência)*
 
 **Alternativas**
 - [ ] `QuestionOption` com UUID
 - [ ] `sortKey` fracionário
 - [ ] `isCorrect` por alternativa
-- [ ] Letra A/B/C calculada apenas na projeção
-- [ ] Nenhum vínculo de gabarito por letra
+- ✅ Letra A/B/C calculada apenas na projeção *(no LaTeX ela sai de `label=\alph*)` e do índice, nunca gravada)*
+- ✅ Nenhum vínculo de gabarito por letra
+- ✅ **Teste: o gabarito sobrevive à reordenação** *(vinte embaralhamentos com sementes diferentes; a correta continua sendo a mesma alternativa — é exatamente o que o legado não passava, porque `Marcacao` vivia na linha)*
 - [ ] `legacyMarcacao` guardado apenas para auditoria
 - [ ] Adicionar e remover alternativa
 - [ ] Reordenar por drag
 - [ ] Marcar correta
 - [ ] Botão "embaralhar visualização"
-- [ ] **Teste: o gabarito sobrevive à reordenação das alternativas**
+- ✅ **Teste: o gabarito sobrevive à reordenação das alternativas** *(#79)*
 
 **Metadados e tags**
 - [ ] Dificuldade na escala legada (0, 2, 5, 7, 10)
@@ -681,7 +685,7 @@ falta o que produz o estado
 - [ ] Criar e remover tag
 - [ ] Autocomplete de tags
 - [ ] Filtro por tag
-- [ ] `validate_question` com regras, warnings e inconsistências
+- ◐ `validate_question` com regras, warnings e inconsistências *(#79 — as regras estão nos plugins, com `error` e `warning` separados de propósito: confundi-los esvazia os dois, e o acervo tem centenas de questões com aviso legítimo. Pega `$` sem par, chave sem fechar, gabarito ausente e duplicado. Falta o caso de uso que grava `validationStatus`.)*
 
 **Aceite da fase**
 - [ ] §33 "Questão" completo (§10 deste documento)

@@ -1,3 +1,5 @@
+import { optionLabelAt } from "@modules/questions/domain/question-type";
+
 import { parseLatexPreview } from "./parse-latex-preview";
 import type { PreviewModel, PreviewOption } from "./preview-model";
 
@@ -24,28 +26,20 @@ export interface PreviewSource {
 }
 
 /**
- * A letra da alternativa, **derivada da posição**.
+ * A letra da alternativa vem do módulo de questões.
  *
- * D9 é explícita: a letra nunca é identidade. O legado guardava `Marcacao` na linha, e reordenar
- * alternativas deixava o gabarito apontando para a letra errada. Aqui a letra é função do índice,
- * e reordenar não pode produzir inconsistência porque não há nada para ficar inconsistente.
+ * Ela **já existia lá** (`optionLabelAt`), e eu escrevi uma segunda cópia aqui sem perceber — e
+ * quase uma terceira dentro do plugin de múltipla escolha. Três implementações da mesma regra é
+ * como uma delas passa a divergir e ninguém descobre qual está certa.
  *
- * Depois de `z` continua em `aa`, que é feio e nunca vai acontecer — mas é melhor do que repetir
- * a letra `a` na alternativa 27 e fazer duas linhas parecerem a mesma.
+ * O lugar dela é o domínio de questões: a regra é de lá (D9, spec §8.5 — a letra é projeção da
+ * ordem, nunca identidade), e o preview é só mais um consumidor.
  */
-export function optionLetter(index: number): string {
-  let letter = "";
-  let n = index;
-  do {
-    letter = String.fromCharCode(97 + (n % 26)) + letter;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  return letter;
-}
+export { optionLabelAt as optionLetter } from "@modules/questions/domain/question-type";
 
 export function buildPreviewModel(source: PreviewSource): PreviewModel {
   const options: PreviewOption[] = source.options.map((option, index) => ({
-    letter: optionLetter(index),
+    letter: optionLabelAt(index),
     blocks: parseLatexPreview(option.statementLatex),
     isCorrect: option.isCorrect,
   }));
