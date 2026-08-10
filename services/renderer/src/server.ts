@@ -174,13 +174,25 @@ async function postRender(request: Request, store: JobStore, deps: ServerDeps): 
     return problem(409, "O job foi cancelado antes de começar.");
   }
 
+  // Registrado **antes** de compilar: um `DELETE` que chegue no meio precisa ter por onde
+  // interromper, e quem cancela não espera a compilação começar para poder desistir.
+  const abort = new AbortController();
+  store.register(bundle.jobId, abort);
+
   try {
     const { result, artifacts } = await compile(bundle, assets, {
       rendererVersion: deps.rendererVersion,
+      signal: abort.signal,
     });
     store.complete(bundle.jobId, result, artifacts);
     return json(store.status(bundle.jobId));
   } catch (error) {
+    // Cancelado no meio: o `execFile` rejeita com `AbortError`, e isso **não** é falha do
+    // documento. Devolver 422 aqui faria a aplicação marcar como quebrada uma questão que ela
+    // mesma acabou de desistir de compilar.
+    if (abort.signal.aborted) {
+      return json(store.status(bundle.jobId) ?? { jobId: bundle.jobId, state: "cancelled" }, 409);
+    }
     // Erro aqui é do worker, não do documento — bundle inválido, asset corrompido, binário
     // ausente. O job vira `failed` para o cliente não ficar esperando um resultado que não vem.
     store.complete(

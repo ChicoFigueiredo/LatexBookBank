@@ -63,6 +63,7 @@ function run(
   args: readonly string[],
   cwd: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<ProcessOutcome> {
   return new Promise((resolve, reject) => {
     execFile(
@@ -71,6 +72,9 @@ function run(
       {
         cwd,
         timeout: timeoutMs,
+        // Cancelar mata o processo. Sem isto, o `pdflatex` de um job recusado seguiria até o fim
+        // ocupando o worker — e num worker de concorrência baixa isso atrasa quem está esperando.
+        ...(signal === undefined ? {} : { signal }),
         // 10 MB: o log do LaTeX com `pgfplots` passa fácil de 1 MB, e estourar o buffer mataria a
         // compilação com um erro que não tem nada a ver com o documento.
         maxBuffer: 10 * 1024 * 1024,
@@ -133,6 +137,8 @@ export interface CompileDeps {
   readonly rendererVersion: string;
   /** Injetável para o teste medir sem depender do relógio. */
   readonly now?: () => number;
+  /** Interrompe a compilação. Vem do `JobStore`, que é quem sabe que o job foi cancelado. */
+  readonly signal?: AbortSignal;
 }
 
 export async function compile(
@@ -213,6 +219,7 @@ export async function compile(
         ],
         dir,
         bundle.options.timeoutMs,
+        deps.signal,
       );
 
       stdout += outcome.stdout;
@@ -263,6 +270,7 @@ export async function compile(
       bundle.options.dpi,
       bundle.options.timeoutMs,
       artifacts,
+      deps.signal,
     );
 
     return {
@@ -314,12 +322,14 @@ async function renderPngs(
   dpi: number,
   timeoutMs: number,
   artifacts: Map<string, Buffer>,
+  signal?: AbortSignal,
 ): Promise<readonly RenderArtifactDescriptor[]> {
   await run(
     PDFTOCAIRO,
     ["-png", "-r", String(dpi), join(dir, "main.pdf"), join(dir, "page")],
     dir,
     timeoutMs,
+    signal,
   );
 
   const names = (await readdir(dir))

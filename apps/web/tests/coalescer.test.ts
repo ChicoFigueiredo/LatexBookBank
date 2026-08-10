@@ -162,3 +162,52 @@ describe("createCoalescer", () => {
     expect(committed).toEqual(["ultimo"]);
   });
 });
+
+describe("o pedido superado é **interrompido**, não só ignorado", () => {
+  it("o sinal do que está em curso é abortado quando chega outro por cima", async () => {
+    // Descartar o resultado não bastava: do outro lado da rede havia um `pdflatex` compilando a
+    // versão anterior do texto enquanto a atual esperava na fila.
+    const seen: AbortSignal[] = [];
+    const resolvers: Array<(value: string) => void> = [];
+
+    const coalescer = createCoalescer<string>({
+      run: (signal) => {
+        seen.push(signal);
+        return new Promise<string>((resolve) => {
+          resolvers.push(resolve);
+        });
+      },
+      commit: () => {},
+    });
+
+    void coalescer.request();
+    await Promise.resolve();
+
+    expect(seen[0]?.aborted).toBe(false);
+
+    void coalescer.request();
+    expect(seen[0]?.aborted).toBe(true);
+
+    resolvers[0]?.("pronto");
+  });
+
+  it("cada execução ganha um sinal novo — o anterior abortado não mata o sucessor", async () => {
+    const seen: AbortSignal[] = [];
+    const coalescer = createCoalescer<string>({
+      run: async (signal) => {
+        seen.push(signal);
+        await Promise.resolve();
+        return "ok";
+      },
+      commit: () => {},
+    });
+
+    const first = coalescer.request();
+    void coalescer.request();
+    await first;
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).not.toBe(seen[1]);
+    expect(seen[1]?.aborted).toBe(false);
+  });
+});

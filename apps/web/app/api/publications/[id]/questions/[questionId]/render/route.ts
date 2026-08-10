@@ -64,6 +64,11 @@ export async function POST(
       );
     }
 
+    const executor = new RenderWorkerExecutor({
+      baseUrl: env.rendererBaseUrl,
+      secret: env.rendererSecret,
+    });
+
     const bundle = buildRenderBundle({
       // O `jobId` é da execução e **não** entra no hash de cache — ver `content-hash.ts`.
       jobId: crypto.randomUUID(),
@@ -72,13 +77,20 @@ export async function POST(
       ...(body["includeSolution"] === true ? { includeSolution: true } : {}),
     });
 
+    // Quando o browser desiste — outra compilação foi pedida por cima desta —, o worker precisa
+    // saber. Desistir só do lado de cá deixaria o `pdflatex` rodando até o fim para produzir algo
+    // que ninguém vai ler, atrasando o pedido que **substituiu** este.
+    //
+    // `once`: o handler termina de qualquer jeito, e um listener por requisição que nunca sai
+    // vazaria memória num servidor que atende milhares.
+    request.signal.addEventListener("abort", () => void executor.cancel(bundle.jobId), {
+      once: true,
+    });
+
     const { job, cacheHit } = await executeRender(
       { workspaceId: question.workspaceId, questionId, bundle },
       {
-        executor: new RenderWorkerExecutor({
-          baseUrl: env.rendererBaseUrl,
-          secret: env.rendererSecret,
-        }),
+        executor,
         storage: new LocalFileStorageProvider({ rootDir: env.storageRoot }),
         jobs: new PrismaRenderJobRepository(),
         rendererVersion: process.env["RENDERER_VERSION"] ?? "0.0.0-dev",
