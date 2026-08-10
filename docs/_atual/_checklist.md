@@ -129,7 +129,11 @@ metadados ganharam o caminho de escrita que nunca tiveram.
 **Tags saíram do domínio para a tela** (#141): adaptador Prisma, três rotas, painel na questão e
 filtro na árvore. A promessa de #85 foi conferida contra o banco pela primeira vez — três grafias
 de "Função Quadrática" continuaram sendo **uma linha**.
-1138 testes (1088 no app + 50 no renderer) · 69 PRs abertos, nada mergeado.
+**A avaliação virou produto** (#143): persistência, quatro rotas e a tela de montagem. A cadeia
+inteira foi conferida com dado real e prova compilada — o mapa gravado no banco diz `c`, a rota
+responde `c`, e o `c)` impresso na prova do aluno é a alternativa correta. As três versões
+compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c · 3) —`.
+1147 testes (1097 no app + 50 no renderer) · 70 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1208,7 +1212,9 @@ falta o que produz o estado
 - ✅ Export versão professor (com resposta marcada **no lugar da alternativa**)
 - ✅ Export gabarito
 - ✅ Mesma questão em templates diferentes sem duplicação
-- [ ] Tela de montagem da avaliação
+- ✅ Tela de montagem da avaliação *(#143 — `/avaliacoes` e `/avaliacoes/[id]`: escolher questões, definir a seed, sortear e ver as três versões. A **seed fica à vista e editável**: escondê-la atrás de um sorteio interno tiraria de quem monta a única maneira de repetir a mesma prova amanhã)*
+- ✅ Persistência da variante **com o mapa de letras**, numa transação *(#143 — meia variante gravada daria uma prova cujo gabarito cobre parte das questões, e é na parte faltante que a correção erraria sem avisar)*
+- ✅ A tela avisa antes de imprimir quando uma questão entrou sem alternativa correta *(o gabarito dela sairia em branco, e descobrir isso na correção é tarde)*
 
 **Aceite da fase**
 - ✅ **A mesma seed reproduz a mesma prova byte a byte, em processos diferentes** — verificado com
