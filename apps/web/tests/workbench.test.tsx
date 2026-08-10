@@ -94,6 +94,24 @@ describe("Workbench — o painel do agente nasce fechado", () => {
     );
   });
 
+  it("`Ctrl+Shift+A` abre e fecha (spec §14.6)", () => {
+    renderWorkbench();
+
+    fireEvent.keyDown(window, { code: "KeyA", ctrlKey: true, shiftKey: true });
+    expect(screen.getByText("painel do agente")).toBeTruthy();
+
+    fireEvent.keyDown(window, { code: "KeyA", ctrlKey: true, shiftKey: true });
+    expect(screen.queryByText("painel do agente")).toBeNull();
+  });
+
+  it("`Ctrl+A` sozinho continua selecionando texto", () => {
+    // Sequestrar o atalho de "selecionar tudo" dentro de um editor de LaTeX seria hostil.
+    renderWorkbench();
+
+    fireEvent.keyDown(window, { code: "KeyA", ctrlKey: true });
+    expect(screen.queryByText("painel do agente")).toBeNull();
+  });
+
   it("guarda o estado sob a chave do workspace", () => {
     renderWorkbench({ storageKey: "lbb:wb:teste" });
     fireEvent.click(screen.getByRole("button", { name: "Abrir Agente" }));
