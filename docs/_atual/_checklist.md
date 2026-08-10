@@ -466,7 +466,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Autosave sem alteração não grava *(dez disparos não movem o `updatedAt` — senão fabricaria conflito nas outras abas)*
 
 **Aceite da fase**
-- [ ] Editar, sair e voltar encontra o conteúdo salvo *(o ciclo salvar/recarregar foi exercitado pela API; falta digitar na tela)*
+- ✅ Editar, sair e voltar encontra o conteúdo salvo *(#155 — agora **digitado na tela**: o E2E escreve no Monaco, espera o autosave, recarrega a página, reabre a questão e encontra o texto)*
 - ✅ Teste de conflito passa
 
 ---
