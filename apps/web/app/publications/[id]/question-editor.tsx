@@ -9,6 +9,7 @@ import {
   type RevisionSnapshot,
 } from "@modules/questions/domain/revision-diff";
 import { HistoryPanel, type RevisionRow } from "@modules/questions/ui/HistoryPanel";
+import { OriginPanel } from "@modules/assets/ui/OriginPanel";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
 import {
   LatexEditor,
@@ -40,7 +41,7 @@ export interface QuestionEditorOption {
 }
 
 /** As três respostas para "como isto está?": aproximada, autoritativa e histórica. */
-type RightTab = "rapido" | "render" | "historico";
+type RightTab = "rapido" | "render" | "historico" | "origem";
 
 export interface QuestionEditorProps {
   readonly publicationId: string;
@@ -342,6 +343,7 @@ export function QuestionEditor({
                   { id: "rapido", label: "Preview rápido" },
                   { id: "render", label: "PDF compilado" },
                   { id: "historico", label: "Histórico" },
+                  { id: "origem", label: "Origem" },
                 ]}
                 value={rightTab}
                 onChange={(id) => {
@@ -354,7 +356,11 @@ export function QuestionEditor({
             </div>
 
             <div style={{ flex: 1, minHeight: 0 }}>
-              {rightTab === "historico" ? (
+              {rightTab === "origem" ? (
+                // A aba estava bloqueada pela Fase 14: a âncora já guardava a página e a caixa,
+                // e não havia porta para navegá-las.
+                <OriginPanel questionId={questionId} />
+              ) : rightTab === "historico" ? (
                 <HistoryPanel
                   revisions={revisions ?? []}
                   changes={revisionChanges}
