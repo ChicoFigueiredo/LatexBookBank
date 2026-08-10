@@ -63,3 +63,42 @@ jobs:
 
       - name: Build
         run: bun run build
+
+  # A imagem ficou inbuildável da Fase 13 até a #148 sem ninguém perceber, porque nada a
+  # construía fora do terminal de quem estava mexendo. O teste rápido em
+  # `services/renderer/tests/dockerfile.test.ts` pega o caso conhecido; este job é o que prova.
+  #
+  # Só quando algo que a imagem consome muda: ela leva TeX Live inteiro, e construí-la em todo PR
+  # gastaria minutos de fila para reprovar o que não mudou.
+  renderer-image:
+    name: imagem do renderer constrói
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # Histórico inteiro: com a profundidade padrão de 1 commit, o `git diff` contra a base do PR
+      # não teria com o que comparar e a filtragem construiria sempre — quer dizer, não filtraria.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: O que mudou
+        id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          # Push inicial ou base ausente: constrói, em vez de decidir sem informação.
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$base" HEAD | grep -qE '^(services/renderer/|packages/render-contract/|package\.json|bun\.lock)'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.changed.outputs.build == 'true'
+        # `--frozen-lockfile` está dentro do Dockerfile: é ele quem falha quando o arquivo não
+        # conhece um workspace, e é exatamente essa falha que este job existe para pegar.
+        run: docker build -f services/renderer/Dockerfile -t latexbookbank/renderer:ci .
