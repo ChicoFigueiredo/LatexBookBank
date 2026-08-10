@@ -93,7 +93,11 @@ próxima.
 Export, import e o serviço de backup vieram em seguida (#117). Round-trip verificado **contra o
 banco real**: exportar a biblioteca demo, importar num workspace novo e reexportar devolveu
 `data.json` idêntico — e o mesmo vale para um arquivo produzido pelo backup automático.
-970 testes (920 no app + 50 no renderer) · 57 PRs abertos, nada mergeado.
+A página de diagnóstico (#119) fechou pendências de três fases de uma vez: o "testar conexão" que
+faltava da 8, a leitura do estado de backup e a UI de export/import da 13, e a §25 da 17. Ela
+distingue **três** estados — no ar, fora do ar e não configurado —, porque os dois últimos mandam
+procurar em lugares opostos.
+979 testes (929 no app + 50 no renderer) · 58 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -771,8 +775,9 @@ falta o que produz o estado
 - ✅ Perfil Ollama local
 - ✅ Perfil custom
 - ✅ Matriz de capacidades por perfil *(o Ollama **não** promete tool calling; a configuração corrige por modelo)*
-- [ ] Settings: provider, modelo, endpoint
-- [ ] Botão "testar conexão"
+- ✅ Settings: provider, modelo e endpoint **visíveis** na página de diagnóstico *(a edição
+  continua no `.env.local`, que é onde o resto da infraestrutura mora)*
+- ✅ Botão "testar conexão" — lista os modelos e diz se o `AI_MODEL` configurado está entre eles
 - ✅ Chave existe apenas no servidor *(`import "server-only"` no provider)*
 - ✅ Chave nunca chega ao browser, verificado *(`tests/ai-key-boundary.test.ts` percorre o grafo de imports de cada `"use client"`)*
 - ✅ Testes de contrato com respostas gravadas *(22 casos, sem rede — e uma verificação real contra os 13 modelos do Ollama da máquina)*
@@ -820,8 +825,7 @@ falta o que produz o estado
 - ✅ Ollama offline não impede o uso normal do app *(rota devolve 503 com instrução; a tela segue)*
 - ✅ Ausência de chave mostra instrução clara
 - ✅ Falha do provider não perde edição do usuário *(a pergunta fica na tela; o turno é que falha)*
-- ⛔ *Settings com "testar conexão"* — a configuração hoje é por `.env.local`. A tela de settings
-  não existe ainda, e inventá-la sem o resto do módulo de configuração seria uma tela órfã.
+- ✅ *Settings com "testar conexão"* — resolvido na página de diagnóstico (#119)
 
 ---
 
@@ -1035,7 +1039,7 @@ falta o que produz o estado
 - ✅ Assets duplicados aparecem uma única vez no zip
 - ✅ Checksums calculados e gravados
 - [ ] Progresso visível para acervos grandes
-- [ ] UI de exportação *(a rota existe e baixa o arquivo; falta o botão)*
+- ✅ UI de exportação *(um `<a download>` por workspace na página de diagnóstico)*
 
 **Importação**
 - ✅ Verifica `formatVersion` — **antes** do checksum
@@ -1044,7 +1048,7 @@ falta o que produz o estado
 - ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão
 - ✅ **Nada é sobrescrito em silêncio**
 - ✅ Relatório de importação *(com `dryRun=1` para ver antes de gravar)*
-- [ ] UI de importação *(a rota existe; falta a tela)*
+- ✅ UI de importação *(com dry-run **antes** de gravar, sempre)*
 
 **Backup recorrente** *(D32, corrigida por D36)*
 - ✅ **Backup não roda dentro do processo do renderer**
@@ -1057,7 +1061,7 @@ falta o que produz o estado
 - ✅ Retenção configurável *(`BACKUP_KEEP`, **por workspace**)*
 - ✅ Destino configurável *(`BACKUP_DESTINATION`)*
 - ✅ Falha de backup fica registrada em `backup-status.json`, nunca em silêncio
-- [ ] Página de diagnóstico lendo esse arquivo
+- ✅ Página de diagnóstico lendo esse arquivo
 - ✅ Último backup registrado com data e tamanho
 
 **Aceite da fase**
@@ -1163,18 +1167,16 @@ falta o que produz o estado
 ### Fase 17 — Endurecimento
 
 **Diagnóstico** *(spec §25)*
-- [ ] Versão do app
-- [ ] Path do SQLite
-- [ ] Storage ativo e sanidade
-- [ ] **Saúde do worker consultada via `GET /health`**
-- [ ] `rendererVersion` exibida
-- [ ] `pdfLatexVersion` exibida
-- [ ] `pdfToCairoVersion` exibida
-- [ ] `profileCount` exibido
-- [ ] TeX do host exibido como **fallback opcional**, não como dependência
-- [ ] Último backup: data, tamanho e resultado *(D32/D36)*
-- [ ] Provider de IA e modelo
-- [ ] Ollama disponível
+- ✅ Versão do app
+- ✅ Path do SQLite
+- ✅ Storage ativo
+- ✅ **Saúde do worker consultada via `GET /health`**
+- ✅ `rendererVersion` · `pdfLatexVersion` · `pdfToCairoVersion` · `profileCount` *(o que o
+  `/health` devolver aparece; o que ele não devolver não vira linha vazia)*
+- [ ] TeX do host exibido como fallback opcional
+- ✅ Último backup: data, tamanho e resultado *(D32/D36)*
+- ✅ Provider de IA e modelo — **a chave nunca aparece, nem truncada**
+- ✅ Ollama disponível *(pelo botão "testar conexão")*
 - [ ] Tamanho do cache
 - [ ] Jobs
 - [ ] Último erro
