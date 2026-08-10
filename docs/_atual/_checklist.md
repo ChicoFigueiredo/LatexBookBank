@@ -76,14 +76,18 @@ Os cinco modos fecharam a Fase 9 (#107): um modo é um conjunto de tools, um tet
 um relógio — não um prompt diferente. A verificação contra o Ollama real mostrou o ciclo do
 `FIX_LATEX` funcionando (compilou o erro, corrigiu, compilou de novo) e revelou que o timeout do
 provider matava o turno antes do orçamento do modo.
-876 testes (826 no app + 50 no renderer) · 52 PRs abertos, nada mergeado.
+A aba Histórico fechou a Wave C (#109): timeline com origem, diff entre revisão e estado atual, e
+restauração com confirmação. O teste que importa é o da ida e volta — restaurar devolve o estado
+**exato**, com acento, `\\` e gabarito intactos; "parecido" seria pior que nada, porque ninguém
+confere caractere a caractere um enunciado que já parece certo.
+897 testes (847 no app + 50 no renderer) · 53 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
 | — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
 | B — banco de questões | **◐7** | Domínio completo; falta acabamento de tela |
-| C — agente | **◐8** · **◐9** · 10 | Fases 8 e 9 fechadas em código; falta o settings |
+| C — agente | **◐8** · **◐9** · **◐10** | Wave C fechada em código; falta o settings da 8 |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
 | E — ingestão visual | 14 · 15 | ☐ não iniciada |
 | F — diferencial de produto | 16 · 17 | ☐ não iniciada |
@@ -876,15 +880,16 @@ falta o que produz o estado
 
 - ✅ `Revision` com `entityType`, `entityId`, `revisionNumber` e `snapshotJson` *(nasceu na Fase 9 — aplicar sem poder desfazer não é aplicar, é apostar)*
 - ✅ Origem `USER`
-- [ ] Origem `IMPORT` *(chega com o importador, Fase 11)*
+- ⛔ Origem `IMPORT` — chega com o importador (Fase 11); não há produtor ainda
 - ✅ Origem `AGENT`
-- [ ] Origem `SYSTEM`
+- ⛔ Origem `SYSTEM` — vocabulário declarado, sem produtor: nada no sistema muda questão sozinho
 - ✅ `agentRunId` vinculado quando aplicável
-- [ ] Aba Histórico com timeline
-- [ ] Diff entre revisões
-- [ ] Restaurar revisão
-- [ ] Restauração devolve o estado exato, com teste
-- [ ] Restauração é auditada
+- ✅ Aba Histórico com timeline *(carregada ao abrir a aba, não com a questão)*
+- ✅ Diff entre revisões *(os dois lados vêm do servidor — montar o "atual" da tela esconderia
+  alternativa, metadado e tag, bem os campos onde o agente mais mexe)*
+- ✅ Restaurar revisão *(com confirmação: a lista é navegável por teclado)*
+- ✅ Restauração devolve o estado exato, com teste *(inclusive acento, `\\` e o gabarito)*
+- ✅ Restauração é auditada
 
 ---
 
