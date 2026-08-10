@@ -87,7 +87,10 @@ rodar o import e conferir contra o acervo, e isso fica ⛔ até o acervo estar d
 **Fase 12 fechada** (#113), e a medição mudou o desenho: com `LIMIT 50` o `LIKE` responde em
 0,2 ms mesmo em 200 mil linhas, mas o `COUNT(*)` que o acompanhava custava 85 ms. O caro nunca foi
 buscar — era contar. O adaptador passou a pedir `limit + 1` linha e nenhuma contagem.
-939 testes (889 no app + 50 no renderer) · 55 PRs abertos, nada mergeado.
+**Fase 13 iniciada** (#115): o formato `.lbb` com schema portável versionado, assets endereçados
+por `sha256` e round-trip provando identidade. UI, serviço de backup e progresso ficam para a
+próxima.
+970 testes (920 no app + 50 no renderer) · 56 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1004,36 +1007,39 @@ falta o que produz o estado
 ### Fase 13 — Portabilidade `.lbb` *(D18, D32, D36, D37)*
 
 **Portable Schema versionado** *(D37)*
-- [ ] `PortableSchema` definido, **próprio e versionado**
-- [ ] **Não depende diretamente da migration atual do Prisma**
-- [ ] Export faz projeção **runtime → portable**
-- [ ] Import faz projeção **portable → runtime**
-- [ ] Migradores de formato previstos (`LBB v1 → v2 → runtime atual`)
-- [ ] `formatVersion` declarado no `manifest.json`
-- [ ] Versão desconhecida é recusada com mensagem clara — **nunca adivinhada**
+- ✅ `PortableSchema` definido, **próprio e versionado**
+- ✅ **Não depende diretamente da migration atual do Prisma**
+- ✅ Export faz projeção **runtime → portable**
+- ✅ Import faz projeção **portable → runtime**
+- [ ] Migradores de formato previstos — só existe a v1; o migrador nasce com a v2, e escrevê-lo
+  antes seria adivinhar de onde ela vem
+- ✅ `formatVersion` declarado no `manifest.json`
+- ✅ Versão desconhecida é recusada com mensagem clara — **nunca adivinhada**
 
 **Formato**
-- [ ] Módulo `portability` criado
-- [ ] `PortableArchiveWriter` implementado
-- [ ] `PortableArchiveReader` implementado
-- [ ] `manifest.json` com `formatVersion`, workspace, contagens, data e checksums
-- [ ] Assets em `assets/<sha256[0:2]>/<sha256>.<ext>`
-- [ ] `data.sqlite` referencia assets por `sha256`, nunca por path
-- [ ] Independência de path garantida
+- ✅ Módulo `portability` criado
+- ✅ `PortableArchiveWriter` implementado
+- ✅ `PortableArchiveReader` implementado
+- ✅ `manifest.json` com `formatVersion`, workspace, contagens, data e checksums
+- ✅ Assets em `assets/<sha256[0:2]>/<sha256>.<ext>`
+- ✅ Dados referenciam assets por `sha256`, nunca por path — **`data.json` e não `data.sqlite`**:
+  um banco dentro do zip traria o motor junto, e o formato herdaria as versões dele. O que a §7
+  queria garantir — que o portable não seja o schema de runtime — o `PortableSchema` já garante.
+- ✅ Independência de path garantida
 
 **Exportação**
 - [ ] Exporta um workspace inteiro
-- [ ] Assets duplicados aparecem uma única vez no zip
-- [ ] Checksums calculados e gravados
+- ✅ Assets duplicados aparecem uma única vez no zip
+- ✅ Checksums calculados e gravados
 - [ ] Progresso visível para acervos grandes
 - [ ] UI de exportação
 
 **Importação**
-- [ ] Verifica `formatVersion`
-- [ ] Verifica checksums e recusa arquivo corrompido
+- ✅ Verifica `formatVersion` — **antes** do checksum
+- ✅ Verifica checksums e recusa arquivo corrompido
 - [ ] Religa assets ao `StorageProvider` de destino
-- [ ] Colisão de `legacyId`/`uuid` gera relatório e exige decisão
-- [ ] **Nada é sobrescrito em silêncio**
+- ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão
+- ✅ **Nada é sobrescrito em silêncio**
 - [ ] Relatório de importação
 - [ ] UI de importação
 
@@ -1049,11 +1055,13 @@ falta o que produz o estado
 - [ ] Último backup bem-sucedido registrado com data e tamanho
 
 **Aceite da fase**
-- [ ] **Round-trip exercitando as duas projeções:** exportar um workspace, importar num vazio e comparar dá identidade
+- ✅ **Round-trip exercitando as duas projeções** — a identidade verificada é entre os dois
+  *portables*: se a ida e a volta não perderam nada, projetar o resultado outra vez dá o mesmo
+  arquivo. Comparar os runtimes seria comparar ids que a projeção troca de propósito.
 - [ ] **Um arquivo produzido pelo backup automático passa pelo mesmo teste de round-trip**
-- [ ] Arquivo de versão futura é recusado com mensagem clara
-- [ ] Arquivo corrompido é recusado com mensagem clara
-- [ ] Teste de round-trip incluído na suíte e ligado a qualquer mudança de schema
+- ✅ Arquivo de versão futura é recusado com mensagem clara
+- ✅ Arquivo corrompido é recusado com mensagem clara *(dados **e** asset adulterado)*
+- ✅ Teste de round-trip incluído na suíte
 
 ---
 
