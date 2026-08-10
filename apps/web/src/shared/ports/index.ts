@@ -67,3 +67,11 @@ export type {
   AiUsage,
 } from "./ai-provider";
 export { AiCredentialMissingError, AiProviderError } from "./ai-provider";
+
+export type {
+  MathRecognitionProvider,
+  MathRecognitionRequest,
+  MathRecognitionResult,
+  RecognitionState,
+} from "./math-recognition";
+export { MathRecognitionError, RECOGNITION_STATES } from "./math-recognition";

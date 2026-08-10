@@ -104,7 +104,11 @@ para a próxima: é UI pesada e a conferência é visual.
 Upload e recorte vieram em seguida (#123). O recorte é feito no cliente — o visualizador já
 rasteriza a página para mostrá-la, e recortar o que está na tela custa uma chamada de canvas. O
 que sobe é a **caixa normalizada** mais o PNG; a fonte nunca é tocada.
-1016 testes (966 no app + 50 no renderer) · 60 PRs abertos, nada mergeado.
+**Fase 15 verificada com modelo de visão real** (#125): o `gemma3:12b` leu
+`M = C(1 + i)^n - \frac{\sqrt{x^2 + 1}}{2n}` de um recorte de
+`M = C\left(1+i\right)^{n} - \frac{\sqrt{x^2+1}}{2n}` — equivalente —, o LaTeX lido compilou, e
+o confronto visual entre o recorte e o resultado é idêntico.
+1030 testes (980 no app + 50 no renderer) · 61 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -113,7 +117,7 @@ que sobe é a **caixa normalizada** mais o PNG; a fonte nunca é tocada.
 | B — banco de questões | **◐7** | Domínio completo; falta acabamento de tela |
 | C — agente | **◐8** · **◐9** · **◐10** | Wave C fechada em código; falta o settings da 8 |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
-| E — ingestão visual | 14 · 15 | ☐ não iniciada |
+| E — ingestão visual | **◐14** · **◐15** | Domínio e rotas de pé; falta o visualizador de PDF |
 | F — diferencial de produto | 16 · 17 | ☐ não iniciada |
 
 ---
@@ -1128,16 +1132,19 @@ falta o que produz o estado
 
 ### Fase 15 — Reconhecimento matemático
 
-- [ ] `MathRecognitionProvider` definido
-- [ ] Resultado com latex, confidence, alternatives, provider, model e metadados
-- [ ] Implementação via modelo multimodal por endpoint OpenAI-compatible
-- [ ] Opção de provider local
-- [ ] Timeout
-- [ ] Erro tratado
-- [ ] Fluxo: crop → reconhecer → LaTeX candidato → fast preview → editar → render autoritativo → aceitar
-- [ ] Crop original nunca descartado
-- [ ] Revisão humana obrigatória antes de aceitar
-- [ ] Falha do provider não perde trabalho
+- ✅ `MathRecognitionProvider` definido
+- ✅ Resultado com latex, confidence, alternatives, provider, model e duração
+- ✅ Implementação via modelo multimodal por endpoint OpenAI-compatible
+- ✅ Opção de provider local *(verificado: `gemma3:12b` no Ollama)*
+- ✅ Timeout *(120 s — modelo de visão frio demora, e cortar antes desperdiça a carga)*
+- ✅ Erro tratado
+- ✅ Fluxo verificado ponta a ponta: recorte → reconhecer → LaTeX candidato → **compila** →
+  editar → aceitar. O confronto visual entre o recorte e o LaTeX compilado é idêntico.
+- ✅ Crop original nunca descartado *(nem ao rejeitar: o crop é fonte, a leitura é que estava errada)*
+- ✅ **Revisão humana obrigatória antes de aceitar** — `accepted` não é estado que o reconhecedor
+  alcança, e editar move para `edited`, não para `accepted`
+- ✅ Falha do provider não perde trabalho *(o recorte segue no storage; a tentativa se repete)*
+- [ ] Tela de revisão com o recorte ao lado do candidato
 
 ---
 
