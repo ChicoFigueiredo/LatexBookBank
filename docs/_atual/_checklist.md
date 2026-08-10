@@ -56,7 +56,11 @@ O runner fechou a fase (#97): modo `ASK` com laço de tools, `ToolCallCard` na t
 `AgentRun` persistido. Verificado contra o Ollama real — e foi a verificação que corrigiu o
 desenho duas vezes: o modelo inventava id de questão até o id deixar de ser parâmetro, e gastava
 as três rodadas relendo a mesma coisa até a última volta passar a ir sem tools.
-780 testes (730 no app + 50 no renderer) · 47 PRs abertos, nada mergeado.
+**Fase 9 iniciada** (#99): `QuestionPatch` em Zod com whitelist versionada, as cinco tools
+`propose_*` e o diff por campo. Verificado contra o Ollama real — que revelou o modelo propondo o
+**mesmo patch três vezes**, uma por rodada, mesmo instruído a não repetir; a bandeja passou a
+descartar repetição comparando conteúdo, não a frase.
+818 testes (768 no app + 50 no renderer) · 48 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -791,20 +795,20 @@ falta o que produz o estado
 ### Fase 9 — Patch, diff e aprovação
 
 **Patch**
-- [ ] `QuestionPatch` definido em Zod
-- [ ] Whitelist de campos alteráveis
-- [ ] Todo patch validado antes de ser apresentado
-- [ ] `propose_question_patch`
-- [ ] `propose_option_patch`
-- [ ] `propose_metadata_patch`
-- [ ] `propose_tags`
-- [ ] `propose_reorder_options`
-- [ ] Schema do patch versionado
+- ✅ `QuestionPatch` definido em Zod *(a única dependência de validação do projeto, e aqui ela se paga)*
+- ✅ Whitelist de campos alteráveis — `validationStatus`, `originalLatex`, `legacyId` e `status` **não** são proponíveis
+- ✅ Todo patch validado antes de ser apresentado
+- ✅ `propose_question_patch`
+- ✅ `propose_option_patch` *(por id, nunca por letra)*
+- ✅ `propose_metadata_patch`
+- ✅ `propose_tags`
+- ✅ `propose_reorder_options`
+- ✅ Schema do patch versionado
 
 **Apresentação**
-- [ ] Resumo do que o agente entendeu
-- [ ] Campos afetados listados
-- [ ] Diff por campo
+- ✅ Resumo do que o agente entendeu *(obrigatório no schema)*
+- ✅ Campos afetados listados
+- ✅ Diff por campo *(reescrita idêntica **não** vira linha)*
 - [ ] Diff Monaco para LaTeX
 - [ ] Render antes
 - [ ] Render depois
