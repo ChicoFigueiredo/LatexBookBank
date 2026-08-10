@@ -20,6 +20,7 @@ export class PrismaPublicationRepository implements PublicationRepository {
       orderBy: { title: "asc" },
       select: {
         id: true,
+        workspaceId: true,
         title: true,
         nickname: true,
         publisher: true,
@@ -35,6 +36,7 @@ export class PrismaPublicationRepository implements PublicationRepository {
       where: { id },
       select: {
         id: true,
+        workspaceId: true,
         title: true,
         nickname: true,
         publisher: true,
@@ -48,6 +50,7 @@ export class PrismaPublicationRepository implements PublicationRepository {
 
 interface PublicationRow {
   id: string;
+  workspaceId: string;
   title: string;
   nickname: string | null;
   publisher: string | null;
@@ -56,6 +59,7 @@ interface PublicationRow {
 
 const toSummary = (row: PublicationRow): PublicationSummary => ({
   id: row.id,
+  workspaceId: row.workspaceId,
   title: row.title,
   nickname: row.nickname,
   publisher: row.publisher,

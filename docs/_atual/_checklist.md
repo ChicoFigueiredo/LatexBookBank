@@ -117,7 +117,10 @@ conferidas na imagem: aluno e professor com a mesma ordem e as mesmas letras, e 
 varrem o repositório — e foram conferidos contra uma violação deliberada, que os três pegaram.
 O visualizador de PDF com recorte veio em seguida (#133), com as regras de arrastar e
 redimensionar num **módulo puro** — regra dentro de `onMouseMove` é regra que ninguém testa.
-1090 testes (1040 no app + 50 no renderer) · 65 PRs abertos, nada mergeado.
+E a tela que amarra tudo (#135): os três gestos de upload num componente só, e a ingestão
+completa em `/publications/[id]/ingestao`. O teste do teclado achou uma recursão de verdade — o
+clique do `input` escondido subia até o `div`, que clicava o `input` de novo.
+1107 testes (1057 no app + 50 no renderer) · 66 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1101,9 +1104,9 @@ falta o que produz o estado
 ### Fase 14 — Assets, PDF e crop
 
 **Ingestão**
-- [ ] Upload por file picker *(a rota aceita os três gestos; falta a tela)*
-- [ ] Drag-and-drop *(idem)*
-- [ ] `Ctrl+V` de imagem *(idem)*
+- ✅ Upload por file picker *(#135 — `AssetDropzone`; o `input` não borbulha o próprio clique, senão o seletor reabriria sozinho)*
+- ✅ Drag-and-drop *(o `dragover` é cancelado — senão o navegador abre o arquivo numa aba e o trabalho da tela se perde)*
+- ✅ `Ctrl+V` de imagem *(só quando a tela pede; colar texto continua chegando ao editor)*
 - ✅ sha256 do conteúdo — **é a identidade** (D29)
 - ✅ MIME e extensão validados — **e a discordância entre os dois é recusada**
 - ✅ Limite de upload
@@ -1132,7 +1135,8 @@ falta o que produz o estado
 - ✅ `SOURCE_PDF` nunca substituído *(D29)* — não existe caminho de escrita sobre a fonte
 - ✅ Asset fonte é imutável: a `storageKey` **contém o hash**, então mudar o conteúdo muda a chave
 - ✅ Cadeia de proveniência descrita: fonte → página → recorte *(a navegação depende da tela)*
-- [ ] Opções após o crop: inserir como imagem, reconhecer matemática, reconhecer texto, anexar como referência
+- ✅ **Tela de ingestão ponta a ponta** *(#135 — `/publications/[id]/ingestao`: subir → recortar → reconhecer → revisar)*
+- [ ] Opções após o crop: inserir como imagem, reconhecer texto, anexar como referência *(reconhecer matemática já é o caminho da tela)*
 
 **Aceite da fase**
 - [ ] §33 "Assets" completo (§10 deste documento)
@@ -1154,7 +1158,7 @@ falta o que produz o estado
 - ✅ **Revisão humana obrigatória antes de aceitar** — `accepted` não é estado que o reconhecedor
   alcança, e editar move para `edited`, não para `accepted`
 - ✅ Falha do provider não perde trabalho *(o recorte segue no storage; a tentativa se repete)*
-- [ ] Tela de revisão com o recorte ao lado do candidato
+- ✅ Tela de revisão com o recorte ao lado do candidato *(#135 — a imagem fica à vista até o aceite; sem ela a revisão que se pede é impossível)*
 
 ---
 
