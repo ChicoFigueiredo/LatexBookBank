@@ -1,7 +1,7 @@
 "use client";
 
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LATEX_LANGUAGE_ID } from "@modules/latex/domain/latex-language";
 import { useLatexCompletion } from "@modules/latex-knowledge/ui/use-latex-completion";
@@ -45,6 +45,26 @@ export interface LatexEditorApi {
    * modelo costuma precisar apontar de volta para o editor.
    */
   readonly getSelection: () => EditorSelection | null;
+  /**
+   * Leva o cursor até uma linha — é o que faz o diagnóstico ser clicável.
+   *
+   * Imperativo pelo mesmo motivo do `insertSnippet`: rolar até uma linha é um gesto, não um
+   * estado. Modelá-lo como propriedade obrigaria a inventar um "já rolei" para não rolar de novo a
+   * cada re-render, e o cursor da pessoa seria arrastado no meio de uma frase.
+   */
+  readonly revealLine: (line: number) => void;
+}
+
+/**
+ * Um diagnóstico do render, do jeito que o editor entende.
+ *
+ * Fica aqui e não em `rendering/` porque quem depende de quem importa: o editor não conhece render.
+ * Ele sabe marcar linhas, e o painel de render é um dos que têm o que marcar.
+ */
+export interface EditorMarker {
+  readonly line: number;
+  readonly severity: "error" | "warning" | "info";
+  readonly message: string;
 }
 
 export interface EditorSelection {
@@ -64,6 +84,29 @@ interface SnippetController {
   dispose(): void;
 }
 
+/** O par que o `onMount` entrega. Tipado a partir dele para não adivinhar o nome do tipo. */
+interface MountedEditor {
+  readonly editor: Parameters<OnMount>[0];
+  readonly monaco: Parameters<OnMount>[1];
+}
+
+/**
+ * Um `owner` próprio para os marcadores do render.
+ *
+ * Sem ele, limpar a lista apagaria o que qualquer outro produtor tenha marcado no mesmo modelo —
+ * e o Monaco não tem como saber que os dois não são a mesma coisa.
+ */
+const MARKER_OWNER = "render";
+
+const SEVERITY = {
+  error: (monaco: MountedEditor["monaco"]) => monaco.MarkerSeverity.Error,
+  warning: (monaco: MountedEditor["monaco"]) => monaco.MarkerSeverity.Warning,
+  info: (monaco: MountedEditor["monaco"]) => monaco.MarkerSeverity.Info,
+} as const;
+
+/** Constante de módulo: um `[]` literal no default seria um array novo a cada render. */
+const EMPTY_MARKERS: readonly EditorMarker[] = [];
+
 export interface LatexEditorInnerProps {
   readonly value: string;
   readonly onChange: (value: string) => void;
@@ -74,6 +117,14 @@ export interface LatexEditorInnerProps {
   readonly theme?: "light" | "dark";
   readonly ariaLabel?: string;
   readonly onReady?: (api: LatexEditorApi) => void;
+  /**
+   * O que o compilador achou de errado **neste campo**.
+   *
+   * Marcador do Monaco e não decoração de linha: o marcador traz a mensagem no hover, entra na
+   * navegação por `F8` e desenha o sublinhado que qualquer pessoa já reconhece de um editor. Uma
+   * decoração pintaria a linha e deixaria a mensagem só no painel ao lado.
+   */
+  readonly markers?: readonly EditorMarker[];
 }
 
 export default function LatexEditorInner({
@@ -85,6 +136,7 @@ export default function LatexEditorInner({
   theme = "light",
   ariaLabel = "Editor LaTeX",
   onReady,
+  markers = EMPTY_MARKERS,
 }: LatexEditorInnerProps) {
   // O conhecimento LaTeX do legado (#47) vira sugestão aqui. É um hook e não uma chamada no
   // `onMount` porque o provider é global por linguagem: quem o registra precisa também saber
@@ -94,6 +146,46 @@ export default function LatexEditorInner({
   const saveRef = useRef(onSave);
   const renderRef = useRef(onRender);
   const readyRef = useRef(onReady);
+  const mounted = useRef<MountedEditor | null>(null);
+
+  /**
+   * Os marcadores são reaplicados a cada mudança da lista **e** a cada montagem.
+   *
+   * A ordem entre "o render terminou" e "o editor montou" não é fixa: compilar e trocar de aba na
+   * mesma respiração faz a lista chegar antes do editor existir. O efeito depende do `generation`
+   * do mount justamente para rodar de novo quando o editor aparece.
+   */
+  const [mountGeneration, setMountGeneration] = useState(0);
+
+  useEffect(() => {
+    const current = mounted.current;
+    const model = current?.editor.getModel();
+    if (!current || !model) return;
+
+    const lineCount = model.getLineCount();
+
+    current.monaco.editor.setModelMarkers(
+      model,
+      // O `owner` isola estes marcadores: limpar a lista aqui não apaga o que outro produtor
+      // (o próprio LaTeX do Monaco, um dia) tenha marcado.
+      MARKER_OWNER,
+      // Linha fora do texto é descartada, não aproximada. Acontece de verdade: o diagnóstico é de
+      // uma compilação anterior, a pessoa apagou dez linhas desde então, e `getLineMaxColumn` de
+      // uma linha inexistente **lança** — o editor inteiro sumiria por causa de um marcador.
+      markers
+        .filter((marker) => marker.line >= 1 && marker.line <= lineCount)
+        .map((marker) => ({
+          // Linha inteira: o log do TeX diz a linha, nunca a coluna. Sublinhar de 1 a 1 marcaria o
+          // primeiro caractere e faria o erro parecer estar sempre no começo.
+          startLineNumber: marker.line,
+          endLineNumber: marker.line,
+          startColumn: 1,
+          endColumn: model.getLineMaxColumn(marker.line),
+          message: marker.message,
+          severity: SEVERITY[marker.severity](current.monaco),
+        })),
+    );
+  }, [markers, mountGeneration]);
 
   useEffect(() => {
     readyRef.current = onReady;
@@ -110,6 +202,11 @@ export default function LatexEditorInner({
   }, [onRender]);
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
+    mounted.current = { editor, monaco };
+    // Não é `setState` dentro de efeito: é o Monaco avisando que existe, e é o único aviso que
+    // existe. O contador só serve para o efeito dos marcadores rodar de novo agora.
+    setMountGeneration((generation) => generation + 1);
+
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       saveRef.current?.();
     });
@@ -144,6 +241,22 @@ export default function LatexEditorInner({
           startLine: selection.startLineNumber,
           endLine: selection.endLineNumber,
         };
+      },
+
+      revealLine: (line) => {
+        const model = editor.getModel();
+        if (!model) return;
+
+        // Recorta pelo tamanho do texto em vez de recusar: o diagnóstico pode ser de uma
+        // compilação anterior, e levar a pessoa ao fim do campo é mais útil que não fazer nada —
+        // ela vê o campo certo e o texto que sobrou.
+        const target = Math.min(Math.max(1, line), model.getLineCount());
+
+        // `InCenter` e não `revealLine`: o padrão rola o mínimo possível, e a linha aparece colada
+        // na borda de baixo — que é onde ninguém olha ao chegar de outro painel.
+        editor.revealLineInCenter(target);
+        editor.setPosition({ lineNumber: target, column: 1 });
+        editor.focus();
       },
     });
   }, []);

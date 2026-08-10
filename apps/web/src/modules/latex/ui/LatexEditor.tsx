@@ -21,6 +21,7 @@ export const LatexEditor = dynamic(() => import("./LatexEditorInner"), {
 });
 
 export type {
+  EditorMarker,
   EditorSelection,
   LatexEditorApi,
   LatexEditorInnerProps as LatexEditorProps,

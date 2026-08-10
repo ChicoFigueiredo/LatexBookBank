@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { executeRender } from "@modules/rendering/application/execute-render";
-import { buildRenderBundle } from "@modules/rendering/domain/build-render-bundle";
+import { buildRenderBundle, buildSourceMap } from "@modules/rendering/domain/build-render-bundle";
 import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
 import { loadQuestionForRender } from "@modules/rendering/infrastructure/prisma-question-render-source";
 import { PrismaRenderJobRepository } from "@modules/rendering/infrastructure/prisma-render-job-repository";
@@ -69,13 +69,15 @@ export async function POST(
       secret: env.rendererSecret,
     });
 
-    const bundle = buildRenderBundle({
+    const bundleInput = {
       // O `jobId` é da execução e **não** entra no hash de cache — ver `content-hash.ts`.
       jobId: crypto.randomUUID(),
       question: question.question,
       profile,
       ...(body["includeSolution"] === true ? { includeSolution: true } : {}),
-    });
+    };
+
+    const bundle = buildRenderBundle(bundleInput);
 
     // Quando o browser desiste — outra compilação foi pedida por cima desta —, o worker precisa
     // saber. Desistir só do lado de cá deixaria o `pdflatex` rodando até o fim para produzir algo
@@ -104,6 +106,15 @@ export async function POST(
       cacheHit,
       durationMs: job.durationMs,
       diagnostics: job.diagnostics,
+      // O log cru. Ele já era guardado (truncado pelo meio) desde a Fase 6 e **nunca saía daqui**:
+      // a aba Log existia, renderizava e dizia "sem log para esta compilação" em toda compilação.
+      stdout: job.stdout,
+      // O corpo que foi realmente enviado, e não uma reconstrução do cliente. A aba Fonte mostrava
+      // só o enunciado, sem as alternativas — dizendo, no cabeçalho, que era o corpo enviado.
+      sourceLatex: bundle.sourceLatex,
+      // O mapa que traduz a linha do diagnóstico em campo do editor. Vai do servidor porque é o
+      // servidor quem monta o corpo; recalculá-lo no cliente seria a mesma regra em dois lugares.
+      sourceMap: buildSourceMap(bundleInput),
       // As chaves de storage **não** vão para o cliente: são opacas e do servidor. O browser pede
       // o artefato pela rota de download, que resolve a chave do lado de cá.
       artifacts: job.artifacts.map((artifact) => ({

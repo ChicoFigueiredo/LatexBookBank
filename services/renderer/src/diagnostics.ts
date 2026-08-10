@@ -163,6 +163,38 @@ export function parseLatexLog(log: string): readonly RenderDiagnostic[] {
 }
 
 /**
+ * Traz as linhas do documento compilado para o **corpo**.
+ *
+ * O `pdflatex` conta a partir do `\documentclass`, então `main.tex:14:` pode ser a linha 2 do que a
+ * pessoa escreveu — o resto é preâmbulo. Sem esta tradução, decorar a linha 14 no editor apontaria
+ * para um lugar arbitrário do enunciado, e o produto estaria mentindo com precisão de número.
+ *
+ * O deslocamento muda conforme a compilação: com o formato pré-compilado o arquivo começa direto no
+ * `\begin{document}`, sem o formato ele carrega classe e preâmbulo antes. Quem sabe qual dos dois
+ * aconteceu é o worker, e é por isso que a tradução mora aqui e não na aplicação.
+ *
+ * Erro que cai **antes** do corpo é do preâmbulo: a mensagem continua (é um erro de verdade, e
+ * escondê-la deixaria a compilação falhando sem explicação), mas a linha vira `null` — apontar para
+ * o texto de alguém um erro que não está nele é pior que não apontar.
+ */
+export function toBodyRelative(
+  diagnostics: readonly RenderDiagnostic[],
+  bodyOffset: number,
+): readonly RenderDiagnostic[] {
+  return diagnostics.map((diagnostic) => {
+    if (diagnostic.line === null) return diagnostic;
+    // Diagnóstico de outro arquivo — um `.sty` do preâmbulo — conta linhas do arquivo dele, e
+    // subtrair o deslocamento do `main.tex` produziria um número sem significado nenhum.
+    if (diagnostic.file !== null && diagnostic.file !== "main.tex") {
+      return { ...diagnostic, line: null };
+    }
+
+    const line = diagnostic.line - bodyOffset;
+    return line >= 1 ? { ...diagnostic, line } : { ...diagnostic, line: null };
+  });
+}
+
+/**
  * O documento compilou?
  *
  * Não é "sem diagnóstico": o LaTeX produz PDF com dezenas de avisos o tempo todo, e tratar aviso

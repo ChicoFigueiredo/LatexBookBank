@@ -13,7 +13,7 @@ import {
   type RenderResult,
 } from "@latexbookbank/render-contract";
 
-import { hasErrors, parseLatexLog } from "./diagnostics.ts";
+import { hasErrors, parseLatexLog, toBodyRelative } from "./diagnostics.ts";
 import { bodyWithFormat, ensureFormat, FORMATS_DIR } from "./format-cache.ts";
 
 /**
@@ -198,6 +198,15 @@ export async function compile(
       "utf8",
     );
 
+    /**
+     * Quantas linhas existem **antes** do corpo no arquivo que acabou de ser escrito.
+     *
+     * Sai daqui, e não de uma constante, porque o número depende do caminho que a compilação
+     * tomou: com formato é só o `\begin{document}`; sem ele, a classe mais o preâmbulo inteiro.
+     * Calcular isto longe da escrita seria a mesma decisão em dois lugares.
+     */
+    const bodyOffset = format === null ? 1 + bundle.profile.preamble.length + 1 : 1;
+
     let stdout = "";
     let stderr = "";
     let timedOut = false;
@@ -237,7 +246,9 @@ export async function compile(
             file: null,
           },
         ]
-      : parseLatexLog(stdout);
+      : // O log conta a partir do `\documentclass`; o `RenderDiagnostic.line` promete a linha do
+        // `sourceLatex`. É aqui que a promessa passa a ser verdade.
+        toBodyRelative(parseLatexLog(stdout), bodyOffset);
 
     const pdfBytes = await readFileOrNull(join(dir, "main.pdf"));
 
