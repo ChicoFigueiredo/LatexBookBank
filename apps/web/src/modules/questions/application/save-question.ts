@@ -43,6 +43,14 @@ function changedFields(current: QuestionSnapshot, edit: QuestionEdit): (keyof Qu
     "solutionLatex",
     "complementLatex",
     "nickname",
+    "difficulty",
+    "year",
+    "board",
+    "institution",
+    "role",
+    "roleLevel",
+    "publisher",
+    "videoUrl",
   ];
   return keys.filter((key) => edit[key] !== undefined && edit[key] !== current[key]);
 }

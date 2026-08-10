@@ -13,6 +13,14 @@ const SELECT = {
   solutionLatex: true,
   complementLatex: true,
   nickname: true,
+  difficulty: true,
+  year: true,
+  board: true,
+  institution: true,
+  role: true,
+  roleLevel: true,
+  publisher: true,
+  videoUrl: true,
   updatedAt: true,
 } as const;
 

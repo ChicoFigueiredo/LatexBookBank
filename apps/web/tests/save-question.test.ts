@@ -57,6 +57,14 @@ const base: QuestionSnapshot = {
   solutionLatex: "$4$",
   complementLatex: "",
   nickname: null,
+  difficulty: 5,
+  year: null,
+  board: null,
+  institution: null,
+  role: null,
+  roleLevel: null,
+  publisher: null,
+  videoUrl: null,
   updatedAt: T0,
 };
 
