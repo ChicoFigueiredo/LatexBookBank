@@ -60,7 +60,11 @@ as três rodadas relendo a mesma coisa até a última volta passar a ir sem tool
 `propose_*` e o diff por campo. Verificado contra o Ollama real — que revelou o modelo propondo o
 **mesmo patch três vezes**, uma por rodada, mesmo instruído a não repetir; a bandeja passou a
 descartar repetição comparando conteúdo, não a frase.
-818 testes (768 no app + 50 no renderer) · 48 PRs abertos, nada mergeado.
+O bloco de aplicação veio em seguida (#101): `Revision`, aplicação transacional com a revisão
+anterior gravada antes, aplicação seletiva e reversão. Verificado contra o acervo real — aplicar
+uma linha entre duas propostas mexeu só nela, a revisão guardou o estado inteiro do antes, e
+reverter devolveu a questão exata, com o gabarito intacto.
+833 testes (783 no app + 50 no renderer) · 49 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -821,14 +825,14 @@ falta o que produz o estado
 - [ ] Diagnostics devolvidos ao agente
 
 **Aplicação**
-- [ ] Aplicar tudo
-- [ ] Aplicar seleção
-- [ ] Rejeitar
-- [ ] Pedir revisão, com feedback ao agente
-- [ ] Revisão anterior criada antes de aplicar
-- [ ] Aplicação dentro de transação
-- [ ] Reverter após aplicação
-- [ ] Nada é aplicado sem aprovação explícita
+- ✅ Aplicar tudo
+- ✅ Aplicar seleção *(o plano é recalculado do estado corrente, não aceito da tela)*
+- ✅ Rejeitar *(não aplicar é o default: sem lista de aprovadas nada acontece)*
+- [ ] Pedir revisão, com feedback ao agente *(depende da tela de revisão)*
+- ✅ Revisão anterior criada antes de aplicar — na **mesma** transação
+- ✅ Aplicação dentro de transação
+- ✅ Reverter após aplicação *(o snapshot vem do banco, nunca do corpo da requisição)*
+- ✅ **Nada é aplicado sem aprovação explícita** — lista vazia é erro, não "aplicar tudo"
 
 **Modos**
 - [ ] `REVIEW`
@@ -855,12 +859,12 @@ falta o que produz o estado
 
 ### Fase 10 — Revisões e histórico
 
-- [ ] `Revision` com `entityType`, `entityId`, `revisionNumber` e `snapshotJson`
-- [ ] Origem `USER`
-- [ ] Origem `IMPORT`
-- [ ] Origem `AGENT`
+- ✅ `Revision` com `entityType`, `entityId`, `revisionNumber` e `snapshotJson` *(nasceu na Fase 9 — aplicar sem poder desfazer não é aplicar, é apostar)*
+- ✅ Origem `USER`
+- [ ] Origem `IMPORT` *(chega com o importador, Fase 11)*
+- ✅ Origem `AGENT`
 - [ ] Origem `SYSTEM`
-- [ ] `agentRunId` vinculado quando aplicável
+- ✅ `agentRunId` vinculado quando aplicável
 - [ ] Aba Histórico com timeline
 - [ ] Diff entre revisões
 - [ ] Restaurar revisão

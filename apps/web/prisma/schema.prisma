@@ -557,3 +557,40 @@ model AgentRun {
   @@index([workspaceId, createdAt])
   @@map("agent_runs")
 }
+
+/// O estado de uma entidade **antes** de uma mudança.
+///
+/// Nasce na Fase 9, embora a tela de histórico seja da 10: aplicar sem poder desfazer não é
+/// aplicar, é apostar. A revisão é gravada na **mesma transação** da mudança — fora dela, uma
+/// falha entre as duas deixaria a mudança sem o seu antes, que é o único momento em que a
+/// revisão importava.
+model Revision {
+  id String @id @default(uuid())
+
+  /// `RevisionEntityType`: QUESTION · QUESTION_OPTION · DOCUMENT_NODE · PUBLICATION
+  entityType String
+  entityId   String
+
+  /// Sequencial por entidade. Contado dentro da transação — dois agentes gravando ao mesmo tempo
+  /// não podem chegar ao mesmo número.
+  revisionNumber Int
+
+  /// `RevisionOrigin`: USER · IMPORT · AGENT · SYSTEM
+  origin String
+
+  /// O turno do agente que originou, quando `origin` é `AGENT`. Sem relação formal: o turno pode
+  /// ter sido apagado por retenção e a revisão continua válida.
+  agentRunId String?
+
+  /// Uma frase sobre o que mudou. É o que a timeline mostra antes de abrir diff nenhum.
+  summary String @default("")
+
+  /// O estado **anterior**, serializado — o conector SQLite não tem `Json`.
+  snapshotJson String
+
+  createdAt DateTime @default(now())
+
+  @@unique([entityType, entityId, revisionNumber])
+  @@index([entityType, entityId, createdAt])
+  @@map("revisions")
+}
