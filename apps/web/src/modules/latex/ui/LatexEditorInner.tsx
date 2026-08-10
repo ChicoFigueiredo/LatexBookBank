@@ -34,6 +34,23 @@ setupMonaco();
 export interface LatexEditorApi {
   /** Insere um corpo de snippet na seleção corrente, resolvendo `${1:…}` e `$TM_SELECTED_TEXT`. */
   readonly insertSnippet: (body: string) => void;
+  /**
+   * O trecho selecionado, ou `null` quando não há seleção.
+   *
+   * Existe para o painel do agente (Fase 8): perguntar "o que este trecho faz" precisa que o
+   * trecho seja **anexado explicitamente**, e a alternativa — o agente ler o documento inteiro —
+   * é justamente o que o contexto explícito recusa.
+   *
+   * Devolve as linhas junto porque um `\frac{1}{2}` solto não diz onde estava, e a resposta do
+   * modelo costuma precisar apontar de volta para o editor.
+   */
+  readonly getSelection: () => EditorSelection | null;
+}
+
+export interface EditorSelection {
+  readonly text: string;
+  readonly startLine: number;
+  readonly endLine: number;
 }
 
 /**
@@ -113,6 +130,20 @@ export default function LatexEditorInner({
         // navega os botões em vez dos pontos de parada.
         editor.focus();
         controller?.insert(body);
+      },
+
+      getSelection: () => {
+        const selection = editor.getSelection();
+        const model = editor.getModel();
+        if (!selection || !model || selection.isEmpty()) return null;
+
+        // `getValueInRange` e não o texto do DOM: o editor virtualiza as linhas, e o DOM só tem
+        // as visíveis — uma seleção longa voltaria truncada sem nenhum sinal disso.
+        return {
+          text: model.getValueInRange(selection),
+          startLine: selection.startLineNumber,
+          endLine: selection.endLineNumber,
+        };
       },
     });
   }, []);

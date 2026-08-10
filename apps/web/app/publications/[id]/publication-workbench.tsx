@@ -6,7 +6,6 @@ import {
   ArtifactStatus,
   Banner,
   Button,
-  Callout,
   ContextMenu,
   EmptyState,
   Input,
@@ -23,6 +22,18 @@ import {
   type TreeNode,
   type WorkbenchModule,
 } from "@/design-system";
+import type { AiSetupDescription } from "@modules/agents/domain/ai-setup";
+import {
+  attach,
+  clearContext,
+  detach,
+  EMPTY_CONTEXT,
+  ContextTooLargeError,
+  selectionItem,
+  type AgentContext,
+} from "@modules/agents/domain/agent-context";
+import { AgentPanel } from "@modules/agents/ui/AgentPanel";
+import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 
 import { QuestionEditor } from "./question-editor";
@@ -94,6 +105,12 @@ export interface PublicationWorkbenchProps {
   readonly publicationTitle: string;
   readonly publisher: string | null;
   readonly nodes: readonly TreeNodeDto[];
+  /**
+   * Rótulos da IA configurada, resolvidos no servidor. `null` quando não há nenhuma.
+   *
+   * Só rótulos atravessam: a chave fica do lado de lá, e o teste de fronteira prova que fica.
+   */
+  readonly ai: AiSetupDescription | null;
 }
 
 export function PublicationWorkbench({
@@ -101,6 +118,7 @@ export function PublicationWorkbench({
   publicationTitle,
   publisher,
   nodes,
+  ai,
 }: PublicationWorkbenchProps) {
   /**
    * O nó corrente sobrevive à sessão.
@@ -116,6 +134,34 @@ export function PublicationWorkbench({
 
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState("");
+
+  /**
+   * O contexto do agente — montado por gesto, nunca por dedução.
+   *
+   * Vive no workbench e não dentro do painel porque quem tem os dados para anexar é esta tela: o
+   * nó corrente, o editor, o render. O painel só mostra e remove.
+   *
+   * **Não** persiste entre sessões, ao contrário de quase tudo aqui. Reabrir o app amanhã com um
+   * trecho de outra questão pendurado no contexto, sem lembrar de tê-lo anexado, é exatamente o
+   * tipo de surpresa que o contexto explícito existe para impedir.
+   */
+  const [agentContext, setAgentContext] = useState<AgentContext>(EMPTY_CONTEXT);
+  const [agentError, setAgentError] = useState<string | null>(null);
+
+  /** Anexa recusando com mensagem em vez de estourar o teto em silêncio. */
+  const attachToAgent = useCallback((item: Parameters<typeof attach>[1]) => {
+    setAgentContext((current) => {
+      try {
+        setAgentError(null);
+        return attach(current, item);
+      } catch (problem) {
+        setAgentError(
+          problem instanceof ContextTooLargeError ? problem.message : "Não deu para anexar.",
+        );
+        return current;
+      }
+    });
+  }, []);
 
   const allNodes = useMemo(() => nest(nodes), [nodes]);
 
@@ -395,11 +441,14 @@ export function PublicationWorkbench({
       }
       asideTitle="Agente"
       aside={
-        <div style={{ padding: "var(--space-4)" }}>
-          <Callout tone="ai" title="Painel agêntico">
-            Chega na Fase 8. Nada que o agente propuser entra no banco sem aprovação explícita.
-          </Callout>
-        </div>
+        <AgentPanel
+          context={agentContext}
+          onDetach={(id) => setAgentContext(detach(agentContext, id))}
+          onClear={() => setAgentContext(clearContext())}
+          providerLabel={ai?.providerLabel ?? null}
+          model={ai?.model ?? null}
+          error={agentError}
+        />
       }
       statusLeft={
         <>
@@ -421,7 +470,14 @@ export function PublicationWorkbench({
         )}
 
         {selected ? (
-          <NodeDetail node={selected} publisher={publisher} publicationId={publicationId} />
+          <NodeDetail
+            node={selected}
+            publisher={publisher}
+            publicationId={publicationId}
+            {...(ai
+              ? { onAttachSelection: (selection) => attachToAgent(selectionItem(selection)) }
+              : {})}
+          />
         ) : null}
 
         <Modal
@@ -455,10 +511,13 @@ function NodeDetail({
   node,
   publisher,
   publicationId,
+  onAttachSelection,
 }: {
   node: TreeNodeDto;
   publisher: string | null;
   publicationId: string;
+  /** Ausente quando não há IA configurada — sem endpoint, o botão de anexar não faz sentido. */
+  onAttachSelection?: (selection: EditorSelection) => void;
 }) {
   return (
     <>
@@ -494,6 +553,7 @@ function NodeDetail({
                   solutionLatex: node.question.solutionLatex,
                   complementLatex: node.question.complementLatex,
                 }}
+                {...(onAttachSelection ? { onAttachSelection } : {})}
                 options={node.question.options.map((option) => ({
                   statementLatex: option.statementLatex,
                   isCorrect: option.isCorrect,

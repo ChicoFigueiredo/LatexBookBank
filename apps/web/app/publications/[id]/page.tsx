@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { describeAiSetup } from "@modules/agents/application/describe-ai-setup";
 import { getPublicationTree } from "@modules/document-tree/application/get-publication-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
@@ -30,6 +31,8 @@ export default async function PublicationPage({ params }: { params: Promise<{ id
       publicationTitle={publication.title}
       publisher={publication.publisher}
       nodes={nodes}
+      // Resolvido aqui, no servidor: só os rótulos atravessam para o cliente, nunca a chave.
+      ai={describeAiSetup()}
     />
   );
 }

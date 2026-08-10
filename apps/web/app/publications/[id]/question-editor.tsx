@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Tabs } from "@/design-system";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
-import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor";
+import {
+  LatexEditor,
+  type EditorSelection,
+  type LatexEditorApi,
+} from "@modules/latex/ui/LatexEditor";
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
@@ -35,6 +39,13 @@ export interface QuestionEditorProps {
   readonly initial: Readonly<Record<QuestionFieldId, string>>;
   readonly initialVersion: string;
   readonly options?: readonly QuestionEditorOption[];
+  /**
+   * Anexa o trecho selecionado ao contexto do agente (Fase 8).
+   *
+   * O gesto mora aqui e não no painel porque quem sabe o que está selecionado é o editor — e o
+   * painel, de propósito, não tem acesso ao documento. Ausente quando não há IA configurada.
+   */
+  readonly onAttachSelection?: (selection: EditorSelection) => void;
 }
 
 export function QuestionEditor({
@@ -43,6 +54,7 @@ export function QuestionEditor({
   initial,
   initialVersion,
   options = [],
+  onAttachSelection,
 }: QuestionEditorProps) {
   const [field, setField] = useState<QuestionFieldId>("statementLatex");
   const [draft, setDraft] = useState<Record<QuestionFieldId, string>>({ ...initial });
@@ -181,6 +193,25 @@ export function QuestionEditor({
           >
             Preview
           </Button>
+          {onAttachSelection && (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="sparkles"
+              onClick={() => {
+                const selection = editor.current?.getSelection();
+                // Sem seleção, dizer isso é melhor que anexar o campo inteiro por conta própria —
+                // que é justamente o tipo de dedução que o contexto explícito recusa.
+                if (!selection) {
+                  setMessage("Selecione um trecho no editor antes de anexar ao agente.");
+                  return;
+                }
+                onAttachSelection(selection);
+              }}
+            >
+              Anexar ao agente
+            </Button>
+          )}
           <Button size="sm" variant="ghost" disabled={blocked} onClick={() => void save()}>
             Salvar
           </Button>

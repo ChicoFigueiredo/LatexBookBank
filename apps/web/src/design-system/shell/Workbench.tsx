@@ -163,6 +163,30 @@ export function Workbench({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  /**
+   * `Ctrl+Shift+A` alterna o aside (spec §14.6).
+   *
+   * Efeito separado do `Ctrl+K` porque este precisa do valor atual: `useStoredState` não aceita
+   * função de atualização — o estado mora fora do React, e um updater teria que ler o
+   * `localStorage` de novo para saber o que inverter.
+   *
+   * `event.code` e não `event.key`: com Shift pressionado o `key` vem maiúsculo, e em teclado
+   * ABNT2 a combinação já rende outra coisa. O `code` é a tecla física, que é o que o atalho
+   * significa.
+   */
+  useEffect(() => {
+    if (!aside) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === "KeyA") {
+        event.preventDefault();
+        setAsideOpen(!asideOpen);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [aside, asideOpen, setAsideOpen]);
+
   // Agrupa preservando a ordem declarada — o rail reflete a ordem de trabalho, não o alfabeto.
   const groups = useMemo(() => {
     const out: [string, WorkbenchModule[]][] = [];
@@ -276,7 +300,7 @@ export function Workbench({
               {aside && (
                 // O ícone `✦` sozinho não diz o que faz. O rótulo acessível resolve para o
                 // leitor de tela; o tooltip resolve para quem enxerga e não reconhece o glifo.
-                <Tooltip label={asideOpen ? `Fechar ${asideTitle}` : `Abrir ${asideTitle}`}>
+                <Tooltip label={`${asideOpen ? "Fechar" : "Abrir"} ${asideTitle} · Ctrl+Shift+A`}>
                   <button
                     type="button"
                     className="lbb-wb-iconbtn"
