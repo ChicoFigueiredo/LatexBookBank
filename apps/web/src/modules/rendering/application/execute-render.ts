@@ -2,6 +2,8 @@ import type { RenderBundle } from "@latexbookbank/render-contract";
 
 import type { RenderExecutor, StorageProvider } from "@/shared/ports";
 
+import { logger as defaultLogger, type Logger } from "@/shared/observability/logger";
+
 import { renderContentHash } from "../domain/content-hash";
 import {
   truncateLog,
@@ -52,20 +54,35 @@ export interface ExecuteRenderDeps {
   readonly storage: StorageProvider;
   readonly jobs: RenderJobRepository;
   readonly rendererVersion: string;
+  /**
+   * Onde os eventos vão. Injetável, e por isso o teste consegue afirmar **o que** foi registrado.
+   *
+   * Este é o único ponto entre o produto e o `pdflatex`, então é aqui que uma linha de log paga:
+   * instrumentar as rotas daria o mesmo evento contado de N lugares, e nenhum deles saberia se
+   * houve cache.
+   */
+  readonly logger?: Logger;
 }
 
 export async function executeRender(
   input: ExecuteRenderInput,
   deps: ExecuteRenderDeps,
 ): Promise<ExecuteRenderResult> {
+  const log = deps.logger ?? defaultLogger;
   const contentHash = await renderContentHash(input.bundle, deps.rendererVersion);
+  // O hash abreviado, não o LaTeX: o log é para correlacionar, e o enunciado de uma prova não
+  // tem por que existir em duas cópias, uma delas fora do banco (spec §14).
+  const hash = contentHash.slice(0, 12);
 
   const cached = await deps.jobs.findByContentHash(input.workspaceId, contentHash);
   if (cached !== null) {
     // Job que falhou também é cache: recompilar o mesmo LaTeX quebrado dá o mesmo erro, e gastar
     // três segundos de `pdflatex` para reconfirmar isso é desperdício que a pessoa sente.
+    log.info("render", "cache_hit", { hash, jobId: cached.id, success: cached.success });
     return { job: cached, cacheHit: true };
   }
+
+  log.info("render", "started", { hash, profileId: input.bundle.profile.id });
 
   const { result, artifacts } = await deps.executor.render(input.bundle, input.assets);
 
@@ -112,5 +129,19 @@ export async function executeRender(
     artifacts: stored,
   };
 
-  return { job: await deps.jobs.create(job), cacheHit: false };
+  const created = await deps.jobs.create(job);
+
+  // `warn` quando falhou, e não `error`: LaTeX quebrado é trabalho em andamento de quem escreve,
+  // não defeito do produto. Guardar os dois no mesmo nível faria o log de erros virar a lista de
+  // rascunhos de alguém.
+  log[result.success ? "info" : "warn"]("render", "finished", {
+    hash,
+    jobId: created.id,
+    success: result.success,
+    durationMs: result.durationMs,
+    artifacts: stored.length,
+    diagnostics: result.diagnostics.length,
+  });
+
+  return { job: created, cacheHit: false };
 }

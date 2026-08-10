@@ -136,6 +136,9 @@ compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c ·
 **Cancelamento de verdade** (#148): desistir do render passou a chegar ao worker — e apareceu que
 a imagem do renderer estava **inbuildável desde a Fase 13**, porque o `Dockerfile` não conhecia o
 serviço de backup. O contêiner que já rodava continuou rodando, e por isso o defeito não aparecia.
+**Derivado é descartável, agora afirmado** (#153): o artefato some e volta com a mesma chave, o
+`preview.png` do legado continua fora, e o caminho do render ganhou as primeiras linhas de log —
+o logger da Fase 17 não tinha um único ponto de chamada até aqui.
 Fechado com guarda dos dois lados (#151): um teste rápido que compara `Dockerfile` × workspaces, e
 um job de CI que **constrói a imagem** — porque nada a construía fora do terminal de quem mexia.
 **Indicadores na árvore, e o bug que eles revelaram** (#147): o registro de plugins de tipo de
@@ -149,7 +152,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1170 testes (1114 no app + 56 no renderer) · 74 PRs abertos, nada mergeado.
+1179 testes (1123 no app + 56 no renderer) · 75 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -637,8 +640,9 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Render intermediário é descartado *(auditado na #145: `createCoalescer` só entrega o resultado que não tem sucessor, e `use-render` o usa)*
 - ✅ Estado final converge para o último pedido, com teste *("**o estado final é o do último pedido**" e "três pedidos durante uma execução geram **uma** reexecução")*
 - ✅ Worker indisponível degrada com mensagem clara, sem perder edição *(503 vira `kind: "unavailable"`, separado de `error`: pintar de vermelho mandaria a pessoa procurar defeito no texto dela)*
-- [ ] `RenderArtifact` pode ser descartado e reconstruído *(auditoria §41)*
-- [ ] `preview.png` nunca vira conteúdo canônico
+- ✅ `RenderArtifact` pode ser descartado e reconstruído *(auditoria §41 · #153 — afirmado, não declarado: o teste descarta os jobs e recompila, e as **chaves de storage voltam iguais**. O fake de storage é endereçado por conteúdo como o de verdade; com o antigo, que numerava as chaves, a afirmação seria impossível de fazer)*
+- ✅ `preview.png` nunca vira conteúdo canônico *(#153 — o classificador do legado o recusa, com controle positivo: `preview-da-questao.png` **entra**, senão um classificador que recusasse tudo passaria no teste)*
+- ✅ Todo artefato de render tem tipo **derivado** *(#153 — e os dois conjuntos não se sobrepõem, senão a afirmação seria vazia)*
 
 **Interface** *(#71)*
 - ✅ Aba PDF *(`<object>` e não `<iframe>`: o fallback fica dentro do elemento e aparece sozinho onde o navegador não tem leitor)*
@@ -1270,7 +1274,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   com domínio de lista fechada)*
 - ✅ **Prompts completos fora do log por padrão** — campo proibido vira `[omitido]` e **não** some:
   "o prompt estava vazio" é conclusão bem diferente de "o prompt não é gravado"
-- [ ] Instrumentar os pontos de chamada com o logger
+- ✅ Instrumentar os pontos de chamada com o logger *(#153 — no `executeRender`, que é o **único** ponto entre o produto e o `pdflatex`; instrumentar as rotas daria o mesmo evento contado de vários lugares e nenhum saberia se houve cache. `cache_hit` é evento próprio: a primeira pergunta que se faz a um log de render é quanto daquilo é cache. Conferido num run real: `started` → `finished` com 1159 ms e 2 artefatos, sem uma letra do LaTeX)*
 
 **Segurança e autorização**
 - ✅ `workspaceId` em todas as entidades relevantes — **verificado**: um guarda varre o schema e
