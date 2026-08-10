@@ -108,7 +108,9 @@ que sobe é a **caixa normalizada** mais o PNG; a fonte nunca é tocada.
 `M = C(1 + i)^n - \frac{\sqrt{x^2 + 1}}{2n}` de um recorte de
 `M = C\left(1+i\right)^{n} - \frac{\sqrt{x^2+1}}{2n}` — equivalente —, o LaTeX lido compilou, e
 o confronto visual entre o recorte e o resultado é idêntico.
-1030 testes (980 no app + 50 no renderer) · 61 PRs abertos, nada mergeado.
+**Fase 16 com o aceite provado** (#127): dois processos `bun` separados, mesma seed, 1695 bytes
+idênticos. E a distribuição foi medida, não presumida — 2,57% de desvio máximo em 60 mil provas.
+1047 testes (997 no app + 50 no renderer) · 62 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -118,7 +120,7 @@ o confronto visual entre o recorte e o resultado é idêntico.
 | C — agente | **◐8** · **◐9** · **◐10** | Wave C fechada em código; falta o settings da 8 |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
 | E — ingestão visual | **◐14** · **◐15** | Domínio e rotas de pé; falta o visualizador de PDF |
-| F — diferencial de produto | 16 · 17 | ☐ não iniciada |
+| F — diferencial de produto | **◐16** · **◐17** | Randomização e diagnóstico de pé |
 
 ---
 
@@ -1153,14 +1155,16 @@ falta o que produz o estado
 ### Fase 16 — Avaliações e variantes
 
 **Randomização**
-- [ ] PRNG determinístico
-- [ ] Testes de determinismo
-- [ ] Embaralhar alternativas preservando `optionId`
-- [ ] Letra recalculada como projeção
-- [ ] Mapa `optionId → displayedLabel` persistido
-- [ ] Embaralhar questões
-- [ ] Ordem das questões persistida
-- [ ] Seed persistida
+- ✅ PRNG determinístico *(`mulberry32`, aritmética de 32 bits — nada de `Math.random`, hash do
+  motor ou ordem de iteração)*
+- ✅ Testes de determinismo, **e medição de viés**: em 60 mil provas, o desvio máximo de uma
+  alternativa cair numa posição foi de 2,57%
+- ✅ Embaralhar alternativas preservando `optionId`
+- ✅ Letra recalculada como projeção
+- ✅ Mapa `optionId → displayedLabel` — e ele **não** é substituível pela seed: ela reproduz a
+  permutação só enquanto a questão tiver exatamente as mesmas alternativas
+- ✅ Embaralhar questões
+- ✅ Ordem das questões e seed no resultado *(a persistência entra com o modelo `Assessment`)*
 
 **Assessment**
 - [ ] `Assessment`
@@ -1177,7 +1181,8 @@ falta o que produz o estado
 - [ ] Mesma questão aparece em templates diferentes sem duplicação
 
 **Aceite da fase**
-- [ ] A mesma seed reproduz a mesma prova byte a byte, em processos diferentes
+- ✅ **A mesma seed reproduz a mesma prova byte a byte, em processos diferentes** — verificado com
+  dois processos `bun` separados: 1695 bytes idênticos, e diferentes para a seed vizinha
 
 ---
 
