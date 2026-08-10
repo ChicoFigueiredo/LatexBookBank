@@ -136,6 +136,10 @@ compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c ·
 **Cancelamento de verdade** (#148): desistir do render passou a chegar ao worker — e apareceu que
 a imagem do renderer estava **inbuildável desde a Fase 13**, porque o `Dockerfile` não conhecia o
 serviço de backup. O contêiner que já rodava continuou rodando, e por isso o defeito não aparecia.
+**O E2E da §27 existe** (#155): abrir → selecionar → editar → autosave → recarregar → desfazer,
+num Chromium de verdade, em 17 s. E na primeira execução ele achou um 500 no render (#156) que
+1123 testes de unidade não pegavam — porque o defeito só aparece na **sequência**: editar,
+compilar, e o produto colidir consigo mesmo.
 **Derivado é descartável, agora afirmado** (#153): o artefato some e volta com a mesma chave, o
 `preview.png` do legado continua fora, e o caminho do render ganhou as primeiras linhas de log —
 o logger da Fase 17 não tinha um único ponto de chamada até aqui.
@@ -152,7 +156,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1179 testes (1123 no app + 56 no renderer) · 75 PRs abertos, nada mergeado.
+1179 testes (1123 no app + 56 no renderer) + 3 de E2E · 76 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1298,18 +1302,23 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Ferramentas TeX locais funcionam
 - [ ] Fontes gráficas complexas são preservadas e editáveis
 
-**E2E** *(spec §27)*
-- [ ] Abrir publicação
-- [ ] Selecionar questão
-- [ ] Editar LaTeX
-- [ ] Autosave
-- [ ] Render
-- [ ] Preview aparece
-- [ ] Abrir agente
-- [ ] Pedir correção
-- [ ] Revisar diff
-- [ ] Aplicar
-- [ ] Render novamente
+**E2E** *(spec §27 · #155 — Playwright, `bun run e2e`)*
+- ✅ Abrir publicação
+- ✅ Selecionar questão *(pelo **teclado**: o único gesto de mouse para expandir é um caret com
+  `role="presentation"`, e navegar por seta é o que a §4.1 promete — passar por ele significa que
+  a promessa vale)*
+- ✅ Editar LaTeX *(no `.view-lines`, não no primeiro `textarea`: o Monaco tem dois, e o primeiro
+  é a área de IME, coberta pelo conteúdo)*
+- ✅ Autosave *("não salvo" **antes** de "salvo", com `exact` — sem ele "salvo" casa dentro de
+  "não salvo" e o teste afirmaria o contrário do que quer)*
+- ✅ O texto sobrevive ao recarregamento, e o teste **desfaz o que escreveu** *(sem isso, dez
+  execuções deixariam o enunciado com uma fileira de marcas de teste)*
+- ✅ Preview rápido aparece
+- ⛔ Render — bloqueado pela **#156**, que este E2E achou: compilar uma questão cujo fonte mudou
+  mas cuja saída é idêntica (basta um comentário LaTeX) colide em `Asset.storageKey @unique` e
+  devolve 500. O teste fica `fixme`, não removido: apagá-lo levaria o achado junto
+- [ ] Abrir agente · pedir correção · revisar diff · aplicar · render novamente *(a metade
+  agêntica da §27; depende de IA configurada e precisa degradar quando não há)*
 
 > Deploy em produção **não** faz parte deste plano. A prova de viabilidade é a Fase 6.5.
 

@@ -31,3 +31,7 @@ coverage/
 
 # client gerado pelo Prisma (recriado por `prisma generate`)
 apps/web/src/generated/
+
+# E2E: relatório e rastros são saída de execução, não fonte. O trace de uma falha pesa megabytes.
+apps/web/test-results/
+apps/web/playwright-report/
