@@ -47,6 +47,14 @@ export interface CommandPaletteProps {
   readonly commands: readonly Command[];
   readonly placeholder?: string;
   readonly emptyMessage?: (query: string) => string;
+  /**
+   * Avisa a cada tecla, para quem quiser buscar fora da lista.
+   *
+   * A palete continua filtrando o que recebe — o que este callback permite é a lista **crescer**
+   * enquanto se digita. Sem ele, a busca no acervo teria de carregar tudo antes de abrir, que é o
+   * oposto de uma busca.
+   */
+  readonly onQueryChange?: (query: string) => void;
 }
 
 /**
@@ -67,6 +75,7 @@ function PaletteDialog({
   commands,
   placeholder = "Buscar publicações, nós e ações…",
   emptyMessage = (query) => `Nenhum resultado para "${query}".`,
+  onQueryChange,
 }: Omit<CommandPaletteProps, "open">) {
   injectCss("lbb-pal-css", CSS);
 
@@ -177,6 +186,7 @@ function PaletteDialog({
             onChange={(e) => {
               setQuery(e.target.value);
               setSelected(0);
+              onQueryChange?.(e.target.value);
             }}
             onKeyDown={handleKeyDown}
             role="combobox"

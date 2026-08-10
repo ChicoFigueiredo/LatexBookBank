@@ -38,6 +38,7 @@ import type { Change } from "@modules/agents/domain/patch-diff";
 import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
+import type { SearchHit } from "@modules/questions/domain/search-query";
 
 import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
@@ -153,6 +154,15 @@ export function PublicationWorkbench({
   const [agentTurns, setAgentTurns] = useState<readonly AgentTurn[]>([]);
   const [agentBusy, setAgentBusy] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("ASK");
+
+  /**
+   * Resultados da busca no acervo, para a paleta (`Ctrl+K`).
+   *
+   * A busca acontece **no servidor** a cada tecla, e não sobre a árvore em memória: a árvore é de
+   * uma publicação, e quem aperta `Ctrl+K` procurando "juros" quer a questão esteja ela onde
+   * estiver. Filtrar em memória responderia rápido a pergunta errada.
+   */
+  const [found, setFound] = useState<readonly { id: string; title: string; hint: string }[]>([]);
   const router = useRouter();
 
   /**
@@ -185,6 +195,28 @@ export function PublicationWorkbench({
   }, []);
 
   const allNodes = useMemo(() => nest(nodes), [nodes]);
+
+  const searchArchive = useCallback((text: string) => {
+    // Menos de três letras não busca: "a" casaria com o acervo inteiro, e a resposta seria uma
+    // lista que não ajuda a escolher.
+    if (text.trim().length < 3) {
+      setFound([]);
+      return;
+    }
+
+    void fetch(`/api/search?q=${encodeURIComponent(text.trim())}&limit=8`)
+      .then((response) => response.json() as Promise<{ hits?: SearchHit[] }>)
+      .then((payload) =>
+        setFound(
+          (payload.hits ?? []).map((hit) => ({
+            id: hit.id,
+            title: hit.title === "(sem apelido)" ? hit.excerpt.slice(0, 60) : hit.title,
+            hint: [hit.board, hit.year].filter(Boolean).join(" · ") || hit.type,
+          })),
+        ),
+      )
+      .catch(() => setFound([]));
+  }, []);
 
   /** `kind` não está no `TreeNode` do DS — o mapa de id para tipo faz a ponte. */
   const kindById = useMemo(() => new Map(nodes.map((node) => [node.id, node.kind])), [nodes]);
@@ -487,8 +519,8 @@ export function PublicationWorkbench({
   );
 
   const commands: readonly Command[] = useMemo(
-    () =>
-      nodes.map((node) => ({
+    () => [
+      ...nodes.map((node) => ({
         id: node.id,
         label: node.title,
         icon: KIND_ICONS[node.kind] ?? "file-text",
@@ -496,7 +528,21 @@ export function PublicationWorkbench({
         group: "Ir para",
         onSelect: () => setSelectedId(node.id),
       })),
-    [nodes, setSelectedId],
+      // Grupo próprio: os nós desta publicação e as questões do acervo respondem a perguntas
+      // diferentes, e misturá-los faria "Ir para" mentir sobre o que a seleção faz.
+      ...found
+        .filter((hit) => !nodes.some((node) => node.question?.id === hit.id))
+        .map((hit) => ({
+          id: `found-${hit.id}`,
+          label: hit.title,
+          icon: "search" as const,
+          hint: hit.hint,
+          group: "No acervo",
+          // Sem ação por enquanto: navegar até outra publicação exige a rota de questão avulsa,
+          // que não existe. Mostrar sem navegar é honesto; navegar para lugar nenhum não seria.
+        })),
+    ],
+    [found, nodes, setSelectedId],
   );
 
   const breadcrumb = [
@@ -511,7 +557,8 @@ export function PublicationWorkbench({
       activeModule="publicacoes"
       breadcrumb={breadcrumb}
       commands={commands}
-      searchLabel="Buscar nós…"
+      onCommandQueryChange={searchArchive}
+      searchLabel="Buscar nós e questões…"
       sidebarTitle="Árvore"
       sidebar={
         <>
