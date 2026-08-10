@@ -21,8 +21,16 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** ✅ Fase 0 · ◐ Fase 1 · ◐ Fase 2 · ◐ Fase 3 · ✅ Fase 4 · ◐ Fase 5 (só a conferência visual) · 2/19 fases concluídas
-**Última atualização:** 2026-08-07 — Fase 1 fechada em código (falta o aceite visual); Fase 2
+**Progresso:** 823 ✅ · 5 ◐ · 15 ⛔ · 146 `[ ]` — e **103 dos 146 abertos estão em três blocos**:
+a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada no acervo que não está nesta
+máquina) e a conferência visual (20, que é do Chico). Fora deles sobram **43 itens de trabalho**.
+**Última atualização:** 2026-08-10 — auditoria das seções finais. O §12 (painel agêntico), o §13
+(segurança) e quase todo o §15 (regras invioláveis) estavam **inteiros abertos** contra fases
+fechadas: 21, 19 e 14 linhas que já tinham guarda, teste ou verificação em alguma fase e nunca
+foram cruzadas. Fechado também o bloco "Questão" e o "Agente" do §10, e os quatro itens de schema
+da Fase 7 que já estavam no banco desde a Fase 0. Os dois health checks da Fase 0 deixaram de ser
+⛔ e viraram `[ ]`: a Fase 6 chegou, então o impedimento acabou — o que falta é o `setup` verificar.
+**Revisão anterior — 2026-08-07** — Fase 1 fechada em código (falta o aceite visual); Fase 2
 fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autosave e conflito
 visível. **Fase 4 fechada** (#47, #49, #51): o conhecimento LaTeX do legado está no banco — 652
 autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens fechando contra o
@@ -168,13 +176,16 @@ esse é o pior lugar possível para uma mudança se esconder.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
-| — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
-| B — banco de questões | **◐7** | Domínio completo; falta acabamento de tela |
-| C — agente | **◐8** · **◐9** · **◐10** | Wave C fechada em código; falta o settings da 8 |
-| D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
-| E — ingestão visual | **◐14** · **◐15** | Domínio e rotas de pé; falta o visualizador de PDF |
-| F — diferencial de produto | **◐16** · **◐17** | Randomização e diagnóstico de pé |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · ✅3 · ✅4 · **◐5** · **◐6** | 1 e 5 esperam só o olho; a 6 tem os quatro buracos da #161 |
+| — prova arquitetural | **◐6.5** | schema PostgreSQL provado; storage parado na decisão |
+| B — banco de questões | ✅7 | domínio, telas e schema fechados |
+| C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
+| D — acervo legado e portabilidade | **⛔11** · ✅12 · **◐13** | a 11 depende do acervo; a 13 só não mostra progresso |
+| E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
+| F — diferencial de produto | ✅16 · **◐17** | a 17 espera a #156 e o guarda de autorização |
+
+**Fases fechadas: 10 de 19** — 0, 3, 4, 7, 8, 9, 10, 12, 15 e 16. *(Eram 2 no cabeçalho antigo, que
+estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 continua sendo do Chico.)*
 
 ---
 
@@ -287,8 +298,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **`bun run setup`** — #10 *(2ª auditoria §19, §21)*
 - ✅ **Docker disponível** — obrigatório
-- ⛔ **Imagem do renderer buildável** — obrigatório *(`services/renderer` só existe na Fase 6)*
-- ⛔ **Renderer inicia e `GET /health` responde** — obrigatório *(idem)*
+- [ ] **Imagem do renderer buildável** — obrigatório *(deixou de ser impedimento: a imagem existe
+      desde a Fase 6 e o CI a constrói (#151); o `setup` é que ainda não a verifica)*
+- [ ] **Renderer inicia e `GET /health` responde** — obrigatório *(idem: o `/health` responde e a
+      página de diagnóstico o consulta; falta o `setup` fazer a checagem)*
 - ✅ Provider de IA alcançável — informativo
 - ✅ **TeX no host detectado, marcado como fallback opcional — nunca bloqueia** *(verificado com PATH reduzido)*
 - ✅ Cria diretórios locais e `.env.local` a partir de exemplo
@@ -802,13 +815,13 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ **Duplicação da regra da letra reconciliada** *(`optionLabelAt` já existia no domínio de questões; eu tinha escrito uma segunda cópia no preview e quase uma terceira no plugin. Agora há uma, com teste de identidade de referência)*
 
 **Alternativas**
-- [ ] `QuestionOption` com UUID
-- [ ] `sortKey` fracionário
-- [ ] `isCorrect` por alternativa
+- ✅ `QuestionOption` com UUID *(`@default(uuid())` desde a Fase 0; auditado contra o schema)*
+- ✅ `sortKey` fracionário *(coluna no schema, e é ela que a reordenação grava)*
+- ✅ `isCorrect` por alternativa *(fonte da verdade do gabarito; `Questao.Correta` do legado é vestigial)*
 - ✅ Letra A/B/C calculada apenas na projeção *(no LaTeX ela sai de `label=\alph*)` e do índice, nunca gravada)*
 - ✅ Nenhum vínculo de gabarito por letra
 - ✅ **Teste: o gabarito sobrevive à reordenação** *(vinte embaralhamentos com sementes diferentes; a correta continua sendo a mesma alternativa — é exatamente o que o legado não passava, porque `Marcacao` vivia na linha)*
-- [ ] `legacyMarcacao` guardado apenas para auditoria
+- ✅ `legacyMarcacao` guardado apenas para auditoria *(coluna existe, e nada a lê para renderizar)*
 - ✅ Adicionar e remover alternativa *(#81 — nova nunca nasce marcada como correta: alternativa em branco com gabarito passa despercebida até alguém imprimir a prova)*
 - ✅ Remover a **única** correta é permitido *(quem reescreve precisa tirar antes de pôr; recusar aqui viraria dança de ordem obrigatória — quem acusa é a validação)*
 - ✅ Reordenar por fractional index *(grava **só** a alternativa movida; é para isso que o fractional index existe)*
@@ -976,8 +989,9 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   gabarito, que é o defeito que de fato inutiliza uma questão.*
 
 **Aceite da fase**
-- [ ] §35 completo (§12 deste documento)
-- [ ] E2E do fluxo crítico passa ponta a ponta
+- ✅ §35 completo (§12 deste documento) *(auditado item a item; os 21 têm prova nas Fases 8–10)*
+- ✅ E2E do fluxo crítico passa ponta a ponta *(#158 — propor, revisar linha a linha e aplicar,
+  com o modelo dublê e a rota de aplicar de verdade)*
 
 ---
 
@@ -1207,7 +1221,8 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Reconhecer **texto** do recorte *(o de matemática existe; o de texto ainda não tem provider)*
 
 **Aceite da fase**
-- [ ] §33 "Assets" completo (§10 deste documento)
+- ◐ §33 "Assets" completo (§10 deste documento) *(quatro dos cinco fechados na auditoria de
+  2026-08-10; falta a tela de inserção assistida de figura)*
 - ✅ **"Voltar à origem" funciona a partir de uma questão** *(#137 — verificado com dado real:
   âncora criada pelas rotas, aba Origem devolvendo fonte → página → recorte, e os 30 942 bytes do
   PDF servidos por `assetId`. A `storageKey` não aparece na resposta.)*
@@ -1358,14 +1373,17 @@ Checklist arquitetural. Verificar a cada fase, não só na Fase 0.
 - ✅ Domain não importa Vercel
 - ✅ Domain não importa SDK de storage
 - ✅ Domain não importa Node filesystem
-- ⛔ Renderer não conhece storage, banco, `Workspace` nem Prisma *(D35 — `services/renderer` chega na Fase 6)*
+- ✅ Renderer não conhece storage, banco, `Workspace` nem Prisma *(Fase 6 — teste de fronteira sobre
+  o código, e a única dependência do `package.json` do worker é o contrato)*
 - ✅ Domain não executa `pdflatex`
 - ✅ Domain não importa SDK de IA
 - ✅ Components não conhecem implementação concreta de storage *(Server Components recebem DTO)*
 - ✅ Storage usa `storageKey`
 - ✅ Asset possui hash
-- [ ] Source original é preservado *(comportamento; verificável a partir da Fase 11)*
-- [ ] Crop guarda `SourceAnchor` *(Fase 14)*
+- ✅ Source original é preservado *(Fase 14 — não existe caminho de escrita sobre a fonte, e a
+  `storageKey` contém o hash: mudar o conteúdo mudaria a chave)*
+- ✅ Crop guarda `SourceAnchor` *(Fase 14 — bbox normalizada 0..1, e o mesmo recorte reconstruído
+  em 72, 150 e 300 DPI)*
 - ✅ Bounding boxes são normalizadas *(schema)*
 - ✅ **PostGIS não existe no projeto**
 
@@ -1377,13 +1395,17 @@ const asset       = await storageProvider.get(assetId);
 const result      = await renderExecutor.render(request);
 ```
 
-- [ ] Verdadeiro para SQLite + `LocalFileStorage` + renderer Docker local *(repositories prontos; falta o renderer, Fase 6)*
-- [ ] Verdadeiro para PostgreSQL + object storage + mesmo renderer remoto *(provado na Fase 6.5)*
+- ✅ Verdadeiro para SQLite + `LocalFileStorage` + renderer Docker local *(os três estão de pé desde
+  a Fase 6, e o caminho da questão passa pelos três sem nenhum `if` de ambiente)*
+- [ ] Verdadeiro para PostgreSQL + object storage + mesmo renderer remoto *(a Fase 6.5 provou o
+  schema e parou no storage, que depende da decisão do Chico)*
 
 **Áreas que a versão cloud não pode exigir reescrever** *(auditoria §49)*
 
-- [ ] `Question` · `QuestionOption` · `DocumentNode` · `Publication` · `Asset` · `SourceAnchor`
-- [ ] `QuestionTypePlugin` · Validation · Randomization · Assessment · Agent Patch · Revision
+- ◐ `Question` · `QuestionOption` · `DocumentNode` · `Publication` · `Asset` · `SourceAnchor`
+  *(o spike traduziu o schema em 3 ajustes sem tocar no domínio; afirmar exige a suíte nos dois motores)*
+- ◐ `QuestionTypePlugin` · Validation · Randomization · Assessment · Agent Patch · Revision
+  *(nenhum deles conhece o provider — mas quem prova isso é a suíte rodando nos dois, que falta)*
 
 ---
 
@@ -1415,7 +1437,7 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 - ✅ Setup local documentado
 - ✅ SQLite criado automaticamente pelo `bun run setup` *(D24)*
 - ✅ Nenhuma dependência do WPF em runtime
-- [ ] UI premium e estável *(Fase 1)*
+- [ ] UI premium e estável *(o aceite é do Chico — §11 deste documento)*
 
 ### Árvore
 - ✅ Cria filho
@@ -1426,57 +1448,58 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 - ✅ Não permite ciclos *(409, com teste em qualquer profundidade)*
 - ✅ Estado persiste
 
-### Questão
-- [ ] Discursiva
-- [ ] Múltipla escolha
-- [ ] Alternativas arbitrárias
-- [ ] Correta por UUID
-- [ ] Tags
-- [ ] Dificuldade
-- [ ] Banca
-- [ ] Instituição
-- [ ] Cargo
-- [ ] Ano
+### Questão *(fechada na auditoria de 2026-08-10 — o bloco estava aberto contra a Fase 7 inteira)*
+- ✅ Discursiva *(plugin, sem `randomize`: não há o que embaralhar)*
+- ✅ Múltipla escolha
+- ✅ Alternativas arbitrárias *(o legado fixava cinco)*
+- ✅ Correta por UUID *(nunca por letra — D9)*
+- ✅ Tags *(normalizadas: três grafias continuam sendo uma linha)*
+- ✅ Dificuldade *(escala legada 0/2/5/7/10)*
+- ✅ Banca
+- ✅ Instituição
+- ✅ Cargo
+- ✅ Ano *(recusado quando tem erro de digitação, nunca corrigido)*
 
 ### Monaco
-- [ ] Highlight LaTeX
-- [ ] Autocomplete
-- [ ] Snippets
-- [ ] Atalhos
-- [ ] Autosave
-- [ ] Dirty state
-- [ ] Diagnostics
+- ✅ Highlight LaTeX *(Monarch, com a ordem das regras testada)*
+- ✅ Autocomplete *(652 itens do acervo legado)*
+- ✅ Snippets *(348 com ponto de parada)*
+- ✅ Atalhos *(`Ctrl+S`, `Ctrl+Enter`, `Ctrl+Space`)*
+- ✅ Autosave *(debounce de 1,2 s; provado na tela pelo E2E)*
+- ✅ Dirty state *(não salvo · salvando · salvo · conflito · erro)*
+- [ ] Diagnostics *(a lista existe e diz a linha; **decorar a linha no editor** é a #161)*
 
 ### Preview
-- [ ] HTML rápido
-- [ ] MathJax
-- [ ] `Ctrl+Enter`
-- [ ] PDF
-- [ ] PNG
-- [ ] Log
-- [ ] Cache
+- ✅ HTML rápido *(Fase 5)*
+- ✅ MathJax *(pacote local, nunca CDN)*
+- ✅ `Ctrl+Enter` *(registrado no editor, não numa escuta de janela)*
+- ✅ PDF *(Fase 6)*
+- ✅ PNG
+- ✅ Log
+- ✅ Cache *(por content hash; medido — 1159 ms contra 46 ms)*
 
-### Agente
-- [ ] Painel flutuante
-- [ ] Endpoint OpenAI-compatible (OpenRouter/OpenAI) *(adaptado por D3)*
-- [ ] Ollama
-- [ ] Contexto da questão
-- [ ] Diagnostics disponíveis como tool
-- [ ] Propõe patch
-- [ ] Diff
-- [ ] Candidate render
-- [ ] Aprovação explícita
-- [ ] Revision
-- [ ] Rollback
+### Agente *(fechado na auditoria de 2026-08-10 — a Wave C inteira estava aberta aqui)*
+- ✅ Painel flutuante *(no `aside`, nasce fechado)*
+- ✅ Endpoint OpenAI-compatible (OpenRouter/OpenAI) *(adaptado por D3)*
+- ✅ Ollama *(verificado contra os 13 modelos da máquina)*
+- ✅ Contexto da questão *(o id não é parâmetro de tool: o servidor o vincula)*
+- ✅ Diagnostics disponíveis como tool *(`get_render_diagnostics`)*
+- ✅ Propõe patch *(cinco tools `propose_*`, com whitelist versionada)*
+- ✅ Diff *(por campo; Monaco no LaTeX, lado a lado no texto curto)*
+- ✅ Candidate render *(isolado — sem `RenderJob`, sem storage)*
+- ✅ Aprovação explícita *(lista vazia é erro, não "aplicar tudo")*
+- ✅ Revision *(criada antes de aplicar, na mesma transação)*
+- ✅ Rollback *(o snapshot vem do banco, nunca do corpo da requisição)*
 
 ### Assets
-- [ ] Upload
-- [ ] Paste
-- [ ] Crop
-- [ ] Source preservado
-- [ ] Inserir imagem em LaTeX
+- ✅ Upload *(file picker e drag-and-drop)*
+- ✅ Paste *(`Ctrl+V` só quando a tela pede; colar texto continua indo ao editor)*
+- ✅ Crop *(retângulo desenhado e ajustado no PDF; bbox normalizada)*
+- ✅ Source preservado *(o `SOURCE_PDF` não tem caminho de escrita)*
+- [ ] Inserir imagem em LaTeX *(o snippet existe; falta a tela que o monta)*
 
-### Legado
+### Legado — ⛔ *o bloco inteiro depende do acervo, que **não está nesta máquina**. O domínio do
+importador existe e é testado (Fase 11); rodar o import é que não dá.*
 - [ ] Dry-run
 - [ ] Import Publication
 - [ ] Import árvore
@@ -1487,14 +1510,18 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 - [ ] Relatório
 
 ### Portabilidade *(novo, D18/D32)*
-- [ ] Exporta workspace em `.lbb`
-- [ ] Importa `.lbb`
-- [ ] Round-trip preserva identidade
-- [ ] Backup recorrente produz `.lbb` restaurável
+- ✅ Exporta workspace em `.lbb`
+- ✅ Importa `.lbb` *(com dry-run antes de gravar, sempre)*
+- ✅ Round-trip preserva identidade *(verificado contra o banco real)*
+- ✅ Backup recorrente produz `.lbb` restaurável *(um arquivo do backup automático passa pelo
+  mesmo round-trip)*
 
 ---
 
 ## 11. Checklist visual *(spec §34)*
+
+> **Este bloco é do Chico.** O que tem prova de máquina está fechado abaixo; o resto é olho, e
+> marcar por dedução seria justamente o erro que a auditoria de 2026-08-10 foi corrigir.
 
 - [ ] Nenhum painel parece "CRUD de sistema interno de 2014"
 - [ ] A árvore tem densidade próxima de IDE
@@ -1505,63 +1532,83 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 - [ ] Resize não quebra layout
 - [ ] 1366×768 continua utilizável
 - [ ] 1920×1080 fica excelente
-- [ ] Dark mode coerente
+- ✅ Dark mode coerente *(teste cobre todo token de cor do tema claro)*
 - [ ] Focus ring correto
 - [ ] Atalhos não conflitam com Monaco
-- [ ] Loading nunca congela a UI
-- [ ] Render mostra progresso
-- [ ] Erro de TeX é apresentado como diagnóstico, não como stack trace cru
+- ✅ Loading nunca congela a UI *(o preview mantém o conteúdo anterior esmaecido; o render fica
+  pendurado 8 s no E2E e a digitação segue salvando)*
+- ✅ Render mostra progresso *(texto, não roda girando: roda não diz se travou)*
+- ✅ Erro de TeX é apresentado como diagnóstico, não como stack trace cru *(linha + mensagem; o
+  caminho do diretório temporário não vaza)*
 - [ ] Empty states explicam a próxima ação
 
 ---
 
 ## 12. Checklist do painel agêntico *(spec §35)*
 
-- [ ] O modelo sabe exatamente qual questão está aberta
-- [ ] Seleção do Monaco pode ser anexada
-- [ ] O usuário vê o provider e o modelo
-- [ ] O modelo não recebe secrets
-- [ ] Tools são definidas pelo servidor
-- [ ] Tool inputs são validados
-- [ ] Tool outputs têm limite
-- [ ] O agente não possui tool de SQL arbitrário
-- [ ] O agente não possui tool de shell arbitrário
-- [ ] O agente não altera o banco sem aprovação
-- [ ] Candidate render é isolado
-- [ ] Retry é limitado
-- [ ] Todas as tentativas são auditadas
-- [ ] Antes e depois podem ser comparados
-- [ ] Patch parcial pode ser aprovado
-- [ ] Patch pode ser rejeitado
-- [ ] Aplicação gera revisão
-- [ ] Revisão pode ser restaurada
-- [ ] Falha do provider não perde edição do usuário
-- [ ] Ollama offline não impede o uso normal do app
-- [ ] Provider sem API key mostra instrução clara
+> Auditado item a item em 2026-08-10. Estava inteiro aberto contra as Fases 8, 9 e 10 fechadas —
+> cada linha aqui aponta para onde a prova mora.
+
+- ✅ O modelo sabe exatamente qual questão está aberta *(o id **não** é parâmetro de tool; contra o
+  Ollama real o modelo inventou três uuids numa conversa só, e foi isso que mudou o desenho)*
+- ✅ Seleção do Monaco pode ser anexada *(por gesto, e visível na barra de contexto)*
+- ✅ O usuário vê o provider e o modelo
+- ✅ O modelo não recebe secrets *(`ai-key-boundary.test.ts` percorre o grafo de imports de cada
+  `"use client"`; achou um vazamento real no caminho)*
+- ✅ Tools são definidas pelo servidor, nunca pelo modelo
+- ✅ Tool inputs são validados *(schema fechado, antes de tocar a porta)*
+- ✅ Tool outputs têm limite *(8k, truncando com marca)*
+- ✅ O agente não possui tool de SQL arbitrário *(guarda varre o módulo)*
+- ✅ O agente não possui tool de shell arbitrário *(idem)*
+- ✅ O agente não altera o banco sem aprovação *(a porta de leitura não tem verbo de escrita, e o
+  lint de boundary recusa persistência dentro de `modules/agents/`)*
+- ✅ Candidate render é isolado *(executor direto — sem `RenderJob`, sem storage, teto de 3 por turno)*
+- ✅ Retry é limitado *(teto de iterações por modo, e cada chamada leva o prazo restante)*
+- ✅ Todas as tentativas são auditadas *(`ToolCallCard` na tela, `AgentRun` imutável no banco)*
+- ✅ Antes e depois podem ser comparados *(diff por campo, e render antes/depois sob demanda)*
+- ✅ Patch parcial pode ser aprovado *(o plano é recalculado do estado corrente, não aceito da tela)*
+- ✅ Patch pode ser rejeitado *(não aplicar é o default)*
+- ✅ Aplicação gera revisão *(criada **antes**, na mesma transação)*
+- ✅ Revisão pode ser restaurada *(devolve o estado exato — acento, `\\` e gabarito)*
+- ✅ Falha do provider não perde edição do usuário *(a pergunta fica na tela; o turno é que falha)*
+- ✅ Ollama offline não impede o uso normal do app *(503 com instrução; a tela segue)*
+- ✅ Provider sem API key mostra instrução clara
 
 ---
 
 ## 13. Segurança *(spec §24, adaptada à nova topologia)*
 
-- [ ] Secrets somente em `.env.local`
-- [ ] API key nunca exposta ao browser
-- [ ] Paths sanitizados
-- [ ] Nenhum path de usuário escapa do workspace
-- [ ] Chaves de storage prefixadas por `workspaceId`, sem escape
-- [ ] MIME e extensão validados
-- [ ] Upload limitado
-- [ ] Hash de conteúdo usado
-- [ ] Nenhum shell montado por concatenação de string
-- [ ] Tempo de compilação limitado
-- [ ] Shell escape bloqueado no LaTeX
-- [ ] Filesystem efêmero nunca usado como storage persistente *(auditoria §23)*
-- [ ] Container do worker sem rede de saída
-- [ ] Segredo compartilhado do worker fora do repositório e rotacionável
-- [ ] Ação agêntica registrada
-- [ ] Nenhuma tool arbitrária vinda do modelo
-- [ ] Todo patch do agente validado antes de apresentar e de aplicar
-- [ ] Patch aplicado dentro de transação
-- [ ] Revisão anterior criada antes de mudanças agênticas
+> Auditado em 2026-08-10. As dezenove linhas estavam abertas, e **todas** já tinham guarda ou
+> teste em alguma fase — o que faltava era o cruzamento. Onde a prova é um guarda que varre o
+> repositório, ele foi conferido contra uma violação deliberada.
+
+- ✅ Secrets somente em `.env.local` *(guarda varre o repositório atrás de chave, token e senha em
+  URL; outro exige que o `.env.example` não tenha valor de verdade)*
+- ✅ API key nunca exposta ao browser *(grafo de imports de cada `"use client"`)*
+- ✅ Paths sanitizados *(4 formatos de escape testados)*
+- ✅ Nenhum path de usuário escapa do workspace *(e a recusa devolve 400 com o motivo, não 500 opaco)*
+- ✅ Chaves de storage prefixadas por `workspaceId`, sem escape
+- ✅ MIME e extensão validados *(a discordância entre os dois é recusada)*
+- ✅ Upload limitado
+- ✅ Hash de conteúdo usado *(sha256 é a identidade — D29)*
+- ✅ Nenhum shell montado por concatenação de string *(`execFile` com vetor de argumentos; sem
+  shell no caminho não há o que escapar)*
+- ✅ Tempo de compilação limitado *(no contrato e no `execFile`; o timeout mata o processo e vira
+  diagnóstico)*
+- ✅ Shell escape bloqueado no LaTeX *(duas camadas: `-no-shell-escape` explícito e `\write18`
+  recusado antes de tocar o disco)*
+- ✅ Filesystem efêmero nunca usado como storage persistente *(auditoria §23 — o worker é
+  `read_only` + `tmpfs`, e quem persiste é a aplicação, pelo `StorageProvider`)*
+- ✅ Container do worker sem rede de saída *(rede `internal: true`; `fetch` de dentro falha, e o
+  `/health` pelo ingresso responde 200)*
+- ✅ Segredo compartilhado do worker fora do repositório e rotacionável *(vem de `RENDERER_SECRET`,
+  e o worker **recusa subir** sem ele)*
+- ✅ Ação agêntica registrada *(`AgentRun` imutável; prompt completo fora do log por padrão)*
+- ✅ Nenhuma tool arbitrária vinda do modelo
+- ✅ Todo patch do agente validado antes de apresentar e de aplicar *(Zod com whitelist versionada)*
+- ✅ Patch aplicado dentro de transação
+- ✅ Revisão anterior criada antes de mudanças agênticas *(na mesma transação — meia aplicação
+  sem revisão seria uma mudança que ninguém desfaz)*
 
 ---
 
@@ -1587,31 +1634,53 @@ Estado ao fim da **Fase 0**:
 - ✅ Documentação atualizada
 - ✅ Critério de aceite demonstrável
 
+Estado **hoje** — os cinco que a Fase 0 não tinha como fechar:
+
+- ✅ Loading state tratado *(render, preview, agente e árvore têm estado de carregamento visível)*
+- ✅ Empty state tratado *(`EmptyState` no DS, usado onde a lista pode vir vazia)*
+- ✅ Acessibilidade básica *(papéis ARIA na árvore, nas abas, nos chips e no radio das alternativas)*
+- ✅ Teclado testado *(divisória, árvore, paleta, palette de símbolos — e o E2E chega à questão
+  **só** por teclado)*
+- ✅ Dark e light testados *(teste exige que o dark cubra todo token de cor do claro)*
+
 ---
 
 ## 15. Regras invioláveis *(spec §42)*
 
 Verificar em toda revisão de fase:
 
-- [ ] O agente não é um chat desacoplado do domínio
-- [ ] O renderer não está dentro de componente React
+- ✅ O agente não é um chat desacoplado do domínio *(tools do servidor, contexto por gesto, patch
+  com whitelist — ele não tem outra forma de agir)*
+- ✅ O renderer não está dentro de componente React *(contêiner separado, e o lint de boundary
+  recusa `child_process` no domínio)*
 - ✅ Prisma não é chamado no client
 - ✅ Nenhum XAML foi portado
-- [ ] Semântica e dados preservados, não a estrutura interna do código antigo
-- [ ] Todo novo tipo de questão entra pelo registry
-- [ ] Toda randomização é reproduzível
-- [ ] Toda modificação agêntica é reversível
-- [ ] Toda fonte original é preservada
-- [ ] `legacyId` nunca apagado após o import
-- [ ] PNG nunca usado como fonte da questão
+- ✅ Semântica e dados preservados, não a estrutura interna do código antigo *(a Fase 4 importou o
+  conhecimento sem portar a estrutura; o mapeamento da 11 ignora `Ordem`, `IsExpanded` e
+  `Questao.Correta` de propósito. A conferência contra o acervo é da Fase 11)*
+- ✅ Todo novo tipo de questão entra pelo registry *(guard varre `src/` e `app/` atrás de `switch`
+  sobre tipo de questão)*
+- ✅ Toda randomização é reproduzível *(dois processos `bun` separados, mesma seed, 1695 bytes
+  idênticos)*
+- ✅ Toda modificação agêntica é reversível *(revisão anterior gravada antes, na mesma transação)*
+- ✅ Toda fonte original é preservada *(não há caminho de escrita sobre o `SOURCE_PDF`)*
+- [ ] `legacyId` nunca apagado após o import *(a coluna existe e a duplicação de subárvore já não a
+  herda; afirmar exige o import da Fase 11, que depende do acervo)*
+- ✅ PNG nunca usado como fonte da questão *(o `preview.png` do legado é recusado na classificação,
+  com controle positivo; e o recorte reconhecido vira LaTeX revisado por gente, não imagem)*
 - ✅ Letra de alternativa nunca tratada como identidade *(schema + teste de projeção)*
-- [ ] LaTeX nunca executado de forma insegura
-- [ ] Batch agent não implementado antes de aprovação e revisão funcionarem
-- [ ] Erro de compilação nunca escondido
-- [ ] Experiência de teclado nunca sacrificada
+- ✅ LaTeX nunca executado de forma insegura *(vetor de argumentos, sem shell; `-no-shell-escape`
+  explícito, `\write18` recusado no contrato, diretório temporário por job, timeout, contêiner sem
+  rede e sem privilégio)*
+- ✅ Batch agent não implementado antes de aprovação e revisão funcionarem *(não existe batch
+  agent; aprovação seletiva e reversão estão de pé desde a Fase 9)*
+- ✅ Erro de compilação nunca escondido *(diagnóstico com linha, log cru inteiro na aba, e o corte
+  do log é **pelo meio** para não perder a linha fatal)*
+- ✅ Experiência de teclado nunca sacrificada *(árvore, divisória, paleta, chips e alternativas
+  operáveis sem mouse — e o E2E chega à questão só por teclado)*
 - ✅ PostGIS nunca entra no projeto
 - ✅ Nenhum binário armazenado como BLOB no banco
-- [ ] `SOURCE_PDF` nunca substituído por derivado
-- [ ] Asset fonte tratado como imutável
+- ✅ `SOURCE_PDF` nunca substituído por derivado *(D29)*
+- ✅ Asset fonte tratado como imutável *(a `storageKey` contém o hash: outro conteúdo é outra chave)*
 - ✅ Bounding box sempre normalizada
 - ✅ Abstração criada apenas onde há múltiplas implementações reais
