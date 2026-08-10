@@ -71,9 +71,14 @@ class FakeExecutor implements RenderExecutor {
   calls = 0;
   constructor(private readonly outcome: RenderOutcome) {}
 
+  cancelled: string[] = [];
+
   async render(): Promise<RenderOutcome> {
     this.calls += 1;
     return this.outcome;
+  }
+  async cancel(jobId: string): Promise<void> {
+    this.cancelled.push(jobId);
   }
   async health() {
     return {

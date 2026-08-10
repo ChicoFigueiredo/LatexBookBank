@@ -133,6 +133,9 @@ de "Função Quadrática" continuaram sendo **uma linha**.
 inteira foi conferida com dado real e prova compilada — o mapa gravado no banco diz `c`, a rota
 responde `c`, e o `c)` impresso na prova do aluno é a alternativa correta. As três versões
 compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c · 3) —`.
+**Cancelamento de verdade** (#148): desistir do render passou a chegar ao worker — e apareceu que
+a imagem do renderer estava **inbuildável desde a Fase 13**, porque o `Dockerfile` não conhecia o
+serviço de backup. O contêiner que já rodava continuou rodando, e por isso o defeito não aparecia.
 **Indicadores na árvore, e o bug que eles revelaram** (#147): o registro de plugins de tipo de
 questão **não era importado por ninguém** em produção — só pelo próprio teste, que por isso
 sempre passou. Toda questão do acervo respondia "tipo não suportado", em silêncio, desde a Fase 7.
@@ -144,7 +147,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1162 testes (1112 no app + 50 no renderer) · 72 PRs abertos, nada mergeado.
+1167 testes (1114 no app + 53 no renderer) · 73 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -623,7 +626,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Download por `jobId` + nome, nunca por `storageKey` *(a chave é opaca e do servidor; devolvê-la amarraria o browser a como o storage organiza os arquivos)*
 - ✅ Artefato descartado responde 404 com a razão, não 500 *(derivado pode sumir — D29 — e isso é estado legítimo)*
 - ✅ A fronteira de lint cobrou de novo, e com razão *(nada em `app/**` fala com o banco; as duas leituras foram para o módulo)*
-- [ ] Render pendente é **cancelado no worker** quando ainda não iniciou *(o worker tem `cancel`; a aplicação nunca o chama — o coalescer resolve no cliente, o que basta para a tela mas deixa o job rodando à toa lá dentro)*
+- ✅ Render pendente é **cancelado no worker** quando ainda não iniciou *(#148)*
+- ✅ Render **em execução** é interrompido de verdade *(#148 — o `AbortSignal` chega ao `execFile`; conferido dentro do contêiner: um `sleep 30` morreu em 739 ms. Antes, cancelar marcava o estado e o `pdflatex` seguia até o fim para produzir algo já recusado)*
+- ✅ **Cancelado não ressuscita** *(#148 — `complete` sobrescrevia o estado, e o efeito era que cancelar um job em execução não fazia nada: a compilação terminava e o job voltava `done`. Quem cancelou receberia o resultado que acabou de recusar)*
+- ✅ A imagem do renderer volta a compilar *(#148 — quebrada desde #132, em silêncio: o `Dockerfile` não copiava o `package.json` do serviço de backup, e `bun install --frozen-lockfile` recusa quando enxerga menos workspaces que o lockfile. O contêiner que já rodava continuou rodando, então ninguém percebeu)*
 - ✅ Render intermediário é descartado *(auditado na #145: `createCoalescer` só entrega o resultado que não tem sucessor, e `use-render` o usa)*
 - ✅ Estado final converge para o último pedido, com teste *("**o estado final é o do último pedido**" e "três pedidos durante uma execução geram **uma** reexecução")*
 - ✅ Worker indisponível degrada com mensagem clara, sem perder edição *(503 vira `kind: "unavailable"`, separado de `error`: pintar de vermelho mandaria a pessoa procurar defeito no texto dela)*

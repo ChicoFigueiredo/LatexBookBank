@@ -31,8 +31,14 @@ export interface Coalescer {
 }
 
 export interface CoalescerOptions<T> {
-  /** O trabalho de verdade. */
-  run: () => Promise<T>;
+  /**
+   * O trabalho de verdade.
+   *
+   * Recebe um sinal que é **abortado quando chega um pedido por cima**. Sem ele, o pedido
+   * superado continuava até o fim antes de o próximo começar: o resultado era descartado, mas o
+   * trabalho não — e do outro lado da rede havia um `pdflatex` compilando o que já fora recusado.
+   */
+  run: (signal: AbortSignal) => Promise<T>;
   /**
    * Recebe o resultado que **vale**.
    *
@@ -48,6 +54,7 @@ export interface CoalescerOptions<T> {
 export function createCoalescer<T>(options: CoalescerOptions<T>): Coalescer {
   let running = false;
   let pending = false;
+  let current: AbortController | null = null;
 
   async function drain(): Promise<void> {
     running = true;
@@ -56,8 +63,9 @@ export function createCoalescer<T>(options: CoalescerOptions<T>): Coalescer {
       // digitação rápida com `Ctrl+Enter`, "longa" acontece.
       for (;;) {
         pending = false;
+        current = new AbortController();
         try {
-          const result = await options.run();
+          const result = await options.run(current.signal);
           // `pending` foi religado durante o `await`? Então este resultado já nasceu velho.
           if (!pending) options.commit(result);
         } catch (error) {
@@ -68,6 +76,7 @@ export function createCoalescer<T>(options: CoalescerOptions<T>): Coalescer {
     } finally {
       running = false;
       pending = false;
+      current = null;
     }
   }
 
@@ -77,6 +86,10 @@ export function createCoalescer<T>(options: CoalescerOptions<T>): Coalescer {
         // Um segundo pendente substitui o primeiro: os dois pedem "compile o estado atual", e
         // enfileirar os dois faria o `pdflatex` rodar duas vezes para a mesma entrada.
         pending = true;
+        // E o que está em curso é **interrompido**, não só ignorado: o resultado dele já nasceu
+        // velho, e deixá-lo terminar é manter o worker ocupado com a versão anterior do texto
+        // enquanto a atual espera na fila.
+        current?.abort();
         return;
       }
       await drain();

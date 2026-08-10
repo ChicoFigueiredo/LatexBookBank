@@ -55,7 +55,7 @@ export function useRender({ publicationId, questionId, profileId }: UseRenderOpt
   const coalescer = useMemo(
     () =>
       createCoalescer<RenderStatus>({
-        run: async () => {
+        run: async (signal) => {
           setStatus({ kind: "running" });
           const response = await fetch(
             `/api/publications/${publicationId}/questions/${questionId}/render`,
@@ -63,6 +63,9 @@ export function useRender({ publicationId, questionId, profileId }: UseRenderOpt
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify(profileId === undefined ? {} : { profileId }),
+              // Abortar aqui **chega ao worker**: a rota escuta `request.signal` e manda o
+              // `DELETE` do job. Sem isso, desistir seria só parar de olhar.
+              signal,
             },
           );
           return toStatus(response);

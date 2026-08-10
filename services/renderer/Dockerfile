@@ -67,6 +67,11 @@ COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/render-contract/package.json ./packages/render-contract/
 COPY services/renderer/package.json ./services/renderer/
+# **Todo** workspace do lockfile precisa estar aqui, mesmo o que a imagem não usa: `bun install
+# --frozen-lockfile` compara o lockfile com os workspaces que enxerga, e um `package.json`
+# faltando é "lockfile had changes". Foi assim que a imagem parou de compilar quando o serviço de
+# backup nasceu (#132) — em silêncio, porque o contêiner que já estava rodando continuou rodando.
+COPY services/backup/package.json ./services/backup/
 RUN bun install --frozen-lockfile --production --filter @latexbookbank/renderer
 
 # O contrato entra como pacote, não copiado por dentro: é o mesmo arquivo que a aplicação importa,

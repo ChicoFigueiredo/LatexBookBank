@@ -87,6 +87,21 @@ export class RenderWorkerExecutor implements RenderExecutor {
     return { result: status.result, artifacts };
   }
 
+  /**
+   * Manda o worker parar.
+   *
+   * Engole a falha de propósito: se o worker não respondeu ao cancelamento, quem chamou não tem
+   * o que fazer a respeito — e propagar transformaria "desisti do render" em erro na tela de
+   * quem já estava desistindo.
+   */
+  async cancel(jobId: string): Promise<void> {
+    try {
+      await this.fetch(`/render/${encodeURIComponent(jobId)}`, { method: "DELETE" });
+    } catch {
+      return;
+    }
+  }
+
   private async fetch(path: string, init: RequestInit, authenticated = true): Promise<Response> {
     const url = `${this.config.baseUrl.replace(/\/$/, "")}${path}`;
     const timeoutMs = this.config.requestTimeoutMs ?? DEFAULT_TIMEOUT_MS;

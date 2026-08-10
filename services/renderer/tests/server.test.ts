@@ -278,3 +278,60 @@ describe("cancelamento", () => {
     expect(store.size).toBe(0);
   });
 });
+
+describe("cancelar um job **em execução**", () => {
+  it("cancelado não ressuscita quando a compilação termina", () => {
+    // A primeira versão sobrescrevia o estado em `complete`, e o efeito era que cancelar um job
+    // em execução não fazia nada: a compilação seguia, `complete` o devolvia como `done`, e quem
+    // cancelou receberia o resultado que acabou de recusar.
+    const store = new JobStore();
+    store.enqueue("j2");
+    store.start("j2");
+
+    expect(store.cancel("j2")).toBe(true);
+
+    store.complete(
+      "j2",
+      {
+        jobId: "j2",
+        success: true,
+        pdf: null,
+        png: [],
+        diagnostics: [],
+        stdout: "",
+        stderr: "",
+        durationMs: 1,
+        rendererVersion: "teste-1",
+      },
+      new Map([["main.pdf", Buffer.from("x")]]),
+    );
+
+    expect(store.status("j2")?.state).toBe("cancelled");
+    // E os artefatos não voltam: o job cancelado não deve deixar bytes para ninguém baixar.
+    expect(store.artifact("j2", "main.pdf")).toBeNull();
+  });
+
+  it("cancelar **interrompe o processo**, não só o registro", () => {
+    // Marcar sem matar deixaria o `pdflatex` rodando até o fim para produzir algo já recusado —
+    // e num worker de concorrência baixa isso atrasa quem está esperando na fila.
+    const store = new JobStore();
+    store.enqueue("j3");
+    store.start("j3");
+
+    const abort = new AbortController();
+    store.register("j3", abort);
+
+    expect(abort.signal.aborted).toBe(false);
+    store.cancel("j3");
+    expect(abort.signal.aborted).toBe(true);
+  });
+
+  it("job sem nada registrado ainda cancela sem quebrar", () => {
+    // O `DELETE` pode chegar entre `enqueue` e `register`, e nessa janela não há o que abortar.
+    const store = new JobStore();
+    store.enqueue("j4");
+
+    expect(() => store.cancel("j4")).not.toThrow();
+    expect(store.status("j4")?.state).toBe("cancelled");
+  });
+});

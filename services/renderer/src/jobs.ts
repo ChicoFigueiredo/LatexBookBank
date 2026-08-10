@@ -17,6 +17,14 @@ interface JobEntry {
   artifacts: ReadonlyMap<string, Buffer>;
   /** Momento em que entrou em estado final; usado pela expiração. */
   finishedAt: number | null;
+  /**
+   * Interrompe a compilação em curso.
+   *
+   * Sem isto, cancelar só marcava o estado e o `pdflatex` seguia até o fim — o worker continuava
+   * ocupado com uma prova que ninguém ia ler, e num worker de concorrência baixa isso atrasa o
+   * próximo pedido de quem está esperando.
+   */
+  abort: AbortController | null;
 }
 
 /**
@@ -38,7 +46,14 @@ export class JobStore {
       status: { jobId, state: "queued", result: null },
       artifacts: new Map(),
       finishedAt: null,
+      abort: null,
     });
+  }
+
+  /** Guarda por onde interromper este job. Chamado logo antes de a compilação começar. */
+  register(jobId: string, abort: AbortController): void {
+    const entry = this.jobs.get(jobId);
+    if (entry !== undefined) entry.abort = abort;
   }
 
   /**
@@ -60,6 +75,11 @@ export class JobStore {
     const entry = this.jobs.get(jobId);
     if (entry === undefined) return;
 
+    // **Cancelado não ressuscita.** A primeira versão sobrescrevia o estado aqui, e o efeito era
+    // que cancelar um job em execução não fazia nada: a compilação terminava e `complete` o
+    // devolvia como `done`. Quem cancelou receberia o resultado que acabou de recusar.
+    if (entry.status.state === "cancelled") return;
+
     entry.status = { jobId, state: result.success ? "done" : "failed", result };
     entry.artifacts = artifacts;
     entry.finishedAt = this.now();
@@ -79,6 +99,9 @@ export class JobStore {
     entry.status = { jobId, state: "cancelled", result: null };
     entry.artifacts = new Map();
     entry.finishedAt = this.now();
+    // Interrompe o processo, e não só o registro: marcar sem matar deixaria o `pdflatex`
+    // rodando até o fim para produzir algo que já foi recusado.
+    entry.abort?.abort();
     return true;
   }
 

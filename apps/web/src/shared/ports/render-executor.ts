@@ -67,6 +67,18 @@ export interface RenderExecutor {
    */
   render(bundle: RenderBundle, assets?: ReadonlyMap<string, Uint8Array>): Promise<RenderOutcome>;
 
+  /**
+   * Desiste de um job.
+   *
+   * Existe porque desistir **no cliente não basta**: a aplicação parava de esperar e o worker
+   * seguia compilando uma prova que ninguém ia ler. Num worker de concorrência baixa, isso atrasa
+   * o próximo pedido de quem está na frente da tela agora.
+   *
+   * Não devolve nada e não lança: cancelar o que já terminou é um não-evento, e transformar isso
+   * em erro obrigaria todo chamador a tratar uma corrida que não tem consequência.
+   */
+  cancel(jobId: string): Promise<void>;
+
   health(): Promise<RenderHealth>;
 }
 
