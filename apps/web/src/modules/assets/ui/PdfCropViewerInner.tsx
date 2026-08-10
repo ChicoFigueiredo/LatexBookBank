@@ -41,6 +41,7 @@ const CSS = `
 .lbb-pdf-canvas{box-shadow:var(--shadow-md);background:white}
 .lbb-pdf-rect{position:absolute;border:2px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);pointer-events:none}
 .lbb-pdf-handle{position:absolute;width:10px;height:10px;background:var(--surface);border:2px solid var(--accent);border-radius:2px;pointer-events:none}
+.lbb-pdf-origin{position:absolute;border:2px dashed var(--warn);background:color-mix(in srgb, var(--warn) 10%, transparent);pointer-events:none}
 `;
 
 export interface PdfCropViewerInnerProps {
@@ -52,12 +53,26 @@ export interface PdfCropViewerInnerProps {
     png: Blob;
   }) => void;
   readonly initialScale?: number;
+  /** Página inicial — é assim que "voltar à origem" abre no lugar certo. */
+  readonly initialPage?: number;
+  /**
+   * Uma caixa **normalizada** a destacar, desenhada por cima da página.
+   *
+   * Normalizada e não em pixels porque é a âncora guardada (D28) que chega aqui: o zoom é escolha
+   * de quem está olhando, e converter no servidor amarraria o destaque a um DPI.
+   */
+  readonly highlight?: {
+    readonly pageNumber: number;
+    readonly box: { x: number; y: number; width: number; height: number };
+  } | null;
 }
 
 export default function PdfCropViewerInner({
   fileUrl,
   onCrop,
   initialScale = 1.2,
+  initialPage = 1,
+  highlight = null,
 }: PdfCropViewerInnerProps) {
   injectCss("lbb-pdf-css", CSS);
 
@@ -66,7 +81,7 @@ export default function PdfCropViewerInner({
     null,
   );
 
-  const [pageNumber, setPageNumber] = useState(1);
+  const [pageNumber, setPageNumber] = useState(initialPage);
   const [pageCount, setPageCount] = useState(0);
   const [scale, setScale] = useState(initialScale);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -294,6 +309,21 @@ export default function PdfCropViewerInner({
           onMouseLeave={endDrag}
         >
           <canvas ref={canvasRef} className="lbb-pdf-canvas" aria-label="Página do PDF" />
+
+          {/* O destaque da origem. Não é interativo: mostrar de onde veio não é o mesmo gesto que
+              recortar de novo, e um retângulo que se pega por engano apagaria a referência. */}
+          {highlight !== null && highlight.pageNumber === pageNumber && size.width > 0 && (
+            <div
+              className="lbb-pdf-origin"
+              aria-label="Recorte de origem"
+              style={{
+                left: highlight.box.x * size.width,
+                top: highlight.box.y * size.height,
+                width: highlight.box.width * size.width,
+                height: highlight.box.height * size.height,
+              }}
+            />
+          )}
 
           {rect !== null && (
             <>

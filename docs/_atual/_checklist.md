@@ -120,7 +120,10 @@ redimensionar num **módulo puro** — regra dentro de `onMouseMove` é regra qu
 E a tela que amarra tudo (#135): os três gestos de upload num componente só, e a ingestão
 completa em `/publications/[id]/ingestao`. O teste do teclado achou uma recursão de verdade — o
 clique do `input` escondido subia até o `div`, que clicava o `input` de novo.
-1107 testes (1057 no app + 50 no renderer) · 66 PRs abertos, nada mergeado.
+**"Voltar à origem" fechado** (#137): a aba Origem abre o PDF na página da âncora com a caixa
+destacada. A âncora já guardava tudo desde a Fase 14 — faltava a porta, e proveniência que não se
+navega é proveniência que ninguém confere.
+1122 testes (1072 no app + 50 no renderer) · 67 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -412,7 +415,7 @@ falta o que produz o estado
 - ✅ Word wrap *(enunciado é prosa, não código)*
 - ✅ Minimap desligado por padrão
 - ✅ Model de editor por campo
-- ✅ Abas internas: Conteúdo, Resposta, Complemento e **Metadados** *(#87); [ ] Origem *(depende da Fase 14)*
+- ✅ Abas internas: Conteúdo, Resposta, Complemento e **Metadados** *(#87)* · **Origem** *(#137 — estava bloqueada pela Fase 14)*
 - ✅ Autosave com debounce *(1,2 s; timer limpo na desmontagem)*
 - ✅ `Ctrl+S` salva imediatamente *(handler por ref — senão congelaria a questão aberta na montagem)*
 - ✅ Dirty state visível *(não salvo · salvando · salvo · conflito · erro)*
@@ -1134,13 +1137,18 @@ falta o que produz o estado
 - ✅ Imagem original preservada
 - ✅ `SOURCE_PDF` nunca substituído *(D29)* — não existe caminho de escrita sobre a fonte
 - ✅ Asset fonte é imutável: a `storageKey` **contém o hash**, então mudar o conteúdo muda a chave
-- ✅ Cadeia de proveniência descrita: fonte → página → recorte *(a navegação depende da tela)*
+- ✅ Cadeia de proveniência descrita: fonte → página → recorte — **e navegável** *(#137)*
 - ✅ **Tela de ingestão ponta a ponta** *(#135 — `/publications/[id]/ingestao`: subir → recortar → reconhecer → revisar)*
-- [ ] Opções após o crop: inserir como imagem, reconhecer texto, anexar como referência *(reconhecer matemática já é o caminho da tela)*
+- ✅ Opções após o crop: inserir como figura, reconhecer matemática, copiar referência, abrir na
+  fonte *(#137 — calculadas no domínio, porque cada uma depende do que a fonte é; botão que não dá
+  vem com o motivo, e não desabilitado em silêncio)*
+- [ ] Reconhecer **texto** do recorte *(o de matemática existe; o de texto ainda não tem provider)*
 
 **Aceite da fase**
 - [ ] §33 "Assets" completo (§10 deste documento)
-- [ ] "Voltar à origem" funciona a partir de uma questão
+- ✅ **"Voltar à origem" funciona a partir de uma questão** *(#137 — verificado com dado real:
+  âncora criada pelas rotas, aba Origem devolvendo fonte → página → recorte, e os 30 942 bytes do
+  PDF servidos por `assetId`. A `storageKey` não aparece na resposta.)*
 
 ---
 
