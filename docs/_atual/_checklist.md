@@ -21,10 +21,16 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 823 ✅ · 5 ◐ · 15 ⛔ · 146 `[ ]` — e **103 dos 146 abertos estão em três blocos**:
+**Progresso:** 831 ✅ · 5 ◐ · 15 ⛔ · 141 `[ ]` — e **103 dos 141 abertos estão em três blocos**:
 a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada no acervo que não está nesta
-máquina) e a conferência visual (20, que é do Chico). Fora deles sobram **43 itens de trabalho**.
-**Última atualização:** 2026-08-10 — auditoria das seções finais. O §12 (painel agêntico), o §13
+máquina) e a conferência visual (20, que é do Chico). Fora deles sobram **38 itens de trabalho**.
+**Última atualização:** 2026-08-10 — a interface de render fechada (#161): copiar o LaTeX, tela
+cheia, diagnósticos sublinhados no Monaco e clicáveis. Fechar o quarto exigiu consertar a **linha**:
+o contrato prometia a linha do `sourceLatex` e entregava a do `main.tex`, com o preâmbulo na frente.
+Errava por um quando o formato pré-compilado funcionava e pelo preâmbulo inteiro quando não — e
+apareceram mais dois buracos no caminho: a aba Log nunca teve log (o `stdout` era guardado e nunca
+devolvido) e a aba Fonte mostrava o enunciado chamando-o de "o corpo enviado ao worker".
+**Antes, no mesmo dia:** auditoria das seções finais. O §12 (painel agêntico), o §13
 (segurança) e quase todo o §15 (regras invioláveis) estavam **inteiros abertos** contra fases
 fechadas: 21, 19 e 14 linhas que já tinham guarda, teste ou verificação em alguma fase e nunca
 foram cruzadas. Fechado também o bloco "Questão" e o "Agente" do §10, e os quatro itens de schema
@@ -172,11 +178,11 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1179 testes (1123 no app + 56 no renderer) + 7 de E2E · 78 PRs abertos, nada mergeado.
+1203 testes (1141 no app + 62 no renderer) + 7 de E2E · 80 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · ✅3 · ✅4 · **◐5** · **◐6** | 1 e 5 esperam só o olho; a 6 tem os quatro buracos da #161 |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · ✅3 · ✅4 · **◐5** · **◐6** | 1 e 5 esperam só o olho; a 6 espera a #156 e o preâmbulo na imagem |
 | — prova arquitetural | **◐6.5** | schema PostgreSQL provado; storage parado na decisão |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
@@ -676,10 +682,27 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 > com linha"). As primeiras estavam abertas, as segundas fechadas, e as duas descreviam o mesmo
 > comportamento. Ficaram as fechadas; o que sobrou aberto abaixo é o que de fato falta.
 
-- [ ] Copiar LaTeX final *(a aba Fonte mostra o corpo, mas não há como copiá-lo)*
-- [ ] Abrir em tela cheia
-- [ ] Diagnósticos decorados no Monaco *(a lista mostra `L12`; o editor não marca a linha)*
-- [ ] Clique no log navega para a linha *(os diagnósticos não são clicáveis)*
+- ✅ Copiar LaTeX final *(#161 — e o botão **diz** quando o navegador não dá acesso à área de
+  transferência, que é o caso de quem abre o app por `http://` na rede local)*
+- ✅ Abrir em tela cheia *(#161 — camada por cima do workbench, com `Esc`; a Fullscreen API do
+  navegador depende de um gesto que ele pode recusar e some dentro de iframe)*
+- ✅ Diagnósticos decorados no Monaco *(#161 — marcador e não decoração: traz a mensagem no hover e
+  entra no `F8`. Só do campo aberto, e `info` fica de fora — sublinhar todo `Overfull \hbox`
+  deixaria o editor rajado de amarelo até ninguém olhar)*
+- ✅ Clique no log navega para a linha *(#161 — o rótulo diz o destino ("Ir para Complemento, linha
+  3"), porque trocar de aba sem avisar é pior que não navegar. Sem mapa ou sem linha, o item
+  continua na lista e **não** vira botão)*
+- ✅ **A linha do diagnóstico passou a ser a linha do corpo** *(#161 — o contrato dizia "linha do
+  `sourceLatex`" e entregava a linha do `main.tex`, que leva classe e preâmbulo na frente. Errava
+  por 1 quando o formato pré-compilado funcionava e pelo preâmbulo inteiro quando não. Enquanto
+  ninguém marcava nada na tela a diferença era invisível; decorar o editor a tornaria visível do
+  pior jeito. Traduzido **no worker**, que é o único que sabe como montou o arquivo — conferido
+  contra o contêiner real: `\naoexiste` na linha 2 do campo chega como linha 2)*
+- ✅ **A aba Log tem log** *(#161 — o `stdout` era guardado no `RenderJob` desde a Fase 6 e a rota
+  nunca o devolvia: a aba existia, renderizava e dizia "sem log para esta compilação" **em toda**
+  compilação. Conferido no worker real: 4173 caracteres)*
+- ✅ **A aba Fonte mostra o corpo de verdade** *(#161 — mostrava `draft.statementLatex` sob o
+  cabeçalho "o corpo enviado ao worker", sem as alternativas, que estão no documento desde sempre)*
 - ✅ Baixar artefato *("Baixar o PDF (N KB)")*
 - ✅ Aba PDF *(`<object>` e não `<iframe>`: o fallback fica dentro do elemento e aparece sozinho onde o navegador não tem leitor)*
 - ✅ Aba PNG *(sobre `--surface-paper`, token novo: o PNG do `pdftocairo` é transparente onde não há tinta, e sem fundo a página sumiria no tema escuro)*
@@ -1467,7 +1490,8 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 - ✅ Atalhos *(`Ctrl+S`, `Ctrl+Enter`, `Ctrl+Space`)*
 - ✅ Autosave *(debounce de 1,2 s; provado na tela pelo E2E)*
 - ✅ Dirty state *(não salvo · salvando · salvo · conflito · erro)*
-- [ ] Diagnostics *(a lista existe e diz a linha; **decorar a linha no editor** é a #161)*
+- ✅ Diagnostics *(#161 — sublinhados no Monaco, com a mensagem no hover, e clicáveis dos dois
+  lados: da lista para o editor)*
 
 ### Preview
 - ✅ HTML rápido *(Fase 5)*

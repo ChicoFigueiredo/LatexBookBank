@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasErrors, parseLatexLog } from "../src/diagnostics.ts";
+import { hasErrors, parseLatexLog, toBodyRelative } from "../src/diagnostics.ts";
 
 /**
  * A tradução do log.
@@ -83,6 +83,57 @@ describe("parseLatexLog", () => {
       "Output written on main.pdf",
     ].join("\n");
     expect(parseLatexLog(log)).toEqual([]);
+  });
+});
+
+/**
+ * A linha que chega ao editor.
+ *
+ * Este bloco existe porque o contrato **prometia** a linha do `sourceLatex` e entregava a do
+ * documento compilado. Enquanto ninguém marcava nada na tela, a diferença era invisível; decorar o
+ * Monaco com o número errado a tornaria visível do pior jeito — apontando com confiança para a
+ * linha errada do texto de outra pessoa.
+ */
+describe("toBodyRelative", () => {
+  const erro = (line: number | null, file: string | null = "main.tex") =>
+    ({ severity: "error", message: "Undefined control sequence.", line, file }) as const;
+
+  it("desconta o preâmbulo: linha 15 do documento é a 2 do corpo", () => {
+    // 1 do `\documentclass` + 11 de preâmbulo + 1 do `\begin{document}` = 13 linhas antes do corpo.
+    const [traduzido] = toBodyRelative([erro(15)], 13);
+
+    expect(traduzido?.line).toBe(2);
+  });
+
+  it("com formato pré-compilado o deslocamento é 1, e a mesma linha dá outro número", () => {
+    // O controle que importa: sem ele, um deslocamento fixo passaria nos dois casos por acidente.
+    const [traduzido] = toBodyRelative([erro(15)], 1);
+
+    expect(traduzido?.line).toBe(14);
+  });
+
+  it("erro **no preâmbulo** perde a linha, mas não a mensagem", () => {
+    const [traduzido] = toBodyRelative([erro(7)], 13);
+
+    expect(traduzido?.line).toBeNull();
+    expect(traduzido?.message).toBe("Undefined control sequence.");
+  });
+
+  it("a primeira linha do corpo continua sendo a 1", () => {
+    // O limite: 14 com deslocamento 13 é a linha 1, e um `>` no lugar de `>=` a jogaria fora.
+    expect(toBodyRelative([erro(14)], 13)[0]?.line).toBe(1);
+  });
+
+  it("diagnóstico de outro arquivo não é deslocado — ele conta linhas do próprio `.sty`", () => {
+    const [traduzido] = toBodyRelative([erro(120, "amsmath.sty")], 13);
+
+    expect(traduzido?.line).toBeNull();
+  });
+
+  it("diagnóstico sem linha continua sem linha", () => {
+    const [traduzido] = toBodyRelative([erro(null, null)], 13);
+
+    expect(traduzido?.line).toBeNull();
   });
 });
 

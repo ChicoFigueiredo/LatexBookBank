@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Tabs } from "@/design-system";
 import {
@@ -18,9 +18,12 @@ import { OptionsPane } from "./options-pane";
 import { TagsPane } from "./tags-pane";
 import {
   LatexEditor,
+  type EditorMarker,
   type EditorSelection,
   type LatexEditorApi,
 } from "@modules/latex/ui/LatexEditor";
+import { locateBodyLine } from "@modules/rendering/domain/build-render-bundle";
+import type { DiagnosticTarget } from "@modules/rendering/ui/RenderPanel";
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
@@ -318,6 +321,66 @@ export function QuestionEditor({
     editor.current?.insertSnippet(withSelectionInFirstPlaceholder(command));
   }, []);
 
+  /**
+   * Os diagnósticos do campo aberto, como marcador do Monaco.
+   *
+   * `info` fica de fora: `Overfull \hbox` aparece às dezenas em documento saudável, e sublinhar
+   * tudo isso deixaria o editor rajado de amarelo até ninguém mais olhar — a mesma razão pela qual
+   * ele já não entra na lista do painel.
+   *
+   * E só o campo aberto: a linha 3 do Complemento não é a linha 3 do enunciado, e marcar por
+   * número sem olhar o campo é justamente o erro que o mapa do corpo existe para evitar.
+   */
+  const markers = useMemo<readonly EditorMarker[]>(() => {
+    if (renderStatus.kind !== "done") return [];
+
+    const { diagnostics, sourceMap } = renderStatus.outcome;
+    if (sourceMap === undefined) return [];
+
+    return diagnostics.flatMap((diagnostic) => {
+      if (diagnostic.line === null || diagnostic.severity === "info") return [];
+
+      const at = locateBodyLine(sourceMap, diagnostic.line);
+      if (at === null || at.field !== field) return [];
+
+      return [{ line: at.line, severity: diagnostic.severity, message: diagnostic.message }];
+    });
+  }, [renderStatus, field]);
+
+  /**
+   * A linha esperando o editor.
+   *
+   * Clicar num diagnóstico pode precisar **trocar de aba** antes de rolar, e nesse instante o
+   * editor do campo de destino ainda não existe. A linha fica guardada e é consumida assim que
+   * houver editor — pelo efeito, se ele já estava montado, ou pelo `onReady`, se acabou de nascer.
+   */
+  const pendingLine = useRef<number | null>(null);
+  const [revealTick, setRevealTick] = useState(0);
+
+  const flushReveal = useCallback(() => {
+    const line = pendingLine.current;
+    if (line === null) return;
+
+    pendingLine.current = null;
+    editor.current?.revealLine(line);
+  }, []);
+
+  useEffect(flushReveal, [flushReveal, revealTick, pane, field]);
+
+  const goToDiagnostic = useCallback((target: DiagnosticTarget) => {
+    // As alternativas não são um campo de texto: o destino é a aba, e o "número da linha" ali é o
+    // número da alternativa — levar um cursor para lá não significaria nada.
+    if (target.field === "options") {
+      setPane("options");
+      return;
+    }
+
+    setPane(target.field);
+    setField(target.field);
+    pendingLine.current = target.line;
+    setRevealTick((tick) => tick + 1);
+  }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div
@@ -418,8 +481,13 @@ export function QuestionEditor({
               onChange={handleChange}
               onSave={() => void save()}
               onRender={compile}
+              markers={markers}
               onReady={(api) => {
                 editor.current = api;
+                // O editor pode ter nascido **por causa** do clique no diagnóstico; sem esta
+                // chamada a primeira navegação depois de trocar de aba não rolaria para lugar
+                // nenhum, e só a segunda funcionaria.
+                flushReveal();
               }}
               readOnly={blocked}
               ariaLabel={`Editor LaTeX — ${QUESTION_FIELDS.find((f) => f.id === field)?.label}`}
@@ -493,7 +561,10 @@ export function QuestionEditor({
                 <RenderPanel
                   status={renderStatus}
                   onRender={compile}
+                  // Só até a primeira compilação: dali em diante a aba Fonte mostra o corpo que o
+                  // servidor realmente montou, com as alternativas dentro.
                   sourceLatex={draft.statementLatex}
+                  onGoToDiagnostic={goToDiagnostic}
                 />
               )}
             </div>

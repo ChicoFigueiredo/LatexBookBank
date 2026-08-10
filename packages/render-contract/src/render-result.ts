@@ -37,7 +37,14 @@ export interface RenderArtifactDescriptor {
 export interface RenderDiagnostic {
   readonly severity: "error" | "warning" | "info";
   readonly message: string;
-  /** Linha do `sourceLatex`, quando o LaTeX informa. */
+  /**
+   * Linha do `sourceLatex` — **do corpo**, contando de 1, e não do documento compilado.
+   *
+   * O `pdflatex` conta a partir do `\documentclass`, com o preâmbulo inteiro no meio; quem traduz
+   * é o worker, que é o único que sabe como montou o arquivo. É o que permite ao editor marcar a
+   * linha certa, e `null` significa que a linha não é do texto de quem escreveu — erro de
+   * preâmbulo, de pacote, ou mensagem que não informa lugar nenhum.
+   */
   readonly line: number | null;
   /** Arquivo que o LaTeX citou — normalmente o documento, às vezes um pacote. */
   readonly file: string | null;
