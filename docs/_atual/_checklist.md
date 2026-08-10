@@ -21,10 +21,15 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 831 ✅ · 5 ◐ · 15 ⛔ · 141 `[ ]` — e **103 dos 141 abertos estão em três blocos**:
-a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada no acervo que não está nesta
-máquina) e a conferência visual (20, que é do Chico). Fora deles sobram **38 itens de trabalho**.
-**Última atualização:** 2026-08-10 — a interface de render fechada (#161): copiar o LaTeX, tela
+**Progresso:** 833 ✅ · 5 ◐ · 15 ⛔ · 139 `[ ]` — e **111 dos 139 abertos estão em quatro blocos que
+não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
+no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
+(20, que é do Chico). **Fora deles sobram 28 itens.**
+**Última atualização:** 2026-08-10 — confronto com o [`_planejamento.md`](./_planejamento.md), fase
+a fase (ver §16). A revisão fechou duas linhas do critério de produto local que já tinham prova —
+IA local e ferramentas TeX — e marcou como **decisão**, não esquecimento, a virtualização da árvore
+e os migradores de formato do `.lbb`.
+**Antes, no mesmo dia:** a interface de render fechada (#161): copiar o LaTeX, tela
 cheia, diagnósticos sublinhados no Monaco e clicáveis. Fechar o quarto exigiu consertar a **linha**:
 o contrato prometia a linha do `sourceLatex` e entregava a do `main.tex`, com o preâmbulo na frente.
 Errava por um quando o formato pré-compilado funcionava e pelo preâmbulo inteiro quando não — e
@@ -192,6 +197,27 @@ esse é o pior lugar possível para uma mudança se esconder.
 
 **Fases fechadas: 10 de 19** — 0, 3, 4, 7, 8, 9, 10, 12, 15 e 16. *(Eram 2 no cabeçalho antigo, que
 estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 continua sendo do Chico.)*
+
+### Por épico *(rastreabilidade da §11 do planejamento)*
+
+| Épico | Fases | ✅ | ◐ | ⛔ | `[ ]` | Estado |
+|---|---|---:|---:|---:|---:|---|
+| **01** fundação e providers | 0 | 68 | — | — | 2 | os dois health checks do `setup`, que a Fase 6 destravou |
+| **02** shell e árvore | 1 · 2 | 86 | — | 1 | 6 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
+| **03** editor LaTeX | 3 · 4 | 47 | — | — | — | **fechado** |
+| **04** preview e render | 5 · 6 | 150 | — | 3 | 4 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
+| **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
+| **06** ingestão visual | 14 · 15 | 38 | 1 | — | 2 | falta a tela de inserção de figura e o reconhecimento de **texto** |
+| **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
+| **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
+| **09** avaliações | 16 | 22 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
+| **10** operação e busca | 10 · 12 · 17 | 49 | — | 4 | 9 | diagnóstico incompleto, guarda de autorização, e 2 presos ao acervo |
+| — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
+| — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
+| — seções cruzadas | §8–§15 | 173 | — | 1 | 31 | 12 são o checklist visual; 8 são o §33 "Legado" |
+
+*As seções cruzadas repetem, por tema, o que as fases já afirmam — elas não são trabalho novo, são
+a verificação de que o trabalho das fases fecha contra a spec.*
 
 ---
 
@@ -409,7 +435,11 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Estado selecionado destacado *(fundo + filete; `aria-selected` no `treeitem`)*
 - ✅ Breadcrumb refletindo o nó atual
 - ✅ Expandidos e selecionado persistidos *(expandidos pela `Tree`; seleção pelo workbench, que é quem depende dela — via `useStoredState`, sem quebrar hidratação)*
-- [ ] Virtualização *(o acervo tem 297 nós na maior publicação; medir antes de otimizar)*
+- [ ] Virtualização *(**divergência deliberada do planejamento**, que a pedia "antes de existir
+      volume". A maior publicação do acervo tem 297 nós, e o próprio plano classifica o risco
+      "árvore grande trava a UI" como **baixo**: otimizar antes de medir custaria complexidade de
+      rolagem, foco e teclado por um problema que talvez não exista. Fica aberto como decisão, não
+      como esquecimento)*
 
 **Indicadores de estado** *(spec §4.1 · #147)*
 - ✅ Conteúdo não salvo *(estado da **sessão**, não da linha: sobe do editor para a árvore, e some ao trocar de nó — por isso vence os outros na precedência)*
@@ -1144,7 +1174,8 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Export faz projeção **runtime → portable**
 - ✅ Import faz projeção **portable → runtime**
 - [ ] Migradores de formato previstos — só existe a v1; o migrador nasce com a v2, e escrevê-lo
-  antes seria adivinhar de onde ela vem
+  antes seria adivinhar de onde ela vem. *O planejamento pede migradores "**quando fizer sentido**";
+  com uma versão só, não faz — isto é escopo futuro, não dívida*
 - ✅ `formatVersion` declarado no `manifest.json`
 - ✅ Versão desconhecida é recusada com mensagem clara — **nunca adivinhada**
 
@@ -1351,10 +1382,19 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   `fetch` com URL literal externa
 - ✅ Nenhuma configuração de infraestrutura hard-coded — **verificado**: `localhost` só em
   configuração e no perfil que declara endereços sugeridos
-- [ ] Biblioteca local grande é utilizável
-- [ ] IA local funciona
-- [ ] Ferramentas TeX locais funcionam
-- [ ] Fontes gráficas complexas são preservadas e editáveis
+- [ ] Biblioteca local grande é utilizável *(depende do acervo importado — Fase 11. A busca foi
+      medida contra corpus sintético de 200 mil questões, 670× o acervo real, e responde em 0,2 ms;
+      o que falta é o acervo de verdade, não o desempenho)*
+- ✅ IA local funciona *(verificado contra o Ollama desta máquina em três fases: os 13 modelos
+  listados e uma resposta completa na 8, o ciclo do `FIX_LATEX` compilando-corrigindo-compilando na
+  9, e o `gemma3:12b` lendo matemática de um recorte na 15)*
+- ✅ Ferramentas TeX locais funcionam *(o TeX que o produto usa roda no contêiner desta máquina, sem
+  rede de saída: `tikz`, `pgfplots`, `siunitx`, `xlop` e `cancel` conferidos de olho dentro da
+  imagem. O TeX **do host** é fallback opcional e continua só detectado, nunca exibido — é a linha
+  aberta acima)*
+- [ ] Fontes gráficas complexas são preservadas e editáveis *(a classificação por tipo — gnuplot,
+      pgf, asymptote, geogebra, tpx, tex, table, svg, eps — está pronta e testada; preservar e
+      editar exige o import da Fase 11)*
 
 **E2E** *(spec §27 · #155 — Playwright, `bun run e2e`)*
 - ✅ Abrir publicação
@@ -1708,3 +1748,30 @@ Verificar em toda revisão de fase:
 - ✅ Asset fonte tratado como imutável *(a `storageKey` contém o hash: outro conteúdo é outra chave)*
 - ✅ Bounding box sempre normalizada
 - ✅ Abstração criada apenas onde há múltiplas implementações reais
+
+---
+
+## 16. Confronto com o `_planejamento.md` *(2026-08-10)*
+
+Revisão fase a fase do plano contra este checklist, procurando **o que o plano pede e o checklist
+não registra**. Foi o inverso da auditoria anterior, que procurava trabalho feito e não marcado.
+
+**Nada do plano está ausente daqui.** As 19 fases têm bloco correspondente, e os aceites de cada
+uma aparecem como item marcável. O que a revisão achou foram quatro **divergências**, que agora
+estão escritas onde alguém vai procurá-las:
+
+| O que o plano pede | O que existe | Por quê |
+|---|---|---|
+| `data.sqlite` dentro do `.lbb` (§7, e a tabela de riscos) | **`data.json`** | Um banco dentro do zip traria o motor junto, e o formato herdaria as versões dele. O que a §7 queria garantir — que o portable não seja o schema de runtime — o `PortableSchema` já garante. Registrado na Fase 13 |
+| Virtualização da árvore "antes de existir volume" (Fase 2) | **adiada** | A maior publicação tem 297 nós e o próprio plano classifica o risco como **baixo**. Otimizar antes de medir custaria rolagem, foco e teclado por um problema que talvez não exista |
+| Migradores de formato `v1 → v2` (Fase 13) | **não existem** | O plano diz "quando fizer sentido"; com uma versão só, não faz. É escopo futuro, não dívida |
+| `LatexBuilder` alimentado pelo `QuestionTypePlugin` (Fase 6) | **montagem literal** | É dívida de verdade, e a única das quatro. Virou a **#165**: `buildLatex` existe no plugin desde a Fase 7 e nunca teve chamador, então um tipo novo hoje ganha validação e preview próprios e um PDF igual ao da múltipla escolha |
+
+E duas linhas do critério de produto local (§48) foram fechadas na revisão, por já terem prova:
+**IA local funciona** (Ollama, verificado em três fases) e **ferramentas TeX locais funcionam** (o
+contêiner desta máquina, sem rede de saída). As outras duas do bloco continuam abertas e **presas
+ao acervo**, não a código — a nota de cada uma agora diz isso.
+
+> O `_planejamento.md` **não foi alterado**. Ele é o registro do que se decidiu antes de começar;
+> onde a execução divergiu, quem conta é este documento, com o motivo ao lado. Um plano reescrito
+> para casar com o resultado deixa de ser plano e vira relatório.
