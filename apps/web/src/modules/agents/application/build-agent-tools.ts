@@ -3,7 +3,6 @@ import { evaluateQuestion } from "@modules/questions/application/validate-questi
 
 import {
   optionalInteger,
-  requireId,
   requireText,
   truncateOutput,
   type AgentTool,
@@ -18,32 +17,45 @@ import type { AgentReadPort } from "./agent-read-port";
  *
  * A saída é **texto**, não JSON. Não é preguiça: JSON obriga o modelo a gastar atenção com
  * chaves e aspas, e modelos locais — que são o alvo primário (D21) — erram mais lendo estrutura
- * do que lendo prosa rotulada. O que precisa ser exato, como o id, vai rotulado em linha própria.
+ * do que lendo prosa rotulada.
  *
- * Ver spec §35 · issue #95.
+ * ## O id da questão **não** é parâmetro
+ *
+ * As seis tools de questão operam sobre a questão aberta na tela, e o id vem do servidor. A
+ * primeira versão aceitava `questionId` no input, e uma verificação contra o Ollama real mostrou
+ * o problema: o modelo inventava uuid — três ids diferentes numa só conversa — recebia "não
+ * encontrei" e concluía que a questão não tinha alternativas. A resposta soava plausível.
+ *
+ * Dizer o id no prompt de sistema não resolveu; o modelo continuou inventando. O que resolve é
+ * não perguntar: `get_current_question` quer dizer **a atual**, e id que o modelo não fornece é
+ * id que o modelo não pode errar. Descoberta de outras questões continua existindo, por
+ * `search_questions` — que é onde ela deve estar.
+ *
+ * Ver spec §35 · issue #95 · #97.
  */
 
-const NOT_FOUND = (what: string) =>
-  `Não encontrei ${what}. Confira o id — ele vem do contexto anexado, não de memória.`;
+const NO_FOCUS = "Nenhuma questão está aberta na tela. Peça ao usuário para abrir uma.";
 
-const ID_SCHEMA = {
-  type: "object",
-  properties: { questionId: { type: "string", description: "Id da questão." } },
-  required: ["questionId"],
-  additionalProperties: false,
-} as const;
+/** Sem parâmetro nenhum: a tool age sobre a questão em foco. */
+const NO_INPUT_SCHEMA = { type: "object", properties: {}, additionalProperties: false } as const;
 
-export function buildAgentTools(port: AgentReadPort): readonly AgentTool[] {
+export interface AgentToolScope {
+  /** A questão aberta, ou `null`. Vem do servidor, nunca do modelo. */
+  readonly questionId: string | null;
+}
+
+export function buildAgentTools(port: AgentReadPort, scope: AgentToolScope): readonly AgentTool[] {
+  const focused = scope.questionId;
   const tools: AgentTool[] = [
     {
       name: "get_current_question",
       description:
-        "Enunciado, resolução, complemento, tipo e situação de validação de uma questão.",
-      inputSchema: { ...ID_SCHEMA },
-      execute: async (input) => {
-        const id = requireId("get_current_question", input, "questionId");
-        const question = await port.getQuestion(id);
-        if (!question) return NOT_FOUND(`a questão \`${id}\``);
+        "Enunciado, resolução, complemento, tipo e situação de validação da questão aberta.",
+      inputSchema: { ...NO_INPUT_SCHEMA },
+      execute: async () => {
+        if (focused === null) return NO_FOCUS;
+        const question = await port.getQuestion(focused);
+        if (!question) return NO_FOCUS;
 
         return truncateOutput(
           [
@@ -68,11 +80,11 @@ export function buildAgentTools(port: AgentReadPort): readonly AgentTool[] {
 
     {
       name: "get_question_options",
-      description: "Alternativas de uma questão, na ordem, com a indicação de qual é correta.",
-      inputSchema: { ...ID_SCHEMA },
-      execute: async (input) => {
-        const id = requireId("get_question_options", input, "questionId");
-        const options = await port.getOptions(id);
+      description: "Alternativas da questão aberta, na ordem, com a indicação de qual é correta.",
+      inputSchema: { ...NO_INPUT_SCHEMA },
+      execute: async () => {
+        if (focused === null) return NO_FOCUS;
+        const options = await port.getOptions(focused);
         if (options.length === 0) return "Esta questão não tem alternativas.";
 
         return truncateOutput(
@@ -90,12 +102,12 @@ export function buildAgentTools(port: AgentReadPort): readonly AgentTool[] {
 
     {
       name: "get_question_metadata",
-      description: "De onde a questão veio: banca, ano, instituição, cargo, dificuldade.",
-      inputSchema: { ...ID_SCHEMA },
-      execute: async (input) => {
-        const id = requireId("get_question_metadata", input, "questionId");
-        const metadata = await port.getMetadata(id);
-        if (!metadata) return NOT_FOUND(`metadados para a questão \`${id}\``);
+      description: "De onde a questão aberta veio: banca, ano, instituição, cargo, dificuldade.",
+      inputSchema: { ...NO_INPUT_SCHEMA },
+      execute: async () => {
+        if (focused === null) return NO_FOCUS;
+        const metadata = await port.getMetadata(focused);
+        if (!metadata) return NO_FOCUS;
 
         return truncateOutput(
           [
@@ -114,11 +126,11 @@ export function buildAgentTools(port: AgentReadPort): readonly AgentTool[] {
     {
       name: "get_source_anchor",
       description:
-        "Onde a questão estava no material de origem: página, recorte e texto extraído, se houver.",
-      inputSchema: { ...ID_SCHEMA },
-      execute: async (input) => {
-        const id = requireId("get_source_anchor", input, "questionId");
-        const anchor = await port.getSourceAnchor(id);
+        "Onde a questão aberta estava no material de origem: página, recorte e texto extraído.",
+      inputSchema: { ...NO_INPUT_SCHEMA },
+      execute: async () => {
+        if (focused === null) return NO_FOCUS;
+        const anchor = await port.getSourceAnchor(focused);
         // Ausência é resposta legítima, não erro: metade do acervo foi digitada, não recortada.
         if (!anchor) return "Esta questão não tem âncora de origem — não veio de recorte.";
 
@@ -141,11 +153,11 @@ export function buildAgentTools(port: AgentReadPort): readonly AgentTool[] {
     {
       name: "get_render_diagnostics",
       description:
-        "Diagnósticos da última compilação LaTeX da questão: erros, avisos e onde ocorreram.",
-      inputSchema: { ...ID_SCHEMA },
-      execute: async (input) => {
-        const id = requireId("get_render_diagnostics", input, "questionId");
-        const render = await port.getLatestRender(id);
+        "Diagnósticos da última compilação LaTeX da questão aberta: erros, avisos e onde ocorreram.",
+      inputSchema: { ...NO_INPUT_SCHEMA },
+      execute: async () => {
+        if (focused === null) return NO_FOCUS;
+        const render = await port.getLatestRender(focused);
         if (!render) return "Esta questão nunca foi compilada.";
 
         const head = `Job ${render.jobId} · ${render.state} · ${render.success ? "sucesso" : "falha"} · ${render.durationMs} ms`;
@@ -204,14 +216,14 @@ export function buildAgentTools(port: AgentReadPort): readonly AgentTool[] {
     {
       name: "validate_question",
       description:
-        "Roda a validação da questão pelo plugin do tipo dela e lista erros e avisos encontrados.",
-      inputSchema: { ...ID_SCHEMA },
-      execute: async (input) => {
-        const id = requireId("validate_question", input, "questionId");
-        const question = await port.getQuestion(id);
-        if (!question) return NOT_FOUND(`a questão \`${id}\``);
+        "Roda a validação da questão aberta pelo plugin do tipo dela e lista erros e avisos.",
+      inputSchema: { ...NO_INPUT_SCHEMA },
+      execute: async () => {
+        if (focused === null) return NO_FOCUS;
+        const question = await port.getQuestion(focused);
+        if (!question) return NO_FOCUS;
 
-        const options = await port.getOptions(id);
+        const options = await port.getOptions(focused);
 
         // Avalia **sem persistir**: a tool é de leitura, e gravar `validationStatus` daqui seria
         // exatamente a escrita silenciosa que a lista fechada existe para impedir.

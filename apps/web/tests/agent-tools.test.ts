@@ -80,8 +80,10 @@ class FakePort implements AgentReadPort {
   };
 }
 
-const toolsOf = (port: AgentReadPort) => {
-  const map = new Map(buildAgentTools(port).map((tool) => [tool.name, tool]));
+const FOCUS = { questionId: "q-1" } as const;
+
+const toolsOf = (port: AgentReadPort, scope: { questionId: string | null } = FOCUS) => {
+  const map = new Map(buildAgentTools(port, scope).map((tool) => [tool.name, tool]));
   return (name: (typeof READ_ONLY_TOOL_NAMES)[number]) => {
     const tool = map.get(name);
     if (!tool) throw new Error(`tool ausente: ${name}`);
@@ -91,7 +93,7 @@ const toolsOf = (port: AgentReadPort) => {
 
 describe("a lista é fechada e vem do servidor", () => {
   it("expõe exatamente as sete tools declaradas", () => {
-    const names = buildAgentTools(new FakePort()).map((tool) => tool.name);
+    const names = buildAgentTools(new FakePort(), FOCUS).map((tool) => tool.name);
 
     expect(names).toEqual([...READ_ONLY_TOOL_NAMES]);
     expect(names).toHaveLength(7);
@@ -99,7 +101,7 @@ describe("a lista é fechada e vem do servidor", () => {
 
   it("toda tool declara schema de input fechado", () => {
     // `additionalProperties: false` impede o modelo de pendurar campos que ninguém valida.
-    for (const tool of buildAgentTools(new FakePort())) {
+    for (const tool of buildAgentTools(new FakePort(), FOCUS)) {
       expect(tool.inputSchema["additionalProperties"]).toBe(false);
       expect(tool.description.length).toBeGreaterThan(20);
     }
@@ -107,23 +109,32 @@ describe("a lista é fechada e vem do servidor", () => {
 });
 
 describe("inputs são validados antes de tocar a porta", () => {
-  it("recusa input que não é objeto", async () => {
-    const tool = toolsOf(new FakePort())("get_current_question");
-    await expect(tool.execute("q-1")).rejects.toThrow(ToolInputError);
+  it("o id da questão **não** é parâmetro de tool nenhuma", () => {
+    // Numa verificação contra o Ollama real, o modelo inventou três uuids diferentes numa só
+    // conversa, recebeu "não encontrei" e concluiu que a questão não tinha alternativas — com a
+    // resposta soando perfeitamente plausível. Id que o modelo não fornece é id que ele não erra.
+    for (const tool of buildAgentTools(new FakePort(), FOCUS)) {
+      if (tool.name === "search_questions") continue;
+      expect(tool.inputSchema["properties"]).toEqual({});
+    }
   });
 
-  it("recusa id ausente, vazio ou de outro tipo", async () => {
-    const tool = toolsOf(new FakePort())("get_current_question");
+  it("a tool age sobre a questão em foco, e o input é ignorado", async () => {
+    // Mesmo que o modelo invente um campo, ele não muda o alvo.
+    const port = new FakePort();
+    const output = await toolsOf(port)("get_current_question").execute({ questionId: "outra" });
 
+    expect(output).toContain("Id: q-1");
+  });
+
+  it("recusa input que não é objeto na tool que **tem** parâmetro", async () => {
+    const tool = toolsOf(new FakePort())("search_questions");
+    await expect(tool.execute("juros")).rejects.toThrow(ToolInputError);
+  });
+
+  it("recusa busca sem `query`", async () => {
+    const tool = toolsOf(new FakePort())("search_questions");
     await expect(tool.execute({})).rejects.toThrow(/obrigatório/);
-    await expect(tool.execute({ questionId: "   " })).rejects.toThrow(ToolInputError);
-    await expect(tool.execute({ questionId: 42 })).rejects.toThrow(ToolInputError);
-  });
-
-  it("recusa id absurdamente longo", async () => {
-    // Um id de 40 kB não é um id — é conteúdo empurrado por um campo que ninguém inspeciona.
-    const tool = toolsOf(new FakePort())("get_current_question");
-    await expect(tool.execute({ questionId: "x".repeat(5_000) })).rejects.toThrow(/longo demais/);
   });
 
   it("aceita número em texto, recusa fração e palavra", async () => {
@@ -162,13 +173,13 @@ describe("o que as tools respondem", () => {
     expect(output).toContain("b) ✓ correta");
   });
 
-  it("questão inexistente responde com instrução, não com erro cru", async () => {
-    // O modelo inventa ids. A resposta precisa dizer o que fazer em vez de estourar o turno.
-    const output = await toolsOf(new FakePort())("get_current_question").execute({
-      questionId: "q-inventada",
-    });
+  it("sem questão aberta, diz isso em vez de estourar", async () => {
+    // Acontece quando o usuário está num nó estrutural — capítulo, seção.
+    const output = await toolsOf(new FakePort(), { questionId: null })(
+      "get_current_question",
+    ).execute({});
 
-    expect(output).toMatch(/Não encontrei/);
+    expect(output).toMatch(/Nenhuma questão está aberta/);
   });
 
   it("ausência de âncora é resposta legítima, não falha", async () => {
@@ -319,7 +330,7 @@ describe("guarda: o agente não tem caminho de escrita", () => {
 
   it("nenhuma tool fora da lista fechada", async () => {
     // Uma tool nova precisa passar por `READ_ONLY_TOOL_NAMES`, que é revisado.
-    for (const tool of buildAgentTools(new FakePort())) {
+    for (const tool of buildAgentTools(new FakePort(), FOCUS)) {
       expect(READ_ONLY_TOOL_NAMES).toContain(tool.name);
     }
   });

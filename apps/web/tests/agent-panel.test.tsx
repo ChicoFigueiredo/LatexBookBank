@@ -157,6 +157,81 @@ describe("perguntar", () => {
     );
   });
 
+  it("mostra o que o agente leu, antes do que ele disse", () => {
+    // Sem a timeline, a resposta é uma afirmação sem procedência — e ler a procedência depois já
+    // é ter acreditado.
+    show({
+      turns: [
+        {
+          id: "2",
+          role: "assistant",
+          text: "A alternativa correta é a segunda.",
+          toolCalls: [
+            {
+              name: "get_current_question",
+              inputSummary: "questionId=q-1",
+              outputChars: 412,
+              durationMs: 7,
+              status: "ok",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(screen.getByLabelText("Ferramenta get_current_question, concluída")).toBeTruthy();
+    expect(screen.getByText("questionId=q-1")).toBeTruthy();
+    expect(screen.getByText(/412 car · 7 ms/)).toBeTruthy();
+  });
+
+  it("tool com erro é distinguível sem depender da cor", () => {
+    // Leitor de tela não enxerga a borda vermelha, e "chamou" e "falhou" são coisas diferentes.
+    show({
+      turns: [
+        {
+          id: "2",
+          role: "assistant",
+          text: "Preciso do id.",
+          toolCalls: [
+            {
+              name: "get_current_question",
+              inputSummary: "questionId=",
+              outputChars: 40,
+              durationMs: 1,
+              status: "error",
+              error: "`questionId` é obrigatório.",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(screen.getByLabelText("Ferramenta get_current_question, com erro")).toBeTruthy();
+    // Com erro, o card mostra o motivo em vez do input — é o que o usuário precisa ler.
+    expect(screen.getByText("`questionId` é obrigatório.")).toBeTruthy();
+  });
+
+  it("tokens aparecem quando o provider informa", () => {
+    show({
+      turns: [
+        {
+          id: "2",
+          role: "assistant",
+          text: "ok",
+          usage: { inputTokens: 412, outputTokens: 37 },
+        },
+      ],
+    });
+
+    expect(screen.getByText("412 entrada · 37 saída")).toBeTruthy();
+  });
+
+  it("sem uso informado, nada é exibido — nem zero", () => {
+    // Zero token seria uma afirmação falsa sobre o custo.
+    show({ turns: [{ id: "2", role: "assistant", text: "ok" }] });
+    expect(screen.queryByText(/entrada ·/)).toBeNull();
+  });
+
   it("mostra quem disse o quê", () => {
     show({
       turns: [

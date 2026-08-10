@@ -4,8 +4,10 @@ import { useState } from "react";
 
 import { Badge, Banner, Button, EmptyState, Icon, injectCss } from "@/design-system";
 import type { AgentContext } from "@modules/agents/domain/agent-context";
+import type { ToolCallRecord } from "@modules/agents/domain/agent-run";
 
 import { AIContextBar } from "./AIContextBar";
+import { ToolCallCard } from "./ToolCallCard";
 
 /**
  * O painel do agente — **somente leitura** nesta fase.
@@ -28,6 +30,8 @@ const CSS = `
 .lbb-agent-log{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
 .lbb-agent-turn{display:grid;gap:4px}
 .lbb-agent-who{font-family:var(--font-mono);font-size:var(--text-micro);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--text-secondary)}
+.lbb-agent-tools{display:grid;gap:4px;margin:2px 0}
+.lbb-agent-usage{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-muted)}
 .lbb-agent-said{font-size:var(--text-body-sm);color:var(--text-primary);white-space:pre-wrap;word-break:break-word}
 .lbb-agent-compose{display:grid;gap:6px;padding:10px;border-top:1px solid var(--border-subtle)}
 .lbb-agent-input{width:100%;min-height:64px;resize:vertical;padding:8px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-raised);color:var(--text-primary);font-family:var(--font-ui);font-size:var(--text-body-sm)}
@@ -40,6 +44,9 @@ export interface AgentTurn {
   readonly id: string;
   readonly role: "user" | "assistant";
   readonly text: string;
+  /** O que o agente leu para responder. Vazio quando ele respondeu sem consultar nada. */
+  readonly toolCalls?: readonly ToolCallRecord[];
+  readonly usage?: { readonly inputTokens: number | null; readonly outputTokens: number | null };
 }
 
 export interface AgentPanelProps {
@@ -118,7 +125,27 @@ export function AgentPanel({
           turns.map((turn) => (
             <div key={turn.id} className="lbb-agent-turn">
               <span className="lbb-agent-who">{turn.role === "user" ? "Você" : "Agente"}</span>
+
+              {/* A timeline vem **antes** do texto: é a procedência da resposta, e lê-la depois
+                  já é ter acreditado. */}
+              {turn.toolCalls && turn.toolCalls.length > 0 && (
+                <div className="lbb-agent-tools">
+                  {turn.toolCalls.map((call, index) => (
+                    <ToolCallCard key={`${call.name}-${index}`} call={call} />
+                  ))}
+                </div>
+              )}
+
               <span className="lbb-agent-said">{turn.text}</span>
+
+              {turn.usage &&
+                (turn.usage.inputTokens !== null || turn.usage.outputTokens !== null) && (
+                  // Custo à vista quando o provider informa. O Ollama não informa dinheiro, mas
+                  // informa tokens — e é o que permite perceber que o contexto está caro.
+                  <span className="lbb-agent-usage">
+                    {turn.usage.inputTokens ?? "?"} entrada · {turn.usage.outputTokens ?? "?"} saída
+                  </span>
+                )}
             </div>
           ))
         )}

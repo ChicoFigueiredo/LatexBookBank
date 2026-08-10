@@ -27,6 +27,15 @@ export interface AppEnv {
   readonly aiBaseUrl: string | null;
   readonly aiApiKey: string | null;
   readonly aiModel: string | null;
+  /**
+   * Liga o tool calling nativo quando o perfil não o assume.
+   *
+   * Existe por causa do Ollama: o perfil dele declara `false`, porque a maioria dos modelos
+   * abertos não faz tool calling — mas `qwen3-coder:30b` e `devstral` fazem. Sem esta chave, o
+   * perfil que protege o caso comum bloquearia o caso bom, e o modo ASK ficaria inútil na
+   * máquina que é o ambiente primário (D21).
+   */
+  readonly aiToolCalling: boolean;
 }
 
 class EnvError extends Error {
@@ -86,6 +95,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     aiBaseUrl,
     aiApiKey: get("AI_API_KEY"),
     aiModel: get("AI_MODEL"),
+    aiToolCalling: get("AI_TOOL_CALLING") === "true",
   };
 }
 

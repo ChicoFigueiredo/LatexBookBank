@@ -51,6 +51,7 @@ model Workspace {
   assets       Asset[]
   tags         Tag[]
   renderJobs   RenderJob[]
+  agentRuns    AgentRun[]
 
   @@map("workspaces")
 }
@@ -216,6 +217,7 @@ model Question {
   tags       QuestionTag[]
   assets     Asset[]
   renderJobs RenderJob[]
+  agentRuns  AgentRun[]
 
   @@index([type])
   @@index([difficulty])
@@ -512,4 +514,56 @@ model RenderJob {
   @@unique([workspaceId, contentHash])
   @@index([questionId, createdAt])
   @@map("render_jobs")
+}
+
+/// Um turno do agente, para auditoria.
+///
+/// Existe porque "o agente disse" precisa ser verificável depois. Sem registro, uma sugestão
+/// errada aplicada meses atrás é indistinguível de um erro de digitação — e o acervo é de vinte
+/// anos, então "depois" é longo.
+model AgentRun {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// A questão em foco quando o turno rodou, se havia uma.
+  questionId String?
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  /// `AgentMode`: ASK · REVIEW · FIX_LATEX · ENRICH · STRUCTURE. Só `ASK` existe na Fase 8.
+  mode String @default("ASK")
+
+  /// Qual provider e modelo responderam. É o que permite comparar "o Ollama erra mais nisto?"
+  providerId String
+  model      String
+
+  /// `AgentRunState`: RUNNING · DONE · FAILED · ABORTED.
+  ///
+  /// A linha é gravada **uma vez, no fim** do turno — daí o modelo não ter `updatedAt`: registro
+  /// de auditoria que se edita não é registro de auditoria. `RUNNING` existe no vocabulário para
+  /// o dia em que o turno for retomável, e até lá não chega a ser gravado.
+  state String
+  /// Mensagem de falha, quando houve. O erro do provider vem truncado.
+  error String?
+
+  /// **Resumo**, não transcrição. O prompt completo não vai para o log por padrão (spec §14):
+  /// ele carrega o contexto que o usuário anexou, e um log de auditoria não é lugar para
+  /// enunciado de prova inteiro. Quem quiser o texto tem a conversa na tela.
+  promptSummary String @default("")
+  answerSummary String @default("")
+
+  /// `AgentToolCallRecord[]` serializado — o conector SQLite não tem `Json`.
+  toolCallsJson String @default("[]")
+
+  inputTokens  Int?
+  outputTokens Int?
+  costUsd      Float?
+
+  durationMs Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([questionId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("agent_runs")
 }
