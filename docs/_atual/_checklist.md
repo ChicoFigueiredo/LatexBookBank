@@ -126,7 +126,7 @@ navega é proveniência que ninguém confere.
 **Painéis órfãos ligados** (#139): `MetadataPanel` e `OptionsEditor` existiam, tinham teste, e não
 eram renderizados em lugar nenhum — este checklist os dava por prontos. Agora estão montados, e os
 metadados ganharam o caminho de escrita que nunca tiveram. O mesmo diagnóstico vale para o filtro
-por tag e para a criação de tag, que continuam sem adaptador e sem tela (#140) — corrigidos aqui
+por tag e para a criação de tag, que continuam sem adaptador e sem tela (#141) — corrigidos aqui
 de ✅ para ◐.
 1128 testes (1078 no app + 50 no renderer) · 68 PRs abertos, nada mergeado.
 
@@ -778,13 +778,13 @@ falta o que produz o estado
 - ✅ Video URL, **só `http`/`https`** *(`javascript:` num campo que a tela vira link é XSS armazenado, e o campo aceita colagem de qualquer lugar)*
 - ✅ Ano com erro de digitação é **recusado**, não corrigido *(gravar `2024` a partir de `20244` seria adivinhação, e adivinhação em dado de origem é como um acervo perde a confiabilidade)*
 - ✅ Aba Metadados **montada e gravando** *(#139 — o painel existia desde #87 e não estava em tela nenhuma, nem havia caminho de escrita. Os metadados entram pelo **mesmo** `PATCH` e pela mesma versão do texto: um segundo caminho teria o próprio `updatedAt` a comparar, e as duas gravações se invalidariam a cada pausa da digitação. Verificado na rota real: `"  CESPE "` normalizado, ano `20244` recusado com 400, `javascript:` recusado, e autosave sem mudança devolvendo `written: false`)*
-- ◐ Criar e remover tag *(#85 — o caso de uso e a normalização estão de pé e testados, mas **não há adaptador Prisma, nem rota, nem tela**: `TagRepository` só tem implementação falsa, no teste. Issue #140)*
+- ◐ Criar e remover tag *(#85 — o caso de uso e a normalização estão de pé e testados, mas **não há adaptador Prisma, nem rota, nem tela**: `TagRepository` só tem implementação falsa, no teste. Issue #141)*
 - ✅ **Normalização: o mesmo assunto escrito de dois jeitos não vira duas tags** *("Função Quadrática", "função quadratica" e "  FUNÇÃO  QUADRÁTICA " são uma. A caixa da tela fica como a pessoa digitou; quem cuida da duplicata é a chave)*
 - ✅ Busca ignora acento, e o custo está assumido *(digitar sem acento é o erro mais comum em português; "sabia"/"sabiá" colidem, e vale para **tag**, não para conteúdo de questão)*
 - ✅ Autocomplete ordenado por **uso**, não por alfabeto *(as dez mais usadas cobrem a maioria dos casos; a ordem alfabética as esconderia atrás de qualquer coisa com "a")*
 - ✅ Prefixo vence conteúdo *(quem digita "fun" quer "Função", não "Interpretação de funções" — ainda que a segunda seja sete vezes mais usada)*
 - ✅ Colar uma lista aplica em sequência *(em paralelo, duas grafias da mesma tag criariam duas linhas)*
-- ◐ Filtro por tag *(#89 — o domínio está pronto e testado, e **não está montado em tela nenhuma**. O `filterTree` já aceitava predicado arbitrário desde a Fase 2, e foi essa decisão que fez o filtro caber em vinte linhas; falta o controle na barra da árvore — issue #140)*
+- ◐ Filtro por tag *(#89 — o domínio está pronto e testado, e **não está montado em tela nenhuma**. O `filterTree` já aceitava predicado arbitrário desde a Fase 2, e foi essa decisão que fez o filtro caber em vinte linhas; falta o controle na barra da árvore — issue #141)*
 - ✅ Selecionar duas tags filtra por **todas**, não por qualquer uma *(selecionar a segunda é o gesto de **estreitar**; com "ou" ela ampliaria o resultado, e a pessoa concluiria que o filtro quebrou)*
 - ✅ O filtro compara pela chave de tag *(filtrar por "funcao" encontra questão marcada com "Função")*
 - ✅ Contagem por tag vem do **conjunto visível**, não do acervo *(o número serve para decidir se vale clicar agora; um total global diria "300" numa publicação com três)*
