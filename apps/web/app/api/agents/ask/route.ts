@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 import { runAgentTurn } from "@modules/agents/application/run-agent-turn";
 import { buildAgentTools } from "@modules/agents/application/build-agent-tools";
 import {
+  buildProposeTools,
+  createPatchCollector,
+} from "@modules/agents/application/build-propose-tools";
+import { diffPatch } from "@modules/agents/domain/patch-diff";
+import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
+import {
   EMPTY_CONTEXT,
   type AgentContext,
   type ContextItem,
@@ -66,6 +72,7 @@ export async function POST(request: Request) {
     const prompt = parsePrompt(body["prompt"]);
     const context = parseContext(body["context"]);
     const questionId = parseOptionalId(body["questionId"]);
+    const mode = parseMode(body["mode"]);
 
     const provider = new OpenAiCompatibleProvider({
       baseUrl: env.aiBaseUrl,
@@ -75,12 +82,20 @@ export async function POST(request: Request) {
       ...(env.aiToolCalling ? { capabilities: { toolCalling: true } } : {}),
     });
 
+    // No modo `REVIEW` o agente ganha as tools de proposta — que **não** escrevem: elas guardam o
+    // patch numa bandeja para o humano revisar. A escrita continua sendo um gesto do usuário, por
+    // outra rota, com a lista de linhas aprovadas.
+    const collector = createPatchCollector();
+
     const outcome = await runAgentTurn({
       provider,
       model: env.aiModel,
       // O escopo vem do **servidor**: o modelo não fornece id de questão, e por isso não
       // consegue inventar um.
-      tools: buildAgentTools(new PrismaAgentReadPort(), { questionId }),
+      tools: [
+        ...buildAgentTools(new PrismaAgentReadPort(), { questionId }),
+        ...(mode === "REVIEW" ? buildProposeTools(collector) : []),
+      ],
       context,
       prompt,
       focusedQuestionId: questionId,
@@ -103,8 +118,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // O diff é calculado aqui: a tela mostra o que **mudaria**, não o que o agente escreveu. Um
+    // patch que reescreve o campo com o mesmo texto viraria uma linha de revisão sem conteúdo.
+    const state = questionId === null ? null : await readQuestionState(questionId);
+    const proposals =
+      state === null
+        ? []
+        : collector.patches.map((patch) => ({
+            patch,
+            summary: patch.summary,
+            warnings: patch.warnings,
+            changes: diffPatch(state, patch),
+          }));
+
     return NextResponse.json({
       answer: outcome.answer,
+      proposals,
       state: outcome.record.state,
       toolCalls: outcome.record.toolCalls,
       usage: {
@@ -124,6 +153,13 @@ export async function POST(request: Request) {
     }
     return toErrorResponse(error);
   }
+}
+
+/** `ASK` é o default: ganhar tools de escrita precisa ser pedido, não herdado. */
+function parseMode(value: unknown): "ASK" | "REVIEW" {
+  if (value === undefined || value === null || value === "ASK") return "ASK";
+  if (value === "REVIEW") return "REVIEW";
+  throw new BadRequestError("`mode` precisa ser `ASK` ou `REVIEW`.");
 }
 
 function parsePrompt(value: unknown): string {

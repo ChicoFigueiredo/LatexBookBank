@@ -5,8 +5,10 @@ import { useState } from "react";
 import { Badge, Banner, Button, EmptyState, Icon, injectCss } from "@/design-system";
 import type { AgentContext } from "@modules/agents/domain/agent-context";
 import type { ToolCallRecord } from "@modules/agents/domain/agent-run";
+import type { Change } from "@modules/agents/domain/patch-diff";
 
 import { AIContextBar } from "./AIContextBar";
+import { PatchReviewPanel } from "./PatchReviewPanel";
 import { ToolCallCard } from "./ToolCallCard";
 
 /**
@@ -61,6 +63,23 @@ export interface AgentPanelProps {
   readonly busy?: boolean;
   /** Recusa de anexo, falha de provider — o que o painel precisa dizer sem apagar a conversa. */
   readonly error?: string | null;
+  /**
+   * A proposta pendente, quando há uma.
+   *
+   * Uma de cada vez, de propósito: revisar duas propostas concorrentes sobre a mesma questão é
+   * revisar um diff contra um estado que a outra vai mudar.
+   */
+  readonly proposal?: {
+    readonly summary: string;
+    readonly warnings: readonly string[];
+    readonly changes: readonly Change[];
+  } | null;
+  readonly onApplyProposal?: (approvedChangeIds: readonly string[]) => void;
+  readonly onRejectProposal?: () => void;
+  readonly onRequestRevision?: (feedback: string) => void;
+  /** Modo `REVIEW`: o agente ganha as tools de proposta. */
+  readonly reviewMode?: boolean;
+  readonly onReviewModeChange?: (enabled: boolean) => void;
 }
 
 export function AgentPanel({
@@ -73,6 +92,12 @@ export function AgentPanel({
   onSend,
   busy = false,
   error = null,
+  proposal = null,
+  onApplyProposal,
+  onRejectProposal,
+  onRequestRevision,
+  reviewMode = false,
+  onReviewModeChange,
 }: AgentPanelProps) {
   injectCss("lbb-agent-css", CSS);
 
@@ -97,9 +122,25 @@ export function AgentPanel({
         <span className="lbb-agent-model" title={model ?? undefined}>
           {model ?? "configure AI_BASE_URL em .env.local"}
         </span>
-        <Badge tone="neutral" title="Nenhuma tool de escrita existe nesta fase">
-          somente leitura
-        </Badge>
+        {onReviewModeChange ? (
+          // O modo é do usuário, e o default é `ASK`: ganhar tools de proposta precisa ser
+          // pedido. Mesmo em `REVIEW` nada é escrito — o agente propõe, e a aplicação é outra
+          // rota, com aprovação por linha.
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-pressed={reviewMode}
+            disabled={!configured || busy}
+            onClick={() => onReviewModeChange(!reviewMode)}
+            title="Deixa o agente propor mudanças, que você revisa antes de aplicar"
+          >
+            {reviewMode ? "Modo revisão" : "Modo pergunta"}
+          </Button>
+        ) : (
+          <Badge tone="neutral" title="Nenhuma tool de escrita existe nesta fase">
+            somente leitura
+          </Badge>
+        )}
       </div>
 
       <AIContextBar context={context} onDetach={onDetach} {...(onClear ? { onClear } : {})} />
@@ -111,6 +152,20 @@ export function AgentPanel({
           <Banner tone="warn" title="Contexto">
             {error}
           </Banner>
+        </div>
+      )}
+
+      {proposal !== null && onApplyProposal && onRejectProposal && onRequestRevision && (
+        <div style={{ padding: "var(--space-3)", borderBottom: "1px solid var(--border-subtle)" }}>
+          <PatchReviewPanel
+            summary={proposal.summary}
+            warnings={proposal.warnings}
+            changes={proposal.changes}
+            onApply={onApplyProposal}
+            onReject={onRejectProposal}
+            onRequestRevision={onRequestRevision}
+            busy={busy}
+          />
         </div>
       )}
 

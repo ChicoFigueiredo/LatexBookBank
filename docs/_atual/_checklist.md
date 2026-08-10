@@ -64,7 +64,11 @@ O bloco de aplicação veio em seguida (#101): `Revision`, aplicação transacio
 anterior gravada antes, aplicação seletiva e reversão. Verificado contra o acervo real — aplicar
 uma linha entre duas propostas mexeu só nela, a revisão guardou o estado inteiro do antes, e
 reverter devolveu a questão exata, com o gabarito intacto.
-833 testes (783 no app + 50 no renderer) · 49 PRs abertos, nada mergeado.
+A tela de revisão fechou o fluxo (#103): diff por linha com Monaco no LaTeX, aprovação seletiva
+com **nada marcado por padrão**, aplicar/rejeitar/pedir revisão e o modo `REVIEW`. Verificado
+contra o Ollama real: o modelo leu a questão, propôs, a bandeja descartou a repetição — e o
+próprio modelo reconheceu que já tinha proposto — e o servidor devolveu o diff calculado.
+848 testes (798 no app + 50 no renderer) · 50 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -813,11 +817,11 @@ falta o que produz o estado
 - ✅ Resumo do que o agente entendeu *(obrigatório no schema)*
 - ✅ Campos afetados listados
 - ✅ Diff por campo *(reescrita idêntica **não** vira linha)*
-- [ ] Diff Monaco para LaTeX
-- [ ] Render antes
-- [ ] Render depois
-- [ ] Warnings
-- [ ] Custo e uso quando disponíveis
+- ✅ Diff Monaco para LaTeX *(texto curto vai lado a lado — banca em caixa de código é ruído)*
+- [ ] Render antes *(depende de `render_candidate_latex`)*
+- [ ] Render depois *(idem)*
+- ✅ Warnings do agente visíveis
+- ✅ Custo e uso quando disponíveis *(no `ToolCallCard` e no rodapé do turno)*
 
 **Candidate render**
 - [ ] `render_candidate_latex` isolado
@@ -828,14 +832,14 @@ falta o que produz o estado
 - ✅ Aplicar tudo
 - ✅ Aplicar seleção *(o plano é recalculado do estado corrente, não aceito da tela)*
 - ✅ Rejeitar *(não aplicar é o default: sem lista de aprovadas nada acontece)*
-- [ ] Pedir revisão, com feedback ao agente *(depende da tela de revisão)*
+- ✅ Pedir revisão, com feedback ao agente
 - ✅ Revisão anterior criada antes de aplicar — na **mesma** transação
 - ✅ Aplicação dentro de transação
 - ✅ Reverter após aplicação *(o snapshot vem do banco, nunca do corpo da requisição)*
 - ✅ **Nada é aplicado sem aprovação explícita** — lista vazia é erro, não "aplicar tudo"
 
 **Modos**
-- [ ] `REVIEW`
+- ✅ `REVIEW` *(default é `ASK`: ganhar tools de proposta precisa ser pedido)*
 - [ ] `FIX_LATEX` iterativo
 - [ ] Máximo de iterações configurável (default 3)
 - [ ] Timeout global

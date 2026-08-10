@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -32,6 +33,7 @@ import {
   selectionItem,
   type AgentContext,
 } from "@modules/agents/domain/agent-context";
+import type { Change } from "@modules/agents/domain/patch-diff";
 import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
@@ -149,6 +151,22 @@ export function PublicationWorkbench({
   const [agentError, setAgentError] = useState<string | null>(null);
   const [agentTurns, setAgentTurns] = useState<readonly AgentTurn[]>([]);
   const [agentBusy, setAgentBusy] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
+  const router = useRouter();
+
+  /**
+   * A proposta pendente — uma de cada vez.
+   *
+   * Revisar duas propostas concorrentes sobre a mesma questão é revisar um diff contra um estado
+   * que a outra vai mudar. Quando o agente propõe mais de uma coisa no mesmo turno, a primeira é
+   * a que vale, e as outras voltam se ele for perguntado de novo.
+   */
+  const [proposal, setProposal] = useState<{
+    summary: string;
+    warnings: readonly string[];
+    changes: readonly Change[];
+    patch: unknown;
+  } | null>(null);
 
   /** Anexa recusando com mensagem em vez de estourar o teto em silêncio. */
   const attachToAgent = useCallback((item: Parameters<typeof attach>[1]) => {
@@ -210,6 +228,7 @@ export function PublicationWorkbench({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             prompt,
+            mode: reviewMode ? "REVIEW" : "ASK",
             questionId: selected?.question?.id ?? null,
             context: agentContext.items,
           }),
@@ -221,6 +240,12 @@ export function PublicationWorkbench({
           toolCalls?: AgentTurn["toolCalls"];
           usage?: AgentTurn["usage"];
           error?: string | null;
+          proposals?: {
+            patch: unknown;
+            summary: string;
+            warnings: readonly string[];
+            changes: readonly Change[];
+          }[];
         };
 
         if (!response.ok) {
@@ -229,6 +254,11 @@ export function PublicationWorkbench({
           setAgentError(payload.message ?? "O agente não respondeu.");
           return;
         }
+
+        // Só propostas que de fato mudam alguma coisa: um patch que reescreve o campo com o
+        // mesmo texto viraria uma tela de revisão sem conteúdo.
+        const first = payload.proposals?.find((entry) => entry.changes.length > 0);
+        if (first) setProposal(first);
 
         setAgentTurns((turns) => [
           ...turns,
@@ -246,7 +276,55 @@ export function PublicationWorkbench({
         setAgentBusy(false);
       }
     },
-    [agentContext, agentTurns.length, selected],
+    [agentContext, agentTurns.length, reviewMode, selected],
+  );
+
+  /** Aplica só o que foi marcado. O servidor recalcula o diff e recusa se nada sobrou. */
+  const applyProposal = useCallback(
+    async (approvedChangeIds: readonly string[]) => {
+      const questionId = selected?.question?.id;
+      if (!questionId || !proposal) return;
+
+      setAgentBusy(true);
+      try {
+        const response = await fetch("/api/agents/patches/apply", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questionId, approvedChangeIds, patch: proposal.patch }),
+        });
+        const payload = (await response.json()) as {
+          message?: string;
+          revisionNumber?: number;
+          stale?: string[];
+        };
+
+        if (!response.ok) {
+          setAgentError(payload.message ?? "Não deu para aplicar.");
+          return;
+        }
+
+        setProposal(null);
+        setAgentTurns((turns) => [
+          ...turns,
+          {
+            id: `sys-${turns.length}`,
+            role: "assistant",
+            text:
+              `Aplicado. Revisão ${payload.revisionNumber} guarda o estado anterior.` +
+              (payload.stale?.length
+                ? ` ${payload.stale.length} mudança(s) já não existiam e foram ignoradas.`
+                : ""),
+          },
+        ]);
+        // A árvore e o editor leem do servidor; sem recarregar, a tela mostraria o estado velho.
+        router.refresh();
+      } catch {
+        setAgentError("Não deu para falar com o servidor.");
+      } finally {
+        setAgentBusy(false);
+      }
+    },
+    [proposal, router, selected],
   );
 
   const titleOf = useCallback(
@@ -511,6 +589,17 @@ export function PublicationWorkbench({
           error={agentError}
           turns={agentTurns}
           busy={agentBusy}
+          proposal={proposal}
+          reviewMode={reviewMode}
+          onReviewModeChange={setReviewMode}
+          onApplyProposal={(ids) => void applyProposal(ids)}
+          onRejectProposal={() => setProposal(null)}
+          onRequestRevision={(feedback) => {
+            // A proposta sai da tela e o feedback vira a próxima pergunta: revisar uma proposta
+            // que o agente já foi convidado a substituir é revisar o que vai ser descartado.
+            setProposal(null);
+            void askAgent(feedback);
+          }}
           {...(ai ? { onSend: (prompt: string) => void askAgent(prompt) } : {})}
         />
       }
