@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Tabs } from "@/design-system";
+import {
+  diffSnapshots,
+  type RevisionChange,
+  type RevisionSnapshot,
+} from "@modules/questions/domain/revision-diff";
+import { HistoryPanel, type RevisionRow } from "@modules/questions/ui/HistoryPanel";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
 import {
   LatexEditor,
@@ -33,6 +39,9 @@ export interface QuestionEditorOption {
   readonly isCorrect: boolean;
 }
 
+/** As três respostas para "como isto está?": aproximada, autoritativa e histórica. */
+type RightTab = "rapido" | "render" | "historico";
+
 export interface QuestionEditorProps {
   readonly publicationId: string;
   readonly questionId: string;
@@ -62,7 +71,68 @@ export function QuestionEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
-  const [rightTab, setRightTab] = useState<"rapido" | "render">("rapido");
+  const [rightTab, setRightTab] = useState<RightTab>("rapido");
+
+  /**
+   * O histórico é carregado **ao abrir a aba**, não junto com a questão.
+   *
+   * Uma questão editada cem vezes tem cem revisões, e trazê-las com o editor faria toda abertura
+   * pagar por uma tela que quase nunca se abre.
+   */
+  const [revisions, setRevisions] = useState<readonly RevisionRow[] | null>(null);
+  const [selectedRevision, setSelectedRevision] = useState<number | null>(null);
+  const [revisionChanges, setRevisionChanges] = useState<readonly RevisionChange[] | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    const response = await fetch(`/api/questions/${questionId}/revisions`);
+    const payload = (await response.json()) as { revisions?: RevisionRow[] };
+    setRevisions(payload.revisions ?? []);
+  }, [questionId]);
+
+  /** O diff é da revisão contra o **estado atual** — é o que decide se vale restaurar. */
+  const selectRevision = useCallback(
+    async (revisionNumber: number) => {
+      setSelectedRevision(revisionNumber);
+      setRevisionChanges(null);
+
+      const response = await fetch(
+        `/api/questions/${questionId}/revisions?revision=${revisionNumber}`,
+      );
+      const payload = (await response.json()) as {
+        snapshot?: RevisionSnapshot;
+        current?: RevisionSnapshot | null;
+      };
+      if (!payload.snapshot || !payload.current) return;
+
+      // Os dois lados vêm do servidor. Montar o "atual" a partir do editor mostraria alternativa,
+      // metadado e tag como inalterados sempre — bem os campos onde o agente mais mexe.
+      setRevisionChanges(
+        diffSnapshots(payload.snapshot, {
+          ...payload.current,
+          // Exceto os três campos de texto, que podem ter edição não salva na tela: usar o valor
+          // do banco aqui esconderia do usuário justamente o que ele acabou de digitar.
+          statementLatex: draft.statementLatex,
+          solutionLatex: draft.solutionLatex,
+          complementLatex: draft.complementLatex,
+        }),
+      );
+    },
+    [draft, questionId],
+  );
+
+  const restoreRevision = useCallback(
+    async (revisionNumber: number) => {
+      await fetch("/api/agents/patches/revert", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ questionId, revisionNumber }),
+      });
+      // Recarregar em vez de aplicar no estado local: restaurar mexe em alternativas, metadados e
+      // tags, que esta tela não guarda — e um estado meio atualizado é pior que um recarregado.
+      window.location.reload();
+    },
+    [questionId],
+  );
 
   // A versão vive em ref, não em state: ela muda a cada gravação e não desenha nada. Em state,
   // cada salvamento re-renderizaria o editor inteiro — e o Monaco perde a posição do cursor.
@@ -271,15 +341,29 @@ export function QuestionEditor({
                 tabs={[
                   { id: "rapido", label: "Preview rápido" },
                   { id: "render", label: "PDF compilado" },
+                  { id: "historico", label: "Histórico" },
                 ]}
                 value={rightTab}
-                onChange={(id) => setRightTab(id as "rapido" | "render")}
+                onChange={(id) => {
+                  const next = id as RightTab;
+                  setRightTab(next);
+                  if (next === "historico" && revisions === null) void loadHistory();
+                }}
                 aria-label="Modo de visualização"
               />
             </div>
 
             <div style={{ flex: 1, minHeight: 0 }}>
-              {rightTab === "rapido" ? (
+              {rightTab === "historico" ? (
+                <HistoryPanel
+                  revisions={revisions ?? []}
+                  changes={revisionChanges}
+                  selected={selectedRevision}
+                  onSelect={(number) => void selectRevision(number)}
+                  onRestore={(number) => void restoreRevision(number)}
+                  busy={blocked}
+                />
+              ) : rightTab === "rapido" ? (
                 <PreviewPane
                   source={{
                     statementLatex: draft.statementLatex,
