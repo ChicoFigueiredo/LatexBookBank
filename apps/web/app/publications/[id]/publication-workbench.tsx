@@ -468,7 +468,8 @@ export function PublicationWorkbench({
                 : ""),
           },
         ]);
-        // A árvore e o editor leem do servidor; sem recarregar, a tela mostraria o estado velho.
+        // A árvore **e** o editor: sem o refresh, a tela mostraria o estado velho. O editor
+        // volta pelo `key` (ver `NodeDetail`), que muda junto com a versão que o servidor mandou.
         router.refresh();
       } catch {
         setAgentError("Não deu para falar com o servidor.");
@@ -930,7 +931,17 @@ function NodeDetail({
               }}
             >
               <QuestionEditor
-                key={node.question.id}
+                /**
+                 * A `key` leva a **versão do servidor**, e é isso que faz o editor recarregar
+                 * quando um patch do agente muda a questão por baixo dele: o estado é semeado no
+                 * mount, então sem remontar o texto na tela continuaria o de antes — e quem
+                 * seguisse digitando estaria editando sobre uma base que já mudou.
+                 *
+                 * Não remonta ao digitar: o autosave grava, mas **não** refaz o render do
+                 * servidor, então este `version` só muda quando algo de fora mexeu na questão.
+                 * Fosse a cada gravação, o Monaco perderia o cursor no meio da frase.
+                 */
+                key={`${node.question.id}:${node.question.version}`}
                 publicationId={publicationId}
                 workspaceId={workspaceId}
                 onDirtyChange={onDirtyChange}
