@@ -136,6 +136,8 @@ compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c ·
 **Cancelamento de verdade** (#148): desistir do render passou a chegar ao worker — e apareceu que
 a imagem do renderer estava **inbuildável desde a Fase 13**, porque o `Dockerfile` não conhecia o
 serviço de backup. O contêiner que já rodava continuou rodando, e por isso o defeito não aparecia.
+Fechado com guarda dos dois lados (#151): um teste rápido que compara `Dockerfile` × workspaces, e
+um job de CI que **constrói a imagem** — porque nada a construía fora do terminal de quem mexia.
 **Indicadores na árvore, e o bug que eles revelaram** (#147): o registro de plugins de tipo de
 questão **não era importado por ninguém** em produção — só pelo próprio teste, que por isso
 sempre passou. Toda questão do acervo respondia "tipo não suportado", em silêncio, desde a Fase 7.
@@ -147,7 +149,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1167 testes (1114 no app + 53 no renderer) · 73 PRs abertos, nada mergeado.
+1170 testes (1114 no app + 56 no renderer) · 74 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -630,6 +632,8 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Render **em execução** é interrompido de verdade *(#148 — o `AbortSignal` chega ao `execFile`; conferido dentro do contêiner: um `sleep 30` morreu em 739 ms. Antes, cancelar marcava o estado e o `pdflatex` seguia até o fim para produzir algo já recusado)*
 - ✅ **Cancelado não ressuscita** *(#148 — `complete` sobrescrevia o estado, e o efeito era que cancelar um job em execução não fazia nada: a compilação terminava e o job voltava `done`. Quem cancelou receberia o resultado que acabou de recusar)*
 - ✅ A imagem do renderer volta a compilar *(#148 — quebrada desde #132, em silêncio: o `Dockerfile` não copiava o `package.json` do serviço de backup, e `bun install --frozen-lockfile` recusa quando enxerga menos workspaces que o lockfile. O contêiner que já rodava continuou rodando, então ninguém percebeu)*
+- ✅ **Guarda contra a mesma quebra** *(#151 — teste de milissegundos que confere que todo workspace do lockfile está no `Dockerfile`; conferido contra a regressão histórica, removendo a linha do backup)*
+- ✅ **O CI constrói a imagem** *(#151 — só quando muda `services/renderer/`, o contrato ou o lockfile: ela leva TeX Live inteiro, e construí-la em todo PR gastaria minutos para reprovar o que não mudou. O filtro foi conferido contra os commits reais das #147 e #148)*
 - ✅ Render intermediário é descartado *(auditado na #145: `createCoalescer` só entrega o resultado que não tem sucessor, e `use-render` o usa)*
 - ✅ Estado final converge para o último pedido, com teste *("**o estado final é o do último pedido**" e "três pedidos durante uma execução geram **uma** reexecução")*
 - ✅ Worker indisponível degrada com mensagem clara, sem perder edição *(503 vira `kind: "unavailable"`, separado de `error`: pintar de vermelho mandaria a pessoa procurar defeito no texto dela)*
