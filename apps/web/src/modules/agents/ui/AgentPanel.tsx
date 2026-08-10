@@ -8,7 +8,7 @@ import type { ToolCallRecord } from "@modules/agents/domain/agent-run";
 import type { Change } from "@modules/agents/domain/patch-diff";
 
 import { AIContextBar } from "./AIContextBar";
-import { PatchReviewPanel } from "./PatchReviewPanel";
+import { PatchReviewPanel, type PatchReviewPanelProps } from "./PatchReviewPanel";
 import { ToolCallCard } from "./ToolCallCard";
 
 /**
@@ -77,6 +77,7 @@ export interface AgentPanelProps {
   readonly onApplyProposal?: (approvedChangeIds: readonly string[]) => void;
   readonly onRejectProposal?: () => void;
   readonly onRequestRevision?: (feedback: string) => void;
+  readonly onPreviewChange?: PatchReviewPanelProps["onPreview"];
   /** Modo `REVIEW`: o agente ganha as tools de proposta. */
   readonly reviewMode?: boolean;
   readonly onReviewModeChange?: (enabled: boolean) => void;
@@ -96,6 +97,7 @@ export function AgentPanel({
   onApplyProposal,
   onRejectProposal,
   onRequestRevision,
+  onPreviewChange,
   reviewMode = false,
   onReviewModeChange,
 }: AgentPanelProps) {
@@ -165,6 +167,7 @@ export function AgentPanel({
             onReject={onRejectProposal}
             onRequestRevision={onRequestRevision}
             busy={busy}
+            {...(onPreviewChange ? { onPreview: onPreviewChange } : {})}
           />
         </div>
       )}

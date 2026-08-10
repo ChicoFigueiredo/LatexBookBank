@@ -68,7 +68,11 @@ A tela de revisão fechou o fluxo (#103): diff por linha com Monaco no LaTeX, ap
 com **nada marcado por padrão**, aplicar/rejeitar/pedir revisão e o modo `REVIEW`. Verificado
 contra o Ollama real: o modelo leu a questão, propôs, a bandeja descartou a repetição — e o
 próprio modelo reconheceu que já tinha proposto — e o servidor devolveu o diff calculado.
-848 testes (798 no app + 50 no renderer) · 50 PRs abertos, nada mergeado.
+`render_candidate_latex` fechou a apresentação (#105): compilar para conferir, nunca para
+guardar. Verificado contra o worker real — `Undefined control sequence` em `main.tex:2` chegou ao
+agente em 181 ms, e a prévia antes/depois compilou a questão de verdade em 348 ms, com
+`\SI{1000}{\real}` virando `1000 R$` e nada indo para o banco.
+860 testes (810 no app + 50 no renderer) · 51 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -818,15 +822,15 @@ falta o que produz o estado
 - ✅ Campos afetados listados
 - ✅ Diff por campo *(reescrita idêntica **não** vira linha)*
 - ✅ Diff Monaco para LaTeX *(texto curto vai lado a lado — banca em caixa de código é ruído)*
-- [ ] Render antes *(depende de `render_candidate_latex`)*
-- [ ] Render depois *(idem)*
+- ✅ Render antes *(compilado sob demanda, nada persistido)*
+- ✅ Render depois
 - ✅ Warnings do agente visíveis
 - ✅ Custo e uso quando disponíveis *(no `ToolCallCard` e no rodapé do turno)*
 
 **Candidate render**
-- [ ] `render_candidate_latex` isolado
-- [ ] Nenhuma escrita no banco
-- [ ] Diagnostics devolvidos ao agente
+- ✅ `render_candidate_latex` isolado *(executor direto, D35 — sem `RenderJob`, sem storage)*
+- ✅ Nenhuma escrita no banco *(teto de 3 compilações por turno)*
+- ✅ Diagnostics devolvidos ao agente
 
 **Aplicação**
 - ✅ Aplicar tudo
