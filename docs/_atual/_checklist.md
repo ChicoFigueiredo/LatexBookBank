@@ -90,7 +90,10 @@ buscar — era contar. O adaptador passou a pedir `limit + 1` linha e nenhuma co
 **Fase 13 iniciada** (#115): o formato `.lbb` com schema portável versionado, assets endereçados
 por `sha256` e round-trip provando identidade. UI, serviço de backup e progresso ficam para a
 próxima.
-970 testes (920 no app + 50 no renderer) · 56 PRs abertos, nada mergeado.
+Export, import e o serviço de backup vieram em seguida (#117). Round-trip verificado **contra o
+banco real**: exportar a biblioteca demo, importar num workspace novo e reexportar devolveu
+`data.json` idêntico — e o mesmo vale para um arquivo produzido pelo backup automático.
+970 testes (920 no app + 50 no renderer) · 57 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1028,37 +1031,41 @@ falta o que produz o estado
 - ✅ Independência de path garantida
 
 **Exportação**
-- [ ] Exporta um workspace inteiro
+- ✅ Exporta um workspace inteiro *(artefato de render **não** atravessa — é cache regenerável)*
 - ✅ Assets duplicados aparecem uma única vez no zip
 - ✅ Checksums calculados e gravados
 - [ ] Progresso visível para acervos grandes
-- [ ] UI de exportação
+- [ ] UI de exportação *(a rota existe e baixa o arquivo; falta o botão)*
 
 **Importação**
 - ✅ Verifica `formatVersion` — **antes** do checksum
 - ✅ Verifica checksums e recusa arquivo corrompido
-- [ ] Religa assets ao `StorageProvider` de destino
+- ✅ Religa assets ao `StorageProvider` de destino *(chaves novas — é o que o endereço por hash compra)*
 - ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão
 - ✅ **Nada é sobrescrito em silêncio**
-- [ ] Relatório de importação
-- [ ] UI de importação
+- ✅ Relatório de importação *(com `dryRun=1` para ver antes de gravar)*
+- [ ] UI de importação *(a rota existe; falta a tela)*
 
 **Backup recorrente** *(D32, corrigida por D36)*
-- [ ] **Backup não roda dentro do processo do renderer**
-- [ ] `services/backup` é processo/container próprio
-- [ ] **Backup reutiliza o mesmo `PortableArchiveWriter`** da exportação
-- [ ] Nenhum formato de restauração paralelo
-- [ ] Frequência configurável
-- [ ] Retenção configurável
-- [ ] Destino configurável
-- [ ] Falha de backup fica visível na página de diagnóstico, nunca em silêncio
-- [ ] Último backup bem-sucedido registrado com data e tamanho
+- ✅ **Backup não roda dentro do processo do renderer**
+- ✅ `services/backup` é processo próprio — e **sem `DATABASE_URL`**: ele pede o `.lbb` ao app por
+  HTTP. A primeira versão importava o exportador de `apps/web` e quebrou no `import "server-only"`,
+  que foi o guarda avisando que um segundo processo no mesmo banco seria um segundo escritor.
+- ✅ **Backup reutiliza o mesmo `PortableArchiveWriter`** — o arquivo é byte a byte o da exportação
+- ✅ Nenhum formato de restauração paralelo
+- ✅ Frequência configurável *(`BACKUP_INTERVAL_HOURS`)*
+- ✅ Retenção configurável *(`BACKUP_KEEP`, **por workspace**)*
+- ✅ Destino configurável *(`BACKUP_DESTINATION`)*
+- ✅ Falha de backup fica registrada em `backup-status.json`, nunca em silêncio
+- [ ] Página de diagnóstico lendo esse arquivo
+- ✅ Último backup registrado com data e tamanho
 
 **Aceite da fase**
 - ✅ **Round-trip exercitando as duas projeções** — a identidade verificada é entre os dois
   *portables*: se a ida e a volta não perderam nada, projetar o resultado outra vez dá o mesmo
   arquivo. Comparar os runtimes seria comparar ids que a projeção troca de propósito.
-- [ ] **Um arquivo produzido pelo backup automático passa pelo mesmo teste de round-trip**
+- ✅ **Um arquivo produzido pelo backup automático passa pelo mesmo teste de round-trip** —
+  verificado: importado e reexportado, o `data.json` voltou idêntico
 - ✅ Arquivo de versão futura é recusado com mensagem clara
 - ✅ Arquivo corrompido é recusado com mensagem clara *(dados **e** asset adulterado)*
 - ✅ Teste de round-trip incluído na suíte
