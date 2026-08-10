@@ -115,7 +115,9 @@ conferidas na imagem: aluno e professor com a mesma ordem e as mesmas letras, e 
 (`— · a · d`) igual aos `[X]` do professor.
 **Fase 17 com os guardas de verdade** (#131): as afirmações de endurecimento viraram testes que
 varrem o repositório — e foram conferidos contra uma violação deliberada, que os três pegaram.
-1073 testes (1023 no app + 50 no renderer) · 64 PRs abertos, nada mergeado.
+O visualizador de PDF com recorte veio em seguida (#133), com as regras de arrastar e
+redimensionar num **módulo puro** — regra dentro de `onMouseMove` é regra que ninguém testa.
+1090 testes (1040 no app + 50 no renderer) · 65 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1112,11 +1114,12 @@ falta o que produz o estado
 - ✅ Snippet `figure/includegraphics` gerado *(o `label` vem do nome — nunca fica vazio)*
 
 **PDF e crop**
-- [ ] Visualizador de PDF com páginas
-- [ ] Zoom
-- [ ] Navegação
-- [ ] Desenhar retângulo de crop
-- [ ] Ajustar o retângulo
+- ✅ Visualizador de PDF com páginas *(`pdfjs-dist`, `ssr: false`)*
+- ✅ Zoom
+- ✅ Navegação
+- ✅ Desenhar retângulo de crop *(em qualquer direção; o mouse fora da página não gera coordenada negativa)*
+- ✅ Ajustar o retângulo — oito alças, e puxar além do lado oposto **vira o retângulo do avesso**
+  em vez de travar
 - ✅ Salvar crop *(o recorte vem do cliente; o servidor guarda a caixa normalizada e o PNG)*
 - ✅ `SourceAnchor` com `pageNumber` e bbox **normalizada 0..1** *(D28)* — recorte fora da página é
   **recusado**, não aparado
