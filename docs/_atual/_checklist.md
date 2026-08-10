@@ -41,14 +41,19 @@ chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-co
 compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
 restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
 Fase 7) e a conferência visual.
-666 testes (616 no app + 50 no renderer) · 43 PRs abertos, nada mergeado.
+**Fase 8 iniciada** (#91): o `OpenAiCompatibleProvider` — **um** provider com `baseURL`
+configurável, não quatro adaptadores — com os quatro perfis e a matriz de capacidades. A chave
+vive só no servidor, e há teste percorrendo o grafo de imports de cada `"use client"` para provar
+que nenhum caminho chega até ela. Verificado contra o Ollama real da máquina: 13 modelos listados
+e uma resposta completa, com uso e razão de parada lidos corretamente.
+706 testes (656 no app + 50 no renderer) · 44 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
 | — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
 | B — banco de questões | **◐7** | Domínio completo; falta acabamento de tela |
-| C — agente | 8 · 9 · 10 | ☐ não iniciada |
+| C — agente | **◐8** · 9 · 10 | Provider de pé; falta painel e tools |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
 | E — ingestão visual | 14 · 15 | ☐ não iniciada |
 | F — diferencial de produto | 16 · 17 | ☐ não iniciada |
@@ -712,18 +717,19 @@ falta o que produz o estado
 ### Fase 8 — Provider e painel (somente leitura)
 
 **Provider**
-- [ ] Interface `AiProvider` com `listModels`, `run` e `stream` opcional
-- [ ] `OpenAiCompatibleProvider` com `baseURL` configurável
-- [ ] Perfil OpenRouter (padrão)
-- [ ] Perfil OpenAI
-- [ ] Perfil Ollama local
-- [ ] Perfil custom
-- [ ] Matriz de capacidades por perfil (tool calling nativo × fallback JSON)
+- ✅ Interface `AiProvider` com `listModels`, `run` e `stream` opcional
+- ✅ `OpenAiCompatibleProvider` com `baseURL` configurável *(**um** provider, não quatro)*
+- ✅ Perfil OpenRouter (padrão)
+- ✅ Perfil OpenAI
+- ✅ Perfil Ollama local
+- ✅ Perfil custom
+- ✅ Matriz de capacidades por perfil *(o Ollama **não** promete tool calling; a configuração corrige por modelo)*
 - [ ] Settings: provider, modelo, endpoint
 - [ ] Botão "testar conexão"
-- [ ] Chave existe apenas no servidor
-- [ ] Chave nunca chega ao browser, verificado
-- [ ] Testes de contrato com respostas gravadas
+- ✅ Chave existe apenas no servidor *(`import "server-only"` no provider)*
+- ✅ Chave nunca chega ao browser, verificado *(`tests/ai-key-boundary.test.ts` percorre o grafo de imports de cada `"use client"`)*
+- ✅ Testes de contrato com respostas gravadas *(22 casos, sem rede — e uma verificação real contra os 13 modelos do Ollama da máquina)*
+- ⛔ *Fallback JSON para perfil sem tool calling nativo* — o provider hoje **recusa** tools nesse caso, em vez de cair para JSON no prompt. Recusa é honesta; o fallback pertence ao runner do agente, que ainda não existe.
 
 **Painel**
 - [ ] Painel no `aside`, fechado por padrão
