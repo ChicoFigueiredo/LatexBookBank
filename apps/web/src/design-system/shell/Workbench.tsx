@@ -85,6 +85,8 @@ export interface WorkbenchProps {
   readonly actions?: ReactNode;
   readonly searchLabel?: string;
   readonly commands?: readonly Command[];
+  /** Repassado à paleta: permite buscar no acervo enquanto se digita (Fase 12). */
+  readonly onCommandQueryChange?: (query: string) => void;
 
   /** Sidebar contextual — reservada para a árvore do documento (D14). */
   readonly sidebar?: ReactNode;
@@ -132,6 +134,7 @@ export function Workbench({
   actions,
   searchLabel = "Buscar…",
   commands = [],
+  onCommandQueryChange,
   sidebar,
   sidebarTitle = "Árvore",
   editor,
@@ -393,6 +396,7 @@ export function Workbench({
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
           commands={commands}
+          {...(onCommandQueryChange ? { onQueryChange: onCommandQueryChange } : {})}
         />
       </div>
     </TooltipProvider>

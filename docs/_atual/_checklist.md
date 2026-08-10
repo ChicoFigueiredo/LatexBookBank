@@ -84,7 +84,10 @@ confere caractere a caractere um enunciado que já parece certo.
 máquina** — só o `LatexMetadata.db` da Fase 4. O domínio do importador foi construído a partir do
 levantamento §2.4/§6, que é detalhado e feito contra dados reais; o que **não** dá para fazer é
 rodar o import e conferir contra o acervo, e isso fica ⛔ até o acervo estar disponível.
-931 testes (881 no app + 50 no renderer) · 54 PRs abertos, nada mergeado.
+**Fase 12 fechada** (#113), e a medição mudou o desenho: com `LIMIT 50` o `LIKE` responde em
+0,2 ms mesmo em 200 mil linhas, mas o `COUNT(*)` que o acompanhava custava 85 ms. O caro nunca foi
+buscar — era contar. O adaptador passou a pedir `limit + 1` linha e nenhuma contagem.
+939 testes (889 no app + 50 no renderer) · 55 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -979,20 +982,22 @@ falta o que produz o estado
 
 ### Fase 12 — Busca
 
-- [ ] `QuestionSearchService` abstrato
-- [ ] Busca por título e apelido
-- [ ] Busca por enunciado
-- [ ] Filtro por tags
-- [ ] Filtro por banca
-- [ ] Filtro por instituição
-- [ ] Filtro por ano
-- [ ] Filtro por tipo
-- [ ] Filtro por dificuldade
-- [ ] Integração com `Ctrl+K`
-- [ ] Avaliação do FTS5 do SQLite
-- [ ] Benchmark executado sobre o acervo importado
-- [ ] Decisão documentada com números
-- [ ] `QuestionSearchService` permanece agnóstico — o full-text do PostgreSQL pode substituir sem tocar em use case
+- ✅ `QuestionSearchService` abstrato
+- ✅ Busca por título e apelido
+- ✅ Busca por enunciado
+- ✅ Filtro por tags *(`E` entre elas, não `OU`)*
+- ✅ Filtro por banca
+- ✅ Filtro por instituição
+- ✅ Filtro por ano
+- ✅ Filtro por tipo
+- ✅ Filtro por dificuldade
+- ✅ Integração com `Ctrl+K` *(busca no servidor a partir de três letras)*
+- ✅ Avaliação do FTS5 do SQLite
+- ⛔ Benchmark sobre o **acervo importado** — o acervo não está nesta máquina. Rodou sobre corpus
+  sintético de 20 mil e 200 mil questões (670× o acervo real), que é o que responde a pergunta
+  "qual motor"
+- ✅ Decisão documentada com números → `docs/_atual/search-benchmark.md`
+- ✅ `QuestionSearchService` permanece agnóstico — sem SQL cru, sem `MATCH`
 
 ---
 
