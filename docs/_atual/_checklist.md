@@ -113,7 +113,9 @@ idênticos. E a distribuição foi medida, não presumida — 2,57% de desvio m�
 Os modelos e os três templates vieram em seguida (#129), com as três versões **compiladas** e
 conferidas na imagem: aluno e professor com a mesma ordem e as mesmas letras, e o gabarito
 (`— · a · d`) igual aos `[X]` do professor.
-1061 testes (1011 no app + 50 no renderer) · 63 PRs abertos, nada mergeado.
+**Fase 17 com os guardas de verdade** (#131): as afirmações de endurecimento viraram testes que
+varrem o repositório — e foram conferidos contra uma violação deliberada, que os três pegaram.
+1073 testes (1023 no app + 50 no renderer) · 64 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1209,24 +1211,29 @@ falta o que produz o estado
 - [ ] Último erro
 
 **Logs**
-- [ ] Logs estruturados de render
-- [ ] Logs estruturados de import
-- [ ] Logs estruturados de agente
-- [ ] Logs estruturados de persistência
-- [ ] Prompts completos fora do log por padrão
+- ✅ Logs estruturados de render · import · agente · persistência *(uma linha JSON por evento,
+  com domínio de lista fechada)*
+- ✅ **Prompts completos fora do log por padrão** — campo proibido vira `[omitido]` e **não** some:
+  "o prompt estava vazio" é conclusão bem diferente de "o prompt não é gravado"
+- [ ] Instrumentar os pontos de chamada com o logger
 
 **Segurança e autorização**
-- [ ] `workspaceId` em todas as entidades relevantes
-- [ ] Guard central de autorização, mesmo em single-user
-- [ ] Secrets apenas em `.env.local`
+- ✅ `workspaceId` em todas as entidades relevantes — **verificado**: um guarda varre o schema e
+  exige que toda entidade alcance um workspace, direto ou por um pai declarado
+- [ ] Guard central de autorização *(single-user hoje; o isolamento existe, o guarda não)*
+- ✅ Secrets apenas em `.env.local` — **verificado**: um guarda varre o repositório atrás de chave,
+  token e senha em URL, e outro exige que o `.env.example` não tenha valor de verdade
 
 **Revisão arquitetural final**
-- [ ] Regras de boundary da §4.5 revisadas e verdes
+- ✅ Regras de boundary da §4.5 verdes *(e elas pegaram quatro problemas reais ao longo do
+  trabalho: três de tipo vazando por `server-only` e uma rota consultando o banco direto)*
 - [ ] Nenhuma abstração cerimonial acrescentada além dos quatro contratos
 
 **Critério de sucesso do produto local** *(auditoria §48)*
-- [ ] O app roda ponta a ponta com a internet desligada
-- [ ] Nenhuma configuração de infraestrutura hard-coded
+- ✅ O app não alcança host externo por conta própria — **verificado** com guarda que recusa
+  `fetch` com URL literal externa
+- ✅ Nenhuma configuração de infraestrutura hard-coded — **verificado**: `localhost` só em
+  configuração e no perfil que declara endereços sugeridos
 - [ ] Biblioteca local grande é utilizável
 - [ ] IA local funciona
 - [ ] Ferramentas TeX locais funcionam
