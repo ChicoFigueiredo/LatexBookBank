@@ -49,7 +49,10 @@ e uma resposta completa, com uso e razão de parada lidos corretamente.
 O painel do agente veio junto (#93): contexto montado por gesto, nunca por dedução — nada entra
 sem aparecer na barra, e o teste de fronteira da chave achou um vazamento real no caminho, um
 Client Component importando tipo de módulo `server-only`.
-734 testes (684 no app + 50 no renderer) · 45 PRs abertos, nada mergeado.
+As sete tools somente leitura vieram em seguida (#95), com o guarda que varre o módulo atrás de
+escrita, SQL cru e processo externo — e o lint de boundary recusou a implementação Prisma dentro
+de `modules/agents/`, que foi parar em `infrastructure/agent/` onde a composição fica visível.
+759 testes (709 no app + 50 no renderer) · 46 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -746,19 +749,19 @@ falta o que produz o estado
 - ✅ Provider e modelo visíveis
 
 **Tools somente leitura**
-- [ ] `get_current_question`
-- [ ] `get_question_options`
-- [ ] `get_question_metadata`
-- [ ] `get_source_anchor`
-- [ ] `get_render_diagnostics`
-- [ ] `search_questions`
-- [ ] `validate_question`
-- [ ] Tools definidas pelo servidor, nunca pelo modelo
-- [ ] Inputs de tool validados
-- [ ] Outputs de tool com limite de tamanho
-- [ ] Nenhuma tool de SQL arbitrário
-- [ ] Nenhuma tool de shell arbitrário
-- [ ] Nenhuma tool de escrita exposta
+- ✅ `get_current_question`
+- ✅ `get_question_options` *(letra projetada da posição, nunca lida do banco)*
+- ✅ `get_question_metadata`
+- ✅ `get_source_anchor`
+- ✅ `get_render_diagnostics`
+- ✅ `search_questions`
+- ✅ `validate_question` *(avalia **sem** persistir)*
+- ✅ Tools definidas pelo servidor, nunca pelo modelo
+- ✅ Inputs de tool validados *(schema fechado + validação antes de tocar a porta)*
+- ✅ Outputs de tool com limite de tamanho *(8k, truncando com marca)*
+- ✅ Nenhuma tool de SQL arbitrário — teste de guarda varre o módulo
+- ✅ Nenhuma tool de shell arbitrário — idem
+- ✅ Nenhuma tool de escrita exposta — a porta de leitura **não tem verbo de escrita**, e há teste
 
 **Execução e auditoria**
 - [ ] Modo `ASK`
