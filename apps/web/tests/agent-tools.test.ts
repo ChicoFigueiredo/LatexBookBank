@@ -307,7 +307,19 @@ describe("guarda: o agente não tem caminho de escrita", () => {
   };
 
   it("nenhuma escrita no banco", async () => {
-    const forbidden = /\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/;
+    // O receptor entra na expressão de propósito. A primeira versão procurava só o verbo e
+    // acusou `next.delete(id)` num `Set` de ids aprovados na tela de revisão — e um guarda que
+    // acusa o que não é acaba silenciado por quem esbarra nele, e aí para de guardar qualquer
+    // coisa. Aqui só conta escrita de banco: `prisma.x.create`, `client.x.update`, `tx.x.delete`.
+    const forbidden =
+      /\b(prisma|client|tx)\.\w+\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/;
+
+    // Controle positivo: um guarda cuja expressão deixou de casar com escrita nenhuma passa
+    // verde para sempre, e ninguém percebe. Este trecho é uma escrita de verdade.
+    expect(forbidden.test("await client.question.update({ where: { id } })")).toBe(true);
+    expect(forbidden.test("await prisma.questionOption.deleteMany({})")).toBe(true);
+    // E o que **não** é escrita de banco continua passando.
+    expect(forbidden.test("next.delete(id)")).toBe(false);
 
     for (const { file, code } of await sources()) {
       expect({ file, hit: forbidden.test(code) }).toEqual({ file, hit: false });
