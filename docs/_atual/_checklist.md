@@ -136,6 +136,11 @@ compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c ·
 **Cancelamento de verdade** (#148): desistir do render passou a chegar ao worker — e apareceu que
 a imagem do renderer estava **inbuildável desde a Fase 13**, porque o `Dockerfile` não conhecia o
 serviço de backup. O contêiner que já rodava continuou rodando, e por isso o defeito não aparecia.
+**Fase 6 auditada** (#159): o bloco de interface tinha a mesma exigência escrita **duas vezes** —
+uma com a palavra da spec, outra com a do código —, e metade estava aberta contra a outra metade
+fechada. E o item "tempo base medido" estava aberto **duas linhas abaixo** da medição que ele
+pedia. Restaram quatro buracos de verdade: copiar o LaTeX, tela cheia, decorar o Monaco e clicar
+no log.
 **A §27 fechada, menos o render** (#158): a metade agêntica também está coberta — propor, revisar
 linha a linha e aplicar, com o modelo dublê e a rota de aplicar de verdade. Achou o segundo bug do
 dia: depois de aplicar um patch, o editor continuava mostrando o texto de antes.
@@ -159,7 +164,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1179 testes (1123 no app + 56 no renderer) + 6 de E2E · 77 PRs abertos, nada mergeado.
+1179 testes (1123 no app + 56 no renderer) + 7 de E2E · 78 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -651,7 +656,18 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ `preview.png` nunca vira conteúdo canônico *(#153 — o classificador do legado o recusa, com controle positivo: `preview-da-questao.png` **entra**, senão um classificador que recusasse tudo passaria no teste)*
 - ✅ Todo artefato de render tem tipo **derivado** *(#153 — e os dois conjuntos não se sobrepõem, senão a afirmação seria vazia)*
 
-**Interface** *(#71)*
+**Interface** *(#71 · auditada na #159)*
+
+> A auditoria achou a mesma exigência escrita **duas vezes**: uma com a palavra da spec ("Aba
+> Source", "Erro apresentado como diagnóstico") e outra com a do código ("Aba Fonte", "Diagnóstico
+> com linha"). As primeiras estavam abertas, as segundas fechadas, e as duas descreviam o mesmo
+> comportamento. Ficaram as fechadas; o que sobrou aberto abaixo é o que de fato falta.
+
+- [ ] Copiar LaTeX final *(a aba Fonte mostra o corpo, mas não há como copiá-lo)*
+- [ ] Abrir em tela cheia
+- [ ] Diagnósticos decorados no Monaco *(a lista mostra `L12`; o editor não marca a linha)*
+- [ ] Clique no log navega para a linha *(os diagnósticos não são clicáveis)*
+- ✅ Baixar artefato *("Baixar o PDF (N KB)")*
 - ✅ Aba PDF *(`<object>` e não `<iframe>`: o fallback fica dentro do elemento e aparece sozinho onde o navegador não tem leitor)*
 - ✅ Aba PNG *(sobre `--surface-paper`, token novo: o PNG do `pdftocairo` é transparente onde não há tinta, e sem fundo a página sumiria no tema escuro)*
 - ✅ Aba Log
@@ -673,26 +689,23 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Falha do formato cai para a compilação normal *(otimização que quebra o produto quando não funciona é só uma segunda forma de falhar)*
 - ✅ ⚠️ **Bug do contêiner corrigido no caminho**: o tmpfs de `/home/renderer` montava root-owned e o usuário do worker **não escrevia no próprio HOME**. Não quebrava a compilação porque o `compile.ts` aponta `HOME` para o diretório do job — era um piso falso.
 - ⛔ **Três medições anteriores foram inválidas e descartadas** — *cronometraram compilações que falharam. A causa final foi o `echo` do `dash` interpretando `\b`, transformando `\begin{document}` em backspace + "egin". O critério passou a ser: medição só conta com o PDF conferido no mesmo script.*
-- [ ] Aba Source (`.tex` montado)
-- [ ] `Ctrl+Enter` dispara render
-- [ ] Copiar LaTeX final
-- [ ] Baixar artefato
-- [ ] Abrir em tela cheia
-- [ ] Progresso visível durante o render
-- [ ] Erro apresentado como diagnóstico, não como stack trace
-- [ ] Diagnósticos decorados no Monaco
-- [ ] Clique no log navega para a linha
-
 **Otimização** *(auditoria §21 — medir, não assumir)*
-- [ ] Tempo base medido e registrado
-- [ ] Preâmbulo pré-compilado (`mylatexformat`) embutido na imagem
-- [ ] Ganho registrado com número antes × depois
+- ✅ Tempo base medido e registrado *(#73 — 1886 ms; auditado na #159, que achou este item aberto
+  duas linhas abaixo da medição que ele pedia)*
+- ✅ Ganho registrado com número antes × depois *(1886 ms → 508 ms, mediana de 5)*
+- [ ] Preâmbulo pré-compilado **embutido na imagem** *(hoje é construído sob demanda e cacheado em
+  `/tmp`, que é diferente: a primeira compilação de cada contêiner paga os 2313 ms)*
 
 **Aceite da fase**
-- [ ] `docker compose up` sobe o worker e a app conversa com ele
-- [ ] Render autoritativo nunca trava a edição
-- [ ] Cache hit demonstrado com medição
-- [ ] **O worker roda sem nenhuma credencial e sem rede de saída**
+- ✅ `docker compose up` sobe o worker e a app conversa com ele *(exercitado a sessão inteira; a
+  imagem voltou a construir na #148 e o CI passou a construí-la na #151)*
+- ✅ Cache hit demonstrado com medição *(#159 — pela rota real: compilação 1159 ms, cache 46 ms.
+  E o log distingue os dois, que é o que permite responder "quanto disso é cache?")*
+- ✅ **O worker roda sem nenhuma credencial e sem rede de saída** *(#145 — conferido no contêiner:
+  `env` só tem `RENDERER_SECRET`, e a rede tem `Internal: true`)*
+- ✅ Render autoritativo nunca trava a edição *(#159 — afirmado no E2E: a rota de render fica
+  pendurada 8 s de propósito, e a pessoa digita, o autosave dispara e grava enquanto isso. Num
+  teste de unidade essa afirmação não cabe — lá não existe editor para travar)*
 
 ---
 

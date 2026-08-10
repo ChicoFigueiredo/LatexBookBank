@@ -156,6 +156,41 @@ test.describe("o caminho da questão", () => {
     await expect(pronto.or(indisponivel)).toBeVisible({ timeout: 45_000 });
   });
 
+  test("dá para continuar digitando enquanto o render roda", async ({ page }) => {
+    // É o aceite "render autoritativo nunca trava a edição". A compilação acontece na requisição,
+    // então o risco real é a tela ficar refém dela — e isso não aparece em teste de unidade,
+    // porque lá não existe um editor para travar.
+    const publicationId = await primeiraPublicacao(page);
+
+    await page.goto(`/publications/${publicationId}`);
+    await abrirPrimeiraQuestao(page);
+
+    // O render fica pendurado de propósito: se a edição depende dele, é agora que trava.
+    await page.route("**/questions/*/render", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 8_000));
+      await route.fulfill({ status: 503, json: { message: "worker fora do ar" } });
+    });
+
+    await page.getByRole("tab", { name: "PDF compilado" }).click();
+    await page
+      .getByRole("button", { name: /Compilar/i })
+      .first()
+      .click();
+
+    const editor = page.getByRole("group", { name: /Editor LaTeX/ });
+    await editor.locator(".monaco-editor .view-lines").click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" x");
+
+    // Digitou **enquanto** a compilação estava em curso.
+    await expect(page.getByText("não salvo", { exact: true })).toBeVisible({ timeout: 5_000 });
+
+    // E desfaz, para não deixar resíduo.
+    await page.keyboard.press("Backspace");
+    await page.keyboard.press("Backspace");
+    await expect(page.getByText("salvo", { exact: true })).toBeVisible({ timeout: 15_000 });
+  });
+
   test("o preview rápido aparece sem passar pelo servidor", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
