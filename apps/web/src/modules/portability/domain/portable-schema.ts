@@ -35,7 +35,7 @@ export interface PortableManifest {
     readonly options: number;
     readonly assets: number;
   };
-  /** `sha256` do `data.sqlite`, para detectar arquivo corrompido antes de abri-lo. */
+  /** `sha256` do `data.json`, para detectar arquivo corrompido antes de lê-lo. */
   readonly dataChecksum: string;
   /** Todos os `sha256` de asset presentes no zip. */
   readonly assetChecksums: readonly string[];
