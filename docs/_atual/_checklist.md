@@ -110,7 +110,10 @@ que sobe é a **caixa normalizada** mais o PNG; a fonte nunca é tocada.
 o confronto visual entre o recorte e o resultado é idêntico.
 **Fase 16 com o aceite provado** (#127): dois processos `bun` separados, mesma seed, 1695 bytes
 idênticos. E a distribuição foi medida, não presumida — 2,57% de desvio máximo em 60 mil provas.
-1047 testes (997 no app + 50 no renderer) · 62 PRs abertos, nada mergeado.
+Os modelos e os três templates vieram em seguida (#129), com as três versões **compiladas** e
+conferidas na imagem: aluno e professor com a mesma ordem e as mesmas letras, e o gabarito
+(`— · a · d`) igual aos `[X]` do professor.
+1061 testes (1011 no app + 50 no renderer) · 63 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1167,18 +1170,20 @@ falta o que produz o estado
 - ✅ Ordem das questões e seed no resultado *(a persistência entra com o modelo `Assessment`)*
 
 **Assessment**
-- [ ] `Assessment`
-- [ ] `AssessmentSection`
-- [ ] `AssessmentRule`
-- [ ] `AssessmentItem`
-- [ ] `AssessmentVariant`
-- [ ] `AssessmentVariantQuestion`
-- [ ] `AssessmentVariantOptionMap`
-- [ ] `DocumentTemplate` separando conteúdo de apresentação
-- [ ] Export versão aluno (sem resposta)
-- [ ] Export versão professor (com resposta)
-- [ ] Export gabarito
-- [ ] Mesma questão aparece em templates diferentes sem duplicação
+- ✅ `Assessment`
+- ✅ `AssessmentSection`
+- ⛔ `AssessmentRule` — regra de montagem automática ("sorteie 5 de álgebra"). Sem caso de uso
+  definido ainda, e um modelo vazio no schema é pior que um ausente.
+- ✅ `AssessmentItem` *(referência, **nunca cópia** — corrigir o enunciado corrige em todas)*
+- ✅ `AssessmentVariant` *(imutável: uma variante é uma **impressão**)*
+- ✅ `AssessmentVariantQuestion`
+- ✅ `AssessmentVariantOptionMap` — **é o gabarito**
+- ✅ `DocumentTemplate` separando conteúdo de apresentação
+- ✅ Export versão aluno (sem resposta)
+- ✅ Export versão professor (com resposta marcada **no lugar da alternativa**)
+- ✅ Export gabarito
+- ✅ Mesma questão em templates diferentes sem duplicação
+- [ ] Tela de montagem da avaliação
 
 **Aceite da fase**
 - ✅ **A mesma seed reproduz a mesma prova byte a byte, em processos diferentes** — verificado com

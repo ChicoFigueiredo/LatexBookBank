@@ -42,7 +42,16 @@ const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag"]);
 // `AgentRun` e `Revision` entram aqui pelo mesmo motivo dos outros dois: são registro do que
 // aconteceu. Um log de auditoria que se edita depois não serve para auditar coisa nenhuma — e uma
 // revisão editável não restaura o estado que existiu, restaura o que alguém disse que existiu.
-const IMMUTABLE_MODELS = new Set(["Asset", "SourceAnchor", "RenderJob", "AgentRun", "Revision"]);
+const IMMUTABLE_MODELS = new Set([
+  "Asset",
+  "SourceAnchor",
+  "RenderJob",
+  "AgentRun",
+  "Revision",
+  // Uma variante é uma **impressão**. Editá-la depois faria a prova no papel e a do banco
+  // discordarem — e a discordância só apareceria na correção.
+  "AssessmentVariant",
+]);
 
 /**
  * Sem mutação relevante a rastrear.
@@ -59,15 +68,29 @@ const NO_TIMESTAMPS = new Set([
   "LatexSymbolGroup",
   "LatexSymbol",
   "LatexIconMenu",
+  // Filhos estruturais: quem tem data é a avaliação, e "quando esta seção mudou" não é pergunta
+  // que alguém faz — a resposta útil é "quando a prova mudou".
+  "AssessmentSection",
+  "AssessmentItem",
+  // Partes de uma variante, que já é imutável e datada.
+  "AssessmentVariantQuestion",
+  "AssessmentVariantOptionMap",
 ]);
 
-describe("o schema tem os 18 modelos esperados", () => {
+describe("o schema tem os 25 modelos esperados", () => {
   it("nenhum foi perdido nem acrescentado sem passar por aqui", () => {
     expect(models.map((m) => m.name).sort()).toEqual([
       "AgentRun",
+      "Assessment",
+      "AssessmentItem",
+      "AssessmentSection",
+      "AssessmentVariant",
+      "AssessmentVariantOptionMap",
+      "AssessmentVariantQuestion",
       "Asset",
       "Author",
       "DocumentNode",
+      "DocumentTemplate",
       "LatexIconMenu",
       "LatexSnippet",
       "LatexSymbol",

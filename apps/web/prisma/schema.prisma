@@ -45,6 +45,8 @@ model Workspace {
   tags         Tag[]
   renderJobs   RenderJob[]
   agentRuns    AgentRun[]
+  assessments  Assessment[]
+  templates    DocumentTemplate[]
 
   @@map("workspaces")
 }
@@ -204,12 +206,13 @@ model Question {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  node       DocumentNode?
-  options    QuestionOption[]
-  tags       QuestionTag[]
-  assets     Asset[]
-  renderJobs RenderJob[]
-  agentRuns  AgentRun[]
+  node            DocumentNode?
+  options         QuestionOption[]
+  tags            QuestionTag[]
+  assets          Asset[]
+  renderJobs      RenderJob[]
+  agentRuns       AgentRun[]
+  assessmentItems AssessmentItem[]
 
   @@index([type])
   @@index([difficulty])
@@ -593,4 +596,151 @@ model Revision {
   @@unique([entityType, entityId, revisionNumber])
   @@index([entityType, entityId, createdAt])
   @@map("revisions")
+}
+
+/// Uma avaliação: o que se monta a partir do acervo.
+///
+/// A avaliação guarda **quais** questões e em que ordem lógica; a variante guarda a ordem
+/// sorteada de uma impressão específica. Fundir as duas faria "editar a prova" e "gerar outra
+/// versão" serem a mesma operação — e a segunda não pode mexer na primeira.
+model Assessment {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  title    String
+  subtitle String?
+  /// Instruções que saem no cabeçalho da prova.
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections AssessmentSection[]
+  variants AssessmentVariant[]
+
+  @@index([workspaceId])
+  @@map("assessments")
+}
+
+model AssessmentSection {
+  id           String     @id @default(uuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  title   String?
+  /// Fractional index, como na árvore — reordenar não reescreve a prova inteira.
+  sortKey String
+
+  items AssessmentItem[]
+
+  @@index([assessmentId, sortKey])
+  @@map("assessment_sections")
+}
+
+/// Uma questão dentro de uma seção.
+///
+/// Referência, **nunca cópia**: a mesma questão aparece em provas diferentes sem duplicação, e
+/// corrigir o enunciado corrige em todas. Congelar o texto na prova seria o caminho para um
+/// acervo com trinta versões da mesma questão, todas ligeiramente diferentes.
+model AssessmentItem {
+  id        String            @id @default(uuid())
+  sectionId String
+  section   AssessmentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  sortKey                 String
+  points                  Float?
+  /// Alternativas que não se movem no sorteio — "nenhuma das anteriores" fica no fim.
+  pinnedLastOptionIdsJson String @default("[]")
+
+  @@unique([sectionId, questionId])
+  @@index([sectionId, sortKey])
+  @@map("assessment_items")
+}
+
+/// Uma impressão sorteada da avaliação.
+///
+/// A `seed` reproduz a permutação, mas **não substitui** o mapa de letras: ela só vale enquanto a
+/// questão tiver exatamente as mesmas alternativas, e a prova já impressa não muda junto.
+model AssessmentVariant {
+  id           String     @id @default(uuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  /// "A", "B", "Turma 3"…
+  label String
+  seed  Int
+
+  shuffleQuestions Boolean @default(true)
+  shuffleOptions   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  questions AssessmentVariantQuestion[]
+
+  @@unique([assessmentId, label])
+  @@map("assessment_variants")
+}
+
+model AssessmentVariantQuestion {
+  id        String            @id @default(uuid())
+  variantId String
+  variant   AssessmentVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  questionId String
+  /// Posição na prova impressa, começando em 1.
+  position   Int
+
+  options AssessmentVariantOptionMap[]
+
+  @@unique([variantId, questionId])
+  @@index([variantId, position])
+  @@map("assessment_variant_questions")
+}
+
+/// `optionId` → letra impressa. **É o gabarito.**
+///
+/// Sem ele, corrigir a prova exigiria refazer o sorteio e torcer para que nada tenha mudado no
+/// acervo desde a impressão.
+model AssessmentVariantOptionMap {
+  id                String                    @id @default(uuid())
+  variantQuestionId String
+  variantQuestion   AssessmentVariantQuestion @relation(fields: [variantQuestionId], references: [id], onDelete: Cascade)
+
+  optionId       String
+  /// A letra como saiu impressa: `a`, `b`, `c`…
+  displayedLabel String
+  position       Int
+
+  @@unique([variantQuestionId, optionId])
+  @@map("assessment_variant_option_maps")
+}
+
+/// Apresentação, separada do conteúdo.
+///
+/// O template decide margem, fonte, cabeçalho e o que aparece; a variante decide qual questão em
+/// que ordem. É o que permite a mesma prova sair em três versões — aluno, professor e gabarito —
+/// **do mesmo sorteio**, sem que nenhuma delas embaralhe por conta própria.
+model DocumentTemplate {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name     String
+  /// `TemplateAudience`: STUDENT · TEACHER · ANSWER_KEY
+  audience String
+
+  /// Preâmbulo LaTeX próprio, quando o template quiser um.
+  preambleLatex String?
+  /// `TemplateOptions` serializado — o conector SQLite não tem `Json`.
+  optionsJson   String  @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, name])
+  @@map("document_templates")
 }
