@@ -133,7 +133,13 @@ de "Função Quadrática" continuaram sendo **uma linha**.
 inteira foi conferida com dado real e prova compilada — o mapa gravado no banco diz `c`, a rota
 responde `c`, e o `c)` impresso na prova do aluno é a alternativa correta. As três versões
 compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c · 3) —`.
-1147 testes (1097 no app + 50 no renderer) · 70 PRs abertos, nada mergeado.
+**Auditoria do checklist** (#145): dez itens estavam marcados `[ ]` e já estavam feitos — sete da
+Fase 6, todos conferidos contra o contêiner rodando. E a auditoria achou o que não procurava:
+quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O `grep` pula esses
+arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
+revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
+esse é o pior lugar possível para uma mudança se esconder.
+1148 testes (1098 no app + 50 no renderer) · 71 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -515,18 +521,19 @@ falta o que produz o estado
 - ✅ Validação no contrato, não dentro do worker *(a app valida antes de enviar e o worker ao receber, com o **mesmo** código — duas checagens escritas separadamente divergem justamente no caso esquisito)*
 - ✅ Nome de asset por **lista do que pode**, não do que não pode *(`../x`, `/etc/passwd`, `a/b` e as tentativas ainda não pensadas falham juntas)*
 - ✅ `\write18` recusado no contrato *(a defesa de verdade é rodar sem `-shell-escape`; esta é a segunda camada, porque a primeira é uma flag que alguém pode acrescentar "para testar")*
-- [ ] Renderer recebe **apenas** `RenderBundle` *(depende do worker existir)*
-- [ ] Renderer retorna **apenas** `RenderResult` *(idem)*
+- ✅ Renderer recebe **apenas** `RenderBundle` *(auditado na #145: a rota `POST /render` lê `bundle` e os assets **declarados nele** — mais nada do multipart chega ao compilador)*
+- ✅ Renderer retorna **apenas** `RenderResult` *(o status do job; não há outra forma de saída)*
 
 **Isolamento do renderer** *(D35 — o ajuste que resolve a contradição do egress)*
 - ✅ **O contrato não importa nada** *(#57 — zero dependências, com teste; é o que impede o worker de alcançar o domínio por caminho transitivo)*
 - ✅ O contrato não menciona `StorageProvider`, `storageKey`, Prisma, S3, Vercel Blob nem `Workspace` *(teste de fronteira sobre o código, ignorando comentários)*
 - ✅ `jobId` é a **única** identidade *(nada de `questionId` ou `publicationId` — se o worker soubesse o que compila, "não conhece o domínio" viraria frase em vez de propriedade)*
-- [ ] Renderer **não** acessa o banco *(depende do worker existir)*
-- [ ] Worker funciona **sem credencial de storage**
-- [ ] Worker funciona **sem credencial de banco**
-- [ ] Worker funciona **sem API key de IA**
-- [ ] **A aplicação é quem persiste os artefatos** via `StorageProvider`
+- ✅ Renderer **não** acessa o banco *(auditado na #145: zero ocorrências de Prisma, `DATABASE_URL`, storage ou IA em `services/renderer/src`, e a **única** dependência do `package.json` é `@latexbookbank/render-contract`)*
+- ✅ Worker funciona **sem credencial de storage** *(conferido no contêiner rodando: `env` só tem `RENDERER_SECRET`)*
+- ✅ Worker funciona **sem credencial de banco** *(idem)*
+- ✅ Worker funciona **sem API key de IA** *(idem)*
+- ✅ Worker **sem rede de saída** *(a rede `render-internal` tem `Internal: true` — o Docker garante, não é configuração que alguém precisa lembrar de manter)*
+- ✅ **A aplicação é quem persiste os artefatos** via `StorageProvider` *(`execute-render.ts` chama `deps.storage.put`; o worker devolve bytes e nada mais)*
 
 **Worker containerizado**
 - ✅ `services/renderer` criado
@@ -607,10 +614,10 @@ falta o que produz o estado
 - ✅ Download por `jobId` + nome, nunca por `storageKey` *(a chave é opaca e do servidor; devolvê-la amarraria o browser a como o storage organiza os arquivos)*
 - ✅ Artefato descartado responde 404 com a razão, não 500 *(derivado pode sumir — D29 — e isso é estado legítimo)*
 - ✅ A fronteira de lint cobrou de novo, e com razão *(nada em `app/**` fala com o banco; as duas leituras foram para o módulo)*
-- [ ] Render pendente é cancelado quando ainda não iniciou
-- [ ] Render intermediário é descartado
-- [ ] Estado final converge para o último pedido, com teste
-- [ ] Worker indisponível degrada com mensagem clara, sem perder edição
+- [ ] Render pendente é **cancelado no worker** quando ainda não iniciou *(o worker tem `cancel`; a aplicação nunca o chama — o coalescer resolve no cliente, o que basta para a tela mas deixa o job rodando à toa lá dentro)*
+- ✅ Render intermediário é descartado *(auditado na #145: `createCoalescer` só entrega o resultado que não tem sucessor, e `use-render` o usa)*
+- ✅ Estado final converge para o último pedido, com teste *("**o estado final é o do último pedido**" e "três pedidos durante uma execução geram **uma** reexecução")*
+- ✅ Worker indisponível degrada com mensagem clara, sem perder edição *(503 vira `kind: "unavailable"`, separado de `error`: pintar de vermelho mandaria a pessoa procurar defeito no texto dela)*
 - [ ] `RenderArtifact` pode ser descartado e reconstruído *(auditoria §41)*
 - [ ] `preview.png` nunca vira conteúdo canônico
 

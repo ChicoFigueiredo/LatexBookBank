@@ -268,3 +268,29 @@ describe("isolamento por workspace", () => {
     expect(provider).toContain("#assertWorkspaceId");
   });
 });
+
+describe("nenhum arquivo-fonte é binário", () => {
+  it("nenhum `.ts`/`.tsx` carrega byte NUL", async () => {
+    // Descoberto na auditoria #145: quatro arquivos usavam o **byte** NUL como separador de
+    // chave. Funciona, compila, e custa caro: `grep` pula o arquivo em silêncio — foi assim que
+    // uma varredura de módulos órfãos deu falso positivo — e o **git trata o arquivo como
+    // binário**, então qualquer alteração nele aparece na revisão como
+    // "1 file changed, 0 insertions(+), 0 deletions(-)".
+    //
+    // Num projeto que entrega em branch para revisão humana, um diff invisível é o pior lugar
+    // possível para esconder uma mudança. O escape `\u0000` tem o mesmo valor e mantém o
+    // arquivo legível por todo mundo — inclusive por este teste, que só o pega porque lê bytes.
+    const files = [
+      ...(await sourceFiles(path.join(root, "src"))),
+      ...(await sourceFiles(path.join(root, "app"))),
+      ...(await sourceFiles(path.join(root, "tests"))),
+      ...(await sourceFiles(path.join(root, "scripts"))),
+    ];
+
+    const binary = files
+      .filter((file) => readFileSync(file).includes(0))
+      .map((file) => relative(file));
+
+    expect(binary).toEqual([]);
+  });
+});
