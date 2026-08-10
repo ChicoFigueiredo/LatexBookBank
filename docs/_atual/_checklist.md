@@ -101,7 +101,10 @@ procurar em lugares opostos.
 foi feita com `pdftocairo` sobre um PDF real — a mesma bbox recortou o mesmo conteúdo em três
 DPIs, que é exatamente o que a D28 promete. O visualizador de PDF com desenho de retângulo fica
 para a próxima: é UI pesada e a conferência é visual.
-1001 testes (951 no app + 50 no renderer) · 59 PRs abertos, nada mergeado.
+Upload e recorte vieram em seguida (#123). O recorte é feito no cliente — o visualizador já
+rasteriza a página para mostrá-la, e recortar o que está na tela custa uma chamada de canvas. O
+que sobe é a **caixa normalizada** mais o PNG; a fonte nunca é tocada.
+1016 testes (966 no app + 50 no renderer) · 60 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1085,14 +1088,15 @@ falta o que produz o estado
 ### Fase 14 — Assets, PDF e crop
 
 **Ingestão**
-- [ ] Upload por file picker
-- [ ] Drag-and-drop
-- [ ] `Ctrl+V` de imagem
-- [ ] sha256 do conteúdo
+- [ ] Upload por file picker *(a rota aceita os três gestos; falta a tela)*
+- [ ] Drag-and-drop *(idem)*
+- [ ] `Ctrl+V` de imagem *(idem)*
+- ✅ sha256 do conteúdo — **é a identidade** (D29)
 - ✅ MIME e extensão validados — **e a discordância entre os dois é recusada**
 - ✅ Limite de upload
-- [ ] Metadata (tamanho, dimensões, filename original)
-- [ ] Nenhuma chave de storage escapa do prefixo do workspace, com teste
+- ✅ Metadata (tamanho, dimensões, filename original) *(dimensões lidas do cabeçalho, sem decodificar)*
+- ✅ **Nenhuma chave de storage escapa do prefixo do workspace**, com teste — e a recusa devolve
+  400 com o motivo, não 500 opaco
 - [ ] Inserção assistida de figura *(o snippet existe; falta a tela que o monta)*
 - ✅ Snippet `figure/includegraphics` gerado *(o `label` vem do nome — nunca fica vazio)*
 
@@ -1102,17 +1106,17 @@ falta o que produz o estado
 - [ ] Navegação
 - [ ] Desenhar retângulo de crop
 - [ ] Ajustar o retângulo
-- [ ] Salvar crop
+- ✅ Salvar crop *(o recorte vem do cliente; o servidor guarda a caixa normalizada e o PNG)*
 - ✅ `SourceAnchor` com `pageNumber` e bbox **normalizada 0..1** *(D28)* — recorte fora da página é
   **recusado**, não aparado
 - ✅ Nenhuma coordenada absoluta persistida
 - ✅ **Crop reconstruível a partir de PDF + página + bbox** — verificado com `pdftocairo` de
   verdade: a mesma caixa normalizada recortou o mesmo conteúdo em 72, 150 e 300 DPI
 - ✅ `rotation` suportado quando aplicável
-- [ ] `Asset(CROP)` criado
-- [ ] Imagem original preservada
-- [ ] `SOURCE_PDF` nunca substituído por OCR, PNG, crop ou texto extraído *(D29)*
-- [ ] Asset fonte é imutável: arquivo alterado gera novo Asset
+- ✅ `Asset(CROP)` criado
+- ✅ Imagem original preservada
+- ✅ `SOURCE_PDF` nunca substituído *(D29)* — não existe caminho de escrita sobre a fonte
+- ✅ Asset fonte é imutável: a `storageKey` **contém o hash**, então mudar o conteúdo muda a chave
 - ✅ Cadeia de proveniência descrita: fonte → página → recorte *(a navegação depende da tela)*
 - [ ] Opções após o crop: inserir como imagem, reconhecer matemática, reconhecer texto, anexar como referência
 
