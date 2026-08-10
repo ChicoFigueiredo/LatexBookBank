@@ -279,6 +279,46 @@ export function PublicationWorkbench({
     [agentContext, agentTurns.length, reviewMode, selected],
   );
 
+  /**
+   * Compila o antes e o depois de uma linha de LaTeX, para a revisão.
+   *
+   * Duas compilações em paralelo: o worker aguenta, e serializá-las dobraria a espera de quem só
+   * quer ver se a mudança quebrou a questão.
+   */
+  const previewChange = useCallback(
+    async (change: { id: string; before: string; after: string }) => {
+      const questionId = selected?.question?.id;
+      const field = change.id.startsWith("field:") ? change.id.slice("field:".length) : null;
+      if (!questionId || field === null) throw new Error("Esta linha não é um campo de texto.");
+
+      const compile = async (value: string) => {
+        const response = await fetch("/api/agents/candidate-render", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questionId, field, value }),
+        });
+        const payload = (await response.json()) as {
+          png?: string | null;
+          success?: boolean;
+          diagnostics?: { severity: string; message: string }[];
+          message?: string;
+        };
+
+        return {
+          png: payload.png ?? null,
+          success: payload.success ?? false,
+          diagnostics: payload.diagnostics ?? [
+            { severity: "error", message: payload.message ?? "" },
+          ],
+        };
+      };
+
+      const [before, after] = await Promise.all([compile(change.before), compile(change.after)]);
+      return { before, after };
+    },
+    [selected],
+  );
+
   /** Aplica só o que foi marcado. O servidor recalcula o diff e recusa se nada sobrou. */
   const applyProposal = useCallback(
     async (approvedChangeIds: readonly string[]) => {
@@ -594,6 +634,11 @@ export function PublicationWorkbench({
           onReviewModeChange={setReviewMode}
           onApplyProposal={(ids) => void applyProposal(ids)}
           onRejectProposal={() => setProposal(null)}
+          {...(ai && selected?.question
+            ? {
+                onPreviewChange: previewChange,
+              }
+            : {})}
           onRequestRevision={(feedback) => {
             // A proposta sai da tela e o feedback vira a próxima pergunta: revisar uma proposta
             // que o agente já foi convidado a substituir é revisar o que vai ser descartado.

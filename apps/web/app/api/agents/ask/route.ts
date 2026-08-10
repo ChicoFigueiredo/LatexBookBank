@@ -6,7 +6,11 @@ import {
   buildProposeTools,
   createPatchCollector,
 } from "@modules/agents/application/build-propose-tools";
+import { buildCandidateRenderTool } from "@modules/agents/application/render-candidate";
 import { diffPatch } from "@modules/agents/domain/patch-diff";
+import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
+import { loadQuestionForRender } from "@modules/rendering/infrastructure/prisma-question-render-source";
+import { RenderWorkerExecutor } from "@modules/rendering/infrastructure/render-worker-executor";
 import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
 import {
   EMPTY_CONTEXT,
@@ -17,7 +21,7 @@ import { OpenAiCompatibleProvider } from "@modules/agents/infrastructure/openai-
 import { PrismaAgentReadPort } from "@infrastructure/agent/prisma-agent-read-port";
 import { recordAgentRun, workspaceOfQuestion } from "@infrastructure/agent/prisma-agent-run-writer";
 import { env as appEnv } from "@/shared/config/env";
-import { AiCredentialMissingError } from "@/shared/ports";
+import { AiCredentialMissingError, type RenderExecutor } from "@/shared/ports";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../tree-http";
 
@@ -86,6 +90,7 @@ export async function POST(request: Request) {
     // patch numa bandeja para o humano revisar. A escrita continua sendo um gesto do usuário, por
     // outra rota, com a lista de linhas aprovadas.
     const collector = createPatchCollector();
+    const executor = candidateExecutor(env);
 
     const outcome = await runAgentTurn({
       provider,
@@ -95,6 +100,18 @@ export async function POST(request: Request) {
       tools: [
         ...buildAgentTools(new PrismaAgentReadPort(), { questionId }),
         ...(mode === "REVIEW" ? buildProposeTools(collector) : []),
+        // Compilar candidato só faz sentido quando ele pode propor, e só existe com worker
+        // configurado — sem ele, oferecer a tool seria prometer o que não se cumpre.
+        ...(mode === "REVIEW" && questionId !== null && executor !== null
+          ? [
+              buildCandidateRenderTool({
+                executor,
+                profile: QUESTION_PREVIEW_PROFILE,
+                loadQuestion: async () =>
+                  (await loadQuestionForRender(questionId))?.question ?? null,
+              }),
+            ]
+          : []),
       ],
       context,
       prompt,
@@ -153,6 +170,21 @@ export async function POST(request: Request) {
     }
     return toErrorResponse(error);
   }
+}
+
+/**
+ * O executor de render, ou `null` quando o worker não está configurado.
+ *
+ * O app funciona sem ele — a Fase 6 já trata "não configurado" como estado legítimo, e o agente
+ * simplesmente não ganha a tool de compilar.
+ */
+function candidateExecutor(env: ReturnType<typeof appEnv>): RenderExecutor | null {
+  if (env.rendererBaseUrl === null || env.rendererSecret === null) return null;
+
+  return new RenderWorkerExecutor({
+    baseUrl: env.rendererBaseUrl,
+    secret: env.rendererSecret,
+  });
 }
 
 /** `ASK` é o default: ganhar tools de escrita precisa ser pedido, não herdado. */

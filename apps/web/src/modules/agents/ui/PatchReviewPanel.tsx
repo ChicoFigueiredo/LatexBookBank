@@ -33,9 +33,16 @@ const CSS = `
 .lbb-review-side{padding:8px 10px;background:var(--surface);font-size:var(--text-body-sm);word-break:break-word}
 .lbb-review-side-label{display:block;font-family:var(--font-mono);font-size:var(--text-micro);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--text-muted);margin-bottom:2px}
 .lbb-review-side[data-side="after"]{background:var(--ok-surface);color:var(--ok-text)}
+.lbb-review-preview{padding:6px 10px;border-bottom:1px solid var(--border-subtle)}
 .lbb-review-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:var(--space-2);border-top:1px solid var(--border-subtle)}
 .lbb-review-count{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-secondary);margin-right:auto}
 `;
+
+export interface CandidatePreview {
+  readonly png: string | null;
+  readonly success: boolean;
+  readonly diagnostics: readonly { readonly severity: string; readonly message: string }[];
+}
 
 export interface PatchReviewPanelProps {
   readonly summary: string;
@@ -47,6 +54,16 @@ export interface PatchReviewPanelProps {
   readonly onRequestRevision: (feedback: string) => void;
   readonly busy?: boolean;
   readonly theme?: "light" | "dark";
+  /**
+   * Compila o antes e o depois de uma linha de LaTeX.
+   *
+   * Ausente quando o worker não está configurado — o app funciona sem render, e um botão que não
+   * faz nada é pior que botão nenhum.
+   */
+  readonly onPreview?: (change: Change) => Promise<{
+    before: CandidatePreview;
+    after: CandidatePreview;
+  }>;
 }
 
 export function PatchReviewPanel({
@@ -58,6 +75,7 @@ export function PatchReviewPanel({
   onRequestRevision,
   busy = false,
   theme = "light",
+  onPreview,
 }: PatchReviewPanelProps) {
   injectCss("lbb-review-css", CSS);
 
@@ -65,6 +83,9 @@ export function PatchReviewPanel({
   const [approved, setApproved] = useState<ReadonlySet<string>>(new Set());
   const [feedback, setFeedback] = useState("");
   const [askingRevision, setAskingRevision] = useState(false);
+  const [previews, setPreviews] = useState<
+    Readonly<Record<string, { before: CandidatePreview; after: CandidatePreview } | "loading">>
+  >({});
 
   const allIds = useMemo(() => changes.map((change) => change.id), [changes]);
 
@@ -124,6 +145,64 @@ export function PatchReviewPanel({
                 />
                 <span className="lbb-review-row-label">{change.label}</span>
               </div>
+
+              {change.latex && onPreview && (
+                <div className="lbb-review-preview">
+                  {previews[change.id] === undefined ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setPreviews((current) => ({ ...current, [change.id]: "loading" }));
+                        void onPreview(change).then((result) =>
+                          setPreviews((current) => ({ ...current, [change.id]: result })),
+                        );
+                      }}
+                    >
+                      Compilar antes e depois
+                    </Button>
+                  ) : previews[change.id] === "loading" ? (
+                    <span className="lbb-review-side-label">compilando…</span>
+                  ) : (
+                    <div className="lbb-review-plain">
+                      {(["before", "after"] as const).map((side) => {
+                        const entry = previews[change.id] as {
+                          before: CandidatePreview;
+                          after: CandidatePreview;
+                        };
+                        const preview = entry[side];
+
+                        return (
+                          <div key={side} className="lbb-review-side" data-side={side}>
+                            <span className="lbb-review-side-label">
+                              {side === "before" ? "antes" : "depois"}
+                            </span>
+                            {preview.png ? (
+                              // `img` e não `next/image`: a prévia é um data URI de bytes que
+                              // nunca chegaram ao disco, e o otimizador do Next trabalha sobre
+                              // URLs que ele possa buscar. Não há o que otimizar aqui.
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={preview.png}
+                                alt={`Render ${side === "before" ? "antes" : "depois"} de ${change.label}`}
+                                style={{ maxWidth: "100%", background: "var(--surface-paper)" }}
+                              />
+                            ) : (
+                              <span>
+                                {/* Não compilar é informação, não ausência de informação — e no
+                                    lado "depois" é justamente o que impede aprovar. */}
+                                Não compilou.{" "}
+                                {preview.diagnostics[0]?.message ?? "Sem diagnóstico."}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {change.latex ? (
                 <LatexDiff
