@@ -80,7 +80,11 @@ A aba Histórico fechou a Wave C (#109): timeline com origem, diff entre revisã
 restauração com confirmação. O teste que importa é o da ida e volta — restaurar devolve o estado
 **exato**, com acento, `\\` e gabarito intactos; "parecido" seria pior que nada, porque ninguém
 confere caractere a caractere um enunciado que já parece certo.
-897 testes (847 no app + 50 no renderer) · 53 PRs abertos, nada mergeado.
+**Fase 11 iniciada** (#111), com uma ressalva importante: **o acervo legado não está nesta
+máquina** — só o `LatexMetadata.db` da Fase 4. O domínio do importador foi construído a partir do
+levantamento §2.4/§6, que é detalhado e feito contra dados reais; o que **não** dá para fazer é
+rodar o import e conferir contra o acervo, e isso fica ⛔ até o acervo estar disponível.
+931 testes (881 no app + 50 no renderer) · 54 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -905,13 +909,13 @@ falta o que produz o estado
 - [ ] Importador tem acesso direto ao filesystem — nenhum upload exigido para começar
 
 **Leitura segura**
-- [ ] Banco legado aberto estritamente read-only
+- [ ] Banco legado aberto estritamente read-only *(padrão já provado na Fase 4 com `immutable=1`)*
 - [ ] Originais nunca modificados
-- [ ] Detecção da geração de schema por biblioteca
-- [ ] Geração `add_LatexComplemento` suportada (10 bibliotecas)
-- [ ] Geração `Questao_Imagens_Completa` suportada (2 bibliotecas)
-- [ ] Bibliotecas sem `__EFMigrationsHistory` suportadas (2)
-- [ ] Campos ausentes degradam sem quebrar
+- ✅ Detecção da geração de schema por biblioteca
+- ✅ Geração `add_LatexComplemento` suportada (10 bibliotecas)
+- ✅ Geração `Questao_Imagens_Completa` suportada (2 bibliotecas)
+- ✅ Bibliotecas sem `__EFMigrationsHistory` suportadas (2)
+- ✅ Campos ausentes degradam sem quebrar *(a **coluna** manda sobre o registro de migração)*
 
 **Scanner**
 - [ ] Detecta bibliotecas a partir de `padrao.knowchicoconfig`
@@ -927,19 +931,19 @@ falta o que produz o estado
 - [ ] Autores
 - [ ] Editoras
 - [ ] Tags e tags de conhecimento
-- [ ] `Questao` → `DocumentNode`
-- [ ] `TipoQuestao` negativo → `NodeKind` estrutural
-- [ ] `TipoQuestao` positivo → `Question`
-- [ ] **`Ordem` ignorada; ordem derivada de `IdQuestao`**
-- [ ] `sortKey` fracionário gerado
-- [ ] `Numeracao` → `numberingStyle`
-- [ ] `Numeracao_Original` → `originalLabel`
+- [ ] `Questao` → `DocumentNode` *(classificação pronta; falta a escrita)*
+- ✅ `TipoQuestao` negativo → `NodeKind` estrutural
+- ✅ `TipoQuestao` positivo → `Question` *(tipo desconhecido **para** o import, não vira default)*
+- ✅ **`Ordem` ignorada; ordem derivada de `IdQuestao`** — nem no `SELECT` ela entra
+- ✅ `sortKey` fracionário gerado
+- ✅ `Numeracao` → `numberingStyle`
+- ✅ `Numeracao_Original` → `originalLabel`
 - [ ] `Questao_Itens` → `QuestionOption`
 - [ ] `Marcacao` → `legacyMarcacao`, nunca como identidade
 - [ ] `Questao_Itens.Correta` → `isCorrect`
 - [ ] `Questao.Correta` ignorado
 - [ ] `IsExpanded`, `IsSelected`, `IdQuestao_Original` ignorados
-- [ ] Dificuldade na escala 0/2/5/7/10
+- ✅ Dificuldade na escala 0/2/5/7/10 *(fora da escala vira o meio e **avisa** que coagiu)*
 - [ ] Metadados de concurso (banca, instituição, cargo, nível, ano)
 - [ ] LaTeX: enunciado, resposta, complemento, origem
 
@@ -948,11 +952,11 @@ falta o que produz o estado
 - [ ] `sha256` calculado por arquivo
 - [ ] `pub<N>/cover.jpg` → `Asset(COVER)`
 - [ ] `<Título>.detail.json` → `metadataJson`
-- [ ] `preview.png` **não** importado (é cache de render)
-- [ ] Fontes de figura classificadas por tipo: gnuplot, pgf, asymptote, geogebra, tpx, tex, table, svg, eps
-- [ ] PDFs → `Asset(SOURCE_PDF)`
-- [ ] Relatório do que caiu em `ATTACHMENT` por falta de classificação
-- [ ] Nenhum arquivo descartado silenciosamente
+- ✅ `preview.png` **não** importado (é cache de render)
+- ✅ Fontes de figura classificadas por tipo: gnuplot, pgf, asymptote, geogebra, tpx, tex, table, svg, eps
+- ✅ PDFs → `Asset(SOURCE_PDF)`
+- ✅ Relatório do que caiu em `ATTACHMENT` por falta de classificação
+- ✅ Nenhum arquivo descartado silenciosamente
 
 **Execução**
 - [ ] Dry-run sem nenhuma escrita
