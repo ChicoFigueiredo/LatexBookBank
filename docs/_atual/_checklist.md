@@ -125,10 +125,11 @@ destacada. A âncora já guardava tudo desde a Fase 14 — faltava a porta, e pr
 navega é proveniência que ninguém confere.
 **Painéis órfãos ligados** (#139): `MetadataPanel` e `OptionsEditor` existiam, tinham teste, e não
 eram renderizados em lugar nenhum — este checklist os dava por prontos. Agora estão montados, e os
-metadados ganharam o caminho de escrita que nunca tiveram. O mesmo diagnóstico vale para o filtro
-por tag e para a criação de tag, que continuam sem adaptador e sem tela (#141) — corrigidos aqui
-de ✅ para ◐.
-1128 testes (1078 no app + 50 no renderer) · 68 PRs abertos, nada mergeado.
+metadados ganharam o caminho de escrita que nunca tiveram.
+**Tags saíram do domínio para a tela** (#141): adaptador Prisma, três rotas, painel na questão e
+filtro na árvore. A promessa de #85 foi conferida contra o banco pela primeira vez — três grafias
+de "Função Quadrática" continuaram sendo **uma linha**.
+1138 testes (1088 no app + 50 no renderer) · 69 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -778,20 +779,21 @@ falta o que produz o estado
 - ✅ Video URL, **só `http`/`https`** *(`javascript:` num campo que a tela vira link é XSS armazenado, e o campo aceita colagem de qualquer lugar)*
 - ✅ Ano com erro de digitação é **recusado**, não corrigido *(gravar `2024` a partir de `20244` seria adivinhação, e adivinhação em dado de origem é como um acervo perde a confiabilidade)*
 - ✅ Aba Metadados **montada e gravando** *(#139 — o painel existia desde #87 e não estava em tela nenhuma, nem havia caminho de escrita. Os metadados entram pelo **mesmo** `PATCH` e pela mesma versão do texto: um segundo caminho teria o próprio `updatedAt` a comparar, e as duas gravações se invalidariam a cada pausa da digitação. Verificado na rota real: `"  CESPE "` normalizado, ano `20244` recusado com 400, `javascript:` recusado, e autosave sem mudança devolvendo `written: false`)*
-- ◐ Criar e remover tag *(#85 — o caso de uso e a normalização estão de pé e testados, mas **não há adaptador Prisma, nem rota, nem tela**: `TagRepository` só tem implementação falsa, no teste. Issue #141)*
+- ✅ Criar e remover tag *(#85 aplicou a regra, #141 deu adaptador, rotas e tela. Verificado contra o banco: aplicar `funcao quadratica` e `FUNÇÃO   QUADRÁTICA` numa questão que já tinha `Função Quadrática` deixou **três linhas em `tags`, não cinco**. Desmarcar não apaga a tag do workspace: outras questões usam, e "tirei desta" nunca quis dizer "sumir do acervo")*
 - ✅ **Normalização: o mesmo assunto escrito de dois jeitos não vira duas tags** *("Função Quadrática", "função quadratica" e "  FUNÇÃO  QUADRÁTICA " são uma. A caixa da tela fica como a pessoa digitou; quem cuida da duplicata é a chave)*
 - ✅ Busca ignora acento, e o custo está assumido *(digitar sem acento é o erro mais comum em português; "sabia"/"sabiá" colidem, e vale para **tag**, não para conteúdo de questão)*
-- ✅ Autocomplete ordenado por **uso**, não por alfabeto *(as dez mais usadas cobrem a maioria dos casos; a ordem alfabética as esconderia atrás de qualquer coisa com "a")*
+- ✅ Autocomplete ordenado por **uso**, não por alfabeto *(as dez mais usadas cobrem a maioria dos casos; a ordem alfabética as esconderia atrás de qualquer coisa com "a". Verificado na rota: `juros simples` (8) antes de `Função Quadrática` (1) e `Álgebra` (1). E `?q=funcao` encontra `Função Quadrática`)*
 - ✅ Prefixo vence conteúdo *(quem digita "fun" quer "Função", não "Interpretação de funções" — ainda que a segunda seja sete vezes mais usada)*
 - ✅ Colar uma lista aplica em sequência *(em paralelo, duas grafias da mesma tag criariam duas linhas)*
-- ◐ Filtro por tag *(#89 — o domínio está pronto e testado, e **não está montado em tela nenhuma**. O `filterTree` já aceitava predicado arbitrário desde a Fase 2, e foi essa decisão que fez o filtro caber em vinte linhas; falta o controle na barra da árvore — issue #141)*
+- ✅ Filtro por tag *(#89 fez o predicado, #141 montou o controle na barra da árvore. Tipo e tag entram num predicado só: encadear duas passagens recortaria a árvore duas vezes, a segunda sobre galhos que a primeira já podou)*
+- ✅ O chip de filtro responde ao teclado *(`Chip` é um `span`; sem `role`, `tabIndex` e `Enter`/espaço o filtro só existiria para quem usa mouse — e `aria-pressed` é o que diz que ele está ligado, coisa que a cor de fundo não conta)*
 - ✅ Selecionar duas tags filtra por **todas**, não por qualquer uma *(selecionar a segunda é o gesto de **estreitar**; com "ou" ela ampliaria o resultado, e a pessoa concluiria que o filtro quebrou)*
 - ✅ O filtro compara pela chave de tag *(filtrar por "funcao" encontra questão marcada com "Função")*
 - ✅ Contagem por tag vem do **conjunto visível**, não do acervo *(o número serve para decidir se vale clicar agora; um total global diria "300" numa publicação com três)*
 - ✅ `validate_question` com regras, warnings e inconsistências *(#79, #85 — regras nos plugins; **aviso não invalida**, senão a lista de problemas vira ruído que ninguém abre. Tipo sem plugin fica `UNVALIDATED`, não `INVALID`: dizer que ela está errada seria mentira — o que falta é o produto saber avaliá-la.)*
 
 **Aceite da fase**
-- ◐ §33 "Questão" completo *(o domínio inteiro está de pé e testado; falta o controle de tag na barra da árvore e a conferência visual)*
+- ◐ §33 "Questão" completo *(o domínio está de pé, e desde a #141 tudo tem tela: alternativas, metadados, tags e o filtro. Falta a conferência visual, que é do usuário)*
 
 ---
 

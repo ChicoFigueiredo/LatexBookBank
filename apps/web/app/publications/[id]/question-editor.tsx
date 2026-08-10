@@ -15,6 +15,7 @@ import { MetadataPanel } from "@modules/questions/ui/MetadataPanel";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
 
 import { OptionsPane } from "./options-pane";
+import { TagsPane } from "./tags-pane";
 import {
   LatexEditor,
   type EditorSelection,
@@ -57,6 +58,7 @@ type RightTab = "rapido" | "render" | "historico" | "origem";
 const EXTRA_PANES = [
   { id: "options", label: "Alternativas" },
   { id: "metadata", label: "Metadados" },
+  { id: "tags", label: "Tags" },
 ] as const;
 
 type Pane = QuestionFieldId | (typeof EXTRA_PANES)[number]["id"];
@@ -66,6 +68,8 @@ const isField = (pane: Pane): pane is QuestionFieldId =>
 
 export interface QuestionEditorProps {
   readonly publicationId: string;
+  /** O workspace dono. A tag é por workspace, e o autocomplete precisa saber de qual. */
+  readonly workspaceId: string;
   readonly questionId: string;
   readonly initial: Readonly<Record<QuestionFieldId, string>>;
   readonly initialVersion: string;
@@ -81,6 +85,7 @@ export interface QuestionEditorProps {
 
 export function QuestionEditor({
   publicationId,
+  workspaceId,
   questionId,
   initial,
   initialVersion,
@@ -381,6 +386,8 @@ export function QuestionEditor({
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           {pane === "options" ? (
             <OptionsPane publicationId={publicationId} questionId={questionId} disabled={blocked} />
+          ) : pane === "tags" ? (
+            <TagsPane questionId={questionId} workspaceId={workspaceId} disabled={blocked} />
           ) : pane === "metadata" ? (
             metadata === null ? (
               <div style={{ padding: "var(--space-4)" }}>lendo os metadados…</div>

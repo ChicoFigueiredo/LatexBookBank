@@ -10,6 +10,7 @@ import {
   ContextMenu,
   EmptyState,
   Input,
+  Chip,
   Select,
   Modal,
   PageHeader,
@@ -39,6 +40,8 @@ import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 import type { SearchHit } from "@modules/questions/domain/search-query";
+import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
+import { sameTag } from "@modules/questions/domain/tag";
 
 import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
@@ -106,6 +109,8 @@ function nest(flat: readonly TreeNodeDto[]): TreeNode[] {
 
 export interface PublicationWorkbenchProps {
   readonly publicationId: string;
+  /** O workspace dono. Resolvido no servidor: a tag é por workspace, e o cliente não escolhe. */
+  readonly workspaceId: string;
   readonly publicationTitle: string;
   readonly publisher: string | null;
   readonly nodes: readonly TreeNodeDto[];
@@ -119,6 +124,7 @@ export interface PublicationWorkbenchProps {
 
 export function PublicationWorkbench({
   publicationId,
+  workspaceId,
   publicationTitle,
   publisher,
   nodes,
@@ -138,6 +144,9 @@ export function PublicationWorkbench({
 
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState("");
+  // Tags selecionadas, por nome. Nome e não id porque é o que o DTO da árvore carrega — e é
+  // `matchesAllTags` que sabe que "funcao" e "Função" são a mesma coisa.
+  const [tagFilter, setTagFilter] = useState<readonly string[]>([]);
 
   /**
    * O contexto do agente — montado por gesto, nunca por dedução.
@@ -223,18 +232,37 @@ export function PublicationWorkbench({
 
   const kindsPresent = useMemo(() => [...new Set(nodes.map((node) => node.kind))].sort(), [nodes]);
 
-  const filtering = query.trim() !== "" || kindFilter !== "";
-
-  const filtered = useMemo(
-    () =>
-      filterTree(allNodes, {
-        query,
-        ...(kindFilter
-          ? { predicate: (node: TreeNode) => kindById.get(node.id) === kindFilter }
-          : {}),
-      }),
-    [allNodes, query, kindFilter, kindById],
+  const tagsById = useMemo(
+    () => new Map(nodes.map((node) => [node.id, node.question?.tags ?? []])),
+    [nodes],
   );
+
+  /**
+   * As tags presentes, com a contagem do **conjunto visível**.
+   *
+   * Do visível e não do acervo: o número serve para decidir se vale clicar naquela tag agora, e
+   * um total global diria "300" numa publicação onde três questões a têm.
+   */
+  const tagsPresent = useMemo(
+    () => countTags(nodes.filter((node) => node.question !== null).map((node) => node.question!)),
+    [nodes],
+  );
+
+  const filtering = query.trim() !== "" || kindFilter !== "" || tagFilter.length > 0;
+
+  const filtered = useMemo(() => {
+    // Os dois filtros num predicado só: `filterTree` aceita um, e encadear duas passagens
+    // recortaria a árvore duas vezes — a segunda sobre galhos que a primeira já podou.
+    const byKind = (node: TreeNode) => kindFilter === "" || kindById.get(node.id) === kindFilter;
+    const byTag = (node: TreeNode) => matchesAllTags(tagsById.get(node.id) ?? [], tagFilter);
+
+    return filterTree(allNodes, {
+      query,
+      ...(kindFilter !== "" || tagFilter.length > 0
+        ? { predicate: (node: TreeNode) => byKind(node) && byTag(node) }
+        : {}),
+    });
+  }, [allNodes, query, kindFilter, kindById, tagFilter, tagsById]);
 
   const treeNodes = filtering ? filtered.nodes : allNodes;
   // Um nó guardado pode ter sido excluído entre sessões: cair no primeiro é melhor que abrir
@@ -592,6 +620,49 @@ export function PublicationWorkbench({
             </Select>
           </div>
 
+          {tagsPresent.length > 0 && (
+            <div
+              style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: "0 var(--space-3)" }}
+              role="group"
+              aria-label="Filtrar por tag"
+            >
+              {tagsPresent.map((tag) => {
+                const on = tagFilter.some((name) => sameTag(name, tag.name));
+
+                // Selecionar a segunda tag **estreita**: `matchesAllTags` exige todas. Com "ou",
+                // a segunda ampliaria o resultado — o contrário do que se acabou de pedir.
+                const toggle = () =>
+                  setTagFilter((current) =>
+                    on
+                      ? current.filter((name) => !sameTag(name, tag.name))
+                      : [...current, tag.name],
+                  );
+
+                return (
+                  <Chip
+                    key={tag.name}
+                    selected={on}
+                    // O `Chip` é um `span`: sem estes três, o filtro por tag só existiria para
+                    // quem usa mouse — e `aria-pressed` é o que diz ao leitor de tela que ele
+                    // está ligado, coisa que a cor de fundo sozinha não conta.
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={on}
+                    style={{ cursor: "pointer" }}
+                    onClick={toggle}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      toggle();
+                    }}
+                  >
+                    {tag.name} · {tag.count}
+                  </Chip>
+                );
+              })}
+            </div>
+          )}
+
           {filtering && (
             <div
               style={{
@@ -720,6 +791,7 @@ export function PublicationWorkbench({
             node={selected}
             publisher={publisher}
             publicationId={publicationId}
+            workspaceId={workspaceId}
             {...(ai
               ? { onAttachSelection: (selection) => attachToAgent(selectionItem(selection)) }
               : {})}
@@ -757,11 +829,13 @@ function NodeDetail({
   node,
   publisher,
   publicationId,
+  workspaceId,
   onAttachSelection,
 }: {
   node: TreeNodeDto;
   publisher: string | null;
   publicationId: string;
+  workspaceId: string;
   /** Ausente quando não há IA configurada — sem endpoint, o botão de anexar não faz sentido. */
   onAttachSelection?: (selection: EditorSelection) => void;
 }) {
@@ -792,6 +866,7 @@ function NodeDetail({
               <QuestionEditor
                 key={node.question.id}
                 publicationId={publicationId}
+                workspaceId={workspaceId}
                 questionId={node.question.id}
                 initialVersion={node.question.version}
                 initial={{
