@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { QuestionNotFoundError, saveQuestion } from "@modules/questions/application/save-question";
+import { validateAndPersist } from "@modules/questions/application/validate-question";
+import {
+  PrismaValidationWriter,
+  questionForValidation,
+} from "@modules/questions/infrastructure/prisma-validation-writer";
 import {
   MetadataError,
   normalizeMetadata,
@@ -140,6 +145,12 @@ export async function PATCH(
       },
     });
 
+    // Revalida **depois** de gravar, e só quando gravou: o autosave dispara por tempo, e
+    // reavaliar a cada pausa da digitação seria custo por questão que não mudou. Falha aqui não
+    // derruba o salvamento — o texto já está no banco, e um selo desatualizado é menos grave que
+    // um 500 depois de gravar.
+    if (result.written) await revalidate(questionId);
+
     return NextResponse.json({
       id: result.snapshot.id,
       version: result.snapshot.updatedAt.toISOString(),
@@ -172,5 +183,26 @@ export async function PATCH(
       );
     }
     return toErrorResponse(error);
+  }
+}
+
+/**
+ * Recalcula o estado de validação da questão.
+ *
+ * Aqui e não dentro de `saveQuestion`: salvar é uma escrita com concorrência otimista, e pendurar
+ * uma segunda escrita dentro dela faria uma falha de validação desfazer o salvamento — quer
+ * dizer, perder o texto de quem estava digitando por causa de um selo.
+ *
+ * Silenciosa de propósito: o salvamento já respondeu que deu certo, e deu. Um selo desatualizado
+ * é menos grave que um 500 depois de gravar.
+ */
+async function revalidate(questionId: string): Promise<void> {
+  try {
+    const question = await questionForValidation(questionId);
+    if (question === null) return;
+
+    await validateAndPersist(new PrismaValidationWriter(), questionId, question);
+  } catch {
+    return;
   }
 }

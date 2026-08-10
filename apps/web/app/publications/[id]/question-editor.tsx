@@ -81,6 +81,13 @@ export interface QuestionEditorProps {
    * painel, de propósito, não tem acesso ao documento. Ausente quando não há IA configurada.
    */
   readonly onAttachSelection?: (selection: EditorSelection) => void;
+  /**
+   * Avisa quem está fora que **esta** questão tem alteração pendente.
+   *
+   * Sobe em vez de a árvore adivinhar: só o editor sabe que há texto digitado que ainda não foi
+   * ao servidor, e esse é o único estado que se perde ao clicar em outro nó.
+   */
+  readonly onDirtyChange?: (questionId: string | null) => void;
 }
 
 export function QuestionEditor({
@@ -91,6 +98,7 @@ export function QuestionEditor({
   initialVersion,
   options = [],
   onAttachSelection,
+  onDirtyChange,
 }: QuestionEditorProps) {
   const [pane, setPane] = useState<Pane>("statementLatex");
   // O campo de texto que o editor mostra. Ele **não** muda quando a pessoa vai para Alternativas:
@@ -192,6 +200,14 @@ export function QuestionEditor({
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+
+  useEffect(() => {
+    onDirtyChange?.(state === "dirty" ? questionId : null);
+
+    // Limpa ao trocar de questão e ao desmontar: sem isto o indicador ficaria preso no nó
+    // anterior, apontando "não salva" para uma questão que já foi gravada.
+    return () => onDirtyChange?.(null);
+  }, [state, questionId, onDirtyChange]);
 
   const save = useCallback(async () => {
     if (timer.current) {

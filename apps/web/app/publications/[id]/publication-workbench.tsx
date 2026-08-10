@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   ArtifactStatus,
+  type ArtifactStatusId,
   Banner,
   Button,
   ContextMenu,
@@ -41,6 +42,7 @@ import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
+import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
 import { sameTag } from "@modules/questions/domain/tag";
 
 import { QuestionEditor } from "./question-editor";
@@ -64,6 +66,21 @@ const MODULES: readonly WorkbenchModule[] = [
   { id: "diagnostico", label: "Diagnóstico", icon: "activity", group: "Sistema" },
 ];
 
+/**
+ * De estado da árvore para selo do design system.
+ *
+ * Um mapa e não `status as ArtifactStatusId`: os dois vocabulários coincidem hoje em quatro
+ * nomes e não são a mesma lista. O cast passaria despercebido no dia em que um deles crescer.
+ */
+const STATUS_TO_ARTIFACT: Readonly<Record<NodeStatusId, ArtifactStatusId>> = {
+  unsaved: "draft",
+  render_failed: "render_failed",
+  invalid: "invalid",
+  unvalidated: "unvalidated",
+  valid: "valid",
+  render_done: "render_done",
+};
+
 const KIND_ICONS: Readonly<Record<string, IconName>> = {
   BOOK: "book-open",
   PART: "library",
@@ -84,7 +101,7 @@ const KIND_ICONS: Readonly<Record<string, IconName>> = {
  * vaze para a apresentação. `depth` basta: a lista já vem em pré-ordem, então uma pilha
  * reconstrói a hierarquia sem que a UI precise saber como o pai é guardado.
  */
-function nest(flat: readonly TreeNodeDto[]): TreeNode[] {
+function nest(flat: readonly TreeNodeDto[], unsavedId: string | null = null): TreeNode[] {
   const roots: TreeNode[] = [];
   const stack: { depth: number; children: TreeNode[] }[] = [{ depth: -1, children: roots }];
 
@@ -92,11 +109,32 @@ function nest(flat: readonly TreeNodeDto[]): TreeNode[] {
     while (stack.length > 1 && (stack[stack.length - 1]?.depth ?? -1) >= dto.depth) stack.pop();
 
     const children: TreeNode[] = [];
+
+    // "Não salvo" só o cliente sabe, e por isso entra aqui e não no DTO: é estado da sessão, não
+    // da linha. Vence os outros porque é o único que se perde ao clicar em outro nó.
+    const status = dto.question?.id === unsavedId && unsavedId !== null ? "unsaved" : dto.status;
+
     const node: TreeNode = {
       id: dto.id,
       label: dto.title,
       ...(KIND_ICONS[dto.kind] ? { icon: KIND_ICONS[dto.kind] as IconName } : {}),
       ...(dto.question ? { badge: `${dto.question.options.length}` } : {}),
+      ...(status !== null && status !== undefined
+        ? {
+            status: (
+              <ArtifactStatus
+                status={STATUS_TO_ARTIFACT[status]}
+                size="sm"
+                // Só o ícone: numa árvore de 297 nós, o rótulo por extenso empurraria o título
+                // da questão para fora da coluna. O nome vai no `aria-label` e no `title` —
+                // ícone sozinho é enigma para quem usa leitor de tela.
+                label=""
+                aria-label={NODE_STATUS_LABELS[status]}
+                title={NODE_STATUS_LABELS[status]}
+              />
+            ),
+          }
+        : {}),
       children,
     };
 
@@ -147,6 +185,11 @@ export function PublicationWorkbench({
   // Tags selecionadas, por nome. Nome e não id porque é o que o DTO da árvore carrega — e é
   // `matchesAllTags` que sabe que "funcao" e "Função" são a mesma coisa.
   const [tagFilter, setTagFilter] = useState<readonly string[]>([]);
+  // A questão com alteração pendente no editor. Vive aqui e não no DTO porque é estado da
+  // **sessão**, não da linha: recarregar a página o perde, e é justamente por isso que ele é o
+  // indicador mais urgente enquanto existe.
+  const [unsavedQuestionId, setUnsavedQuestionId] = useState<string | null>(null);
+  const [problemOnly, setProblemOnly] = useState(false);
 
   /**
    * O contexto do agente — montado por gesto, nunca por dedução.
@@ -203,7 +246,7 @@ export function PublicationWorkbench({
     });
   }, []);
 
-  const allNodes = useMemo(() => nest(nodes), [nodes]);
+  const allNodes = useMemo(() => nest(nodes, unsavedQuestionId), [nodes, unsavedQuestionId]);
 
   const searchArchive = useCallback((text: string) => {
     // Menos de três letras não busca: "a" casaria com o acervo inteiro, e a resposta seria uma
@@ -248,21 +291,29 @@ export function PublicationWorkbench({
     [nodes],
   );
 
-  const filtering = query.trim() !== "" || kindFilter !== "" || tagFilter.length > 0;
+  const problemById = useMemo(
+    () => new Map(nodes.map((node) => [node.id, node.hasProblem])),
+    [nodes],
+  );
+
+  const filtering = query.trim() !== "" || kindFilter !== "" || tagFilter.length > 0 || problemOnly;
 
   const filtered = useMemo(() => {
     // Os dois filtros num predicado só: `filterTree` aceita um, e encadear duas passagens
     // recortaria a árvore duas vezes — a segunda sobre galhos que a primeira já podou.
     const byKind = (node: TreeNode) => kindFilter === "" || kindById.get(node.id) === kindFilter;
     const byTag = (node: TreeNode) => matchesAllTags(tagsById.get(node.id) ?? [], tagFilter);
+    // Do DTO e não do selo escolhido: a questão inválida **sendo editada** aparece como "não
+    // salva", e derivar o filtro do rótulo a esconderia justamente do filtro que a procura.
+    const byProblem = (node: TreeNode) => !problemOnly || problemById.get(node.id) === true;
 
     return filterTree(allNodes, {
       query,
-      ...(kindFilter !== "" || tagFilter.length > 0
-        ? { predicate: (node: TreeNode) => byKind(node) && byTag(node) }
+      ...(kindFilter !== "" || tagFilter.length > 0 || problemOnly
+        ? { predicate: (node: TreeNode) => byKind(node) && byTag(node) && byProblem(node) }
         : {}),
     });
-  }, [allNodes, query, kindFilter, kindById, tagFilter, tagsById]);
+  }, [allNodes, query, kindFilter, kindById, tagFilter, tagsById, problemOnly, problemById]);
 
   const treeNodes = filtering ? filtered.nodes : allNodes;
   // Um nó guardado pode ter sido excluído entre sessões: cair no primeiro é melhor que abrir
@@ -618,6 +669,17 @@ export function PublicationWorkbench({
                 </option>
               ))}
             </Select>
+            <Button
+              size="sm"
+              variant={problemOnly ? "primary" : "ghost"}
+              aria-pressed={problemOnly}
+              // Render quebrado **ou** questão inválida: são as duas coisas que impedem a prova
+              // de sair, e separá-las em dois filtros faria procurar duas vezes pelo mesmo motivo.
+              title="Só questões com render quebrado ou validação falhando"
+              onClick={() => setProblemOnly((current) => !current)}
+            >
+              Com problema
+            </Button>
           </div>
 
           {tagsPresent.length > 0 && (
@@ -792,6 +854,7 @@ export function PublicationWorkbench({
             publisher={publisher}
             publicationId={publicationId}
             workspaceId={workspaceId}
+            onDirtyChange={setUnsavedQuestionId}
             {...(ai
               ? { onAttachSelection: (selection) => attachToAgent(selectionItem(selection)) }
               : {})}
@@ -830,12 +893,15 @@ function NodeDetail({
   publisher,
   publicationId,
   workspaceId,
+  onDirtyChange,
   onAttachSelection,
 }: {
   node: TreeNodeDto;
   publisher: string | null;
   publicationId: string;
   workspaceId: string;
+  /** Sobe o id da questão com alteração pendente, ou `null`. É o indicador "não salva". */
+  onDirtyChange: (questionId: string | null) => void;
   /** Ausente quando não há IA configurada — sem endpoint, o botão de anexar não faz sentido. */
   onAttachSelection?: (selection: EditorSelection) => void;
 }) {
@@ -867,6 +933,7 @@ function NodeDetail({
                 key={node.question.id}
                 publicationId={publicationId}
                 workspaceId={workspaceId}
+                onDirtyChange={onDirtyChange}
                 questionId={node.question.id}
                 initialVersion={node.question.version}
                 initial={{

@@ -1,3 +1,10 @@
+// Import de efeito colateral, e é ele que **faz a validação existir**: sem esta linha o registro
+// fica vazio, `pluginFor` devolve `null` para tudo, e toda questão do acervo responde
+// "tipo não suportado" — foi exatamente o que aconteceu, em silêncio, desde a Fase 7 (issue #147).
+//
+// Fica aqui, no caso de uso, e não em quem o chama: quem chama pode esquecer, e o resultado do
+// esquecimento é um veredito errado em vez de um erro.
+import "../domain/plugins";
 import {
   pluginFor,
   type QuestionForPlugin,

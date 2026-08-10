@@ -43,6 +43,15 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             difficulty: true,
             board: true,
             year: true,
+            validationStatus: true,
+            // Só o **último** job, e só o estado: a árvore quer saber se o render quebrou, não
+            // quantas vezes. Trazer a lista faria a abertura da publicação pagar pelo histórico
+            // de compilação de cada questão.
+            renderJobs: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { state: true },
+            },
             options: {
               orderBy: { sortKey: "asc" },
               select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },

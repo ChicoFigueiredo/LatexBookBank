@@ -4,6 +4,11 @@ import type {
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
 import { optionLabelAt } from "@modules/questions/domain/question-type";
+import {
+  hasProblem,
+  statusFor,
+  type NodeStatusId,
+} from "@modules/document-tree/domain/node-status";
 
 /**
  * Use case: montar a árvore de uma publicação para exibição.
@@ -56,6 +61,16 @@ export interface TreeNodeDto {
   readonly originalLabel: string | null;
   readonly depth: number;
   readonly question: QuestionDto | null;
+  /**
+   * O estado a mostrar no nó, já decidido (§4.1).
+   *
+   * Decidido aqui e não na tela: a `Tree` tem **um** slot de status, e escolher qual dos estados
+   * verdadeiros aparece é decisão de produto. `null` quando não há nada que valha um indicador —
+   * uma árvore em que todo nó tem selo é uma árvore em que nenhum selo chama atenção.
+   */
+  readonly status: NodeStatusId | null;
+  /** `true` quando o nó entra num filtro de "com problema", **independente** do selo escolhido. */
+  readonly hasProblem: boolean;
 }
 
 const DIFFICULTY_LABELS: Readonly<Record<number, string>> = {
@@ -92,6 +107,14 @@ function flatten(nodes: readonly TreeNode<TreeNodeRecord>[]): readonly TreeNodeD
 const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
   const { node, depth } = entry;
 
+  // Nó estrutural não tem estado a mostrar: um capítulo com selo de validação seria ruído.
+  const facts = node.question
+    ? {
+        validationStatus: node.question.validationStatus,
+        lastRenderState: node.question.renderJobs[0]?.state ?? null,
+      }
+    : {};
+
   return {
     id: node.id,
     kind: node.kind,
@@ -118,5 +141,7 @@ const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
           })),
         }
       : null,
+    status: node.question ? statusFor(facts) : null,
+    hasProblem: node.question ? hasProblem(facts) : false,
   };
 };
