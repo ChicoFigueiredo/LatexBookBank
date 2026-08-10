@@ -61,7 +61,15 @@ export class ToolInputError extends Error {
 }
 
 export interface AgentTool {
-  readonly name: ReadOnlyToolName;
+  /**
+   * `string`, e não a união fechada de leitura.
+   *
+   * As tools de proposta (Fase 9) têm nomes próprios e também não escrevem — elas devolvem um
+   * patch para a tela. Amarrar o tipo à lista de leitura obrigaria a um elenco em cada uma, que é
+   * pior que nenhuma checagem: um elenco esconde a diferença em vez de declará-la. Quem garante a
+   * lista fechada de leitura é `buildAgentTools`, com teste de guarda.
+   */
+  readonly name: string;
   readonly description: string;
   /** JSON Schema — é o que vai para o endpoint como `function.parameters`. */
   readonly inputSchema: Record<string, unknown>;
