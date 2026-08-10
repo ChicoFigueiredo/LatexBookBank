@@ -28,6 +28,9 @@ export default async function PublicationPage({ params }: { params: Promise<{ id
   return (
     <PublicationWorkbench
       publicationId={id}
+      // Resolvido aqui, no servidor: a tag é por workspace, e aceitar o valor do navegador seria
+      // deixá-lo criar tag na biblioteca dos outros.
+      workspaceId={publication.workspaceId}
       publicationTitle={publication.title}
       publisher={publication.publisher}
       nodes={nodes}
