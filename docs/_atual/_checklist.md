@@ -133,13 +133,18 @@ de "Função Quadrática" continuaram sendo **uma linha**.
 inteira foi conferida com dado real e prova compilada — o mapa gravado no banco diz `c`, a rota
 responde `c`, e o `c)` impresso na prova do aluno é a alternativa correta. As três versões
 compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c · 3) —`.
+**Indicadores na árvore, e o bug que eles revelaram** (#147): o registro de plugins de tipo de
+questão **não era importado por ninguém** em produção — só pelo próprio teste, que por isso
+sempre passou. Toda questão do acervo respondia "tipo não suportado", em silêncio, desde a Fase 7.
+Com o registro carregado e um produtor chamando a validação, o indicador acende: `VALID` e
+`INVALID` conferidos contra o banco pelas rotas de verdade.
 **Auditoria do checklist** (#145): dez itens estavam marcados `[ ]` e já estavam feitos — sete da
 Fase 6, todos conferidos contra o contêiner rodando. E a auditoria achou o que não procurava:
 quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O `grep` pula esses
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1148 testes (1098 no app + 50 no renderer) · 71 PRs abertos, nada mergeado.
+1162 testes (1112 no app + 50 no renderer) · 72 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -367,13 +372,17 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Expandidos e selecionado persistidos *(expandidos pela `Tree`; seleção pelo workbench, que é quem depende dela — via `useStoredState`, sem quebrar hidratação)*
 - [ ] Virtualização *(o acervo tem 297 nós na maior publicação; medir antes de otimizar)*
 
-**Indicadores de estado** *(spec §4.1)* — `TreeNode.status` já aceita um `ArtifactStatus`;
-falta o que produz o estado
-- [ ] Conteúdo não salvo
-- [ ] Erro de render
-- [ ] Questão incompleta
-- [ ] Questão validada
-- [ ] Modificações agênticas pendentes
+**Indicadores de estado** *(spec §4.1 · #147)*
+- ✅ Conteúdo não salvo *(estado da **sessão**, não da linha: sobe do editor para a árvore, e some ao trocar de nó — por isso vence os outros na precedência)*
+- ✅ Erro de render *(o último job da questão; só o estado, não a lista — a árvore quer saber se quebrou, não quantas vezes)*
+- ✅ Questão incompleta *(`INVALID`: múltipla escolha sem gabarito é o caso comum)*
+- ✅ Questão validada
+- ✅ **A precedência é decisão de produto, e está num módulo puro** *(a `Tree` tem um slot só; o mais **recuperável** vem primeiro — não o mais grave, mas o que se perde ao clicar em outro nó)*
+- ⛔ Modificações agênticas pendentes — a proposta **não é persistida**: ela vive na sessão até
+  ser aprovada. Mostrá-la na árvore exigiria uma tabela nova, e isso é decisão de schema, não
+  um indicador a mais
+- ✅ **A validação passou a ter produtor** *(#147 — `validateAndPersist` estava escrito e testado desde a Fase 7 e **nunca era chamado**; agora roda depois de todo salvamento que gravou)*
+- ✅ O registro de plugins é carregado **pelo caso de uso** *(#147 — `plugins/index.ts` não era importado por ninguém em produção: só pelo próprio teste. `pluginFor` devolvia `null` para tudo, as 16 questões ficaram `UNVALIDATED` desde a Fase 7, e a tool `validate_question` do agente respondia "tipo não suportado" para o acervo inteiro. Guarda novo importa **só** o caso de uso, como a rota faz)*
 
 **CRUD** — #36 *(use cases + rotas; exercitadas contra o banco real)*
 - ✅ Criar nó filho *(`POST /nodes`, 201)*
@@ -407,7 +416,7 @@ falta o que produz o estado
 - ✅ Teclas dentro do campo de renomeação não viram comando da árvore *(afirmado por teste)*
 - ✅ Busca e filtro por texto *(#37 — ignora acento; o resultado arrasta os ancestrais e vem com eles abertos)*
 - ✅ Filtro por tipo *(`NodeKind` presentes na publicação; combina com a busca por E)*
-- [ ] Filtro por erro e incompleta *(depende dos indicadores — Fases 3 e 6 é que produzem o estado)*
+- ✅ Filtro "com problema" *(#147 — render quebrado **ou** validação falhando, num botão só: são as duas coisas que impedem a prova de sair. O filtro sai do DTO e **não** do selo escolhido, senão a questão inválida que está sendo editada apareceria como "não salva" e sumiria do filtro que a procura)*
 - [ ] Atalhos não conflitam com o Monaco *(verificável na Fase 3)*
 
 **Aceite da fase**

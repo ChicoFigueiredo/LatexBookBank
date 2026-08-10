@@ -30,6 +30,10 @@ export interface TreeQuestionRecord {
   readonly difficulty: number;
   readonly board: string | null;
   readonly year: number | null;
+  /** `VALID` · `INVALID` · `UNVALIDATED`. Vira indicador na árvore (§4.1). */
+  readonly validationStatus: string;
+  /** O último job desta questão, quando houve algum — só o estado. */
+  readonly renderJobs: readonly { readonly state: string }[];
   readonly options: readonly TreeOptionRecord[];
   /** Vínculos de tag, na forma da tabela de junção. */
   readonly tags: readonly { readonly tag: { readonly name: string } }[];
