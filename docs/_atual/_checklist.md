@@ -72,14 +72,18 @@ próprio modelo reconheceu que já tinha proposto — e o servidor devolveu o di
 guardar. Verificado contra o worker real — `Undefined control sequence` em `main.tex:2` chegou ao
 agente em 181 ms, e a prévia antes/depois compilou a questão de verdade em 348 ms, com
 `\SI{1000}{\real}` virando `1000 R$` e nada indo para o banco.
-860 testes (810 no app + 50 no renderer) · 51 PRs abertos, nada mergeado.
+Os cinco modos fecharam a Fase 9 (#107): um modo é um conjunto de tools, um teto de iterações e
+um relógio — não um prompt diferente. A verificação contra o Ollama real mostrou o ciclo do
+`FIX_LATEX` funcionando (compilou o erro, corrigiu, compilou de novo) e revelou que o timeout do
+provider matava o turno antes do orçamento do modo.
+876 testes (826 no app + 50 no renderer) · 52 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
 | — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
 | B — banco de questões | **◐7** | Domínio completo; falta acabamento de tela |
-| C — agente | **◐8** · 9 · 10 | Fase 8 fechada em código; falta o settings |
+| C — agente | **◐8** · **◐9** · 10 | Fases 8 e 9 fechadas em código; falta o settings |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
 | E — ingestão visual | 14 · 15 | ☐ não iniciada |
 | F — diferencial de produto | 16 · 17 | ☐ não iniciada |
@@ -844,20 +848,23 @@ falta o que produz o estado
 
 **Modos**
 - ✅ `REVIEW` *(default é `ASK`: ganhar tools de proposta precisa ser pedido)*
-- [ ] `FIX_LATEX` iterativo
-- [ ] Máximo de iterações configurável (default 3)
-- [ ] Timeout global
-- [ ] Cada tentativa registrada
-- [ ] `ENRICH` com confidence e warnings
-- [ ] `STRUCTURE` a partir de texto bruto
+- ✅ `FIX_LATEX` iterativo *(único modo com `render_candidate_latex`)*
+- ✅ Máximo de iterações por modo
+- ✅ Timeout global — **e cada chamada carrega o prazo restante**, senão o timeout do provider
+  (120 s) mata o turno antes do orçamento do modo. Foi assim que a primeira verificação falhou.
+- ✅ Cada tentativa registrada *(no `ToolCallCard` e no `AgentRun`)*
+- ✅ `ENRICH` com confidence e warnings
+- ✅ `STRUCTURE` a partir de texto bruto
 
 **Critérios de "corrigir questão"** *(spec §36)*
-- [ ] Sintaxe LaTeX
-- [ ] Formatação
-- [ ] Estrutura da questão
-- [ ] Gabarito (existe correta? há múltiplas indevidas? a solução contradiz?)
-- [ ] Metadados
-- [ ] Origem (compara com o crop quando disponível)
+- ✅ Sintaxe LaTeX
+- ✅ Formatação
+- ✅ Estrutura da questão
+- ✅ Gabarito (existe correta? há múltiplas indevidas? a solução contradiz?)
+- ✅ Metadados
+- ✅ Origem (compara com o texto extraído quando disponível)
+- *Enumerados no prompt do `REVIEW`: sem lista, o modelo revisa a redação e passa por cima do
+  gabarito, que é o defeito que de fato inutiliza uma questão.*
 
 **Aceite da fase**
 - [ ] §35 completo (§12 deste documento)

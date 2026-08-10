@@ -7,6 +7,8 @@ import {
   createPatchCollector,
 } from "@modules/agents/application/build-propose-tools";
 import { buildCandidateRenderTool } from "@modules/agents/application/render-candidate";
+import { isAgentMode, profileForMode } from "@modules/agents/domain/agent-mode";
+import type { AgentMode } from "@modules/agents/domain/agent-run";
 import { diffPatch } from "@modules/agents/domain/patch-diff";
 import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
 import { loadQuestionForRender } from "@modules/rendering/infrastructure/prisma-question-render-source";
@@ -91,6 +93,8 @@ export async function POST(request: Request) {
     // outra rota, com a lista de linhas aprovadas.
     const collector = createPatchCollector();
     const executor = candidateExecutor(env);
+    // Quais tools o modo dá — a lista vem do perfil, não de um `if` por modo espalhado aqui.
+    const toolSet = profileForMode(mode).tools;
 
     const outcome = await runAgentTurn({
       provider,
@@ -99,10 +103,10 @@ export async function POST(request: Request) {
       // consegue inventar um.
       tools: [
         ...buildAgentTools(new PrismaAgentReadPort(), { questionId }),
-        ...(mode === "REVIEW" ? buildProposeTools(collector) : []),
+        ...(toolSet === "read" ? [] : buildProposeTools(collector)),
         // Compilar candidato só faz sentido quando ele pode propor, e só existe com worker
         // configurado — sem ele, oferecer a tool seria prometer o que não se cumpre.
-        ...(mode === "REVIEW" && questionId !== null && executor !== null
+        ...(toolSet === "read+propose+render" && questionId !== null && executor !== null
           ? [
               buildCandidateRenderTool({
                 executor,
@@ -115,6 +119,7 @@ export async function POST(request: Request) {
       ],
       context,
       prompt,
+      mode,
       focusedQuestionId: questionId,
       toolCalling: provider.capabilities.toolCalling,
     });
@@ -187,11 +192,12 @@ function candidateExecutor(env: ReturnType<typeof appEnv>): RenderExecutor | nul
   });
 }
 
-/** `ASK` é o default: ganhar tools de escrita precisa ser pedido, não herdado. */
-function parseMode(value: unknown): "ASK" | "REVIEW" {
-  if (value === undefined || value === null || value === "ASK") return "ASK";
-  if (value === "REVIEW") return "REVIEW";
-  throw new BadRequestError("`mode` precisa ser `ASK` ou `REVIEW`.");
+/** `ASK` é o default: ganhar tools de proposta precisa ser pedido, não herdado. */
+function parseMode(value: unknown): AgentMode {
+  if (value === undefined || value === null) return "ASK";
+  if (typeof value === "string" && isAgentMode(value)) return value;
+
+  throw new BadRequestError("`mode` precisa ser ASK, REVIEW, FIX_LATEX, ENRICH ou STRUCTURE.");
 }
 
 function parsePrompt(value: unknown): string {

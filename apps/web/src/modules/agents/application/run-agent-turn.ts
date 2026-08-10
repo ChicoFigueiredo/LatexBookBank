@@ -1,12 +1,12 @@
 import type { AgentRequest, AiMessage, AiProvider, AiToolCall } from "@/shared/ports";
 
 import { renderContext, type AgentContext } from "../domain/agent-context";
+import { profileForMode } from "../domain/agent-mode";
 import {
-  ASK_SYSTEM_PROMPT,
   ASK_SYSTEM_PROMPT_NO_TOOLS,
-  MAX_TOOL_ITERATIONS,
   summarize,
   summarizeToolInput,
+  type AgentMode,
   type AgentRunRecord,
   type ToolCallRecord,
 } from "../domain/agent-run";
@@ -33,6 +33,8 @@ import { ToolInputError, type AgentTool } from "../domain/tool-contract";
 export interface RunTurnInput {
   readonly provider: AiProvider;
   readonly model: string;
+  /** Define o prompt de sistema, o teto de iterações e o relógio. `ASK` por padrão. */
+  readonly mode?: AgentMode;
   readonly tools: readonly AgentTool[];
   readonly context: AgentContext;
   readonly prompt: string;
@@ -72,6 +74,10 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
   const now = input.now ?? Date.now;
   const startedAt = now();
 
+  const mode = input.mode ?? "ASK";
+  const profile = profileForMode(mode);
+  const deadline = startedAt + profile.timeoutMs;
+
   const byName = new Map(input.tools.map((tool) => [tool.name, tool]));
   const toolCalls: ToolCallRecord[] = [];
 
@@ -80,7 +86,12 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
 
   const contextBlock = renderContext(input.context);
   const messages: AiMessage[] = [
-    { role: "system", content: toolCalling ? ASK_SYSTEM_PROMPT : ASK_SYSTEM_PROMPT_NO_TOOLS },
+    {
+      role: "system",
+      // Sem tool calling nativo o prompt do modo não serve: ele manda usar ferramentas que não
+      // existem naquele endpoint, e o modelo passa a prometer consultas que nunca faz.
+      content: toolCalling ? profile.systemPrompt : ASK_SYSTEM_PROMPT_NO_TOOLS,
+    },
     ...(input.history ?? []),
     // O contexto vai **antes** da pergunta, numa mensagem própria: misturado ao prompt, o modelo
     // trata enunciado colado como se fosse instrução do usuário, e passa a obedecer o que está
@@ -114,8 +125,23 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
             inputSchema: tool.inputSchema,
           })),
         }),
-    ...(input.signal ? { signal: input.signal } : {}),
   } satisfies Omit<AgentRequest, "messages">;
+
+  /**
+   * O prazo desta chamada é o que resta do turno.
+   *
+   * Sem isto o orçamento do modo é decorativo: o provider tem timeout próprio (120 s), e um
+   * modelo local de 30B numa conversa longa estoura esse limite antes de o relógio do modo chegar
+   * perto. Foi o que aconteceu na primeira verificação do `FIX_LATEX` — o turno morreu em 120,9 s
+   * com um orçamento de 300 s.
+   *
+   * O sinal de quem chamou continua valendo: cancelar a aba precisa cancelar a chamada.
+   */
+  const signalFor = (): AbortSignal => {
+    const remaining = Math.max(1_000, deadline - now());
+    const budget = AbortSignal.timeout(remaining);
+    return input.signal ? AbortSignal.any([input.signal, budget]) : budget;
+  };
 
   const finish = (
     state: AgentRunRecord["state"],
@@ -125,7 +151,7 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
     answer,
     messages,
     record: {
-      mode: "ASK",
+      mode,
       providerId: input.provider.id,
       model: input.model,
       state,
@@ -139,7 +165,19 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
 
   let lastText = "";
 
-  for (let iteration = 0; iteration <= MAX_TOOL_ITERATIONS; iteration += 1) {
+  for (let iteration = 0; iteration <= profile.maxIterations; iteration += 1) {
+    // O relógio conta o turno inteiro. O teto de iterações conta chamadas, e um modelo local de
+    // 30B leva dois minutos por chamada — cinco iterações viram dez minutos de tela parada. Aqui
+    // o usuário recebe o que já foi apurado em vez de esperar sem prazo.
+    if (iteration > 0 && now() >= deadline) {
+      return finish(
+        "ABORTED",
+        lastText ||
+          `O turno passou de ${Math.round(profile.timeoutMs / 1000)} s e foi interrompido. ` +
+            "Tente uma pergunta mais específica.",
+      );
+    }
+
     /**
      * A última volta vai **sem tools**.
      *
@@ -148,13 +186,26 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
      * da última chamada obriga a responder com o que já foi lido, que é o que o usuário queria
      * desde o começo. Sem isso, o teto protege o bolso e entrega uma desculpa.
      */
-    const lastRound = iteration === MAX_TOOL_ITERATIONS;
-    const request = lastRound ? withoutTools(base) : base;
+    const lastRound = iteration === profile.maxIterations;
+    const request = { ...(lastRound ? withoutTools(base) : base), signal: signalFor() };
 
     let result;
     try {
       result = await input.provider.run({ ...request, messages });
     } catch (problem) {
+      // Estourar o **nosso** prazo não é o endpoint falhar, e chamar os dois de `FAILED` diria ao
+      // usuário que a IA quebrou quando o que houve foi demora. Na verificação do `FIX_LATEX` o
+      // turno bateu no orçamento e foi registrado como falha de provider — o que mandaria alguém
+      // investigar o Ollama em vez de fazer uma pergunta menor.
+      if (now() >= deadline) {
+        return finish(
+          "ABORTED",
+          lastText ||
+            `O turno passou de ${Math.round(profile.timeoutMs / 1000)} s e foi interrompido. ` +
+              "Tente uma pergunta mais específica, ou um modelo mais rápido.",
+        );
+      }
+
       // Sem endpoint não há o que tentar. O erro fica registrado e a edição do usuário na tela
       // não é tocada — o turno falha, o app não.
       const message = problem instanceof Error ? problem.message : "Falha ao falar com o provider.";
@@ -181,7 +232,7 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
       return finish(
         "DONE",
         result.text ||
-          `Consultei o que dava em ${MAX_TOOL_ITERATIONS} rodadas e ainda não cheguei a uma ` +
+          `Consultei o que dava em ${profile.maxIterations} rodadas e ainda não cheguei a uma ` +
             "resposta. Tente uma pergunta mais específica, ou anexe o que falta.",
       );
     }
