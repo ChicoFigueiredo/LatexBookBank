@@ -10,7 +10,11 @@ import {
 } from "@modules/questions/domain/revision-diff";
 import { HistoryPanel, type RevisionRow } from "@modules/questions/ui/HistoryPanel";
 import { OriginPanel } from "@modules/assets/ui/OriginPanel";
+import type { QuestionMetadata } from "@modules/questions/domain/question-metadata";
+import { MetadataPanel } from "@modules/questions/ui/MetadataPanel";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
+
+import { OptionsPane } from "./options-pane";
 import {
   LatexEditor,
   type EditorSelection,
@@ -43,6 +47,23 @@ export interface QuestionEditorOption {
 /** As três respostas para "como isto está?": aproximada, autoritativa e histórica. */
 type RightTab = "rapido" | "render" | "historico" | "origem";
 
+/**
+ * O que ocupa o centro: um campo de texto, as alternativas ou os metadados.
+ *
+ * Uma tira de abas só, e não duas: para quem edita, "Resposta" e "Alternativas" são o mesmo tipo
+ * de escolha — que parte da questão estou mexendo agora. Separá-las em faixas diferentes pediria
+ * que a pessoa aprendesse uma taxonomia nossa antes de achar o gabarito.
+ */
+const EXTRA_PANES = [
+  { id: "options", label: "Alternativas" },
+  { id: "metadata", label: "Metadados" },
+] as const;
+
+type Pane = QuestionFieldId | (typeof EXTRA_PANES)[number]["id"];
+
+const isField = (pane: Pane): pane is QuestionFieldId =>
+  QUESTION_FIELDS.some((entry) => entry.id === pane);
+
 export interface QuestionEditorProps {
   readonly publicationId: string;
   readonly questionId: string;
@@ -66,6 +87,9 @@ export function QuestionEditor({
   options = [],
   onAttachSelection,
 }: QuestionEditorProps) {
+  const [pane, setPane] = useState<Pane>("statementLatex");
+  // O campo de texto que o editor mostra. Ele **não** muda quando a pessoa vai para Alternativas:
+  // voltar para "Conteúdo" e encontrar outra aba aberta seria perder o lugar sem motivo.
   const [field, setField] = useState<QuestionFieldId>("statementLatex");
   const [draft, setDraft] = useState<Record<QuestionFieldId, string>>({ ...initial });
   const [state, setState] = useState<SaveState>("idle");
@@ -83,6 +107,24 @@ export function QuestionEditor({
   const [revisions, setRevisions] = useState<readonly RevisionRow[] | null>(null);
   const [selectedRevision, setSelectedRevision] = useState<number | null>(null);
   const [revisionChanges, setRevisionChanges] = useState<readonly RevisionChange[] | null>(null);
+
+  /**
+   * Os metadados, carregados ao abrir a aba.
+   *
+   * Mesmo motivo do histórico: o DTO da árvore leva a dificuldade e a origem já formatadas, que é
+   * o que a lista desenha. Os campos crus só interessam a quem vai editá-los.
+   */
+  const [metadata, setMetadata] = useState<QuestionMetadata | null>(null);
+  const metadataRef = useRef<QuestionMetadata | null>(null);
+
+  const loadMetadata = useCallback(async () => {
+    const response = await fetch(`/api/publications/${publicationId}/questions/${questionId}`);
+    const payload = (await response.json()) as { metadata?: QuestionMetadata };
+    if (payload.metadata === undefined) return;
+
+    setMetadata(payload.metadata);
+    metadataRef.current = payload.metadata;
+  }, [publicationId, questionId]);
 
   const loadHistory = useCallback(async () => {
     const response = await fetch(`/api/questions/${questionId}/revisions`);
@@ -160,6 +202,10 @@ export function QuestionEditor({
         body: JSON.stringify({
           expectedVersion: version.current,
           ...draftRef.current,
+          // Os metadados vão no **mesmo** `PATCH`, com a mesma versão. Um segundo caminho de
+          // escrita teria o próprio token de concorrência a comparar, e as duas gravações
+          // passariam a se invalidar uma à outra a cada pausa da digitação.
+          ...(metadataRef.current ?? {}),
         }),
       });
       const payload: unknown = await response.json().catch(() => null);
@@ -192,6 +238,28 @@ export function QuestionEditor({
       setMessage("Não foi possível falar com o servidor. O texto continua aqui.");
     }
   }, [publicationId, questionId]);
+
+  /**
+   * Editar metadado usa o mesmo autosave do texto.
+   *
+   * O erro de validação vem do servidor e cai no mesmo `Banner`: o `MetadataPanel` já recusa
+   * localmente o que o domínio recusa, e o que passa por ele é o que a rota também aceita.
+   */
+  const handleMetadata = useCallback(
+    (patch: Partial<QuestionMetadata>) => {
+      setMetadata((current) => {
+        if (current === null) return current;
+        const next = { ...current, ...patch };
+        metadataRef.current = next;
+        return next;
+      });
+      setState((current) => (current === "conflict" ? current : "dirty"));
+
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
+    },
+    [save],
+  );
 
   const handleChange = useCallback(
     (value: string) => {
@@ -241,9 +309,17 @@ export function QuestionEditor({
         }}
       >
         <Tabs
-          tabs={QUESTION_FIELDS.map((f) => ({ id: f.id, label: f.label }))}
-          value={field}
-          onChange={(id) => setField(id as QuestionFieldId)}
+          tabs={[
+            ...QUESTION_FIELDS.map((f) => ({ id: f.id, label: f.label })),
+            ...EXTRA_PANES.map((entry) => ({ id: entry.id, label: entry.label })),
+          ]}
+          value={pane}
+          onChange={(id) => {
+            const next = id as Pane;
+            setPane(next);
+            if (isField(next)) setField(next);
+            if (next === "metadata" && metadata === null) void loadMetadata();
+          }}
           aria-label="Campos da questão"
         />
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
@@ -303,17 +379,29 @@ export function QuestionEditor({
 
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-          <LatexEditor
-            value={draft[field]}
-            onChange={handleChange}
-            onSave={() => void save()}
-            onRender={compile}
-            onReady={(api) => {
-              editor.current = api;
-            }}
-            readOnly={blocked}
-            ariaLabel={`Editor LaTeX — ${QUESTION_FIELDS.find((f) => f.id === field)?.label}`}
-          />
+          {pane === "options" ? (
+            <OptionsPane publicationId={publicationId} questionId={questionId} disabled={blocked} />
+          ) : pane === "metadata" ? (
+            metadata === null ? (
+              <div style={{ padding: "var(--space-4)" }}>lendo os metadados…</div>
+            ) : (
+              <div style={{ padding: "var(--space-3)", overflow: "auto", height: "100%" }}>
+                <MetadataPanel metadata={metadata} onChange={handleMetadata} disabled={blocked} />
+              </div>
+            )
+          ) : (
+            <LatexEditor
+              value={draft[field]}
+              onChange={handleChange}
+              onSave={() => void save()}
+              onRender={compile}
+              onReady={(api) => {
+                editor.current = api;
+              }}
+              readOnly={blocked}
+              ariaLabel={`Editor LaTeX — ${QUESTION_FIELDS.find((f) => f.id === field)?.label}`}
+            />
+          )}
         </div>
 
         {/* O preview divide o centro com o editor (D14/§11). É a metade direita do "Main", e

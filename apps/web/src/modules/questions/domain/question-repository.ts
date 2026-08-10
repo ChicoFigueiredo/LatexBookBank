@@ -12,6 +12,24 @@ export interface QuestionEdit {
   readonly solutionLatex?: string;
   readonly complementLatex?: string;
   readonly nickname?: string | null;
+
+  /**
+   * Os metadados entram **pelo mesmo caminho** que o texto.
+   *
+   * Não por comodidade: eles vivem na mesma linha, e um segundo caminho de escrita teria o
+   * próprio `updatedAt` a comparar — quer dizer, duas versões da mesma questão brigando. A
+   * concorrência otimista só protege quem passa por ela.
+   *
+   * O que chega aqui já foi normalizado por `normalizeMetadata`. Esta porta não valida; ela grava.
+   */
+  readonly difficulty?: number;
+  readonly year?: number | null;
+  readonly board?: string | null;
+  readonly institution?: string | null;
+  readonly role?: string | null;
+  readonly roleLevel?: string | null;
+  readonly publisher?: string | null;
+  readonly videoUrl?: string | null;
 }
 
 export interface QuestionSnapshot {
@@ -20,6 +38,17 @@ export interface QuestionSnapshot {
   readonly solutionLatex: string;
   readonly complementLatex: string;
   readonly nickname: string | null;
+
+  // Os metadados vêm no snapshot porque é contra ele que "mudou alguma coisa?" é respondido. Sem
+  // eles aqui, todo salvamento de metadado pareceria uma edição — inclusive o que não mudou nada.
+  readonly difficulty: number;
+  readonly year: number | null;
+  readonly board: string | null;
+  readonly institution: string | null;
+  readonly role: string | null;
+  readonly roleLevel: string | null;
+  readonly publisher: string | null;
+  readonly videoUrl: string | null;
   /**
    * Carimbo de versão. É `Date` e não número de revisão porque o Prisma já mantém `@updatedAt`
    * em toda linha — inventar um contador seria uma segunda fonte de verdade para a mesma coisa.

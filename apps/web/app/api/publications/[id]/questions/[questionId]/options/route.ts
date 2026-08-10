@@ -13,6 +13,27 @@ import { readJson, toErrorResponse } from "../../../../../tree-http";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * Lista as alternativas com `id` e `sortKey`.
+ *
+ * O DTO da árvore carrega só o que a árvore desenha — texto e gabarito. Editar precisa de
+ * identidade e de ordem, e engordar o DTO com isso faria **toda** abertura de publicação pagar
+ * por um painel que só abre quando alguém clica na aba. É a mesma decisão do histórico.
+ */
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ questionId: string }> },
+) {
+  const { questionId } = await params;
+
+  try {
+    const options = await new PrismaOptionWriter().listOptions(questionId);
+    return NextResponse.json({ options });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ questionId: string }> },
