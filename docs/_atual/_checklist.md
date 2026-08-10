@@ -52,14 +52,18 @@ Client Component importando tipo de módulo `server-only`.
 As sete tools somente leitura vieram em seguida (#95), com o guarda que varre o módulo atrás de
 escrita, SQL cru e processo externo — e o lint de boundary recusou a implementação Prisma dentro
 de `modules/agents/`, que foi parar em `infrastructure/agent/` onde a composição fica visível.
-759 testes (709 no app + 50 no renderer) · 46 PRs abertos, nada mergeado.
+O runner fechou a fase (#97): modo `ASK` com laço de tools, `ToolCallCard` na timeline e
+`AgentRun` persistido. Verificado contra o Ollama real — e foi a verificação que corrigiu o
+desenho duas vezes: o modelo inventava id de questão até o id deixar de ser parâmetro, e gastava
+as três rodadas relendo a mesma coisa até a última volta passar a ir sem tools.
+780 testes (730 no app + 50 no renderer) · 47 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
 | A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · **◐3** · ✅4 · **◐5** · **◐6** | Fase 6 em andamento |
 | — prova arquitetural | **6.5** | ◐ metade PostgreSQL feita; storage bloqueado |
 | B — banco de questões | **◐7** | Domínio completo; falta acabamento de tela |
-| C — agente | **◐8** · 9 · 10 | Provider e painel de pé; faltam as tools |
+| C — agente | **◐8** · 9 · 10 | Fase 8 fechada em código; falta o settings |
 | D — acervo legado e portabilidade | 11 · 12 · 13 | ☐ não iniciada |
 | E — ingestão visual | 14 · 15 | ☐ não iniciada |
 | F — diferencial de produto | 16 · 17 | ☐ não iniciada |
@@ -764,18 +768,23 @@ falta o que produz o estado
 - ✅ Nenhuma tool de escrita exposta — a porta de leitura **não tem verbo de escrita**, e há teste
 
 **Execução e auditoria**
-- [ ] Modo `ASK`
-- [ ] Timeline de tool calls com `ToolCallCard`
-- [ ] Tool, input resumido, output, duração e status visíveis
-- [ ] Custo e tokens exibidos quando disponíveis
-- [ ] `AgentRun` persistido
-- [ ] Prompts completos não vão para o log por padrão
+- ✅ Modo `ASK` *(laço de até 3 rodadas; a última vai **sem tools**, forçando resposta)*
+- ✅ Timeline de tool calls com `ToolCallCard`
+- ✅ Tool, input resumido, output, duração e status visíveis
+- ✅ Tokens exibidos quando disponíveis *(o Ollama informa tokens, não dinheiro)*
+- ✅ `AgentRun` persistido *(modelo imutável — log que se edita não audita nada)*
+- ✅ Prompts completos não vão para o log por padrão *(só resumo de 280 caracteres)*
 
 **Aceite da fase**
-- [ ] O modelo sabe exatamente qual questão está aberta
-- [ ] Ollama offline não impede o uso normal do app
-- [ ] Ausência de chave mostra instrução clara
-- [ ] Falha do provider não perde edição do usuário
+- ✅ O modelo sabe exatamente qual questão está aberta — **o id não é parâmetro de tool**; o
+  servidor o vincula. Dizer o id no prompt não bastou: contra o Ollama real, o modelo inventou
+  três uuids numa só conversa e concluiu, a partir do "não encontrei", que a questão não tinha
+  alternativas. Id que o modelo não fornece é id que ele não erra.
+- ✅ Ollama offline não impede o uso normal do app *(rota devolve 503 com instrução; a tela segue)*
+- ✅ Ausência de chave mostra instrução clara
+- ✅ Falha do provider não perde edição do usuário *(a pergunta fica na tela; o turno é que falha)*
+- ⛔ *Settings com "testar conexão"* — a configuração hoje é por `.env.local`. A tela de settings
+  não existe ainda, e inventá-la sem o resto do módulo de configuração seria uma tela órfã.
 
 ---
 

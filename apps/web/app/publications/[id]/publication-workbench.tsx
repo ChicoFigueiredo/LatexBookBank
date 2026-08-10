@@ -32,7 +32,7 @@ import {
   selectionItem,
   type AgentContext,
 } from "@modules/agents/domain/agent-context";
-import { AgentPanel } from "@modules/agents/ui/AgentPanel";
+import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 
@@ -147,6 +147,8 @@ export function PublicationWorkbench({
    */
   const [agentContext, setAgentContext] = useState<AgentContext>(EMPTY_CONTEXT);
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentTurns, setAgentTurns] = useState<readonly AgentTurn[]>([]);
+  const [agentBusy, setAgentBusy] = useState(false);
 
   /** Anexa recusando com mensagem em vez de estourar o teto em silêncio. */
   const attachToAgent = useCallback((item: Parameters<typeof attach>[1]) => {
@@ -187,6 +189,65 @@ export function PublicationWorkbench({
   // Um nó guardado pode ter sido excluído entre sessões: cair no primeiro é melhor que abrir
   // vazio sem explicar por quê.
   const selected = nodes.find((n) => n.id === selectedId) ?? nodes[0] ?? null;
+
+  /**
+   * Manda a pergunta e o contexto para o servidor, que tem a chave e as tools.
+   *
+   * A pergunta do usuário entra na conversa **antes** da resposta chegar: uma requisição que
+   * demora vinte segundos com a tela em branco parece travada, e a pergunta na tela é o que diz
+   * que ela foi recebida.
+   */
+  const askAgent = useCallback(
+    async (prompt: string) => {
+      const mine = `u-${prompt.length}-${agentTurns.length}`;
+      setAgentTurns((turns) => [...turns, { id: mine, role: "user", text: prompt }]);
+      setAgentBusy(true);
+      setAgentError(null);
+
+      try {
+        const response = await fetch("/api/agents/ask", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            questionId: selected?.question?.id ?? null,
+            context: agentContext.items,
+          }),
+        });
+
+        const payload = (await response.json()) as {
+          answer?: string;
+          message?: string;
+          toolCalls?: AgentTurn["toolCalls"];
+          usage?: AgentTurn["usage"];
+          error?: string | null;
+        };
+
+        if (!response.ok) {
+          // A pergunta do usuário fica na tela. Perder o que ele escreveu por causa de um
+          // endpoint fora do ar seria cobrar dele o preço da nossa configuração.
+          setAgentError(payload.message ?? "O agente não respondeu.");
+          return;
+        }
+
+        setAgentTurns((turns) => [
+          ...turns,
+          {
+            id: `a-${mine}`,
+            role: "assistant",
+            text: payload.answer ?? payload.error ?? "(sem resposta)",
+            ...(payload.toolCalls ? { toolCalls: payload.toolCalls } : {}),
+            ...(payload.usage ? { usage: payload.usage } : {}),
+          },
+        ]);
+      } catch {
+        setAgentError("Não deu para falar com o servidor.");
+      } finally {
+        setAgentBusy(false);
+      }
+    },
+    [agentContext, agentTurns.length, selected],
+  );
 
   const titleOf = useCallback(
     (nodeId: string) => nodes.find((n) => n.id === nodeId)?.title ?? "este nó",
@@ -448,6 +509,9 @@ export function PublicationWorkbench({
           providerLabel={ai?.providerLabel ?? null}
           model={ai?.model ?? null}
           error={agentError}
+          turns={agentTurns}
+          busy={agentBusy}
+          {...(ai ? { onSend: (prompt: string) => void askAgent(prompt) } : {})}
         />
       }
       statusLeft={

@@ -39,7 +39,9 @@ const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag"]);
  * e um `RenderJob` é uma compilação que ocorreu — mudar entrada não edita o job, cria outro, que
  * é justamente o que faz o `contentHash` servir de cache.
  */
-const IMMUTABLE_MODELS = new Set(["Asset", "SourceAnchor", "RenderJob"]);
+// `AgentRun` entra aqui pelo mesmo motivo dos outros três: é registro do que aconteceu. Um log
+// de auditoria que se edita depois não serve para auditar coisa nenhuma.
+const IMMUTABLE_MODELS = new Set(["Asset", "SourceAnchor", "RenderJob", "AgentRun"]);
 
 /**
  * Sem mutação relevante a rastrear.
@@ -58,9 +60,10 @@ const NO_TIMESTAMPS = new Set([
   "LatexIconMenu",
 ]);
 
-describe("o schema tem os 16 modelos esperados", () => {
+describe("o schema tem os 17 modelos esperados", () => {
   it("nenhum foi perdido nem acrescentado sem passar por aqui", () => {
     expect(models.map((m) => m.name).sort()).toEqual([
+      "AgentRun",
       "Asset",
       "Author",
       "DocumentNode",
