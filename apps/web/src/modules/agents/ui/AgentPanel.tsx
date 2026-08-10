@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-import { Badge, Banner, Button, EmptyState, Icon, injectCss } from "@/design-system";
+import { Badge, Banner, Button, EmptyState, Icon, Select, injectCss } from "@/design-system";
+import { MODE_PROFILES } from "@modules/agents/domain/agent-mode";
+import { AGENT_MODES, type AgentMode } from "@modules/agents/domain/agent-run";
 import type { AgentContext } from "@modules/agents/domain/agent-context";
 import type { ToolCallRecord } from "@modules/agents/domain/agent-run";
 import type { Change } from "@modules/agents/domain/patch-diff";
@@ -78,9 +80,9 @@ export interface AgentPanelProps {
   readonly onRejectProposal?: () => void;
   readonly onRequestRevision?: (feedback: string) => void;
   readonly onPreviewChange?: PatchReviewPanelProps["onPreview"];
-  /** Modo `REVIEW`: o agente ganha as tools de proposta. */
-  readonly reviewMode?: boolean;
-  readonly onReviewModeChange?: (enabled: boolean) => void;
+  /** O modo escolhido. `ASK` por padrão — ganhar poder de propor precisa ser pedido. */
+  readonly mode?: AgentMode;
+  readonly onModeChange?: (mode: AgentMode) => void;
 }
 
 export function AgentPanel({
@@ -98,8 +100,8 @@ export function AgentPanel({
   onRejectProposal,
   onRequestRevision,
   onPreviewChange,
-  reviewMode = false,
-  onReviewModeChange,
+  mode = "ASK",
+  onModeChange,
 }: AgentPanelProps) {
   injectCss("lbb-agent-css", CSS);
 
@@ -124,20 +126,22 @@ export function AgentPanel({
         <span className="lbb-agent-model" title={model ?? undefined}>
           {model ?? "configure AI_BASE_URL em .env.local"}
         </span>
-        {onReviewModeChange ? (
-          // O modo é do usuário, e o default é `ASK`: ganhar tools de proposta precisa ser
-          // pedido. Mesmo em `REVIEW` nada é escrito — o agente propõe, e a aplicação é outra
-          // rota, com aprovação por linha.
-          <Button
+        {onModeChange ? (
+          // O modo é do usuário, e o default é `ASK`. Em nenhum deles o agente escreve: os que
+          // propõem registram um patch que passa pela revisão, com aprovação por linha.
+          <Select
             size="sm"
-            variant="ghost"
-            aria-pressed={reviewMode}
+            aria-label="Modo do agente"
+            value={mode}
             disabled={!configured || busy}
-            onClick={() => onReviewModeChange(!reviewMode)}
-            title="Deixa o agente propor mudanças, que você revisa antes de aplicar"
+            onChange={(event) => onModeChange(event.target.value as AgentMode)}
           >
-            {reviewMode ? "Modo revisão" : "Modo pergunta"}
-          </Button>
+            {AGENT_MODES.map((id) => (
+              <option key={id} value={id}>
+                {MODE_PROFILES[id].label}
+              </option>
+            ))}
+          </Select>
         ) : (
           <Badge tone="neutral" title="Nenhuma tool de escrita existe nesta fase">
             somente leitura

@@ -33,6 +33,7 @@ import {
   selectionItem,
   type AgentContext,
 } from "@modules/agents/domain/agent-context";
+import type { AgentMode } from "@modules/agents/domain/agent-run";
 import type { Change } from "@modules/agents/domain/patch-diff";
 import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
@@ -151,7 +152,7 @@ export function PublicationWorkbench({
   const [agentError, setAgentError] = useState<string | null>(null);
   const [agentTurns, setAgentTurns] = useState<readonly AgentTurn[]>([]);
   const [agentBusy, setAgentBusy] = useState(false);
-  const [reviewMode, setReviewMode] = useState(false);
+  const [agentMode, setAgentMode] = useState<AgentMode>("ASK");
   const router = useRouter();
 
   /**
@@ -228,7 +229,7 @@ export function PublicationWorkbench({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             prompt,
-            mode: reviewMode ? "REVIEW" : "ASK",
+            mode: agentMode,
             questionId: selected?.question?.id ?? null,
             context: agentContext.items,
           }),
@@ -276,7 +277,7 @@ export function PublicationWorkbench({
         setAgentBusy(false);
       }
     },
-    [agentContext, agentTurns.length, reviewMode, selected],
+    [agentContext, agentMode, agentTurns.length, selected],
   );
 
   /**
@@ -630,8 +631,8 @@ export function PublicationWorkbench({
           turns={agentTurns}
           busy={agentBusy}
           proposal={proposal}
-          reviewMode={reviewMode}
-          onReviewModeChange={setReviewMode}
+          mode={agentMode}
+          onModeChange={setAgentMode}
           onApplyProposal={(ids) => void applyProposal(ids)}
           onRejectProposal={() => setProposal(null)}
           {...(ai && selected?.question
