@@ -21,11 +21,16 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 849 ✅ · 5 ◐ · 14 ⛔ · 128 `[ ]` — e **111 dos 128 abertos estão em quatro blocos que
+**Progresso:** 851 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 17 itens.**
-**Última atualização:** 2026-08-11 — **escopo nas demais rotas** (#177). A árvore já conferia a
+(20, que é do Chico). **Fora deles sobram 16 itens.**
+**Última atualização:** 2026-08-11 — **os atalhos, medidos** (#179). O caminho do agente passou
+limpo pela sonda de escopo (revisão de outra questão, questão inexistente e campo fora da whitelist
+são todos recusados), então a iteração foi para o item aberto desde a Fase 2. A árvore não conflita
+— seus atalhos vivem na linha. O conflito real era o oposto do esperado: o Monaco engolia o
+`Ctrl+K` e a paleta não abria, com o botão do rail anunciando o atalho.
+**Antes:** **escopo nas demais rotas** (#177). A árvore já conferia a
 publicação; a montagem de prova **não conferia a biblioteca**, e uma questão de outro acervo entrava
 com `201`. Verificado com duas bibliotecas de verdade e com controle positivo — sem o guarda, passa.
 **Antes:** **o guarda central de autorização** (#175), e ele achou um
@@ -215,7 +220,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1262 testes (1198 no app + 64 no renderer) + **7 de E2E, todos passando** · 88 PRs abertos, nada mergeado.
+1262 testes (1198 no app + 64 no renderer) + **12 de E2E, todos passando** · 89 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -235,7 +240,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | Épico | Fases | ✅ | ◐ | ⛔ | `[ ]` | Estado |
 |---|---|---:|---:|---:|---:|---|
 | **01** fundação e providers | 0 | 70 | — | — | — | **fechado** — os dois health checks entraram no `setup` (#168) |
-| **02** shell e árvore | 1 · 2 | 86 | — | 1 | 6 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
+| **02** shell e árvore | 1 · 2 | 87 | — | 1 | 5 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
 | **03** editor LaTeX | 3 · 4 | 47 | — | — | — | **fechado** |
 | **04** preview e render | 5 · 6 | 159 | — | 3 | 1 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
@@ -522,7 +527,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Busca e filtro por texto *(#37 — ignora acento; o resultado arrasta os ancestrais e vem com eles abertos)*
 - ✅ Filtro por tipo *(`NodeKind` presentes na publicação; combina com a busca por E)*
 - ✅ Filtro "com problema" *(#147 — render quebrado **ou** validação falhando, num botão só: são as duas coisas que impedem a prova de sair. O filtro sai do DTO e **não** do selo escolhido, senão a questão inválida que está sendo editada apareceria como "não salva" e sumiria do filtro que a procura)*
-- [ ] Atalhos não conflitam com o Monaco *(verificável na Fase 3)*
+- ✅ Atalhos não conflitam com o Monaco *(#179 — **medido no navegador**, que é o que faltava: os
+  atalhos da árvore vivem no `onKeyDown` de cada linha, então com o editor focado `Ctrl+N`,
+  `Ctrl+D` e `Alt+↑/↓` não disparam — a árvore não muda. O único conflito real era o inverso do
+  esperado: o Monaco **consumia** o `Ctrl+K` (prefixo de acorde) e a paleta não abria, enquanto o
+  botão do rail anuncia "Buscar · Ctrl K". Um atalho anunciado que falha em silêncio conforme o
+  foco é pior que os dois lados; o editor passou a devolver a tecla, sem conhecer a paleta)*
 
 **Aceite da fase**
 - ✅ §33 "Árvore" completo (§10 deste documento)
@@ -1688,7 +1698,8 @@ importador existe e é testado (Fase 11); rodar o import é que não dá.*
 - [ ] 1920×1080 fica excelente
 - ✅ Dark mode coerente *(teste cobre todo token de cor do tema claro)*
 - [ ] Focus ring correto
-- [ ] Atalhos não conflitam com Monaco
+- ✅ Atalhos não conflitam com Monaco *(#179 — cinco afirmações num E2E, com controle: a paleta
+  abre com o editor **e** com a árvore focados)*
 - ✅ Loading nunca congela a UI *(o preview mantém o conteúdo anterior esmaecido; o render fica
   pendurado 8 s no E2E e a digitação segue salvando)*
 - ✅ Render mostra progresso *(texto, não roda girando: roda não diz se travou)*

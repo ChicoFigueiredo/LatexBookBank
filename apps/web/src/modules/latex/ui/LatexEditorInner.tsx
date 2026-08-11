@@ -218,6 +218,25 @@ export default function LatexEditorInner({
       renderRef.current?.();
     });
 
+    /**
+     * `Ctrl+K` **devolvido ao aplicativo** (#179).
+     *
+     * O Monaco usa `Ctrl+K` como prefixo de acorde (`Ctrl+K Ctrl+C` comenta) e o consome antes de
+     * chegar à janela. O efeito, medido no navegador: com o editor focado, a paleta simplesmente
+     * **não abria** — enquanto o botão do rail anuncia "Buscar · Ctrl K".
+     *
+     * Um atalho anunciado na tela que falha em silêncio conforme o foco é pior que os dois lados:
+     * quem aperta conclui que o produto travou. O acorde do Monaco, em troca, não é ensinado em
+     * lugar nenhum deste produto.
+     *
+     * O editor **não conhece a paleta**: ele só recusa a tecla e a devolve para quem a escuta. É
+     * o que mantém o editor ignorante do resto da tela — trocar a paleta por outra coisa não mexe
+     * aqui.
+     */
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+    });
+
     readyRef.current?.({
       insertSnippet: (body) => {
         // `snippetController2` e não `executeEdits`: é ele que interpreta `${1:…}` e resolve
