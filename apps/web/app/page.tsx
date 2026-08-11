@@ -1,53 +1,52 @@
-import Link from "next/link";
+import { readHomeOverview } from "@modules/workspaces/infrastructure/prisma-home-overview";
+import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
-import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
+import { HomeScreen } from "./home-screen";
 
 /**
- * Lista de publicações do workspace de demonstração.
+ * A Home do acervo.
  *
- * Server Component: o repository roda no servidor e o que chega ao cliente é DTO. Nenhum
- * componente importa Prisma — a regra de lint da issue #4 recusaria.
+ * Server Component: os repositórios rodam aqui e só DTO atravessa para o cliente. Nenhum
+ * componente importa Prisma — a regra de lint recusaria.
  *
- * **Sem estilo de propósito.** O design system é a Fase 1; esta tela existe para provar o
- * caminho de dados ponta a ponta, não a aparência.
+ * **Sem `demo`.** A versão anterior listava as publicações do workspace `demo` hardcoded, o que
+ * fazia a primeira tela do produto depender de um seed. Agora ela responde às três situações
+ * reais: zero bibliotecas, uma, várias (§63 do prompt do time).
  */
 
 /**
  * Dinâmica, não estática: a lista muda conforme o autor cria e importa publicações, e um
- * snapshot de build serviria dados velhos. No build também não há banco a consultar — foi
- * exatamente assim que o CI pegou isto.
+ * snapshot de build serviria dados velhos. No build também não há banco a consultar.
  */
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const repository = new PrismaPublicationRepository();
-  const publications = await repository.listByWorkspaceSlug("demo");
+  const [libraries, overview] = await Promise.all([
+    new PrismaLibraryRepository().list(),
+    readHomeOverview(),
+  ]);
 
   return (
-    <main style={{ padding: "var(--space-8)", maxWidth: "48rem" }}>
-      <h1>LatexBookBank</h1>
-      <p style={{ color: "var(--text-secondary)" }}>Fase 0 — fundação e providers.</p>
-
-      <h2 style={{ marginTop: "var(--space-8)" }}>Publicações</h2>
-
-      {publications.length === 0 ? (
-        <p>
-          Nenhuma publicação ainda. Rode <code>bun run setup</code> para aplicar o seed de
-          demonstração.
-        </p>
-      ) : (
-        <ul>
-          {publications.map((publication) => (
-            <li key={publication.id} style={{ marginBottom: "var(--space-2)" }}>
-              <Link href={`/publications/${publication.id}`}>{publication.title}</Link>
-              {publication.publisher ? ` — ${publication.publisher}` : ""}{" "}
-              <span style={{ color: "var(--text-secondary)" }}>
-                ({publication.nodeCount} {publication.nodeCount === 1 ? "nó" : "nós"})
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+    <HomeScreen
+      libraries={libraries.map((library) => ({
+        id: library.id,
+        name: library.name,
+        slug: library.slug,
+        publicationCount: library.publicationCount,
+      }))}
+      continueWhere={
+        overview.continueWhere
+          ? {
+              ...overview.continueWhere,
+              updatedAt: overview.continueWhere.updatedAt.toISOString(),
+            }
+          : null
+      }
+      recent={overview.recent.map((entry) => ({
+        ...entry,
+        updatedAt: entry.updatedAt.toISOString(),
+      }))}
+      invalidCount={overview.invalidCount}
+    />
   );
 }

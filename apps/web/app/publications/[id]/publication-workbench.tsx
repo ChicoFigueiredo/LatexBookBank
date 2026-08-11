@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ArtifactStatus,
@@ -23,7 +23,6 @@ import {
   type ContextMenuItem,
   type IconName,
   type TreeNode,
-  type WorkbenchModule,
 } from "@/design-system";
 import type { AiSetupDescription } from "@modules/agents/domain/ai-setup";
 import {
@@ -45,6 +44,7 @@ import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter"
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
 import { sameTag } from "@modules/questions/domain/tag";
 
+import { RAIL_MODULES, railHref } from "../../rail";
 import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
 import { useTreeEditing } from "./use-tree-editing";
@@ -57,14 +57,6 @@ import { useTreeEditing } from "./use-tree-editing";
  * tela prova agora é a **geometria** — que as seis zonas existem, redimensionam, persistem e
  * conversam entre si.
  */
-
-const MODULES: readonly WorkbenchModule[] = [
-  { id: "biblioteca", label: "Biblioteca", icon: "library" },
-  { id: "publicacoes", label: "Publicações", icon: "book-open" },
-  { id: "avaliacoes", label: "Avaliações", icon: "clipboard-list" },
-  { id: "importacao", label: "Importação", icon: "download-cloud" },
-  { id: "diagnostico", label: "Diagnóstico", icon: "activity", group: "Sistema" },
-];
 
 /**
  * De estado da árvore para selo do design system.
@@ -152,6 +144,8 @@ export interface PublicationWorkbenchProps {
   readonly publicationTitle: string;
   readonly publisher: string | null;
   readonly nodes: readonly TreeNodeDto[];
+  /** Nó pedido pela URL (`?node=`) — busca global e "Continuar" da Home chegam por aqui. */
+  readonly requestedNodeId?: string;
   /**
    * Rótulos da IA configurada, resolvidos no servidor. `null` quando não há nenhuma.
    *
@@ -166,6 +160,7 @@ export function PublicationWorkbench({
   publicationTitle,
   publisher,
   nodes,
+  requestedNodeId,
   ai,
 }: PublicationWorkbenchProps) {
   /**
@@ -179,6 +174,20 @@ export function PublicationWorkbench({
     `lbb:tree:${publicationTitle}:selected`,
     nodes[0]?.id ?? null,
   );
+
+  /**
+   * O nó pedido pela URL vence o guardado.
+   *
+   * Quem chega pela busca global ou pelo "Continuar" da Home nomeou o destino; abrir no nó da
+   * sessão anterior seria ignorar o gesto que trouxe a pessoa até aqui. Uma vez só, no mount: se
+   * o efeito rodasse a cada render, clicar em outro nó da árvore voltaria sozinho para este.
+   */
+  useEffect(() => {
+    if (requestedNodeId && nodes.some((node) => node.id === requestedNodeId)) {
+      setSelectedId(requestedNodeId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedNodeId]);
 
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState("");
@@ -618,23 +627,26 @@ export function PublicationWorkbench({
           icon: "search" as const,
           hint: hit.hint,
           group: "No acervo",
-          // Sem ação por enquanto: navegar até outra publicação exige a rota de questão avulsa,
-          // que não existe. Mostrar sem navegar é honesto; navegar para lugar nenhum não seria.
+          // Agora **navega**: `/questoes/[id]` resolve publicação e nó e redireciona para cá com o
+          // nó selecionado. Resultado que aparece na lista e não abre é resultado que não deveria
+          // estar na lista (§31).
+          onSelect: () => router.push(`/questoes/${hit.id}`),
         })),
     ],
-    [found, nodes, setSelectedId],
+    [found, nodes, router, setSelectedId],
   );
 
   const breadcrumb = [
-    { label: "Publicações", href: "/" },
+    { label: "Publicações", href: "/publicacoes" },
     { label: publicationTitle },
     ...(selected ? [{ label: selected.title }] : []),
   ];
 
   return (
     <Workbench
-      modules={MODULES}
+      modules={RAIL_MODULES}
       activeModule="publicacoes"
+      onModuleSelect={(id) => router.push(railHref(id, publicationId))}
       breadcrumb={breadcrumb}
       commands={commands}
       onCommandQueryChange={searchArchive}

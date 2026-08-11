@@ -66,6 +66,20 @@ model Publication {
   publicationDate DateTime?
   notes           String?
 
+  /// Metadados editoriais do cadastro manual (design §5 dos ajustes finais).
+  ///
+  /// Colunas de verdade, e não mais um campo dentro de `metadataJson`: são exatamente os dados
+  /// pelos quais se procura um livro — "a 8ª edição", "o volume 2 da coleção". Enterrados num JSON
+  /// serializado, nenhum deles seria filtrável sem ler a tabela inteira em memória.
+  edition         String?
+  /// Ano de publicação quando é só isso que se sabe. `publicationDate` continua para a data cheia,
+  /// que o import legado às vezes traz; obrigar uma data completa faria inventar mês e dia.
+  editionYear     Int?
+  /// BCP 47 curto: `pt-BR`, `en`. Texto livre seria "Português", "português", "PT" na mesma coluna.
+  language        String?
+  series          String?
+  volume          String?
+
   coverAssetId     String?
   sourcePdfAssetId String?
 
