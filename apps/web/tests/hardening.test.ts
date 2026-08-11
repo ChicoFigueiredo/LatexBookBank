@@ -385,3 +385,34 @@ describe("toda rota de questão confere a publicação da URL", () => {
     }
   });
 });
+
+/**
+ * **Quem oferece download diz o tamanho** (#195).
+ *
+ * A rota de export devolvia o `.lbb` sem `content-length`, e a resposta saía `chunked`: o navegador
+ * mostra "tamanho desconhecido", sem barra, sem estimativa e sem como distinguir um download lento
+ * de um travado. Num acervo de 109 MB é a diferença entre esperar e desistir.
+ *
+ * O par é o que este guarda amarra: `content-disposition: attachment` sem `content-length` é uma
+ * promessa de arquivo sem promessa de fim.
+ */
+describe("toda rota de download anuncia o tamanho", () => {
+  const rotas = readdirSync(path.join(root, "app/api"), { recursive: true, encoding: "utf8" })
+    .filter((file) => typeof file === "string" && file.endsWith("route.ts"))
+    .map((file) => path.join(root, "app/api", String(file)));
+
+  it("há rotas para varrer", () => {
+    expect(rotas.length).toBeGreaterThan(20);
+  });
+
+  it("`content-disposition: attachment` vem sempre com `content-length`", () => {
+    const semTamanho = rotas.filter((file) => {
+      const code = readFileSync(file, "utf8");
+      // Só as que **montam** o corpo aqui: quem repassa um `Response` pronto já herda o cabeçalho.
+      if (!/content-disposition["']?\s*:\s*[`"']attachment/i.test(code)) return false;
+      return !/content-length/i.test(code);
+    });
+
+    expect(semTamanho.map((f) => f.replace(root, ""))).toEqual([]);
+  });
+});
