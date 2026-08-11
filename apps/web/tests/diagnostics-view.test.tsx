@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Diagnostics, SectionStatus } from "@modules/diagnostics/domain/diagnostics";
@@ -140,5 +140,82 @@ describe("portabilidade", () => {
   it("sem workspace, não há o que exportar", () => {
     show({ workspaces: [] });
     expect(screen.queryByRole("link", { name: /Exportar/ })).toBeNull();
+  });
+});
+
+/**
+ * O import pede confirmação **no produto**, não no navegador (#189).
+ *
+ * A confirmação era um `confirm()` nativo — o único gesto da tela que o navegador pode desligar:
+ * marcada a caixa "impedir esta página de criar diálogos", ele devolve `false` sem aparecer, e o
+ * import deixaria de acontecer em silêncio, com a tela dizendo "cancelado" sobre algo que ninguém
+ * cancelou.
+ *
+ * A convenção do projeto já era `Modal` sem descarte por clique fora — é a mesma da exclusão na
+ * árvore, pelo mesmo motivo: o "não" precisa ser explícito.
+ */
+describe("importar um `.lbb`", () => {
+  const arquivo = () => new File(["conteudo"], "acervo.lbb", { type: "application/zip" });
+
+  /** Primeiro o dry-run, depois (se confirmado) a gravação. */
+  const stubImport = () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", (url: string) => {
+      urls.push(String(url));
+      const dry = String(url).includes("dryRun=1");
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            dry
+              ? { wouldCreate: { publications: 2, questions: 7, assets: 3 }, collisions: [] }
+              : { report: { questions: 7 } },
+          ),
+      } as Response);
+    });
+    return urls;
+  };
+
+  const escolher = async (view: ReturnType<typeof show>) => {
+    const input = view.container.querySelector('input[type="file"]');
+    fireEvent.change(input as HTMLInputElement, { target: { files: [arquivo()] } });
+  };
+
+  it("o dry-run acontece **antes** de qualquer gravação, e a tela mostra o que viria", async () => {
+    const urls = stubImport();
+    const view = show();
+    await escolher(view);
+
+    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("dryRun=1");
+    expect(screen.getByText(/dry-run/)).toBeTruthy();
+  });
+
+  it("cancelar **não grava** — e diz isso", async () => {
+    const urls = stubImport();
+    const view = show();
+    await escolher(view);
+
+    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    await waitFor(() => expect(screen.getByText(/nada foi gravado/i)).toBeTruthy());
+    // Continua sendo uma requisição só: a do dry-run.
+    expect(urls).toHaveLength(1);
+  });
+
+  it("confirmar grava, e só então", async () => {
+    const urls = stubImport();
+    const view = show();
+    await escolher(view);
+
+    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Importar" }));
+
+    await waitFor(() => expect(urls).toHaveLength(2));
+    expect(urls[1]).not.toContain("dryRun");
+    await waitFor(() => expect(screen.getByText(/Importado: 7/)).toBeTruthy());
   });
 });

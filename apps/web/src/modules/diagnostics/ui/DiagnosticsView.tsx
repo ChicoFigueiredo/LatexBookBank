@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Badge, Banner, Button, injectCss } from "@/design-system";
+import { Badge, Banner, Button, injectCss, Modal } from "@/design-system";
 import type { Diagnostics, Health, SectionStatus } from "@modules/diagnostics/domain/diagnostics";
 
 /**
@@ -49,6 +49,14 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
   injectCss("lbb-diag-css", CSS);
 
   const [aiTest, setAiTest] = useState<{ ok: boolean; message: string } | null>(null);
+  /** O que o dry-run encontrou, esperando um sim. `null` quando não há import pendente. */
+  const [pending, setPending] = useState<{
+    file: File;
+    publications: number;
+    questions: number;
+    assets: number;
+    collisions: number;
+  } | null>(null);
   const [testing, setTesting] = useState(false);
   const [importReport, setImportReport] = useState<string | null>(null);
 
@@ -87,16 +95,46 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
       }
 
       const counts = preview.wouldCreate ?? {};
-      const summary =
-        `Traria ${counts["publications"] ?? 0} publicação(ões), ` +
-        `${counts["questions"] ?? 0} questão(ões) e ${counts["assets"] ?? 0} asset(s).` +
-        (preview.collisions?.length ? ` ${preview.collisions.length} colisão(ões).` : "");
 
-      if (!confirm(`${summary}\n\nImportar como um workspace novo?`)) {
-        setImportReport(`Cancelado. ${summary}`);
-        return;
-      }
+      /**
+       * A confirmação vira `Modal`, e não `confirm()` (#189).
+       *
+       * O diálogo nativo é o único gesto do produto que o **navegador pode desligar**: marcada a
+       * caixa "impedir esta página de criar diálogos", ele passa a devolver `false` sem aparecer.
+       * O import silenciosamente deixaria de acontecer, e a tela diria "cancelado" sobre algo que
+       * ninguém cancelou.
+       *
+       * E é a mesma convenção que a exclusão da árvore já segue: confirmação em `Modal`, sem
+       * descarte por clique fora — o "não" precisa ser explícito.
+       */
+      setPending({
+        file,
+        publications: counts["publications"] ?? 0,
+        questions: counts["questions"] ?? 0,
+        assets: counts["assets"] ?? 0,
+        collisions: preview.collisions?.length ?? 0,
+      });
+      setImportReport(null);
+    } catch {
+      setImportReport("Não deu para falar com o servidor.");
+    }
+  };
 
+  /** Cancelar diz que **nada foi gravado** — o dry-run já tinha acontecido, e isso confunde. */
+  const cancelImport = () => {
+    setPending(null);
+    setImportReport("Cancelado — nada foi gravado.");
+  };
+
+  /** A segunda etapa: só acontece depois de alguém dizer sim ao que o dry-run mostrou. */
+  const confirmImport = async () => {
+    if (pending === null) return;
+
+    const { file } = pending;
+    setPending(null);
+    setImportReport("importando…");
+
+    try {
       const real = await fetch("/api/workspaces/import", { method: "POST", body: file });
       const done = (await real.json()) as { report?: Record<string, number>; message?: string };
 
@@ -111,7 +149,14 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
   };
 
   return (
-    <div className="lbb-diag">
+    /**
+     * `main` e não `div` (#189).
+     *
+     * Era a **única** página do produto sem marca de região: a inicial, as avaliações, a ingestão e
+     * o workbench já têm a sua. Sem ela, quem navega por leitor de tela não tem como pular para o
+     * conteúdo — e é justamente esta a página aonde se vai quando algo não está funcionando.
+     */
+    <main className="lbb-diag">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)" }}>
         Diagnóstico
       </h1>
@@ -187,7 +232,40 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
           </label>
         </div>
       </div>
-    </div>
+      <Modal
+        open={pending !== null}
+        onClose={cancelImport}
+        title="Importar como um workspace novo?"
+        // Sem descarte por clique fora: importar cria um acervo inteiro, e o "não" precisa ser
+        // explícito — a mesma regra da exclusão na árvore.
+        closeOnScrim={false}
+        footer={
+          <>
+            <Button variant="ghost" onClick={cancelImport}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={() => void confirmImport()}>
+              Importar
+            </Button>
+          </>
+        }
+      >
+        <p>
+          O arquivo traria <strong>{pending?.publications ?? 0}</strong> publicação(ões),{" "}
+          <strong>{pending?.questions ?? 0}</strong> questão(ões) e{" "}
+          <strong>{pending?.assets ?? 0}</strong> asset(s).
+        </p>
+        {(pending?.collisions ?? 0) > 0 && (
+          <Banner tone="warn" title={`${pending?.collisions} colisão(ões) de identidade`}>
+            Nada é sobrescrito: o import cria um workspace <strong>novo</strong>, e as colisões vão
+            para o relatório.
+          </Banner>
+        )}
+        <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-body-sm)" }}>
+          Isto é o que o <strong>dry-run</strong> encontrou. Nada foi gravado ainda.
+        </p>
+      </Modal>
+    </main>
   );
 }
 
