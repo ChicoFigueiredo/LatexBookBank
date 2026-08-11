@@ -21,12 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 833 ✅ · 5 ◐ · 15 ⛔ · 139 `[ ]` — e **111 dos 139 abertos estão em quatro blocos que
+**Progresso:** 836 ✅ · 5 ◐ · 14 ⛔ · 138 `[ ]` — e **111 dos 138 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 28 itens.**
-**Última atualização:** 2026-08-10 — confronto com o [`_planejamento.md`](./_planejamento.md), fase
-a fase (ver §16). A revisão fechou duas linhas do critério de produto local que já tinham prova —
+(20, que é do Chico). **Fora deles sobram 27 itens.**
+**Última atualização:** 2026-08-10 — **os dois defeitos que impediam usar o produto** (#156, #166).
+Salvar duas vezes seguidas dava 409 e o autosave parava, então valia um salvamento por carregamento
+de página; e recompilar uma questão cuja saída não mudou dava 500 dizendo "falha ao compilar" sobre
+uma compilação bem-sucedida. O segundo apareceu **ao consertar o primeiro**, e o E2E que estava
+`fixme` desde a #155 voltou a valer — **7 de 7**.
+**Antes, no mesmo dia:** confronto com o [`_planejamento.md`](./_planejamento.md), fase a fase
+(ver §16). A revisão fechou duas linhas do critério de produto local que já tinham prova —
 IA local e ferramentas TeX — e marcou como **decisão**, não esquecimento, a virtualização da árvore
 e os migradores de formato do `.lbb`.
 **Antes, no mesmo dia:** a interface de render fechada (#161): copiar o LaTeX, tela
@@ -183,17 +188,17 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1203 testes (1141 no app + 62 no renderer) + 7 de E2E · 80 PRs abertos, nada mergeado.
+1206 testes (1144 no app + 62 no renderer) + **7 de E2E, todos passando** · 82 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · ✅3 · ✅4 · **◐5** · **◐6** | 1 e 5 esperam só o olho; a 6 espera a #156 e o preâmbulo na imagem |
+| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · ✅3 · ✅4 · **◐5** · **◐6** | 1 e 5 esperam só o olho; a 6 espera o preâmbulo embutido na imagem |
 | — prova arquitetural | **◐6.5** | schema PostgreSQL provado; storage parado na decisão |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
 | D — acervo legado e portabilidade | **⛔11** · ✅12 · **◐13** | a 11 depende do acervo; a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
-| F — diferencial de produto | ✅16 · **◐17** | a 17 espera a #156 e o guarda de autorização |
+| F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
 
 **Fases fechadas: 10 de 19** — 0, 3, 4, 7, 8, 9, 10, 12, 15 e 16. *(Eram 2 no cabeçalho antigo, que
 estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 continua sendo do Chico.)*
@@ -211,7 +216,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 22 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
-| **10** operação e busca | 10 · 12 · 17 | 49 | — | 4 | 9 | diagnóstico incompleto, guarda de autorização, e 2 presos ao acervo |
+| **10** operação e busca | 10 · 12 · 17 | 52 | — | 3 | 8 | diagnóstico incompleto, guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
 | — seções cruzadas | §8–§15 | 173 | — | 1 | 31 | 12 são o checklist visual; 8 são o §33 "Legado" |
@@ -1408,9 +1413,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ O texto sobrevive ao recarregamento, e o teste **desfaz o que escreveu** *(sem isso, dez
   execuções deixariam o enunciado com uma fileira de marcas de teste)*
 - ✅ Preview rápido aparece
-- ⛔ Render — bloqueado pela **#156**, que este E2E achou: compilar uma questão cujo fonte mudou
-  mas cuja saída é idêntica (basta um comentário LaTeX) colide em `Asset.storageKey @unique` e
-  devolve 500. O teste fica `fixme`, não removido: apagá-lo levaria o achado junto
+- ✅ Render *(#156 — o teste que estava `fixme` voltou a valer, e agora exercita a regressão:
+  compila, acrescenta um comentário LaTeX, compila de novo e afirma que **"Falha ao compilar" não
+  aparece**. `Asset.storageKey @unique` derrubava o segundo render cujo PDF saísse idêntico, e a
+  tela mentia sobre uma compilação bem-sucedida)*
 - ✅ Abrir agente · pedir correção · revisar diff · aplicar *(#158 — **o modelo é dublê, a rota
   de aplicar não**: o que a §27 pede não é que o Ollama acerte, e sim que o gesto humano no meio
   funcione. O dublê ser recusado pelo servidor na primeira tentativa — `summary` faltando,
@@ -1422,7 +1428,13 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   na tela continuava o de antes e quem seguisse digitando editaria sobre uma base que já mudou. A
   `key` passou a levar a versão do servidor, que **não** muda a cada autosave — fosse assim, o
   Monaco perderia o cursor no meio da frase)*
-- [ ] Render novamente *(depende da #156)*
+- ✅ Render novamente *(#156 — é justamente a segunda compilação que quebrava)*
+- ✅ **Salvar duas vezes seguidas** *(#166 — achado ao consertar a #156, e maior que ela: todo
+  salvamento deixava o cliente com a versão vencida, e o seguinte batia em 409 com "conflito · o
+  autosave está pausado". Um salvamento por carregamento de página. A validação gravava
+  `validationStatus` depois da resposta ter saído, e o `@updatedAt` avançava o token de
+  concorrência. Derivado não é uma versão nova da questão — agora ela grava a **mesma** versão,
+  condicionada a ela)*
 
 > Deploy em produção **não** faz parte deste plano. A prova de viabilidade é a Fase 6.5.
 

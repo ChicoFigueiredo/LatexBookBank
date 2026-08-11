@@ -304,7 +304,19 @@ model Asset {
   kind String
 
   /// Chave opaca resolvida pelo StorageProvider. Nunca um path local nem uma URL.
-  storageKey       String  @unique
+  ///
+  /// **Não é única, e isso é a correção da #156.** A chave endereça o **objeto guardado**; esta
+  /// tabela guarda *referências* a ele, e várias referências ao mesmo objeto são o caso normal:
+  /// dois renders cujo PDF sai idêntico (basta o fonte mudar só num comentário), a mesma figura
+  /// usada em duas questões, o mesmo PDF de origem em duas publicações.
+  ///
+  /// Com `@unique` aqui, o segundo render devolvia 500 e a tela dizia "falha ao compilar" — sobre
+  /// uma compilação que tinha dado certo.
+  ///
+  /// A deduplicação de **fonte** não se perde junto: ela já mora no `createAsset`, que procura
+  /// pela chave antes de criar. A constraint era rede de segurança ali, não o mecanismo — e uma
+  /// rede que também derruba o caso legítimo não é rede, é armadilha.
+  storageKey       String
   mimeType         String
   originalFilename String?
 
@@ -329,6 +341,9 @@ model Asset {
   @@index([renderJobId])
   @@index([workspaceId, kind])
   @@index([sha256])
+  /// Substitui o índice que o `@unique` dava de graça: `createAsset` procura por esta coluna
+  /// antes de toda criação, e sem índice a dedup de fonte passaria a varrer a tabela inteira.
+  @@index([storageKey])
   @@map("assets")
 }
 

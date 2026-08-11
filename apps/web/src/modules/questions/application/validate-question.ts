@@ -29,7 +29,19 @@ export interface ValidationOutcome {
 }
 
 export interface ValidationWriter {
-  setValidationStatus(questionId: string, status: ValidationStatus): Promise<void>;
+  /**
+   * Grava o veredito.
+   *
+   * `keepVersion` é a versão que o salvamento acabou de produzir, e o adaptador a usa para gravar
+   * **sem mover o relógio da questão**: validação é estado derivado do texto que já foi gravado,
+   * não uma edição nova. Sem isso, o token de concorrência avança depois de a resposta ter saído,
+   * e o salvamento seguinte é recusado com 409 (#166).
+   */
+  setValidationStatus(
+    questionId: string,
+    status: ValidationStatus,
+    keepVersion?: Date,
+  ): Promise<void>;
 }
 
 export function evaluateQuestion(question: QuestionForPlugin): ValidationOutcome {
@@ -51,8 +63,9 @@ export async function validateAndPersist(
   writer: ValidationWriter,
   questionId: string,
   question: QuestionForPlugin,
+  keepVersion?: Date,
 ): Promise<ValidationOutcome> {
   const outcome = evaluateQuestion(question);
-  await writer.setValidationStatus(questionId, outcome.status);
+  await writer.setValidationStatus(questionId, outcome.status, keepVersion);
   return outcome;
 }
