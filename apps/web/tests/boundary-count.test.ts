@@ -28,6 +28,12 @@ const FRONTEIRAS = [
   "RenderExecutor",
   "AiProvider",
   "MathRecognitionProvider",
+  // A sexta, decidida no Beta Editorial e registrada em `docs/_atual/calibre-spike.md`. O que a
+  // justifica não é "há mais de uma implementação" — há uma, a do Calibre. É a outra metade da
+  // pergunta de controle: do outro lado dela há um banco de terceiro, num diretório do usuário,
+  // com esquema que não controlamos. Sem a fronteira, `books_authors_link` apareceria no caso de
+  // uso de importar livro, que é exatamente o que a §28 do prompt do time proíbe.
+  "LibraryCatalogProvider",
 ] as const;
 
 const arquivos = readdirSync(portsDir)
@@ -37,7 +43,7 @@ const arquivos = readdirSync(portsDir)
 const codigo = arquivos.map((file) => readFileSync(file, "utf8")).join("\n");
 
 describe("as fronteiras de infraestrutura", () => {
-  it("são exatamente as quatro da D23 mais a da Fase 15", () => {
+  it("são exatamente as quatro da D23, a da Fase 15 e a do Beta Editorial", () => {
     for (const nome of FRONTEIRAS) {
       expect(codigo, `${nome} sumiu`).toContain(`export interface ${nome} {`);
     }

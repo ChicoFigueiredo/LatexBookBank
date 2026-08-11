@@ -105,13 +105,23 @@ pasta apontada → metadata.db (somente leitura, por cópia)
   → cópia do PDF e da capa para o StorageProvider
 ```
 
-## O que fica para depois do Beta
+## O que a implementação achou depois
 
-A spike responde as dez perguntas e o desenho está fechado, mas o **wizard não foi implementado**.
-A razão é a §90 — produto acima do checklist: o caminho manual fecha a jornada P0 sozinho, e o
-Calibre é o segundo caminho para a mesma coisa. Com o fluxo unitário de captura pronto, ele passa
-a ser trabalho mecânico sobre uma decisão já tomada.
+O wizard foi implementado sobre este desenho (`CalibreCatalogProvider`, `importFromCatalog`,
+`/bibliotecas/[slug]/livros/calibre`). Rodar contra a biblioteca real achou duas coisas que
+nenhuma fixture teria achado:
 
-Segurança, quando for implementado (§75): o caminho apontado é validado contra travessia, os
-arquivos são tratados como **dados** e nada é executado. O `metadata.db` é aberto somente para
-leitura, sobre uma cópia.
+- **`lower()` do SQLite só rebaixa ASCII.** "TRIBUTÁRIO" vira "tributÁrio", e procurar
+  "tributário" devolvia zero num catálogo de 64 livros. O filtro passou a acontecer em memória,
+  com `NFD` + `toLocaleLowerCase("pt-BR")` dos dois lados. Teste: `calibre-search.test.ts`.
+- **`series_index` é `1.0` em todo livro**, com ou sem coleção. Importado literalmente, todo livro
+  avulso do acervo viraria "volume 1". O volume só entra quando há série.
+
+Importação real verificada: `CURSO DE DIREITO TRIBUTÁRIO COMPLETO — 4ª EDIÇÃO`, PDF de 2,7 MB e
+capa de 178 KB copiados para o storage gerenciado, origem gravada em `metadataJson` com o `uuid`
+do Calibre. Reimportar o mesmo livro é recusado com 409 e oferece abrir o que já existe.
+
+Segurança (§75): o caminho apontado precisa ser absoluto e sem `\0`; cada arquivo lido é
+resolvido e conferido contra a raiz, então um `books.path` com `../` — que o Calibre não produz,
+mas um banco editado à mão produz — é recusado. Os arquivos são tratados como **dados** e nada é
+executado. O `metadata.db` é aberto sobre uma **cópia**, nunca o arquivo do usuário.

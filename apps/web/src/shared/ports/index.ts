@@ -74,3 +74,12 @@ export type {
   RecognitionState,
 } from "./math-recognition";
 export { MathRecognitionError, RECOGNITION_STATES } from "./math-recognition";
+
+export type {
+  CatalogBook,
+  CatalogEntry,
+  CatalogFile,
+  CatalogSummary,
+  LibraryCatalogProvider,
+} from "./library-catalog";
+export { CatalogFileMissingError, CatalogUnavailableError } from "./library-catalog";

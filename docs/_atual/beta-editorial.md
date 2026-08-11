@@ -54,7 +54,7 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 | `Candidate → Question`                | não existia         | feito |
 | Importar `.lbb`                       | endpoint sem tela   | tela feita |
 | Fila de captura                       | —                   | P1, não implementada |
-| Calibre                               | —                   | spike documentada; wizard é P1 |
+| Calibre                               | —                   | spike, adapter, wizard e E2E — feito |
 
 ## 3. Progresso por slice (§58)
 
@@ -69,7 +69,7 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 | 7 · Capture Studio          | ✓      | ✓ 8    | ✓   | ✓       | pronto |
 | 8 · Candidate → Question    | ✓      | ✓ 9    | ✓   | ✓       | pronto |
 | 9 · Fila de captura         | —      | —      | —   | —       | P1 |
-| 10 · Calibre                | spike  | —      | —   | —       | P1, decisão documentada |
+| 10 · Calibre                | ✓      | ✓ 27   | ✓   | ✓       | pronto, validado contra biblioteca real |
 
 ## 4. Matriz Design → Código (§92)
 
@@ -82,6 +82,8 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 | Cadastro manual          | `bibliotecas/[slug]/livros/novo`               | `createPublication`               | `POST /api/libraries/[id]/publications`      | `Publication`+autores | `publication-draft` |
 | Importar `.lbb`          | `app/importar`                                 | `toRuntime` + `writeImported…`    | `POST /api/workspaces/import`                | workspace inteiro     | `portable-archive` |
 | Publicações (catálogo)   | `app/publicacoes`                              | `listPublicationCatalog`          | `GET /api/publications`                      | leitura               | E2E |
+| Calibre — catálogo       | `bibliotecas/[slug]/livros/calibre`            | `browseCatalog`                   | `POST /api/catalog`                          | leitura               | `calibre-catalog`, `calibre-search` |
+| Calibre — importar       | idem                                           | `importFromCatalog`               | `POST /api/catalog/import`                   | `Publication`+assets  | `import-from-catalog`, E2E |
 | Livro vazio              | `publication-workbench.tsx` (EmptyState)       | —                                 | —                                            | —                     | E2E |
 | Menu `+ Adicionar`       | `add-menu.tsx`                                 | `placementForAdd`                 | —                                            | —                     | `create-question` |
 | Criar estrutura          | árvore                                         | `createNode`                      | `POST …/nodes`                               | `DocumentNode`        | `mutate-tree` |
@@ -107,14 +109,18 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 - **Fila de captura** (§26). O fluxo unitário fecha a jornada; a fila é produtividade em volume.
   Sem ela, capturar dez questões seguidas é dez ciclos de "Criar e continuar capturando" — que
   funciona, e é o CTA que existe para isso.
-- **Wizard do Calibre** (§30). Spike executada contra biblioteca real e decisão documentada em
-  `calibre-spike.md`; falta o adapter e a tela.
 - **Ações contextuais sobre questão existente** (§25 do prompt): inserir no cursor, adicionar
   alternativa a partir de recorte, salvar como figura. "Salvar como figura" já funciona pela aba
   Origem; os outros dependem da fila para valerem a pena.
 - **Reconhecimento de questão completa** (§22): o modo `full-question` que devolve enunciado e
   alternativas separados. Hoje o recorte vira enunciado, e as alternativas se preenchem à mão.
   O contrato (`ApprovedCandidate.options`) já aceita — falta o provider produzir.
+
+### P1 — o que o Calibre ainda não faz
+
+- Só o **PDF** é copiado como fonte. EPUB e MOBI aparecem na lista e ficam no Calibre — o contrato
+  aceita outros formatos (`formats` no comando), e falta a tela oferecer a escolha.
+- Não há **importação em lote**. Um livro por vez, que é o ritmo de quem revisa metadados.
 
 ### P2 — evolução
 

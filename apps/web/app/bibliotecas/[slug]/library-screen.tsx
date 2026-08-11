@@ -11,9 +11,8 @@ import { AppShell } from "../../app-shell";
 /**
  * Uma biblioteca aberta: os livros dentro dela e o caminho para acrescentar o próximo.
  *
- * "Adicionar livro" abre as quatro entradas do design (§5 dos ajustes finais). Só a primeira está
- * ligada no Beta; as outras aparecem **desabilitadas com motivo**, e não escondidas — quem já viu
- * o design procura por elas, e não achar é pior que achar com "em breve" escrito.
+ * "Adicionar livro" abre as três entradas do design (§5 dos ajustes finais): cadastro manual,
+ * Calibre e arquivo `.lbb`. As três funcionam — nenhuma é botão morto (§81).
  */
 
 export interface LibraryScreenPublication {
@@ -99,8 +98,7 @@ export function LibraryScreen({ library, publications }: LibraryScreenProps) {
           <Button
             variant="secondary"
             icon="library"
-            disabled
-            title="O adaptador do Calibre chega depois do fluxo manual — ver docs/_atual/beta-editorial.md."
+            href={`/bibliotecas/${library.slug}/livros/calibre`}
             style={{ justifyContent: "flex-start" }}
           >
             Importar do Calibre
