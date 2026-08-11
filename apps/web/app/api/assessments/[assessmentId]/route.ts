@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import {
   contentFor,
+  deleteAssessment,
   findAssessment,
+  variantLabelsOf,
 } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
 import { toErrorResponse } from "../../tree-http";
@@ -55,6 +57,60 @@ export async function GET(
         };
       }),
     });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
+}
+
+/**
+ * Apaga a avaliação.
+ *
+ * Existia o gesto de criar e não o de apagar, então toda prova montada — inclusive as de teste —
+ * ficava na lista para sempre. Em desenvolvimento isso é lixo; num acervo de verdade é pior, porque
+ * a lista deixa de dizer quais provas importam.
+ *
+ * **Variante sorteada exige confirmação explícita.** O mapa de letras de uma variante *é* o
+ * gabarito de uma prova que pode já ter sido impressa e entregue à turma; apagá-lo destrói a única
+ * cópia de como aquela prova foi embaralhada, e a seed sozinha não a reconstrói — ela reproduz a
+ * permutação apenas enquanto a questão tiver exatamente as mesmas alternativas (§17).
+ *
+ * Por isso a recusa vem com **409 e a lista das variantes**, não com um 400 genérico: o pedido é
+ * válido, é o estado que exige alguém dizer sim sabendo o que perde.
+ */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ assessmentId: string }> },
+) {
+  const { assessmentId } = await params;
+
+  try {
+    const confirmed = new URL(request.url).searchParams.get("confirmVariants") === "1";
+    const labels = await variantLabelsOf(assessmentId);
+
+    if (labels === null) {
+      return NextResponse.json(
+        { error: "not_found", message: "Esta avaliação não existe." },
+        { status: 404 },
+      );
+    }
+
+    if (labels.length > 0 && !confirmed) {
+      return NextResponse.json(
+        {
+          error: "variants_would_be_lost",
+          message:
+            `Esta avaliação tem ${labels.length} variante(s) sorteada(s) (${labels.join(", ")}). ` +
+            "O mapa de letras delas é o gabarito, e apagá-lo não tem volta — a seed sozinha não " +
+            "reconstrói a prova se as alternativas mudarem.",
+          variantLabels: labels,
+        },
+        { status: 409 },
+      );
+    }
+
+    const { variantLabels } = await deleteAssessment(assessmentId);
+
+    return NextResponse.json({ deleted: true, variantLabels });
   } catch (error) {
     return toErrorResponse(error);
   }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { listWorkspaces } from "@modules/workspaces/infrastructure/prisma-workspace-list";
 import { listAssessments } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
+import { DeleteAssessment } from "./delete-assessment";
 import { NewAssessment } from "./new-assessment";
 
 /**
@@ -41,12 +42,15 @@ export default async function AssessmentsPage() {
       ) : (
         <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0 }}>
           {assessments.map((assessment) => (
-            <li key={assessment.id}>
+            <li key={assessment.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Link href={`/avaliacoes/${assessment.id}`}>{assessment.title}</Link>{" "}
               <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-micro)" }}>
                 {assessment.questionCount} questões
                 {assessment.variantLabels.length > 0 &&
                   ` · variantes ${assessment.variantLabels.join(", ")}`}
+              </span>
+              <span style={{ marginLeft: "auto" }}>
+                <DeleteAssessment assessmentId={assessment.id} title={assessment.title} />
               </span>
             </li>
           ))}

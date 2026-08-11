@@ -156,6 +156,42 @@ export async function removeQuestion(assessmentId: string, questionId: string): 
 }
 
 /**
+ * Apaga a avaliação inteira.
+ *
+ * Seções, itens, variantes e mapas de letra vão junto por cascade do schema — e é justamente por
+ * isso que quem chama precisa saber **quantas variantes** existiam. O mapa de letras de uma
+ * variante **é o gabarito** de uma prova que pode já ter sido impressa e entregue; apagá-lo em
+ * silêncio destrói a única cópia de como aquela prova foi embaralhada.
+ *
+ * A questão em si nunca é tocada: `AssessmentItem` referencia, nunca copia (D9/§18), e a relação
+ * com `Question` é `onDelete: Restrict` no outro sentido.
+ */
+export async function deleteAssessment(
+  assessmentId: string,
+): Promise<{ readonly deleted: boolean; readonly variantLabels: readonly string[] }> {
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { variants: { select: { label: true }, orderBy: { label: "asc" } } },
+  });
+
+  if (assessment === null) return { deleted: false, variantLabels: [] };
+
+  await prisma.assessment.delete({ where: { id: assessmentId } });
+
+  return { deleted: true, variantLabels: assessment.variants.map((variant) => variant.label) };
+}
+
+/** As variantes já sorteadas, para quem precisa avisar antes de destruir o gabarito delas. */
+export async function variantLabelsOf(assessmentId: string): Promise<readonly string[] | null> {
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { variants: { select: { label: true }, orderBy: { label: "asc" } } },
+  });
+
+  return assessment === null ? null : assessment.variants.map((variant) => variant.label);
+}
+
+/**
  * Guarda a variante **com o mapa de letras**.
  *
  * Numa transação: meia variante gravada daria uma prova cujo gabarito cobre parte das questões, e
