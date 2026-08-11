@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 848 ✅ · 5 ◐ · 14 ⛔ · 128 `[ ]` — e **111 dos 128 abertos estão em quatro blocos que
+**Progresso:** 849 ✅ · 5 ◐ · 14 ⛔ · 128 `[ ]` — e **111 dos 128 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
 (20, que é do Chico). **Fora deles sobram 17 itens.**
-**Última atualização:** 2026-08-11 — **o guarda central de autorização** (#175), e ele achou um
+**Última atualização:** 2026-08-11 — **escopo nas demais rotas** (#177). A árvore já conferia a
+publicação; a montagem de prova **não conferia a biblioteca**, e uma questão de outro acervo entrava
+com `201`. Verificado com duas bibliotecas de verdade e com controle positivo — sem o guarda, passa.
+**Antes:** **o guarda central de autorização** (#175), e ele achou um
 buraco de verdade: o `publicationId` da URL era decorativo nas rotas de questão, então dava para
 gravar uma questão real por uma publicação inexistente — e o 200 confirmava.
 **Antes:** **figura na questão, de ponta a ponta** (#173): o
@@ -212,7 +215,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1257 testes (1193 no app + 64 no renderer) + **7 de E2E, todos passando** · 87 PRs abertos, nada mergeado.
+1262 testes (1198 no app + 64 no renderer) + **7 de E2E, todos passando** · 88 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -239,7 +242,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **06** ingestão visual | 14 · 15 | 39 | 1 | — | 1 | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
-| **09** avaliações | 16 | 23 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
+| **09** avaliações | 16 | 24 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 57 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
@@ -1378,6 +1381,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ⛔ `AssessmentRule` — regra de montagem automática ("sorteie 5 de álgebra"). Sem caso de uso
   definido ainda, e um modelo vazio no schema é pior que um ausente.
 - ✅ `AssessmentItem` *(referência, **nunca cópia** — corrigir o enunciado corrige em todas)*
+- ✅ **A prova só monta com o acervo da própria biblioteca** *(#177 — `addQuestion` não conferia
+  workspace nenhum, e uma questão de outra biblioteca entrava com `201 added:true`. Verificado com
+  duas bibliotecas de verdade, criadas pelo caminho do produto. O estrago não é a prova sair errada
+  — ela sai certa: é que `AssessmentItem → Question` é `onDelete: Restrict`, então a prova de uma
+  biblioteca passa a **travar a exclusão** de uma questão da outra, e quem tenta apagar não descobre
+  por quê, porque a prova que segura não aparece no acervo dele)*
 - ✅ `AssessmentVariant` *(imutável: uma variante é uma **impressão**)*
 - ✅ `AssessmentVariantQuestion`
 - ✅ `AssessmentVariantOptionMap` — **é o gabarito**

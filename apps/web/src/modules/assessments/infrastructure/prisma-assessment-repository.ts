@@ -115,10 +115,53 @@ function parseIds(raw: string): readonly string[] {
   }
 }
 
+/**
+ * O resultado de acrescentar.
+ *
+ * `foreign` é um caso próprio e não um `added: false` qualquer: os dois significam coisas opostas
+ * para quem monta a prova. "Já estava" é um clique repetido; "é de outra biblioteca" é um engano
+ * que precisa aparecer.
+ */
+export type AddQuestionResult =
+  | { readonly added: true }
+  | { readonly added: false; readonly reason: "already" | "no_section" | "foreign" };
+
 export async function addQuestion(
   assessmentId: string,
   questionId: string,
-): Promise<{ added: boolean }> {
+): Promise<AddQuestionResult> {
+  /**
+   * **A questão é desta biblioteca?** (#177)
+   *
+   * Não era conferido, e o efeito é pior que o desalinho: `AssessmentItem → Question` é
+   * `onDelete: Restrict`, então uma prova da biblioteca A **trava a exclusão** de uma questão da
+   * biblioteca B — e quem tenta apagar não tem como descobrir por quê, porque a prova que segura
+   * não aparece em lugar nenhum do acervo dele.
+   *
+   * A prova sairia com a questão impressa e o gabarito certo; nada quebra. É exatamente o tipo de
+   * mistura que só se percebe quando as duas bibliotecas são de donos diferentes.
+   *
+   * Verificado com duas bibliotecas de verdade: sem este guarda, a rota respondia `201 added:true`.
+   */
+  const escopo = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: {
+      // A questão vem pela **mesma** consulta: duas idas ao banco poderiam ler estados diferentes.
+      workspace: {
+        select: {
+          publications: {
+            where: { nodes: { some: { questionId } } },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (escopo === null) return { added: false, reason: "no_section" };
+  if (escopo.workspace.publications.length === 0) return { added: false, reason: "foreign" };
+
   const section = await prisma.assessmentSection.findFirst({
     where: { assessmentId },
     orderBy: { sortKey: "asc" },
@@ -127,7 +170,7 @@ export async function addQuestion(
       items: { orderBy: { sortKey: "desc" }, take: 1, select: { sortKey: true } },
     },
   });
-  if (section === null) return { added: false };
+  if (section === null) return { added: false, reason: "no_section" };
 
   // A mesma questão duas vezes na mesma prova é engano, e o schema já recusa pelo par único —
   // mas devolver "não acrescentei" é melhor que estourar uma constraint por um clique repetido.
@@ -135,7 +178,7 @@ export async function addQuestion(
     where: { sectionId_questionId: { sectionId: section.id, questionId } },
     select: { id: true },
   });
-  if (existing !== null) return { added: false };
+  if (existing !== null) return { added: false, reason: "already" };
 
   await prisma.assessmentItem.create({
     data: {
