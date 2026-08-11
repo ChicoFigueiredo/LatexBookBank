@@ -2,6 +2,8 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
+
+import { candidatesWhere } from "./prisma-candidate-where";
 import type { AssessmentQuestionContent } from "@modules/assessments/domain/assessment-template";
 import type { Variant } from "@modules/assessments/domain/variant";
 import type { AssessmentRecord } from "@modules/assessments/application/compose-assessment";
@@ -335,7 +337,7 @@ export async function listCandidateQuestions(
   if (assessment === null) return [];
 
   const rows = await prisma.question.findMany({
-    where: { node: { publication: { workspaceId: assessment.workspaceId } } },
+    where: candidatesWhere(assessment.workspaceId, assessmentId),
     orderBy: { updatedAt: "desc" },
     take: limit,
     select: { id: true, nickname: true, statementLatex: true },

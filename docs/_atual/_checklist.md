@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 855 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 856 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
 (20, que é do Chico). **Fora deles sobram 16 itens.**
-**Última atualização:** 2026-08-11 — **a ingestão aceita imagem** (#185): a tela promete "PDF ou
+**Última atualização:** 2026-08-11 — **a lista de candidatas a prova** (#187): ela oferecia questões
+da lixeira, e montar uma prova com elas põe no papel uma questão que a pessoa acha ter excluído. A
+tela em si está sem erro de console — o defeito estava na consulta.
+**Antes:** **a ingestão aceita imagem** (#185): a tela promete "PDF ou
 imagem" e o visualizador mandava tudo para o `pdf.js`. Conferido ponta a ponta no navegador com o
 modelo de visão real — subir, recortar, reconhecer: `gemma3:12b · 1511 ms`, com o recorte à vista.
 **Antes:** **o erro que doze E2E não viam** (#183): o worker do Monaco
@@ -230,7 +233,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1272 testes (1208 no app + 64 no renderer) + **13 de E2E, todos passando** · 92 PRs abertos, nada mergeado.
+1276 testes (1212 no app + 64 no renderer) + **13 de E2E, todos passando** · 93 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -257,7 +260,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **06** ingestão visual | 14 · 15 | 40 | 1 | — | 1 | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
-| **09** avaliações | 16 | 24 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
+| **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
@@ -1446,6 +1449,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   registra que a seed não o substitui. Com variante, o servidor **recusa com 409** e devolve as
   letras; a tela então faz a segunda pergunta, com o número na frente. Sem variante, um `Modal`
   basta — perguntar as duas coisas do mesmo jeito ensinaria a clicar em "sim" sem ler)*
+- ✅ **A lista de candidatas só oferece o que dá para usar** *(#187 — ela trazia tudo do workspace,
+  sem olhar o nó nem o que já estava na prova: no acervo de demonstração, oito questões, das quais
+  **quatro na lixeira** e três já incluídas. A da lixeira é o caso grave — uma prova montada com ela
+  sai **impressa** com uma questão que a pessoa acha ter excluído, e o erro aparece na sala; é pior
+  que o caso da busca (#181), onde o beco sem saída ao menos não virava papel. A já incluída é menor
+  e igualmente errada: o botão devolvia `added: false`, um gesto oferecido e recusado depois)*
 - ✅ Tela de montagem da avaliação *(#143 — `/avaliacoes` e `/avaliacoes/[id]`: escolher questões, definir a seed, sortear e ver as três versões. A **seed fica à vista e editável**: escondê-la atrás de um sorteio interno tiraria de quem monta a única maneira de repetir a mesma prova amanhã)*
 - ✅ Persistência da variante **com o mapa de letras**, numa transação *(#143 — meia variante gravada daria uma prova cujo gabarito cobre parte das questões, e é na parte faltante que a correção erraria sem avisar)*
 - ✅ A tela avisa antes de imprimir quando uma questão entrou sem alternativa correta *(o gabarito dela sairia em branco, e descobrir isso na correção é tarde)*
