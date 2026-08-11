@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Badge, Banner, Button, injectCss } from "@/design-system";
+import { Badge, Banner, Button, injectCss, Segmented } from "@/design-system";
 import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
 import {
@@ -46,6 +46,15 @@ export interface IngestionPanelProps {
   readonly onAccept: (latex: string) => void;
 }
 
+/** Os quatro do contrato de reconhecimento, com o rótulo que a tela usa. */
+type RecognitionMode = "display" | "inline" | "mixed" | "text";
+
+const MODES: readonly { readonly id: RecognitionMode; readonly label: string }[] = [
+  { id: "display", label: "Fórmula" },
+  { id: "mixed", label: "Texto com fórmula" },
+  { id: "text", label: "Só texto" },
+];
+
 interface SourceState {
   readonly assetId: string;
   readonly url: string;
@@ -62,6 +71,14 @@ export function IngestionPanel({
 }: IngestionPanelProps) {
   injectCss("lbb-ing-css", CSS);
 
+  /**
+   * O que se espera do recorte.
+   *
+   * Era `display` fixo, e o acervo é de **provas escaneadas**: a maior parte do que se recorta é
+   * enunciado, não fórmula. Pedir fórmula de um parágrafo faz o modelo devolver a única expressão
+   * que encontrar — e perder o resto (#193).
+   */
+  const [mode, setMode] = useState<RecognitionMode>("display");
   const [source, setSource] = useState<SourceState | null>(null);
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [cropAssetId, setCropAssetId] = useState<string | null>(null);
@@ -142,13 +159,13 @@ export function IngestionPanel({
     }
   };
 
-  const recognize = async (png: Blob, assetId: string) => {
+  const recognize = async (png: Blob, assetId: string, modo: RecognitionMode = mode) => {
     setBusy("reconhecendo");
     try {
       const form = new FormData();
       form.set("image", png, "crop.png");
       form.set("cropAssetId", assetId);
-      form.set("mode", "display");
+      form.set("mode", modo);
 
       const response = await fetch("/api/recognition", { method: "POST", body: form });
       const payload = (await response.json()) as
@@ -200,6 +217,20 @@ export function IngestionPanel({
             >
               Trocar arquivo
             </Button>
+          </div>
+
+          {/* A escolha vem **antes** do recorte, e não depois: ela muda o que se pede ao modelo, e
+              descobrir a opção só ao ver o resultado errado custa uma rodada do modelo de visão. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-body-sm)" }}>
+              O recorte é:
+            </span>
+            <Segmented
+              options={MODES.map((entry) => ({ id: entry.id, label: entry.label }))}
+              value={mode}
+              onChange={(value) => setMode(value as RecognitionMode)}
+              aria-label="O que se espera do recorte"
+            />
           </div>
 
           <div className="lbb-ing-viewer">

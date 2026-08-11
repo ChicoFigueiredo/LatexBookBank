@@ -1,5 +1,6 @@
 import "server-only";
 
+import { escapeIfProse } from "@modules/recognition/domain/latex-escape";
 import {
   MathRecognitionError,
   type MathRecognitionProvider,
@@ -41,6 +42,12 @@ const PROMPTS: Readonly<Record<MathRecognitionRequest["mode"], string>> = {
   mixed:
     "Transcreva o conteúdo desta imagem em LaTeX, preservando o texto em português e escrevendo " +
     "as fórmulas entre `$`. Responda **apenas** com a transcrição, sem explicação e sem cercas.",
+  // O prompt pede texto **puro**, e não LaTeX: pedir LaTeX aqui faria o modelo inventar marcação
+  // onde não há. A tradução para LaTeX acontece no escape, que é determinístico — e determinismo é
+  // o que se quer para os dez caracteres que mudam o significado do documento.
+  text:
+    "Transcreva o texto desta imagem exatamente como está escrito, preservando acentuação e " +
+    "pontuação. Responda **apenas** com o texto, sem formatação, sem explicação e sem cercas.",
 };
 
 export class VisionMathRecognizer implements MathRecognitionProvider {
@@ -106,7 +113,9 @@ export class VisionMathRecognizer implements MathRecognitionProvider {
     const raw = payload.choices?.[0]?.message?.content ?? "";
 
     return {
-      latex: cleanLatex(raw),
+      // `escapeIfProse` só age no modo `text`: os outros já vêm em LaTeX por definição, e escapar
+      // `display` transformaria `\frac{1}{2}` em texto literal — o oposto do que se pediu.
+      latex: escapeIfProse(cleanLatex(raw), request.mode),
       // O endpoint não devolve confiança, e **inventar um número seria pior que não ter**: a tela
       // trataria um palpite como medida. `null` diz "não sei medir", que é a verdade.
       confidence: null,
