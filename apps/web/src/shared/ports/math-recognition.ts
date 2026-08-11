@@ -17,12 +17,17 @@ export interface MathRecognitionRequest {
   readonly image: Uint8Array;
   readonly mimeType: string;
   /**
-   * O que se espera: uma fórmula solta ou um trecho com texto no meio.
+   * O que se espera: uma fórmula solta, um trecho com texto no meio, ou só prosa.
    *
    * Muda o prompt e muda o que é resposta correta: `\frac{1}{2}` sozinho é `display`; "seja
    * $x=2$, calcule…" é `mixed`, e devolver só a fórmula ali perderia o enunciado.
+   *
+   * `text` é o recorte **sem matemática** — um enunciado de prova escaneado, que é a maior parte
+   * do acervo. Ele sai igualmente como LaTeX, porque prosa é LaTeX válido; o que muda é que os dez
+   * caracteres reservados precisam ser escapados antes, e o `%` é o que mais custa: ele comenta o
+   * resto da linha, e a questão sai do PDF pela metade sem erro nenhum (#193).
    */
-  readonly mode: "display" | "inline" | "mixed";
+  readonly mode: "display" | "inline" | "mixed" | "text";
   readonly signal?: AbortSignal;
 }
 

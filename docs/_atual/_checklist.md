@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 859 ✅ · 5 ◐ · 14 ⛔ · 124 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 860 ✅ · 5 ◐ · 14 ⛔ · 123 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 14 itens.**
-**Última atualização:** 2026-08-11 — **auditoria das fronteiras** (#191), agora que todas as telas
+(20, que é do Chico). **Fora deles sobram 13 itens.**
+**Última atualização:** 2026-08-11 — **reconhecer texto do recorte** (#193), sem porta nova: a
+fronteira já tinha `mode`. O trabalho foi o escape — prosa de um scan traz `%`, e ele comenta o
+resto da linha. Conferido com o modelo de visão real sobre um render do acervo.
+**Antes:** **auditoria das fronteiras** (#191), agora que todas as telas
 foram percorridas: `TransactionRunner` estava definida desde a Fase 0 e **nunca foi implementada nem
 chamada**. Removida, com guarda para a próxima não passar despercebida.
 **Antes:** **a página de diagnóstico** (#189): era a única sem `main`, e a
@@ -239,7 +242,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1282 testes (1218 no app + 64 no renderer) + **13 de E2E, todos passando** · 95 PRs abertos, nada mergeado.
+1291 testes (1227 no app + 64 no renderer) + **13 de E2E, todos passando** · 96 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -263,7 +266,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **03** editor LaTeX | 3 · 4 | 49 | — | — | — | **fechado** |
 | **04** preview e render | 5 · 6 | 159 | — | 3 | 1 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
-| **06** ingestão visual | 14 · 15 | 40 | 1 | — | 1 | falta o reconhecimento de **texto** |
+| **06** ingestão visual | 14 · 15 | 41 | 1 | — | — | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
@@ -1392,7 +1395,13 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Opções após o crop: inserir como figura, reconhecer matemática, copiar referência, abrir na
   fonte *(#137 — calculadas no domínio, porque cada uma depende do que a fonte é; botão que não dá
   vem com o motivo, e não desabilitado em silêncio)*
-- [ ] Reconhecer **texto** do recorte *(o de matemática existe; o de texto ainda não tem provider)*
+- ✅ Reconhecer **texto** do recorte *(#193 — e **não** precisou de porta nova: a fronteira de
+  reconhecimento já tinha `mode`, e o texto é o quarto. O trabalho de verdade foi o **escape**:
+  prosa lida de um scan traz `%`, `$` e `&`, e o `%` comenta o resto da linha — a questão sairia do
+  PDF pela metade, sem erro nenhum. Só o modo `text` escapa; escapar `display` transformaria
+  `\frac{1}{2}` em texto literal. E a escolha do modo foi para **antes** do recorte: descobri-la ao
+  ver o resultado errado custa uma rodada do modelo de visão. Conferido com o `gemma3:12b` real
+  sobre um render do acervo: saiu `R\$` e `2 \%`)*
 
 **Aceite da fase**
 - ◐ §33 "Assets" completo (§10 deste documento) *(quatro dos cinco fechados na auditoria de

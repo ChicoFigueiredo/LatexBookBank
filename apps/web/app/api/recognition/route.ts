@@ -21,7 +21,7 @@ import { BadRequestError, toErrorResponse } from "../tree-http";
  */
 export const dynamic = "force-dynamic";
 
-const MODES = new Set(["display", "inline", "mixed"]);
+const MODES = new Set(["display", "inline", "mixed", "text"]);
 
 export async function POST(request: Request) {
   try {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const result = await recognizer.recognize({
       image: new Uint8Array(await image.arrayBuffer()),
       mimeType: image.type || "image/png",
-      mode: mode as "display" | "inline" | "mixed",
+      mode: mode as "display" | "inline" | "mixed" | "text",
     });
 
     return NextResponse.json(candidateFrom(cropAssetId, result));
