@@ -2,6 +2,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { latexFromBlocks } from "@modules/questions/domain/question-latex";
+
 import "@modules/questions/domain/plugins";
 import {
   pluginFor,
@@ -104,13 +106,13 @@ describe("plugin de múltipla escolha", () => {
   });
 
   it("o gabarito no LaTeX vem do índice, calculado na hora", () => {
-    const latex = plugin.buildLatex(question(), { includeSolution: true });
+    const latex = latexFromBlocks(plugin.buildLatexBlocks(question(), { includeSolution: true }));
     expect(latex).toContain("\\textbf{Gabarito:} b.");
   });
 
   it("omite gabarito e resolução por padrão", () => {
     // É o que se mostra ao aluno; incluir por engano seria o pior defeito possível.
-    const latex = plugin.buildLatex(question());
+    const latex = latexFromBlocks(plugin.buildLatexBlocks(question()));
 
     expect(latex).not.toContain("Gabarito");
     expect(latex).not.toContain("Resolução");

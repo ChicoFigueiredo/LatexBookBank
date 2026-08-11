@@ -299,10 +299,14 @@ function Diagnostics({
           // Só é clicável quando **existe** para onde ir. Sem mapa (compilação antiga) ou sem
           // linha (erro de preâmbulo) o item continua na lista como texto: um botão que não leva
           // a lugar nenhum ensina a pessoa a não clicar nos outros.
-          const target =
+          const at =
             onGoTo && spans && diagnostic.line !== null
               ? locateBodyLine(spans, diagnostic.line)
               : null;
+          // `origin` no domínio, `field` aqui: para quem edita, o destino é uma **aba**, e é assim
+          // que o rótulo do botão fala. Traduzir na fronteira é mais barato que impor a palavra do
+          // domínio à tela — ou a da tela ao domínio.
+          const target = at === null ? null : { field: at.origin, line: at.line };
 
           const content = (
             <>

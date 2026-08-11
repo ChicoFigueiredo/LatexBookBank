@@ -21,11 +21,16 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 842 ✅ · 5 ◐ · 14 ⛔ · 132 `[ ]` — e **111 dos 132 abertos estão em quatro blocos que
+**Progresso:** 844 ✅ · 5 ◐ · 14 ⛔ · 131 `[ ]` — e **111 dos 131 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 21 itens.**
-**Última atualização:** 2026-08-10 — **`bun run setup` deixou de mentir** (#168): ele agora constrói
+(20, que é do Chico). **Fora deles sobram 20 itens.**
+**Última atualização:** 2026-08-11 — **o registry passou a mandar na compilação** (#165): o
+`buildLatex` do plugin existia desde a Fase 7 e nunca teve chamador, então acrescentar um tipo de
+questão dava validação própria, preview próprio e um PDF igual ao da múltipla escolha. Era a última
+dívida que o confronto com o planejamento tinha achado. O plugin passou a devolver **blocos**, para
+que o mapa de linhas da #161 saia da mesma montagem que o texto.
+**Antes:** **`bun run setup` deixou de mentir** (#168): ele agora constrói
 a imagem do renderer, sobe o worker, espera o `/health` e sincroniza o segredo entre o `.env` da
 raiz e o `.env.local` — as duas checagens que o planejamento marca como *obrigatórias* desde a Fase
 0, e que estavam abertas desde então. A página de diagnóstico ganhou o cache de render (tamanho,
@@ -194,7 +199,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1228 testes (1166 no app + 62 no renderer) + **7 de E2E, todos passando** · 83 PRs abertos, nada mergeado.
+1235 testes (1173 no app + 62 no renderer) + **7 de E2E, todos passando** · 84 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -216,7 +221,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **01** fundação e providers | 0 | 70 | — | — | — | **fechado** — os dois health checks entraram no `setup` (#168) |
 | **02** shell e árvore | 1 · 2 | 86 | — | 1 | 6 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
 | **03** editor LaTeX | 3 · 4 | 47 | — | — | — | **fechado** |
-| **04** preview e render | 5 · 6 | 150 | — | 3 | 4 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
+| **04** preview e render | 5 · 6 | 158 | — | 3 | 2 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
 | **06** ingestão visual | 14 · 15 | 38 | 1 | — | 2 | falta a tela de inserção de figura e o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
@@ -680,7 +685,16 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ `LatexBuilder` monta o bundle a partir da questão *(letra da alternativa vem de `label=\alph*)`, nunca escrita no texto — D9)*
 - ✅ Resposta **omitida por padrão** *(é o que se mostra ao aluno; incluir o gabarito por engano seria o pior defeito possível)*
 - ⛔ **`iwona` fora da imagem** — *só existe em `texlive-fonts-extra`, 1,41 GB, que mais que dobraria a imagem por uma fonte decorativa. Sem ela o documento cai na Latin Modern, e **a matemática muda junto**, porque o legado carrega `iwona` com a opção `math`. Registrado dentro do perfil, onde quem comparar dois PDFs vai procurar.*
-- [ ] `QuestionTypePlugin` alimentando o builder *(a montagem hoje é literal; o plugin é da Fase 7)*
+- ✅ `QuestionTypePlugin` alimentando o builder *(#165 — o `buildLatex` do plugin existia desde a
+  Fase 7 e **nunca teve chamador**: acrescentar um tipo dava validação própria, preview próprio e um
+  PDF igual ao da múltipla escolha. Agora o plugin devolve **blocos**, não texto, porque o mapa de
+  linhas da #161 precisa vir da mesma montagem — se o plugin devolvesse string, o mapa teria de ser
+  adivinhado por fora, e o clique no diagnóstico voltaria a apontar para a linha errada assim que um
+  tipo montasse o documento de outro jeito. Conferido no worker: `Gabarito: c.` no corpo, linha que
+  a montagem literal nunca emitiu)*
+- ✅ Tipo **sem plugin** continua compilando *(#165 — o caminho literal virou `fallbackBlocks`, com o
+  nome dizendo o que é: a Fase 11 vai importar tipos sem plugin, e recusá-los entregaria menos do
+  que o produto já entrega)*
 - [ ] Assets referenciados corretamente *(depende dos assets da Fase 11)*
 
 **Lado da aplicação** *(#65)*
@@ -1750,7 +1764,9 @@ Verificar em toda revisão de fase:
   conhecimento sem portar a estrutura; o mapeamento da 11 ignora `Ordem`, `IsExpanded` e
   `Questao.Correta` de propósito. A conferência contra o acervo é da Fase 11)*
 - ✅ Todo novo tipo de questão entra pelo registry *(guard varre `src/` e `app/` atrás de `switch`
-  sobre tipo de questão)*
+  sobre tipo de questão — e, desde a #165, **também para compilar**: um teste registra um tipo de
+  mentira com corpo inconfundível e afirma que ele chega ao bundle. Até então a regra valia para
+  validar e para o preview, e não valia para o PDF)*
 - ✅ Toda randomização é reproduzível *(dois processos `bun` separados, mesma seed, 1695 bytes
   idênticos)*
 - ✅ Toda modificação agêntica é reversível *(revisão anterior gravada antes, na mesma transação)*
@@ -1792,7 +1808,7 @@ estão escritas onde alguém vai procurá-las:
 | `data.sqlite` dentro do `.lbb` (§7, e a tabela de riscos) | **`data.json`** | Um banco dentro do zip traria o motor junto, e o formato herdaria as versões dele. O que a §7 queria garantir — que o portable não seja o schema de runtime — o `PortableSchema` já garante. Registrado na Fase 13 |
 | Virtualização da árvore "antes de existir volume" (Fase 2) | **adiada** | A maior publicação tem 297 nós e o próprio plano classifica o risco como **baixo**. Otimizar antes de medir custaria rolagem, foco e teclado por um problema que talvez não exista |
 | Migradores de formato `v1 → v2` (Fase 13) | **não existem** | O plano diz "quando fizer sentido"; com uma versão só, não faz. É escopo futuro, não dívida |
-| `LatexBuilder` alimentado pelo `QuestionTypePlugin` (Fase 6) | **montagem literal** | É dívida de verdade, e a única das quatro. Virou a **#165**: `buildLatex` existe no plugin desde a Fase 7 e nunca teve chamador, então um tipo novo hoje ganha validação e preview próprios e um PDF igual ao da múltipla escolha |
+| `LatexBuilder` alimentado pelo `QuestionTypePlugin` (Fase 6) | ✅ **resolvido na #165** | Era dívida de verdade, e a única das quatro. O `buildLatex` do plugin nunca tinha sido chamado; agora o plugin devolve blocos e é ele quem monta o corpo, com o mapa de linhas saindo junto |
 
 E duas linhas do critério de produto local (§48) foram fechadas na revisão, por já terem prova:
 **IA local funciona** (Ollama, verificado em três fases) e **ferramentas TeX locais funcionam** (o

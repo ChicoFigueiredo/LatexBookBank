@@ -19,10 +19,11 @@ import type { RenderExecutor } from "@/shared/ports";
 
 const question: QuestionForRender = {
   id: "q-1",
+  type: "MULTIPLE_CHOICE",
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
   complementLatex: "",
-  options: [{ statementLatex: "1\\%", isCorrect: true }],
+  options: [{ id: "o1", statementLatex: "1\\%", isCorrect: true }],
 };
 
 function fakeExecutor(over: Partial<{ success: boolean; diagnostics: unknown[] }> = {}) {

@@ -22,6 +22,9 @@ export async function loadQuestionForRender(
     where: { id: questionId },
     select: {
       id: true,
+      // O **tipo** entra desde a #165: é ele que escolhe o plugin que monta o documento. Sem esta
+      // coluna, toda questão compilaria pelo caminho literal e o registry seguiria decorativo.
+      type: true,
       statementLatex: true,
       solutionLatex: true,
       complementLatex: true,
@@ -29,7 +32,9 @@ export async function loadQuestionForRender(
         // A ordem é a do `sortKey`, e é ela que decide a letra da alternativa (D9). Sem o
         // `orderBy`, o banco devolve na ordem que quiser e o gabarito passa a apontar para outra.
         orderBy: { sortKey: "asc" },
-        select: { statementLatex: true, isCorrect: true },
+        // O `id` da alternativa vem junto porque o plugin o exige: o gabarito aponta para a
+        // alternativa, nunca para a letra nem para a posição (D9).
+        select: { id: true, statementLatex: true, isCorrect: true },
       },
       node: { select: { publication: { select: { workspaceId: true } } } },
     },
@@ -41,6 +46,10 @@ export async function loadQuestionForRender(
     workspaceId: row.node.publication.workspaceId,
     question: {
       id: row.id,
+      // O tipo vai como está no banco. Tipo que o produto não conhece cai no fallback literal do
+      // builder — escolher um por omissão seria decidir, em nome de quem importou, o que a
+      // questão é.
+      type: row.type,
       statementLatex: row.statementLatex,
       solutionLatex: row.solutionLatex,
       complementLatex: row.complementLatex,

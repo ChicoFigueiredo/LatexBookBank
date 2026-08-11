@@ -23,12 +23,14 @@ import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profil
 
 const question = (over: Partial<BuildBundleInput["question"]> = {}) => ({
   id: "q1",
+  // O tipo escolhe o plugin que monta o documento (#165). Sem ele, tudo cairia no fallback.
+  type: "MULTIPLE_CHOICE" as const,
   statementLatex: "Primeira linha.\nSegunda linha.\nTerceira linha.",
   solutionLatex: "A resposta.",
   complementLatex: "O complemento.",
   options: [
-    { statementLatex: "alternativa a", isCorrect: false },
-    { statementLatex: "alternativa b", isCorrect: true },
+    { id: "o1", statementLatex: "alternativa a", isCorrect: false },
+    { id: "o2", statementLatex: "alternativa b", isCorrect: true },
   ],
   ...over,
 });
@@ -74,21 +76,34 @@ describe("cada linha volta para o campo certo", () => {
   const spans = buildSourceMap(input({ includeSolution: true }));
 
   it("a linha 2 é a segunda linha do enunciado", () => {
-    expect(locateBodyLine(spans, 2)).toEqual({ field: "statementLatex", line: 2 });
+    expect(locateBodyLine(spans, 2)).toEqual({ origin: "statementLatex", line: 2 });
   });
 
   it("a primeira alternativa vem depois do enunciado inteiro, não na linha 1", () => {
     // O enunciado tem três linhas e o `\begin{enumerate}` ocupa a quarta: a alternativa `a` é a 5.
-    expect(locateBodyLine(spans, 5)).toEqual({ field: "options", line: 1 });
-    expect(locateBodyLine(spans, 6)).toEqual({ field: "options", line: 2 });
+    expect(locateBodyLine(spans, 5)).toEqual({ origin: "options", line: 1 });
+    expect(locateBodyLine(spans, 6)).toEqual({ origin: "options", line: 2 });
   });
 
-  it("a resposta cai em `solutionLatex`, e na **primeira** linha dela", () => {
-    // O bloco leva uma linha em branco e um `\medskip` na frente; o texto começa junto do rótulo.
+  it("a resolução cai em `solutionLatex`, e na **primeira** linha dela", () => {
+    // Em múltipla escolha o rótulo é "Resolução", não "Resposta": desde a #165 quem monta o corpo
+    // é o plugin do tipo, e o dele traz o gabarito (`Gabarito: b.`) antes da resolução. Era esse o
+    // ponto da issue — a montagem literal daqui ignorava o plugin, então todo tipo saía igual.
     const total = buildRenderBundle(input({ includeSolution: true })).sourceLatex.split("\n");
-    const linhaDaResposta = total.findIndex((line) => line.includes("Resposta.")) + 1;
+    const linhaDaResolucao = total.findIndex((line) => line.includes("Resolução.")) + 1;
 
-    expect(locateBodyLine(spans, linhaDaResposta)).toEqual({ field: "solutionLatex", line: 1 });
+    expect(linhaDaResolucao).toBeGreaterThan(0);
+    expect(locateBodyLine(spans, linhaDaResolucao)).toEqual({ origin: "solutionLatex", line: 1 });
+  });
+
+  it("o gabarito é **derivado**, e por isso não é linha editável de campo nenhum", () => {
+    // `Gabarito: b.` sai do índice da alternativa correta; não existe campo onde editá-lo. Ele
+    // cai no começo da resolução, que é o texto mais próximo que a pessoa de fato escreve.
+    const total = buildRenderBundle(input({ includeSolution: true })).sourceLatex.split("\n");
+    const linhaDoGabarito = total.findIndex((line) => line.includes("Gabarito:")) + 1;
+
+    expect(total[linhaDoGabarito - 1]).toContain("Gabarito:} b.");
+    expect(locateBodyLine(spans, linhaDoGabarito)).toEqual({ origin: "solutionLatex", line: 1 });
   });
 
   it("linha de estrutura cai no começo do texto, nunca em zero ou negativo", () => {
@@ -97,7 +112,7 @@ describe("cada linha volta para o campo certo", () => {
     const total = buildRenderBundle(input({ includeSolution: true })).sourceLatex.split("\n");
     const medskip = total.findIndex((line) => line === "\\medskip") + 1;
 
-    expect(locateBodyLine(spans, medskip)).toEqual({ field: "solutionLatex", line: 1 });
+    expect(locateBodyLine(spans, medskip)).toEqual({ origin: "solutionLatex", line: 1 });
   });
 
   it("linha fora do corpo devolve `null` em vez de chutar", () => {
@@ -108,7 +123,7 @@ describe("cada linha volta para o campo certo", () => {
 
 describe("o que muda a montagem muda o mapa junto", () => {
   it("sem `includeSolution` não há span de resposta — nem de complemento", () => {
-    const campos = buildSourceMap(input()).map((span) => span.field);
+    const campos = buildSourceMap(input()).map((span) => span.origin);
 
     expect(campos).toEqual(["statementLatex", "options"]);
   });
@@ -118,7 +133,7 @@ describe("o que muda a montagem muda o mapa junto", () => {
       input({ question: question({ options: [] }), includeSolution: true }),
     );
 
-    expect(semOpcoes.map((span) => span.field)).toEqual([
+    expect(semOpcoes.map((span) => span.origin)).toEqual([
       "statementLatex",
       "solutionLatex",
       "complementLatex",
@@ -138,8 +153,8 @@ describe("o que muda a montagem muda o mapa junto", () => {
     const spans = buildSourceMap(request);
 
     expect(corpo.startsWith("Primeira linha")).toBe(true);
-    expect(locateBodyLine(spans, 1)).toEqual({ field: "statementLatex", line: 3 });
+    expect(locateBodyLine(spans, 1)).toEqual({ origin: "statementLatex", line: 3 });
     // E a lista de alternativas continua caindo onde ela de fato está.
-    expect(locateBodyLine(spans, 2)?.field).toBe("options");
+    expect(locateBodyLine(spans, 2)?.origin).toBe("options");
   });
 });
