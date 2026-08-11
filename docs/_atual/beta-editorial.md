@@ -9,51 +9,141 @@ implementação — isso continua sendo o que já existe no repositório (`READM
 
 ---
 
-## 1. Matriz de estado (auditoria curta, §3 do prompt)
+## 1. A pergunta da §91
 
-| Capacidade                       | Estado         | Onde                                                             |
-| -------------------------------- | -------------- | ---------------------------------------------------------------- |
-| Workbench de seis zonas          | já existe      | `design-system/shell/Workbench.tsx`                              |
-| Árvore, filtro, DnD, lixeira     | já existe      | `design-system/navigation/Tree.tsx`, `document-tree/`            |
-| Editor Monaco + autosave         | já existe      | `modules/latex/ui`, `app/publications/[id]/question-editor.tsx`  |
-| Alternativas e gabarito          | já existe      | `modules/questions/ui/OptionsEditor.tsx`, `option-mutations.ts`  |
-| Validação por tipo               | já existe      | `questions/domain/plugins/`                                      |
-| Preview rápido / render worker   | já existe      | `modules/preview/`, `modules/rendering/`                         |
-| Recorte + reconhecimento         | já existe      | `modules/recognition/`, `modules/assets/`                        |
-| Proveniência (SourceAnchor)      | já existe      | `schema.prisma:SourceAnchor`, `modules/assets/ui/OriginPanel`    |
-| IA governada (proposta → diff)   | já existe      | `modules/agents/`                                                |
-| Busca global                     | precisa integrar | `app/api/search` existe; a paleta não navega até a questão     |
-| **Biblioteca (criar/abrir)**     | **precisa criar** | não havia caso de uso nem UI — só `listWorkspaces` para backup |
-| **Publicação (cadastrar)**       | **precisa criar** | repositório era somente leitura                              |
-| **Home real (sem `demo`)**       | **precisa criar** | `app/page.tsx` listava o workspace `demo` hardcoded          |
-| **CreateQuestion atômico**       | **precisa criar** | questão só nascia por seed/import legado                     |
-| Menu `+ Adicionar` (estrutura/questões) | precisa criar | a árvore só criava nó genérico "Novo nó"                  |
-| Candidate → Question             | precisa criar  | o OCR devolve texto; ninguém persiste questão a partir dele      |
-| Fila de captura                  | fica para depois | P1 — só depois do fluxo unitário                               |
-| Calibre                          | fica para depois | P1 — spike documentada antes do wizard                         |
+> **Qual ação real do usuário ficou possível depois deste trabalho?**
 
-## 2. Progresso por slice (§58)
+Abrir a aplicação com o banco limpo e sair dela com uma questão auditável no acervo:
 
-| Slice                       | Código | Testes | E2E | Browser | Status  |
-| --------------------------- | ------ | ------ | --- | ------- | ------- |
-| 1 · Acervo do zero          | —      | —      | —   | —       | a fazer |
-| 2 · Estrutura editorial     | —      | —      | —   | —       | a fazer |
-| 3 · CreateQuestion          | —      | —      | —   | —       | a fazer |
-| 4 · Editor real             | —      | —      | —   | —       | a fazer |
-| 5 · Validação               | —      | —      | —   | —       | a fazer |
-| 6 · Origem e proveniência   | —      | —      | —   | —       | a fazer |
-| 7 · Capture Studio          | —      | —      | —   | —       | a fazer |
-| 8 · Candidate → Question    | —      | —      | —   | —       | a fazer |
-| 9 · Fila de captura         | —      | —      | —   | —       | a fazer |
-| 10 · Calibre                | —      | —      | —   | —       | a fazer |
+```text
+criar biblioteca → cadastrar livro → abrir → criar capítulo → criar grupo
+→ criar questão (escolha simples · múltipla escolha · discursiva)
+→ editar LaTeX → alternativas → gabarito → autosave → validar
+→ fechar → reabrir pelo Início → continuar de onde parou
+```
 
-## 3. Matriz Design → Código (§92)
+E o caminho da captura, no mesmo acervo:
 
-| Frame/Fluxo        | Rota/Componente | Use Case | API | Persistência | Teste |
-| ------------------ | --------------- | -------- | --- | ------------ | ----- |
-| (preenchida por slice, conforme entra) |
+```text
+colar/subir imagem ou PDF → recortar → reconhecer → revisar e corrigir
+→ escolher destino → criar questão → abrir no editor
+→ recarregar → a origem continua ligada (arquivo, página, recorte, modelo, LaTeX cru)
+```
 
-## 4. Vocabulário
+Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre telas.
+
+## 2. Matriz de estado (a auditoria curta da §3)
+
+| Capacidade                            | Estado ao começar   | Estado agora |
+| ------------------------------------- | ------------------- | ------------ |
+| Workbench de seis zonas               | já existia          | preservado, com rail navegando |
+| Árvore, filtro, DnD, lixeira          | já existia          | preservado; nó selecionado agora **aparece** |
+| Editor Monaco + autosave (5 estados)  | já existia          | preservado |
+| Alternativas e gabarito               | já existia          | semântica por tipo (rádio/caixa) |
+| Validação por tipo                    | já existia          | agora **diz o motivo** na tela |
+| Preview rápido / render worker        | já existia          | preservado |
+| Recorte + reconhecimento              | já existia          | agora vira questão |
+| Proveniência (`SourceAnchor`)         | já existia          | agora registra a execução do OCR |
+| IA governada (proposta → diff)        | já existia          | preservado |
+| Busca global                          | endpoint sem destino | **navega** até a questão |
+| Biblioteca (criar, abrir, renomear)   | não existia         | feito |
+| Publicação (cadastrar, editar)        | só leitura          | feito |
+| Home real (sem `demo`)                | não existia         | feito |
+| `CreateQuestion` atômico              | não existia         | feito |
+| Menu `+ Adicionar`                    | não existia         | feito |
+| `Candidate → Question`                | não existia         | feito |
+| Importar `.lbb`                       | endpoint sem tela   | tela feita |
+| Fila de captura                       | —                   | P1, não implementada |
+| Calibre                               | —                   | spike documentada; wizard é P1 |
+
+## 3. Progresso por slice (§58)
+
+| Slice                       | Código | Testes | E2E | Browser | Status |
+| --------------------------- | ------ | ------ | --- | ------- | ------ |
+| 1 · Acervo do zero          | ✓      | ✓ 26   | ✓   | ✓       | pronto |
+| 2 · Estrutura editorial     | ✓      | ✓      | ✓   | ✓       | pronto |
+| 3 · CreateQuestion          | ✓      | ✓ 12   | ✓   | ✓       | pronto |
+| 4 · Editor real             | ✓      | ✓      | ✓   | ✓       | já existia |
+| 5 · Validação               | ✓      | ✓ 8    | ✓   | ✓       | pronto |
+| 6 · Origem e proveniência   | ✓      | ✓      | ✓   | ✓       | pronto |
+| 7 · Capture Studio          | ✓      | ✓ 8    | ✓   | ✓       | pronto |
+| 8 · Candidate → Question    | ✓      | ✓ 9    | ✓   | ✓       | pronto |
+| 9 · Fila de captura         | —      | —      | —   | —       | P1 |
+| 10 · Calibre                | spike  | —      | —   | —       | P1, decisão documentada |
+
+## 4. Matriz Design → Código (§92)
+
+| Frame / fluxo            | Rota / componente                              | Caso de uso                       | API                                          | Persistência          | Teste |
+| ------------------------ | ---------------------------------------------- | --------------------------------- | -------------------------------------------- | --------------------- | ----- |
+| Home vazia / recorrente  | `app/page.tsx` · `home-screen.tsx`             | `readHomeOverview`                | —                                            | leitura               | `relative-time`, E2E |
+| Criar biblioteca         | `create-library-dialog.tsx`                    | `createLibrary`                   | `POST /api/libraries`                        | `Workspace`           | `manage-libraries` |
+| Biblioteca               | `app/bibliotecas/[slug]`                       | —                                 | —                                            | leitura               | E2E |
+| Adicionar livro          | `library-screen.tsx` (modal)                   | —                                 | —                                            | —                     | E2E |
+| Cadastro manual          | `bibliotecas/[slug]/livros/novo`               | `createPublication`               | `POST /api/libraries/[id]/publications`      | `Publication`+autores | `publication-draft` |
+| Importar `.lbb`          | `app/importar`                                 | `toRuntime` + `writeImported…`    | `POST /api/workspaces/import`                | workspace inteiro     | `portable-archive` |
+| Publicações (catálogo)   | `app/publicacoes`                              | `listPublicationCatalog`          | `GET /api/publications`                      | leitura               | E2E |
+| Livro vazio              | `publication-workbench.tsx` (EmptyState)       | —                                 | —                                            | —                     | E2E |
+| Menu `+ Adicionar`       | `add-menu.tsx`                                 | `placementForAdd`                 | —                                            | —                     | `create-question` |
+| Criar estrutura          | árvore                                         | `createNode`                      | `POST …/nodes`                               | `DocumentNode`        | `mutate-tree` |
+| Criar questão            | `add-menu.tsx` · `use-tree-editing`            | `createQuestion`                  | `POST …/questions`                           | `Question`+nó+opções  | `create-question` |
+| Escolha simples          | `OptionsEditor` (rádio)                        | `patchesForCorrect(exclusive)`    | `PATCH …/options/[id]`                       | `QuestionOption`      | `question-type-plugin` |
+| Múltipla escolha         | `OptionsEditor` (caixa)                        | `multipleCorrectPlugin`           | idem                                         | idem                  | `multiple-correct` |
+| Discursiva               | editor sem aba de alternativas                 | `discursivePlugin`                | —                                            | —                     | `question-type-plugin` |
+| Editor + autosave        | `question-editor.tsx`                          | `saveQuestion`                    | `PATCH …/questions/[id]`                     | `Question`            | `save-question`, E2E |
+| Validação                | `ValidationPane`                               | `evaluateQuestion` + `buildChecklist` | `POST …/questions/[id]/validation`       | `validationStatus`    | `validation-checklist` |
+| Capture Studio           | `IngestionPanel` · `PdfCropViewer`             | `storeAsset` · `normalizeAnchor`  | `POST /api/assets`, `/api/assets/crop`       | `Asset`+`SourceAnchor`| `ingestion-panel`, E2E |
+| Reconhecimento           | `IngestionPanel`                               | `VisionMathRecognizer`            | `POST /api/recognition`                      | nada (candidato)      | `recognition` |
+| Revisão estruturada      | `ingestion-screen.tsx`                         | `approveCandidate`                | —                                            | nada                  | `create-question-from-recognition` |
+| Candidate → Question     | `ingestion-screen.tsx`                         | `createQuestionFromRecognition`   | `POST …/questions/from-recognition`          | questão + proveniência| idem, E2E |
+| Origem                   | `OriginPanel`                                  | `readProvenance`                  | `GET /api/questions/[id]/origin`             | leitura               | `origin-panel`, E2E |
+| Busca global             | `CommandPalette` · `app/questoes/[id]`         | `findQuestionLocation`            | `GET /api/search`                            | leitura               | `search-query` |
+| Preview / render         | `PreviewPane` · `RenderPanel`                  | `executeRender`                   | `POST …/render`                              | `RenderJob`+artefatos | `execute-render` |
+| IA governada             | `AgentPanel` · `PatchReviewPanel`              | `runAgentTurn` · `applyPatch`     | `/api/agents/*`                              | `AgentRun`+`Revision` | `run-agent-turn`, E2E |
+
+## 5. Gaps declarados
+
+### P1 — não bloqueiam o Beta
+
+- **Fila de captura** (§26). O fluxo unitário fecha a jornada; a fila é produtividade em volume.
+  Sem ela, capturar dez questões seguidas é dez ciclos de "Criar e continuar capturando" — que
+  funciona, e é o CTA que existe para isso.
+- **Wizard do Calibre** (§30). Spike executada contra biblioteca real e decisão documentada em
+  `calibre-spike.md`; falta o adapter e a tela.
+- **Ações contextuais sobre questão existente** (§25 do prompt): inserir no cursor, adicionar
+  alternativa a partir de recorte, salvar como figura. "Salvar como figura" já funciona pela aba
+  Origem; os outros dependem da fila para valerem a pena.
+- **Reconhecimento de questão completa** (§22): o modo `full-question` que devolve enunciado e
+  alternativas separados. Hoje o recorte vira enunciado, e as alternativas se preenchem à mão.
+  O contrato (`ApprovedCandidate.options`) já aceita — falta o provider produzir.
+
+### P2 — evolução
+
+- Import legado em volume (§56). O caminho existe desde a Fase 11 e não foi exercitado contra as
+  13 bibliotecas.
+- Semântica de exclusão de questão (§32). Hoje excluir o nó exclui logicamente a subárvore e a
+  questão fica alcançável só por ele; a lixeira restaura os dois juntos. Não há questão órfã, mas
+  também não há "excluir a questão preservando o nó" — e ninguém pediu.
+
+## 6. Known limitations
+
+- **A validação não roda sozinha na tela.** Ela roda a cada salvamento e grava o selo; a lista de
+  verificação aparece quando se pede. É deliberado (§25): uma tela que se autoavalia a cada visita
+  transforma conferir em ruído de fundo.
+- **O `%` do reconhecimento de texto** continua sendo o risco mais caro do OCR — ele comenta o
+  resto da linha. O escape existe (`latex-escape`) e tem teste; o que não existe é aviso na tela
+  quando o modelo devolve um `%` não escapado.
+- **`Ctrl+V` de imagem** funciona na tela de captura (`AssetDropzone` com `listenToPaste`), não no
+  editor. Colar screenshot direto no Monaco não foi implementado.
+- **O E2E de captura usa provider dublê**, por exigência da §42. O provider real (`gemma3:12b` via
+  Ollama) é exercitado à mão e pelos testes de unidade do `VisionMathRecognizer`.
+- **A árvore revela o caminho do nó selecionado sem gravar essa abertura.** Fechar o ramo à mão
+  fecha; selecionar outro nó zera a decisão. É o comportamento que os testes fixam.
+
+## 7. Vocabulário
 
 O produto diz **Biblioteca**; o schema diz `Workspace`. São a mesma coisa — o nome interno vem do
 import legado (`IdBiblio`), e trocá-lo agora seria migração sem ganho. A UI nunca diz "workspace".
+
+O mesmo vale para os tipos de questão: `MULTIPLE_CHOICE` é **Escolha simples** (uma correta) e
+`MULTIPLE_CORRECT` é **Múltipla escolha** (uma ou mais). Os nomes internos vêm do mapa do import
+legado; os rótulos são os do design.
