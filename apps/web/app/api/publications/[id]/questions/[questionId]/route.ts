@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+
 import { QuestionNotFoundError, saveQuestion } from "@modules/questions/application/save-question";
 import { validateAndPersist } from "@modules/questions/application/validate-question";
 import {
@@ -68,11 +70,24 @@ function metadataFrom(body: Record<string, unknown>): MetadataInput {
  */
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ questionId: string }> },
+  { params }: { params: Promise<{ id: string; questionId: string }> },
 ) {
-  const { questionId } = await params;
+  const { id, questionId } = await params;
 
   try {
+    const escopo = await resolveQuestionScope(id, questionId);
+    if (escopo === null) {
+      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
+      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
+      return NextResponse.json(
+        {
+          error: "not_found",
+          message: `Questão ${questionId} não existe nesta publicação.`,
+        },
+        { status: 404 },
+      );
+    }
+
     const snapshot = await new PrismaQuestionRepository().findById(questionId);
     if (snapshot === null) {
       return NextResponse.json(
@@ -101,11 +116,24 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ questionId: string }> },
+  { params }: { params: Promise<{ id: string; questionId: string }> },
 ) {
-  const { questionId } = await params;
+  const { id, questionId } = await params;
 
   try {
+    const escopo = await resolveQuestionScope(id, questionId);
+    if (escopo === null) {
+      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
+      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
+      return NextResponse.json(
+        {
+          error: "not_found",
+          message: `Questão ${questionId} não existe nesta publicação.`,
+        },
+        { status: 404 },
+      );
+    }
+
     const body = await readJson(request);
 
     // `version` no contrato do cliente, `updatedAt` no banco. O valor é o mesmo; o nome muda

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+
 import {
   moveOption,
   QuestionNotFoundError,
@@ -22,11 +24,24 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ questionId: string; optionId: string }> },
+  { params }: { params: Promise<{ id: string; questionId: string; optionId: string }> },
 ) {
-  const { questionId, optionId } = await params;
+  const { id, questionId, optionId } = await params;
 
   try {
+    const escopo = await resolveQuestionScope(id, questionId);
+    if (escopo === null) {
+      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
+      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
+      return NextResponse.json(
+        {
+          error: "not_found",
+          message: `Questão ${questionId} não existe nesta publicação.`,
+        },
+        { status: 404 },
+      );
+    }
+
     const body = await readJson(request);
     const writer = new PrismaOptionWriter();
 
@@ -63,11 +78,24 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ questionId: string; optionId: string }> },
+  { params }: { params: Promise<{ id: string; questionId: string; optionId: string }> },
 ) {
-  const { questionId, optionId } = await params;
+  const { id, questionId, optionId } = await params;
 
   try {
+    const escopo = await resolveQuestionScope(id, questionId);
+    if (escopo === null) {
+      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
+      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
+      return NextResponse.json(
+        {
+          error: "not_found",
+          message: `Questão ${questionId} não existe nesta publicação.`,
+        },
+        { status: 404 },
+      );
+    }
+
     await removeOption(new PrismaOptionWriter(), questionId, optionId);
     return new Response(null, { status: 204 });
   } catch (error) {

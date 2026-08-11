@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+
 import { executeRender } from "@modules/rendering/application/execute-render";
 import { buildRenderBundle, buildSourceMap } from "@modules/rendering/domain/build-render-bundle";
 import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
@@ -28,11 +30,24 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ questionId: string }> },
+  { params }: { params: Promise<{ id: string; questionId: string }> },
 ) {
-  const { questionId } = await params;
+  const { id, questionId } = await params;
 
   try {
+    const escopo = await resolveQuestionScope(id, questionId);
+    if (escopo === null) {
+      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
+      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
+      return NextResponse.json(
+        {
+          error: "not_found",
+          message: `Questão ${questionId} não existe nesta publicação.`,
+        },
+        { status: 404 },
+      );
+    }
+
     const env = appEnv();
     if (env.rendererBaseUrl === null || env.rendererSecret === null) {
       // Não configurado é diferente de fora do ar, e a mensagem precisa dizer qual dos dois — a
@@ -100,7 +115,10 @@ export async function POST(
     });
 
     const { job, cacheHit } = await executeRender(
-      { workspaceId: question.workspaceId, questionId, bundle, assets: assets.bytes },
+      // O workspace vem do **guarda**, não de uma segunda leitura: ele já subiu a cadeia
+      // questão → nó → publicação para conferir a URL, e duas resoluções da mesma coisa é onde
+      // as duas versões um dia divergem.
+      { workspaceId: escopo.workspaceId, questionId, bundle, assets: assets.bytes },
       {
         executor,
         storage,
