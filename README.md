@@ -5,6 +5,7 @@ Biblioteca técnica, IDE LaTeX editorial e banco de questões estruturado.
 Aplicação **local-first, cloud-ready**: roda inteira na sua máquina, com a internet desligada, mas
 sem que nenhuma regra de negócio saiba qual infraestrutura está por trás.
 
+- [Beta Editorial](docs/_atual/beta-editorial.md) — a matriz Design → Código, o que ficou pronto e o que não
 - [Planejamento de execução](docs/_atual/_planejamento.md) — decisões, arquitetura, as 19 fases
 - [Checklist](docs/_atual/_checklist.md) — instrumento de controle, item a item
 - [Especificação mestra](docs/prompts/260806-01.LatexBookBank_Web_Especificacao_Mestra.md)
