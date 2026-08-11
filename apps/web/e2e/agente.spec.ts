@@ -134,11 +134,24 @@ test.describe("o caminho do agente", () => {
     // o que a aba Metadados precisa — e nada além, de propósito.
     const tree = await page.request.get(`/api/publications/${publicationId}/tree`);
     const { nodes } = (await tree.json()) as {
-      nodes: { question: { id: string; complementLatex: string } | null }[];
+      nodes: { question: { id: string; complementLatex: string; version: string } | null }[];
     };
 
     const gravada = nodes.find((node) => node.question?.id === questionId)?.question;
     expect(gravada?.complementLatex).toContain(marca);
+
+    // E desfaz. O `apply` grava de verdade, e sem isto o complemento da questão de demonstração
+    // fica com uma marca de teste — foi assim que ela passou dias com `e2e-agente-1786416332870`
+    // dentro, aparecendo em todo PDF compilado com `includeSolution`.
+    await page.request.patch(`/api/publications/${publicationId}/questions/${questionId}`, {
+      data: { expectedVersion: gravada?.version, complementLatex: "" },
+    });
+
+    const depois = await page.request.get(`/api/publications/${publicationId}/tree`);
+    const { nodes: limpos } = (await depois.json()) as {
+      nodes: { question: { id: string; complementLatex: string } | null }[];
+    };
+    expect(limpos.find((n) => n.question?.id === questionId)?.question?.complementLatex).toBe("");
   });
 
   test("aprovar nada mantém o botão desligado — não existe 'aplicar tudo' por omissão", async ({

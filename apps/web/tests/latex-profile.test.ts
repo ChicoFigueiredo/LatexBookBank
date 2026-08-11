@@ -15,6 +15,7 @@ import {
 
 const question = (over: Partial<QuestionForRender> = {}): QuestionForRender => ({
   id: "q1",
+  type: "MULTIPLE_CHOICE",
   statementLatex: "Quanto é $2+2$?",
   solutionLatex: "É $4$.",
   complementLatex: "",
@@ -108,8 +109,8 @@ describe("buildRenderBundle", () => {
       jobId: "j1",
       question: question({
         options: [
-          { statementLatex: "3", isCorrect: false },
-          { statementLatex: "4", isCorrect: true },
+          { id: "o1", statementLatex: "3", isCorrect: false },
+          { id: "o2", statementLatex: "4", isCorrect: true },
         ],
       }),
       profile: QUESTION_PREVIEW_PROFILE,
@@ -125,7 +126,7 @@ describe("buildRenderBundle", () => {
     // para a letra errada.
     const bundle = buildRenderBundle({
       jobId: "j1",
-      question: question({ options: [{ statementLatex: "3", isCorrect: false }] }),
+      question: question({ options: [{ id: "o1", statementLatex: "3", isCorrect: false }] }),
       profile: QUESTION_PREVIEW_PROFILE,
     });
 
@@ -144,7 +145,10 @@ describe("buildRenderBundle", () => {
     expect(bundle.sourceLatex).not.toContain("Resposta");
   });
 
-  it("inclui a resposta quando pedido", () => {
+  it("inclui a resolução quando pedido — **pelo plugin do tipo**", () => {
+    // Desde a #165 quem escreve o corpo é o plugin, e o de múltipla escolha rotula "Resolução",
+    // não "Resposta". A diferença não é cosmética: era a prova de que o registry não mandava em
+    // nada na hora de compilar, e que acrescentar um tipo dava um PDF igual ao da múltipla escolha.
     const bundle = buildRenderBundle({
       jobId: "j1",
       question: question(),
@@ -152,7 +156,23 @@ describe("buildRenderBundle", () => {
       includeSolution: true,
     });
 
+    expect(bundle.sourceLatex).toContain("\\textbf{Resolução.} É $4$.");
+  });
+
+  it("tipo **sem plugin** cai no fallback literal, e continua compilando", () => {
+    // O acervo legado tem tipos que ainda não têm plugin (a Fase 11 vai trazê-los). Recusar
+    // compilá-los entregaria menos do que o produto já entrega hoje — e "não compila" é pior de
+    // explicar que um documento simples.
+    const bundle = buildRenderBundle({
+      jobId: "j1",
+      question: question({ type: "TIPO_QUE_NAO_EXISTE", includeSolution: undefined } as never),
+      profile: QUESTION_PREVIEW_PROFILE,
+      includeSolution: true,
+    });
+
+    expect(bundle.sourceLatex).toContain("Quanto é $2+2$?");
     expect(bundle.sourceLatex).toContain("\\textbf{Resposta.} É $4$.");
+    expect(bundle.sourceLatex).not.toContain("Gabarito");
   });
 
   it("não deixa parágrafo vazio no fim", () => {

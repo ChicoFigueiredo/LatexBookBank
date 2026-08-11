@@ -1,5 +1,6 @@
 import type { PreviewBlock } from "@modules/preview/domain/preview-model";
 
+import type { QuestionLatexBlock } from "./question-latex";
 import type { QuestionType } from "./question-type";
 
 /**
@@ -63,8 +64,20 @@ export interface QuestionTypePlugin {
 
   validate(question: QuestionForPlugin): readonly ValidationIssue[];
 
-  /** O corpo LaTeX. O preâmbulo é do perfil de render, nunca do plugin. */
-  buildLatex(question: QuestionForPlugin, options?: BuildLatexOptions): string;
+  /**
+   * O corpo LaTeX, **em blocos**. O preâmbulo é do perfil de render, nunca do plugin.
+   *
+   * Blocos e não texto porque o diagnóstico do compilador é clicável desde a #161: o mapa de
+   * "linha do corpo → campo da questão" sai daqui, da mesma passagem que monta o texto. Devolver
+   * uma string obrigaria a adivinhar esse mapa por fora, e adivinhar posição de linha em texto
+   * montado por outro funciona até o dia em que não funciona, sem avisar.
+   *
+   * Para quem só quer o texto, `latexFromBlocks` junta — e é a **única** junção que existe.
+   */
+  buildLatexBlocks(
+    question: QuestionForPlugin,
+    options?: BuildLatexOptions,
+  ): readonly QuestionLatexBlock[];
 
   /**
    * O preview rápido, em blocos.

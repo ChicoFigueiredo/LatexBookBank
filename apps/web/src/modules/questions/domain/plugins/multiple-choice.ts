@@ -1,6 +1,7 @@
 import { parseLatexPreview } from "@modules/preview/domain/parse-latex-preview";
 import type { PreviewBlock, PreviewItem } from "@modules/preview/domain/preview-model";
 
+import { block, type QuestionLatexBlock } from "../question-latex";
 import { optionLabelAt } from "../question-type";
 import type { QuestionForPlugin, QuestionTypePlugin } from "../question-type-plugin";
 
@@ -81,30 +82,56 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
     return issues;
   },
 
-  buildLatex(question, options) {
-    const parts = [question.statementLatex];
+  buildLatexBlocks(question, options) {
+    const blocks: QuestionLatexBlock[] = [block("statementLatex", question.statementLatex)];
 
     if (question.options.length > 0) {
-      parts.push(
-        "\\begin{enumerate}[label=\\alph*), itemsep=2pt, topsep=4pt]",
-        ...question.options.map((option) => `  \\item ${option.statementLatex}`),
-        "\\end{enumerate}",
-      );
+      blocks.push({
+        origin: "options",
+        lines: [
+          "\\begin{enumerate}[label=\\alph*), itemsep=2pt, topsep=4pt]",
+          ...question.options.map((option) => `  \\item ${option.statementLatex}`),
+          "\\end{enumerate}",
+        ],
+        // O `\begin{enumerate}` é a única linha de estrutura antes da primeira alternativa, e é
+        // por isso que a "linha 1" das alternativas é a alternativa `a`.
+        prefixLines: 1,
+      });
     }
 
     if (options?.includeSolution === true) {
       const correctIndex = question.options.findIndex((option) => option.isCorrect);
+      const solution: string[] = [];
+
       if (correctIndex >= 0) {
         // A letra sai do **índice**, calculada na hora de escrever. Guardá-la seria repetir o
         // erro do legado: reordenar deixaria o gabarito apontando para a letra errada.
-        parts.push("", "\\medskip", `\\textbf{Gabarito:} ${optionLabelAt(correctIndex)}.`);
+        solution.push("", "\\medskip", `\\textbf{Gabarito:} ${optionLabelAt(correctIndex)}.`);
       }
       if (question.solutionLatex.trim() !== "") {
-        parts.push("", `\\textbf{Resolução.} ${question.solutionLatex}`);
+        solution.push("", `\\textbf{Resolução.} ${question.solutionLatex}`);
+      }
+
+      if (solution.length > 0) {
+        blocks.push({
+          origin: "solutionLatex",
+          lines: solution,
+          // Tudo que vem antes da resolução é estrutura — inclusive a linha do gabarito, que é
+          // **derivada** da alternativa correta e não existe em campo nenhum para editar.
+          prefixLines: solution.length - 1,
+        });
+      }
+
+      if (question.complementLatex.trim() !== "") {
+        blocks.push({
+          origin: "complementLatex",
+          lines: ["", "\\medskip", `\\textbf{Complemento.} ${question.complementLatex}`],
+          prefixLines: 2,
+        });
       }
     }
 
-    return parts.join("\n").trim();
+    return blocks;
   },
 
   buildFastPreview(question) {

@@ -341,7 +341,7 @@ export function QuestionEditor({
       if (diagnostic.line === null || diagnostic.severity === "info") return [];
 
       const at = locateBodyLine(sourceMap, diagnostic.line);
-      if (at === null || at.field !== field) return [];
+      if (at === null || at.origin !== field) return [];
 
       return [{ line: at.line, severity: diagnostic.severity, message: diagnostic.message }];
     });

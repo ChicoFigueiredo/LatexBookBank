@@ -177,8 +177,8 @@ describe("RenderPanel — os gestos que faltavam", () => {
       // Enunciado de três linhas, depois a lista: a linha 5 do corpo é a alternativa `b`… não —
       // é a primeira alternativa, e o mapa é quem sabe disso.
       sourceMap: [
-        { field: "statementLatex", startLine: 1, lineCount: 3, textStartLine: 1 },
-        { field: "options", startLine: 4, lineCount: 4, textStartLine: 5 },
+        { origin: "statementLatex", startLine: 1, lineCount: 3, textStartLine: 1 },
+        { origin: "options", startLine: 4, lineCount: 4, textStartLine: 5 },
       ],
       ...over,
     });

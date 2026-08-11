@@ -1,24 +1,53 @@
 import { DEFAULT_RENDER_OPTIONS, type RenderBundle } from "@latexbookbank/render-contract";
 
+import {
+  block,
+  composeLatex,
+  type QuestionLatexBlock,
+  type QuestionLatexSpan,
+} from "@modules/questions/domain/question-latex";
+import type { QuestionForPlugin } from "@modules/questions/domain/question-type-plugin";
+import { pluginFor } from "@modules/questions/domain/question-type-plugin";
+import { isQuestionType } from "@modules/questions/domain/question-type";
+
 import type { RenderProfile } from "@latexbookbank/render-contract";
 
 /**
  * Monta o `RenderBundle` de uma questão.
  *
- * É o `LatexBuilder` do planejamento, e é o único lugar que sabe **como uma questão vira um
- * documento**. Módulos editoriais chamam isto; nenhum deles escreve LaTeX de estrutura.
+ * É o `LatexBuilder` do planejamento, e desde a #165 ele **não sabe mais escrever LaTeX**: quem
+ * monta o corpo é o plugin do tipo. Antes a montagem era literal aqui, e o efeito é que acrescentar
+ * um tipo de questão dava validação própria, preview próprio — e um PDF igual ao da múltipla
+ * escolha. A §42 diz que todo tipo novo entra pelo registry; para compilar, isso não valia.
  *
- * A montagem é deliberadamente literal: enunciado, alternativas, resposta. Nada de numeração
- * automática, cabeçalho ou rodapé — isso é da prova montada (Fase 16), e antecipá-lo aqui faria
- * cada preview de questão carregar decoração que ninguém pediu.
+ * O caminho literal continua existindo como **fallback**, e não por simetria: a Fase 11 vai
+ * importar tipos que ainda não têm plugin, e recusar compilá-los seria entregar menos do que já se
+ * entrega hoje. Ele mora em `fallbackBlocks`, com o nome dizendo o que é.
+ *
+ * Nada de numeração automática, cabeçalho ou rodapé — isso é da prova montada (Fase 16), e
+ * antecipá-lo aqui faria cada preview de questão carregar decoração que ninguém pediu.
  */
 
-export interface QuestionForRender {
+/**
+ * Import de efeito colateral, e é ele que **faz o registry existir** no caminho de compilação.
+ *
+ * A mesma lição da #147, agora do outro lado: lá, `pluginFor` devolvia `null` para tudo em
+ * produção porque ninguém importava o registro, e as questões ficaram `UNVALIDATED` por seis
+ * fases, em silêncio. Aqui o silêncio seria pior ainda — o fallback compila, o PDF sai, e ninguém
+ * descobre que o plugin do tipo nunca foi consultado.
+ */
+import "@modules/questions/domain/plugins";
+
+export interface QuestionForRender extends Omit<QuestionForPlugin, "type"> {
   readonly id: string;
-  readonly statementLatex: string;
-  readonly solutionLatex: string;
-  readonly complementLatex: string;
-  readonly options: readonly { readonly statementLatex: string; readonly isCorrect: boolean }[];
+  /**
+   * Texto, e não `QuestionType`.
+   *
+   * O acervo legado tem tipos que o produto ainda não sabe tratar, e o import da Fase 11 vai
+   * trazê-los. Tipar como o vocabulário fechado obrigaria a escolher um tipo por omissão na hora
+   * de ler o banco — quer dizer, decidir em nome de quem importou o que a questão é.
+   */
+  readonly type: string;
 }
 
 export interface BuildBundleInput {
@@ -32,81 +61,38 @@ export interface BuildBundleInput {
   readonly includeSolution?: boolean;
 }
 
-/**
- * De onde veio cada linha do corpo.
- *
- * `options` não é um campo de texto do editor — é a aba Alternativas —, e por isso o `line` dela
- * significa outra coisa: o **número da alternativa**, não uma linha de LaTeX. Quem consome precisa
- * saber disso, e é mais honesto dizer aqui do que devolver um número de linha que não existe.
- */
-export type RenderSourceField = "statementLatex" | "solutionLatex" | "complementLatex" | "options";
-
-export interface RenderSourceSpan {
-  readonly field: RenderSourceField;
-  /** Primeira linha do corpo ocupada por este bloco, contando de 1. */
-  readonly startLine: number;
-  readonly lineCount: number;
-  /**
-   * Onde começa o texto **da pessoa** dentro do bloco.
-   *
-   * Difere de `startLine` quando o bloco leva estrutura na frente: a resposta entra depois de uma
-   * linha em branco, de um `\medskip` e do rótulo `\textbf{Resposta.}` — três linhas que ninguém
-   * escreveu e para as quais não faz sentido levar o cursor.
-   */
-  readonly textStartLine: number;
-}
+/** Onde, nos campos do editor, cada linha do corpo nasceu. */
+export type RenderSourceSpan = QuestionLatexSpan;
+export type RenderSourceField = QuestionLatexSpan["origin"];
 
 /**
- * As alternativas, como lista LaTeX.
+ * A montagem de quando não há plugin.
  *
- * `enumerate` com `label=\alph*)` e não letras escritas à mão: a letra é **projeção da ordem**
- * (D9), e escrevê-la no texto reintroduziria o erro do legado — reordenar alternativas deixava o
- * gabarito apontando para a letra errada.
+ * Deliberadamente literal, e deliberadamente igual ao que existia antes da #165: o acervo legado
+ * tem tipos que ainda não têm plugin, e para eles o produto precisa continuar compilando algo
+ * razoável. "Razoável" aqui é enunciado, alternativas e — quando pedido — resposta e complemento.
  */
-function optionsBlock(options: QuestionForRender["options"]): string[] {
-  if (options.length === 0) return [];
-
-  return [
-    "\\begin{enumerate}[label=\\alph*), itemsep=2pt, topsep=4pt]",
-    ...options.map((option) => `  \\item ${option.statementLatex}`),
-    "\\end{enumerate}",
-  ];
-}
-
-interface Block {
-  readonly field: RenderSourceField;
-  readonly lines: readonly string[];
-  /** Quantas linhas do bloco são estrutura antes do texto da pessoa. */
-  readonly prefixLines: number;
-}
-
-/**
- * O corpo e o mapa, na **mesma** passagem.
- *
- * Duas funções montando o mesmo documento divergiriam — e divergiriam em silêncio, porque o
- * sintoma seria um cursor uma linha fora do lugar, que qualquer um atribui ao editor antes de
- * desconfiar do mapa.
- */
-function composeBody(input: BuildBundleInput): {
-  readonly sourceLatex: string;
-  readonly spans: readonly RenderSourceSpan[];
-} {
+function fallbackBlocks(input: BuildBundleInput): QuestionLatexBlock[] {
   const { question } = input;
   const withSolution = input.includeSolution === true;
 
-  const blocks: Block[] = [
-    { field: "statementLatex", lines: question.statementLatex.split("\n"), prefixLines: 0 },
-  ];
+  const blocks: QuestionLatexBlock[] = [block("statementLatex", question.statementLatex)];
 
-  const options = optionsBlock(question.options);
-  if (options.length > 0) {
-    // O `\begin{enumerate}` é a única linha de estrutura antes da primeira alternativa.
-    blocks.push({ field: "options", lines: options, prefixLines: 1 });
+  if (question.options.length > 0) {
+    blocks.push({
+      origin: "options",
+      lines: [
+        "\\begin{enumerate}[label=\\alph*), itemsep=2pt, topsep=4pt]",
+        ...question.options.map((option) => `  \\item ${option.statementLatex}`),
+        "\\end{enumerate}",
+      ],
+      prefixLines: 1,
+    });
   }
 
   if (withSolution && question.solutionLatex.trim() !== "") {
     blocks.push({
-      field: "solutionLatex",
+      origin: "solutionLatex",
       lines: ["", "\\medskip", "\\textbf{Resposta.} " + question.solutionLatex],
       prefixLines: 2,
     });
@@ -114,73 +100,52 @@ function composeBody(input: BuildBundleInput): {
 
   if (withSolution && question.complementLatex.trim() !== "") {
     blocks.push({
-      field: "complementLatex",
+      origin: "complementLatex",
       lines: ["", "\\medskip", "\\textbf{Complemento.} " + question.complementLatex],
       prefixLines: 2,
     });
   }
 
-  const joined = blocks.flatMap((block) => block.lines).join("\n");
+  return blocks;
+}
 
-  /**
-   * `trim` no fim: linha em branco final vira parágrafo vazio no LaTeX, e num `standalone` com
-   * `preview` isso aparece como espaço extra embaixo do recorte.
-   *
-   * O que ele tira **no começo** desloca todas as linhas, e é por isso que o mapa é calculado
-   * depois: um enunciado que comece com uma linha em branco jogaria o mapa inteiro uma linha
-   * adiante, e o editor apontaria consistentemente para a linha de baixo.
-   */
-  const sourceLatex = joined.trim();
-  const dropped = joined.length - joined.trimStart().length;
-  const droppedLines = joined.slice(0, dropped).split("\n").length - 1;
+/** Os blocos do tipo, ou os do fallback quando o tipo ainda não tem plugin. */
+function blocksFor(input: BuildBundleInput): readonly QuestionLatexBlock[] {
+  const { question } = input;
+  const { type } = question;
 
-  const spans: RenderSourceSpan[] = [];
-  let cursor = 1 - droppedLines;
+  // Tipo fora do vocabulário não é erro aqui: o import do legado pode trazer um, e o produto
+  // precisa compilar a questão em vez de recusá-la (mesma regra da validação, que o chama de
+  // `UNVALIDATED` em vez de `INVALID`).
+  if (!isQuestionType(type)) return fallbackBlocks(input);
 
-  for (const block of blocks) {
-    spans.push({
-      field: block.field,
-      startLine: cursor,
-      lineCount: block.lines.length,
-      textStartLine: cursor + block.prefixLines,
-    });
-    cursor += block.lines.length;
-  }
+  const plugin = pluginFor(type);
+  if (plugin === null) return fallbackBlocks(input);
 
-  return { sourceLatex, spans };
+  return plugin.buildLatexBlocks(
+    { ...question, type },
+    { ...(input.includeSolution === true ? { includeSolution: true } : {}) },
+  );
 }
 
 export function buildRenderBundle(input: BuildBundleInput): RenderBundle {
   return {
     jobId: input.jobId,
-    sourceLatex: composeBody(input).sourceLatex,
+    sourceLatex: composeLatex(blocksFor(input)).latex,
     profile: input.profile,
     assets: input.assets ?? [],
     options: { ...DEFAULT_RENDER_OPTIONS, ...input.options },
   };
 }
 
-/** O mapa do corpo compilado de volta para os campos do editor. */
-export const buildSourceMap = (input: BuildBundleInput): readonly RenderSourceSpan[] =>
-  composeBody(input).spans;
-
 /**
- * Onde, no editor, fica a linha `line` do corpo compilado.
+ * O mapa do corpo compilado de volta para os campos do editor.
  *
- * Devolve `null` quando a linha não pertence a nenhum bloco — acontece com o que o `trim` cortou e
- * com número fora do corpo, e nesses casos não apontar é a resposta certa: mandar o cursor para
- * "mais ou menos ali" é pior que dizer que não se sabe.
+ * Sai da **mesma** montagem do corpo — `blocksFor` é chamado pelos dois —, então não há como o
+ * texto dizer uma coisa e o mapa dizer outra. O sintoma de divergirem seria um cursor uma linha
+ * fora do lugar, que qualquer um atribui ao editor antes de desconfiar do mapa.
  */
-export function locateBodyLine(
-  spans: readonly RenderSourceSpan[],
-  line: number,
-): { readonly field: RenderSourceField; readonly line: number } | null {
-  const span = spans.find(
-    (entry) => line >= entry.startLine && line < entry.startLine + entry.lineCount,
-  );
-  if (span === undefined) return null;
+export const buildSourceMap = (input: BuildBundleInput): readonly RenderSourceSpan[] =>
+  composeLatex(blocksFor(input)).spans;
 
-  // Linha de estrutura (o `\medskip`, o `\begin{enumerate}`) cai no começo do texto: é o lugar mais
-  // próximo que a pessoa pode de fato editar.
-  return { field: span.field, line: Math.max(1, line - span.textStartLine + 1) };
-}
+export { locateLatexLine as locateBodyLine } from "@modules/questions/domain/question-latex";
