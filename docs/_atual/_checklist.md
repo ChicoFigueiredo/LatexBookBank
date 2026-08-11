@@ -24,8 +24,12 @@
 **Progresso:** 861 ✅ · 5 ◐ · 14 ⛔ · 122 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 12 itens.**
-**Última atualização:** 2026-08-11 — **o download do `.lbb` diz o tamanho** (#195). Ele saía
+(20, que é do Chico). **Não sobra item de código sem decisão sua ou sem o acervo.**
+**Última atualização:** 2026-08-11 — **o que do checklist visual é medida** (#197): transbordo
+horizontal é fato, não gosto. A aritmética que o checklist trazia desde a Fase 1 foi conferida numa
+tela — 217 + 281 + 432 —, e a leitura dos seis estados vazios achou um dizendo "na Fase 3" para
+quem não tem o planejamento.
+**Antes:** **o download do `.lbb` diz o tamanho** (#195). Ele saía
 `chunked`, e o navegador mostrava "tamanho desconhecido" — sem barra e sem como distinguir lento de
 travado. O guarda novo amarra o par: quem oferece download anuncia o tamanho.
 **Antes:** **reconhecer texto do recorte** (#193), sem porta nova: a
@@ -245,7 +249,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1293 testes (1229 no app + 64 no renderer) + **13 de E2E, todos passando** · 97 PRs abertos, nada mergeado.
+1295 testes (1231 no app + 64 no renderer) + **17 de E2E, todos passando** · 98 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -265,7 +269,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | Épico | Fases | ✅ | ◐ | ⛔ | `[ ]` | Estado |
 |---|---|---:|---:|---:|---:|---|
 | **01** fundação e providers | 0 | 70 | — | — | — | **fechado** — os dois health checks entraram no `setup` (#168) |
-| **02** shell e árvore | 1 · 2 | 87 | — | 1 | 5 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
+| **02** shell e árvore | 1 · 2 | 90 | — | 1 | 2 | 1 é a conferência visual; 1 é virtualização, adiada por decisão |
 | **03** editor LaTeX | 3 · 4 | 49 | — | — | — | **fechado** |
 | **04** preview e render | 5 · 6 | 159 | — | 3 | 1 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
@@ -484,9 +488,15 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Toggle do aside mantém o nome e conta o estado por `aria-pressed`
 
 **Aceite da fase**
-- [ ] Utilizável em 1366×768 *(a aritmética fecha — rail 216 + árvore 280 + editor ≥ 420 com o aside fechado — mas falta olhar na tela)*
-- [ ] Excelente em 1920×1080
-- [ ] Redimensionar não quebra o layout
+- ✅ Utilizável em 1366×768 *(#197 — **a aritmética foi conferida numa tela de verdade**: rail 217
+  + árvore 281 + editor 432, sem transbordo horizontal. Com o painel do agente aberto o editor cai
+  para ~240 px: apertado e **ajustável**, porque as divisórias existem e as larguras persistem. O
+  E2E afirma o que é objetivo — cabe —, não o que é confortável, que continua com o Chico)*
+- ✅ Cabe em 1920×1080 *(#197 — medido, sem transbordo, editor com 709 px. "Excelente" é juízo e
+  continua com o Chico; o que a máquina afirma é que a janela comporta o layout)*
+- ✅ Redimensionar não quebra o layout *(#197 — e o teste **encolhe a janela sem recarregar**, que
+  é o caso que só o redimensionamento pega: as larguras das divisórias são pixels guardados em
+  `localStorage`, e uma divisória arrastada num monitor grande pode não caber no pequeno)*
 - ✅ Larguras sobrevivem a refresh
 - [ ] Checklist visual (§11 deste documento) passa nos itens aplicáveis
 
@@ -1779,8 +1789,8 @@ importador existe e é testado (Fase 11); rodar o import é que não dá.*
 - [ ] Preview é legível sem abrir modal
 - [ ] Agente não rouba espaço quando fechado
 - [ ] Botão do agente é reconhecível e discreto
-- [ ] Resize não quebra layout
-- [ ] 1366×768 continua utilizável
+- ✅ Resize não quebra layout *(#197 — E2E encolhendo a janela de 1920 para 1366 sem recarregar)*
+- ✅ 1366×768 continua utilizável *(#197 — sem transbordo, inclusive com o painel do agente aberto)*
 - [ ] 1920×1080 fica excelente
 - ✅ Dark mode coerente *(teste cobre todo token de cor do tema claro)*
 - [ ] Focus ring correto
@@ -1791,7 +1801,11 @@ importador existe e é testado (Fase 11); rodar o import é que não dá.*
 - ✅ Render mostra progresso *(texto, não roda girando: roda não diz se travou)*
 - ✅ Erro de TeX é apresentado como diagnóstico, não como stack trace cru *(linha + mensagem; o
   caminho do diretório temporário não vaza)*
-- [ ] Empty states explicam a próxima ação
+- ✅ Empty states explicam a próxima ação *(#197 — os seis foram lidos um a um, e um deles dizia
+  "Capítulos e seções ganham conteúdo próprio no editor, **na Fase 3**": número de fase do
+  planejamento na cara de quem usa, prometendo um futuro que chegou faz tempo. Quem lê não tem o
+  planejamento. Reescrito para dizer o que fazer agora, com guarda varrendo `title`, `description`,
+  `label` e `placeholder` atrás do mesmo jargão)*
 
 ---
 
