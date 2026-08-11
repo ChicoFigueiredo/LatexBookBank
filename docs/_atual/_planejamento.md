@@ -849,6 +849,28 @@ e passa a exercitar duas projeções — runtime → portable e portable → run
 
 ---
 
+#### D38 — `sortKey` exige `COLLATE "C"` no PostgreSQL
+
+*Descoberta na Fase 2, ao implementar o fractional indexing.*
+
+A chave de ordenação é base-62 e mistura maiúsculas e minúsculas por construção: `A`–`Z` codificam
+a parte negativa, `a`–`z` a positiva. A ordem lógica é a **ordem de bytes**.
+
+O SQLite compara `TEXT` em binário por padrão, então serve direto. **O PostgreSQL não.** Com a
+colação usual (`en_US.UTF-8`), a comparação ignora caixa: `a0` viria antes de `Z0`, e todo item
+inserido antes do primeiro apareceria depois dele — a lista inverteria em silêncio, sem erro
+nenhum.
+
+**A decisão.** Na migração do schema para PostgreSQL (Fase 6.5), a coluna `sortKey` é declarada
+`COLLATE "C"`, e o índice que a usa também. Vale para `DocumentNode.sortKey` e para
+`QuestionOption.sortKey`.
+
+Registrado agora, e não quando a Fase 6.5 chegar, porque é o tipo de diferença que passa por
+todos os testes de unidade e só aparece com dados reais no motor novo. O teste de portabilidade
+da ordenação demonstra o cenário exato.
+
+---
+
 ## 4. Arquitetura
 
 ### 4.1 Topologia — modo local (o MVP)

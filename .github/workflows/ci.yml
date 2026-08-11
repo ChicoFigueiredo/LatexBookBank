@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Um push novo torna o run anterior irrelevante; deixá-lo terminar só gasta fila.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # `prisma.config.ts` resolve `env("DATABASE_URL")` de forma ansiosa, então até
+      # `prisma generate` precisa da variável. Definir no nível do job vale para todos os
+      # passos e evita descobrir a falta um passo por vez.
+      DATABASE_URL: file:./ci.db
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sem `setup-node`: o CLI do Prisma roda sob Bun, verificado com PATH sem Node.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      # `--frozen-lockfile` recusa qualquer resolução divergente do lockfile: o CI verifica o
+      # que foi commitado, não uma árvore de dependências que ele mesmo decidiu.
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # O client do Prisma é gerado, não versionado. Sem isto, typecheck e testes não acham
+      # os tipos e a falha aparece como erro de import, escondendo a causa.
+      - name: Generate Prisma Client
+        run: bun x prisma generate
+        working-directory: apps/web
+
+      # O build renderiza rotas que consultam o banco. Sem schema, a falha aparece como
+      # "no such table" no meio do build — e é o CI que precisa provar que a app sobe do zero.
+      - name: Apply migrations
+        run: bun x prisma migrate deploy
+        working-directory: apps/web
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      # As regras de fronteira arquitetural rodam aqui: `tests/architecture-boundaries.test.ts`
+      # dirige o ESLint contra violações propositais, uma por regra.
+      - name: Test
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+  # A imagem ficou inbuildável da Fase 13 até a #148 sem ninguém perceber, porque nada a
+  # construía fora do terminal de quem estava mexendo. O teste rápido em
+  # `services/renderer/tests/dockerfile.test.ts` pega o caso conhecido; este job é o que prova.
+  #
+  # Só quando algo que a imagem consome muda: ela leva TeX Live inteiro, e construí-la em todo PR
+  # gastaria minutos de fila para reprovar o que não mudou.
+  renderer-image:
+    name: imagem do renderer constrói
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # Histórico inteiro: com a profundidade padrão de 1 commit, o `git diff` contra a base do PR
+      # não teria com o que comparar e a filtragem construiria sempre — quer dizer, não filtraria.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: O que mudou
+        id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          # Push inicial ou base ausente: constrói, em vez de decidir sem informação.
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$base" HEAD | grep -qE '^(services/renderer/|packages/render-contract/|package\.json|bun\.lock)'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.changed.outputs.build == 'true'
+        # `--frozen-lockfile` está dentro do Dockerfile: é ele quem falha quando o arquivo não
+        # conhece um workspace, e é exatamente essa falha que este job existe para pegar.
+        run: docker build -f services/renderer/Dockerfile -t latexbookbank/renderer:ci .

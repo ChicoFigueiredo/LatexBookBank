@@ -1,1 +1,37 @@
 _antigo/
+
+# dependências
+node_modules/
+.bun-cache/
+
+# build
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# dados locais — nunca versionados (D24, D26)
+apps/web/data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ambiente
+.env
+.env.local
+.env.*.local
+
+# testes
+coverage/
+
+# sistema
+.DS_Store
+*.log
+
+# client gerado pelo Prisma (recriado por `prisma generate`)
+apps/web/src/generated/
+
+# E2E: relatório e rastros são saída de execução, não fonte. O trace de uma falha pesa megabytes.
+apps/web/test-results/
+apps/web/playwright-report/

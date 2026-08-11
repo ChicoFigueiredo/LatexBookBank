@@ -1,0 +1,74 @@
+import type { LatexKnowledge, LatexSnippet, LatexSymbol } from "./latex-knowledge";
+
+/**
+ * O legado tem duplicatas, e elas não são erro de leitura — são história.
+ *
+ * `LatexAutoCompletes` guarda duas linhas para `\addtocontents{...}`: uma com descrição, outra
+ * sem. `LatexSimbols` guarda `\neq` duas vezes no grupo `math`. Importar as duas faria a lista
+ * de sugestões oferecer a mesma coisa em seguida, e a segunda seria sempre a pior.
+ *
+ * A regra de desempate é **ficar com a linha mais rica**: entre duas iguais, vence a que tem
+ * descrição; empatado, vence a de maior prioridade; empatado de novo, vence a primeira — assim
+ * o resultado não depende da ordem em que o SQLite devolveu as linhas.
+ */
+
+export interface DedupeReport {
+  readonly duplicateSnippets: number;
+  readonly duplicateSymbols: number;
+}
+
+export interface DedupedKnowledge {
+  readonly knowledge: LatexKnowledge;
+  readonly report: DedupeReport;
+}
+
+const snippetKey = (snippet: LatexSnippet): string => `${snippet.trigger}\u0000${snippet.body}`;
+const symbolKey = (symbol: LatexSymbol): string => `${symbol.groupName}\u0000${symbol.command}`;
+
+/** Quantidade de informação de um snippet — é o que decide quem sobrevive. */
+const snippetRichness = (snippet: LatexSnippet): number =>
+  (snippet.documentation && snippet.documentation.trim() ? 2 : 0) + (snippet.priority > 0 ? 1 : 0);
+
+const symbolRichness = (symbol: LatexSymbol): number =>
+  (symbol.unicode ? 2 : 0) + (symbol.previewSvg ? 1 : 0);
+
+function dedupeBy<T>(
+  items: readonly T[],
+  keyOf: (item: T) => string,
+  richnessOf: (item: T) => number,
+): { readonly kept: T[]; readonly dropped: number } {
+  const byKey = new Map<string, T>();
+  let dropped = 0;
+
+  for (const item of items) {
+    const key = keyOf(item);
+    const previous = byKey.get(key);
+    if (previous === undefined) {
+      byKey.set(key, item);
+      continue;
+    }
+    dropped += 1;
+    // `>` e não `>=`: no empate a primeira permanece, e a ordem do resultado fica estável.
+    if (richnessOf(item) > richnessOf(previous)) byKey.set(key, item);
+  }
+
+  return { kept: [...byKey.values()], dropped };
+}
+
+export function dedupeKnowledge(knowledge: LatexKnowledge): DedupedKnowledge {
+  const snippets = dedupeBy(knowledge.snippets, snippetKey, snippetRichness);
+  const symbols = dedupeBy(knowledge.symbols, symbolKey, symbolRichness);
+
+  return {
+    knowledge: {
+      snippets: snippets.kept,
+      symbols: symbols.kept,
+      symbolGroups: knowledge.symbolGroups,
+      iconMenus: knowledge.iconMenus,
+    },
+    report: {
+      duplicateSnippets: snippets.dropped,
+      duplicateSymbols: symbols.dropped,
+    },
+  };
+}
