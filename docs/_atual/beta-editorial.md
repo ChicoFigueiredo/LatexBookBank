@@ -32,6 +32,38 @@ colar/subir imagem ou PDF → recortar → reconhecer → revisar e corrigir
 
 Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre telas.
 
+## 1b. Definition of Done absoluta (§95) — verificada com banco vazio
+
+Rodado em 11/08/2026 contra um banco **recém-migrado e sem seed** (`prisma migrate deploy` sobre
+um arquivo novo, storage novo), com a suíte E2E inteira. Os 21 testes passaram, e o acervo saiu do
+nada: 17 bibliotecas, 17 livros, 24 nós, 12 questões, 60 alternativas, 5 recortes com âncora, 22
+assets e 2 compilações — tudo criado pela interface, sem tocar no banco.
+
+| Passo da §95            | Onde                                     |
+| ----------------------- | ---------------------------------------- |
+| 1. criar biblioteca     | `beta-editorial.spec.ts`                 |
+| 2. criar/importar livro | idem · `calibre.spec.ts`                 |
+| 3. abrir livro          | idem                                     |
+| 4. criar capítulo       | idem                                     |
+| 5. criar grupo          | idem                                     |
+| 6. capturar screenshot  | `captura.spec.ts` (fixture sintética)    |
+| 7. recortar             | idem                                     |
+| 8. reconhecer           | idem (provider dublê, §42)               |
+| 9. revisar              | idem — com correção do erro do modelo    |
+| 10. criar questão       | idem · `beta-editorial.spec.ts`          |
+| 11. editar LaTeX        | `beta-editorial.spec.ts` · `questao.spec.ts` |
+| 12. marcar gabarito     | `beta-editorial.spec.ts`                 |
+| 13. renderizar          | `questao.spec.ts` (worker Docker real)   |
+| 14. validar             | `beta-editorial.spec.ts`                 |
+| 15. fechar / 16. abrir  | idem — reload e volta pelo Início        |
+| 17. encontrar questão   | idem · busca global em `/questoes/[id]`  |
+| 18. abrir origem        | `captura.spec.ts`                        |
+| 19. ver recorte         | idem — miniatura na fila e na aba Origem |
+| 20. continuar editando  | idem                                     |
+
+A verificação **não** destruiu o banco de desenvolvimento: ela subiu a aplicação apontada para um
+`DATABASE_URL` e um `STORAGE_ROOT` temporários. O ambiente do autor voltou intacto.
+
 ## 2. Matriz de estado (a auditoria curta da §3)
 
 | Capacidade                            | Estado ao começar   | Estado agora |
