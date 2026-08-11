@@ -32,6 +32,19 @@ export async function POST(
 
     const result = await addQuestion(assessmentId, questionId);
 
+    if (!result.added && result.reason === "foreign") {
+      // 400 e não 200: uma questão de **outra biblioteca** numa prova daqui é engano, e ele custa
+      // caro depois — `AssessmentItem → Question` é `onDelete: Restrict`, então a prova passa a
+      // travar a exclusão de uma questão que não é dela, num acervo onde ela nem aparece (#177).
+      return NextResponse.json(
+        {
+          error: "question_from_another_workspace",
+          message: "Esta questão é de outra biblioteca. Uma prova só monta com o acervo dela.",
+        },
+        { status: 400 },
+      );
+    }
+
     // `200 added:false` e não erro: clicar duas vezes em "acrescentar" é gesto, não engano, e o
     // schema já garante que a mesma questão não entra duas vezes.
     return NextResponse.json(result, { status: result.added ? 201 : 200 });
