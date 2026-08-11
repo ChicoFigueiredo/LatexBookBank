@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+
 import { addOption } from "@modules/questions/application/mutate-options";
 import { PrismaOptionWriter } from "@modules/questions/infrastructure/prisma-option-writer";
 
@@ -22,11 +24,24 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ questionId: string }> },
+  { params }: { params: Promise<{ id: string; questionId: string }> },
 ) {
-  const { questionId } = await params;
+  const { id, questionId } = await params;
 
   try {
+    const escopo = await resolveQuestionScope(id, questionId);
+    if (escopo === null) {
+      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
+      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
+      return NextResponse.json(
+        {
+          error: "not_found",
+          message: `Questão ${questionId} não existe nesta publicação.`,
+        },
+        { status: 404 },
+      );
+    }
+
     const options = await new PrismaOptionWriter().listOptions(questionId);
     return NextResponse.json({ options });
   } catch (error) {
@@ -36,11 +51,24 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ questionId: string }> },
+  { params }: { params: Promise<{ id: string; questionId: string }> },
 ) {
-  const { questionId } = await params;
+  const { id, questionId } = await params;
 
   try {
+    const escopo = await resolveQuestionScope(id, questionId);
+    if (escopo === null) {
+      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
+      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
+      return NextResponse.json(
+        {
+          error: "not_found",
+          message: `Questão ${questionId} não existe nesta publicação.`,
+        },
+        { status: 404 },
+      );
+    }
+
     const body = await readJson(request).catch(() => ({}) as Record<string, unknown>);
     const statementLatex = typeof body["statementLatex"] === "string" ? body["statementLatex"] : "";
 

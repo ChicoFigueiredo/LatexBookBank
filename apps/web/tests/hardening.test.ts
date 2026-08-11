@@ -339,3 +339,49 @@ describe("nenhuma rota devolve `storageKey`", () => {
     expect(suspeitas.map((f) => f.replace(root, ""))).toEqual([]);
   });
 });
+
+/**
+ * A URL precisa ser verdade (#175).
+ *
+ * As rotas de questão têm a forma `/publications/:id/questions/:questionId`, e o primeiro segmento
+ * era **decorativo**: nenhuma delas o lia. Dava para gravar uma questão real através de uma
+ * publicação inexistente, e a resposta era 200.
+ *
+ * O isolamento por `workspaceId` existe no schema e é afirmado por outro guarda. O que faltava era
+ * a checagem na **entrada** — e com duas bibliotecas, uma questão da primeira seria alcançável por
+ * uma publicação da segunda sem o produto perceber.
+ *
+ * Este teste varre as rotas em vez de exercitar uma: o defeito não era uma rota errada, era o
+ * hábito de confiar no parâmetro. Uma rota nova nasceria com o mesmo hábito.
+ */
+describe("toda rota de questão confere a publicação da URL", () => {
+  const dir = path.join(root, "app/api/publications/[id]/questions/[questionId]");
+
+  const rotas = readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((file) => typeof file === "string" && file.endsWith("route.ts"))
+    .map((file) => path.join(dir, String(file)));
+
+  it("há rotas para varrer", () => {
+    expect(rotas.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("nenhuma resolve a questão sem passar pelo guarda", () => {
+    const semGuarda = rotas.filter(
+      (file) => !readFileSync(file, "utf8").includes("resolveQuestionScope("),
+    );
+
+    expect(semGuarda.map((f) => f.replace(root, ""))).toEqual([]);
+  });
+
+  it("cada handler exportado chama o guarda — um por handler, não um por arquivo", () => {
+    // Uma rota com `GET` e `PATCH` precisa de dois: proteger só o primeiro deixaria a escrita
+    // aberta, que é exatamente o caminho que mais importa.
+    for (const file of rotas) {
+      const code = readFileSync(file, "utf8");
+      const handlers = code.match(/export async function (GET|POST|PATCH|PUT|DELETE)\b/g) ?? [];
+      const guardas = code.match(/resolveQuestionScope\(/g) ?? [];
+
+      expect(guardas.length, `${file.replace(root, "")}`).toBeGreaterThanOrEqual(handlers.length);
+    }
+  });
+});

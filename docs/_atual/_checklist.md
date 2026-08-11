@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 847 ✅ · 5 ◐ · 14 ⛔ · 129 `[ ]` — e **111 dos 129 abertos estão em quatro blocos que
+**Progresso:** 848 ✅ · 5 ◐ · 14 ⛔ · 128 `[ ]` — e **111 dos 128 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 18 itens.**
-**Última atualização:** 2026-08-11 — **figura na questão, de ponta a ponta** (#173): o
+(20, que é do Chico). **Fora deles sobram 17 itens.**
+**Última atualização:** 2026-08-11 — **o guarda central de autorização** (#175), e ele achou um
+buraco de verdade: o `publicationId` da URL era decorativo nas rotas de questão, então dava para
+gravar uma questão real por uma publicação inexistente — e o 200 confirmava.
+**Antes:** **figura na questão, de ponta a ponta** (#173): o
 `figureSnippet` existia desde a Fase 14 e nada o chamava, e inseri-lo teria produzido LaTeX que não
 compila — nenhum asset chegava ao worker. Agora chega, e só o que o corpo cita. No caminho
 apareceram mais dois: `!pdfTeX error:` (sem espaço) não virava diagnóstico, então uma figura
@@ -209,7 +212,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1254 testes (1190 no app + 64 no renderer) + **7 de E2E, todos passando** · 86 PRs abertos, nada mergeado.
+1257 testes (1193 no app + 64 no renderer) + **7 de E2E, todos passando** · 87 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -237,7 +240,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 23 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
-| **10** operação e busca | 10 · 12 · 17 | 56 | — | 3 | 4 | guarda de autorização, e 2 presos ao acervo |
+| **10** operação e busca | 10 · 12 · 17 | 57 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
 | — seções cruzadas | §8–§15 | 173 | — | 1 | 31 | 12 são o checklist visual; 8 são o §33 "Legado" |
@@ -1431,7 +1434,15 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 **Segurança e autorização**
 - ✅ `workspaceId` em todas as entidades relevantes — **verificado**: um guarda varre o schema e
   exige que toda entidade alcance um workspace, direto ou por um pai declarado
-- [ ] Guard central de autorização *(single-user hoje; o isolamento existe, o guarda não)*
+- ✅ Guard central de autorização *(#175 — e o que ele achou foi pior que a ausência: o
+  `publicationId` da URL era **decorativo** nas rotas de questão. Nenhuma delas o lia, então dava
+  para ler e **gravar** uma questão real através de uma publicação que nem existe — `PATCH` por um
+  uuid inventado respondia 200. O isolamento por `workspaceId` valia no schema e não na entrada.
+  Agora a condição está **na consulta** (`where: { id, node: { publicationId } }`), e não num `if`
+  depois de ler; o guarda devolve o `workspaceId` porque quem chama precisa dele de qualquer jeito,
+  e duas resoluções da mesma cadeia é onde as versões divergem. 404 e não 403, de propósito:
+  distinguir "existe, mas não é sua" de "não existe" confirma o id a quem está enumerando.
+  Conferido no app rodando: as cinco rotas devolvem 404 pela publicação errada e 200 pela certa)*
 - ✅ Secrets apenas em `.env.local` — **verificado**: um guarda varre o repositório atrás de chave,
   token e senha em URL, e outro exige que o `.env.example` não tenha valor de verdade
 
