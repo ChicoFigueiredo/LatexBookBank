@@ -162,8 +162,24 @@ describe("o caminho inteiro", () => {
     });
     fireEvent.click(screen.getByText("Conferi — usar este LaTeX"));
 
-    // O editado, e não o lido: quem corrigiu corrigiu por um motivo.
-    expect(onAccept).toHaveBeenCalledWith("x^{2} + 1");
+    // O editado, e não o lido: quem corrigiu corrigiu por um motivo. E junto vai a **origem** —
+    // sem o `anchorId`, a questão criada a partir deste recorte nasceria sem página nem arquivo,
+    // e "de onde veio isto?" ficaria sem resposta seis meses depois.
+    expect(onAccept).toHaveBeenCalledWith({
+      anchorId: "a1",
+      cropAssetId: "crop-1",
+      statementLatex: "x^{2} + 1",
+      run: {
+        providerId: "ollama",
+        model: "gemma3:12b",
+        durationMs: 120,
+        confidence: 0.9,
+        mode: "display",
+        // O cru do modelo viaja ao lado do corrigido: é o que permite saber, depois, se o erro
+        // foi do OCR ou da digitação.
+        rawLatex: "x^2 + 1",
+      },
+    });
   });
 });
 
