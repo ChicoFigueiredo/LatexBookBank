@@ -21,11 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 845 ✅ · 5 ◐ · 14 ⛔ · 131 `[ ]` — e **111 dos 131 abertos estão em quatro blocos que
+**Progresso:** 847 ✅ · 5 ◐ · 14 ⛔ · 129 `[ ]` — e **111 dos 129 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 20 itens.**
-**Última atualização:** 2026-08-11 — **apagar uma avaliação** (#171), achado exercitando o produto
+(20, que é do Chico). **Fora deles sobram 18 itens.**
+**Última atualização:** 2026-08-11 — **figura na questão, de ponta a ponta** (#173): o
+`figureSnippet` existia desde a Fase 14 e nada o chamava, e inseri-lo teria produzido LaTeX que não
+compila — nenhum asset chegava ao worker. Agora chega, e só o que o corpo cita. No caminho
+apareceram mais dois: `!pdfTeX error:` (sem espaço) não virava diagnóstico, então uma figura
+corrompida dava "falha ao compilar" **sem motivo na tela**; e a rota de upload devolvia a
+`storageKey`, que a D26 diz nunca sair do servidor.
+**Antes:** **apagar uma avaliação** (#171), achado exercitando o produto
 em vez de ler a lista: dava para criar e nunca apagar. A correção não era só a rota — o mapa de
 letras de uma variante é o gabarito de uma prova que pode já ter sido impressa, então com variante o
 servidor recusa com 409 e a tela faz uma segunda pergunta.
@@ -203,7 +209,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1241 testes (1179 no app + 62 no renderer) + **7 de E2E, todos passando** · 85 PRs abertos, nada mergeado.
+1254 testes (1190 no app + 64 no renderer) + **7 de E2E, todos passando** · 86 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -225,9 +231,9 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **01** fundação e providers | 0 | 70 | — | — | — | **fechado** — os dois health checks entraram no `setup` (#168) |
 | **02** shell e árvore | 1 · 2 | 86 | — | 1 | 6 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
 | **03** editor LaTeX | 3 · 4 | 47 | — | — | — | **fechado** |
-| **04** preview e render | 5 · 6 | 158 | — | 3 | 2 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
+| **04** preview e render | 5 · 6 | 159 | — | 3 | 1 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
-| **06** ingestão visual | 14 · 15 | 38 | 1 | — | 2 | falta a tela de inserção de figura e o reconhecimento de **texto** |
+| **06** ingestão visual | 14 · 15 | 39 | 1 | — | 1 | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 23 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
@@ -699,7 +705,11 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Tipo **sem plugin** continua compilando *(#165 — o caminho literal virou `fallbackBlocks`, com o
   nome dizendo o que é: a Fase 11 vai importar tipos sem plugin, e recusá-los entregaria menos do
   que o produto já entrega)*
-- [ ] Assets referenciados corretamente *(depende dos assets da Fase 11)*
+- ✅ Assets referenciados corretamente *(#173 — estava esperando a Fase 11 e não precisava: a Fase
+  14 já dá upload e recorte, então a questão **já podia** ter figura. Só o que o corpo **cita**
+  viaja: mandar todos os assets engordaria cada compilação com arquivos que o documento não usa, e
+  o PDF de origem de um recorte tem megabytes. Conferido no worker real — questão com
+  `\includegraphics` compilou, `main.pdf` de 31 264 bytes)*
 
 **Lado da aplicação** *(#65)*
 - ✅ **Port reconciliado com o contrato** *(o `render-executor.ts` da Fase 0 declarava `RenderBundle`/`RenderResult` por conta própria, antes de o D35 existir — e as duas definições já divergiam: perfil era nome aqui e objeto lá, asset trazia bytes aqui e metadados lá. Duas definições da mesma coisa não empatam: uma fica errada e ninguém descobre qual até a integração falhar)*
@@ -792,8 +802,13 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Tempo base medido e registrado *(#73 — 1886 ms; auditado na #159, que achou este item aberto
   duas linhas abaixo da medição que ele pedia)*
 - ✅ Ganho registrado com número antes × depois *(1886 ms → 508 ms, mediana de 5)*
-- [ ] Preâmbulo pré-compilado **embutido na imagem** *(hoje é construído sob demanda e cacheado em
-  `/tmp`, que é diferente: a primeira compilação de cada contêiner paga os 2313 ms)*
+- [ ] Preâmbulo pré-compilado **embutido na imagem** — *e provavelmente **não deve** ser.*
+  *Embutir exige a imagem conhecer os perfis, e a D35 tira o catálogo do worker de propósito: o
+  perfil vem resolvido no bundle, e `/health` responde `profileCount: 0` porque essa é a resposta
+  honesta. A alternativa — um volume gravável para o cache de formatos — abriria um furo em
+  "filesystem efêmero" num contêiner que compila LaTeX de terceiro. O ganho seria 2313 ms **uma
+  vez por contêiner**. Fica aberto como decisão registrada, não como esquecimento; o planejamento
+  pede o preâmbulo pré-compilado com ganho medido, e isso já está feito*
 
 **Aceite da fase**
 - ✅ `docker compose up` sobe o worker e a app conversa com ele *(exercitado a sessão inteira; a
@@ -1279,7 +1294,11 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Metadata (tamanho, dimensões, filename original) *(dimensões lidas do cabeçalho, sem decodificar)*
 - ✅ **Nenhuma chave de storage escapa do prefixo do workspace**, com teste — e a recusa devolve
   400 com o motivo, não 500 opaco
-- [ ] Inserção assistida de figura *(o snippet existe; falta a tela que o monta)*
+- ✅ Inserção assistida de figura *(#173 — o `figureSnippet` existia desde a Fase 14, testado, e
+  **nada o chamava**: o `OriginPanel` subia a ação `insert-figure` e o editor não a escutava. Sexta
+  vez do mesmo padrão. O nome do arquivo vem do servidor (`cropLatexName`) e é o mesmo que a rota de
+  render grava no diretório do job — inventá-lo no cliente daria um `\includegraphics` apontando
+  para arquivo que nunca chega)*
 - ✅ Snippet `figure/includegraphics` gerado *(o `label` vem do nome — nunca fica vazio)*
 
 **PDF e crop**

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { assetLatexName } from "@modules/assets/domain/asset-latex-name";
 import type { Provenance, ProvenanceReader } from "@modules/assets/domain/provenance";
 
 /**
@@ -27,6 +28,8 @@ export class PrismaProvenanceReader implements ProvenanceReader {
             heightNormalized: true,
             rotation: true,
             cropAssetId: true,
+            // O recorte inteiro, e não só o id: o nome que o LaTeX vai citar sai do `sha256` dele.
+            cropAsset: { select: { sha256: true, mimeType: true, originalFilename: true } },
             sourceText: true,
             extractionMethod: true,
             extractionModel: true,
@@ -59,6 +62,7 @@ export class PrismaProvenanceReader implements ProvenanceReader {
         isPdf: anchor.sourceAsset.mimeType === "application/pdf",
       },
       cropAssetId: anchor.cropAssetId,
+      cropLatexName: anchor.cropAsset === null ? null : assetLatexName(anchor.cropAsset),
       sourceText: anchor.sourceText,
       extractionMethod: anchor.extractionMethod,
       extractionModel: anchor.extractionModel,

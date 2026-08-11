@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { executeRender } from "@modules/rendering/application/execute-render";
 import { buildRenderBundle, buildSourceMap } from "@modules/rendering/domain/build-render-bundle";
 import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
+import { loadQuestionAssets } from "@modules/rendering/infrastructure/prisma-question-assets";
 import { loadQuestionForRender } from "@modules/rendering/infrastructure/prisma-question-render-source";
 import { PrismaRenderJobRepository } from "@modules/rendering/infrastructure/prisma-render-job-repository";
 import { RenderWorkerExecutor } from "@modules/rendering/infrastructure/render-worker-executor";
@@ -77,7 +78,16 @@ export async function POST(
       ...(body["includeSolution"] === true ? { includeSolution: true } : {}),
     };
 
-    const bundle = buildRenderBundle(bundleInput);
+    const storage = new LocalFileStorageProvider({ rootDir: env.storageRoot });
+
+    // Duas passagens de propósito: o corpo primeiro, os assets depois. Só o que o LaTeX **cita**
+    // viaja, e para saber o que ele cita é preciso já ter o corpo montado. Mandar tudo engordaria
+    // cada compilação com arquivos que o documento não usa — e o PDF de origem de um recorte tem
+    // megabytes.
+    const semAssets = buildRenderBundle(bundleInput);
+    const assets = await loadQuestionAssets(questionId, semAssets.sourceLatex, storage);
+
+    const bundle = buildRenderBundle({ ...bundleInput, assets: assets.manifest });
 
     // Quando o browser desiste — outra compilação foi pedida por cima desta —, o worker precisa
     // saber. Desistir só do lado de cá deixaria o `pdflatex` rodando até o fim para produzir algo
@@ -90,10 +100,10 @@ export async function POST(
     });
 
     const { job, cacheHit } = await executeRender(
-      { workspaceId: question.workspaceId, questionId, bundle },
+      { workspaceId: question.workspaceId, questionId, bundle, assets: assets.bytes },
       {
         executor,
-        storage: new LocalFileStorageProvider({ rootDir: env.storageRoot }),
+        storage,
         jobs: new PrismaRenderJobRepository(),
         rendererVersion: process.env["RENDERER_VERSION"] ?? "0.0.0-dev",
       },

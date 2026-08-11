@@ -28,6 +28,14 @@ export interface Provenance {
   readonly source: ProvenanceSource;
   /** O `Asset(CROP)`, quando existe. Ele é derivado — pode ter sido descartado (D29). */
   readonly cropAssetId: string | null;
+  /**
+   * O nome pelo qual o LaTeX cita o recorte — o mesmo que o servidor grava no diretório do job.
+   *
+   * Vem calculado do servidor porque ele depende do `sha256`, que **não** atravessa esta fronteira:
+   * o cliente precisa do nome para escrever `\includegraphics{...}`, não do hash. Calcular no
+   * cliente exigiria mandar o hash e a regra junto, e a regra passaria a existir em dois lugares.
+   */
+  readonly cropLatexName: string | null;
   readonly sourceText: string | null;
   readonly extractionMethod: string | null;
   readonly extractionModel: string | null;
