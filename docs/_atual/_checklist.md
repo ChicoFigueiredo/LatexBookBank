@@ -1978,3 +1978,30 @@ ao acervo**, não a código — a nota de cada uma agora diz isso.
 > O `_planejamento.md` **não foi alterado**. Ele é o registro do que se decidiu antes de começar;
 > onde a execução divergiu, quem conta é este documento, com o motivo ao lado. Um plano reescrito
 > para casar com o resultado deixa de ser plano e vira relatório.
+
+---
+
+## 17. Beta Editorial *(2026-08-11)*
+
+O design final foi aprovado no Claude Design e virou software. A matriz Design → Código, o
+progresso por slice, os gaps P1/P2 e as limitações declaradas vivem em
+[`beta-editorial.md`](beta-editorial.md); a decisão do Calibre, em
+[`calibre-spike.md`](calibre-spike.md). Aqui fica só o que este checklist tinha em aberto e o Beta
+fechou:
+
+- ✅ **Criar biblioteca dentro do produto.** Era seed ou import legado; a Home falava de um
+  workspace `demo` que ninguém tinha pedido.
+- ✅ **Cadastrar livro à mão.** O repositório de publicação era somente leitura.
+- ✅ **Criar questão como operação única.** Uma questão só nascia como `DocumentNode`; entre as
+  duas chamadas a árvore ficava com um nó `QUESTION` sem `Question`.
+- ✅ **Escolha simples, múltipla escolha e discursiva** com validação e semântica próprias.
+- ✅ **A validação diz o motivo.** O selo `INVALID` era gravado em silêncio e a questão ficava
+  vermelha sem explicar por quê.
+- ✅ **Recorte revisado vira questão persistida**, com a origem e a execução do OCR guardadas.
+- ✅ **Resultado da busca global navega** até a questão. Antes aparecia na lista e não abria.
+- ✅ **Importar `.lbb` tem tela.** O endpoint existia desde a Fase 13 sem nenhuma.
+- ✅ **E2E mestre do Beta**, do banco limpo à questão persistida, sem tocar no banco.
+- ✅ **E2E de captura** com provider dublê e fixture sintética.
+
+Segue aberto, e por decisão: fila de captura, wizard do Calibre, reconhecimento de questão
+completa e import legado em volume. Os motivos estão em `beta-editorial.md` §5.

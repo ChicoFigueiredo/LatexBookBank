@@ -23,10 +23,17 @@ import { OptionsEditor } from "@modules/questions/ui/OptionsEditor";
 export interface OptionsPaneProps {
   readonly publicationId: string;
   readonly questionId: string;
+  /** O tipo decide se o gabarito é exclusivo. Vem de fora: a lista de alternativas não o conhece. */
+  readonly exclusive?: boolean;
   readonly disabled?: boolean;
 }
 
-export function OptionsPane({ publicationId, questionId, disabled = false }: OptionsPaneProps) {
+export function OptionsPane({
+  publicationId,
+  questionId,
+  exclusive = true,
+  disabled = false,
+}: OptionsPaneProps) {
   const base = `/api/publications/${publicationId}/questions/${questionId}/options`;
 
   const [loaded, setLoaded] = useState<{ questionId: string; options: readonly OptionRecord[] }>({
@@ -99,12 +106,15 @@ export function OptionsPane({ publicationId, questionId, disabled = false }: Opt
 
       <OptionsEditor
         options={options}
+        exclusive={exclusive}
         disabled={disabled || busy}
         onAdd={() => void mutate(base, { method: "POST" })}
         onRemove={(optionId) => void mutate(`${base}/${optionId}`, { method: "DELETE" })}
         onMove={(optionId, targetIndex) =>
           void mutate(`${base}/${optionId}`, json({ targetIndex }))
         }
+        // Sempre `true`: o **domínio** decide se isso desmarca as outras ou alterna, conforme o
+        // tipo (`patchesForCorrect`). Mandar `false` daqui duplicaria a regra no cliente.
         onSetCorrect={(optionId) => void mutate(`${base}/${optionId}`, json({ isCorrect: true }))}
         onEdit={(optionId, statementLatex) =>
           void mutate(`${base}/${optionId}`, json({ statementLatex }))

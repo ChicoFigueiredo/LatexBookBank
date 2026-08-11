@@ -38,12 +38,34 @@ const CSS = `
 .lbb-ing-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 `;
 
+/**
+ * O que sai daqui quando alguém confere e aceita.
+ *
+ * Não é mais só o LaTeX. O `anchorId` é o que liga a questão à página de onde ela saiu, e a
+ * execução do reconhecedor é o que a §69 pede preservar — sem eles, a questão criada a partir de
+ * um recorte nasceria sem origem, e "de onde veio isto?" ficaria sem resposta seis meses depois.
+ */
+export interface AcceptedRecognition {
+  readonly anchorId: string;
+  readonly cropAssetId: string;
+  readonly statementLatex: string;
+  readonly run: {
+    readonly providerId: string;
+    readonly model: string;
+    readonly durationMs: number;
+    readonly confidence: number | null;
+    readonly mode: string;
+    /** O LaTeX **como veio do modelo**, antes da correção humana. */
+    readonly rawLatex: string;
+  };
+}
+
 export interface IngestionPanelProps {
   readonly workspaceId: string;
   readonly publicationId: string;
   readonly questionId?: string | null;
-  /** Chamado quando o usuário aceita o LaTeX revisado. */
-  readonly onAccept: (latex: string) => void;
+  /** Chamado quando o usuário confere e aceita o candidato. */
+  readonly onAccept: (accepted: AcceptedRecognition) => void;
 }
 
 /** Os quatro do contrato de reconhecimento, com o rótulo que a tela usa. */
@@ -82,6 +104,9 @@ export function IngestionPanel({
   const [source, setSource] = useState<SourceState | null>(null);
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [cropAssetId, setCropAssetId] = useState<string | null>(null);
+  // A âncora é o dado; o crop é a imagem dela. Guardá-la aqui é o que permite criar a questão com
+  // origem — antes, a resposta do `/api/assets/crop` trazia o `anchorId` e a tela o descartava.
+  const [anchorId, setAnchorId] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<RecognitionCandidate | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -140,14 +165,19 @@ export function IngestionPanel({
       if (questionId !== null) form.set("questionId", questionId);
 
       const response = await fetch("/api/assets/crop", { method: "POST", body: form });
-      const payload = (await response.json()) as { cropAssetId?: string; message?: string };
+      const payload = (await response.json()) as {
+        cropAssetId?: string;
+        anchorId?: string;
+        message?: string;
+      };
 
-      if (!response.ok || payload.cropAssetId === undefined) {
+      if (!response.ok || payload.cropAssetId === undefined || payload.anchorId === undefined) {
         setError(payload.message ?? "O recorte não foi salvo.");
         return;
       }
 
       setCropAssetId(payload.cropAssetId);
+      setAnchorId(payload.anchorId);
       setCropUrl(URL.createObjectURL(crop.png));
       // Reconhecer é o passo seguinte natural, e pedir mais um clique aqui só acrescentaria
       // cerimônia — a revisão continua obrigatória de qualquer forma.
@@ -277,7 +307,25 @@ export function IngestionPanel({
                   // candidato que ninguém tocou nem conferiu.
                   const reviewed = accept(candidate, true);
                   setCandidate(reviewed);
-                  onAccept(currentLatex(reviewed));
+
+                  if (anchorId === null) {
+                    setError("O recorte perdeu a âncora — recorte de novo antes de aceitar.");
+                    return;
+                  }
+
+                  onAccept({
+                    anchorId,
+                    cropAssetId: reviewed.cropAssetId,
+                    statementLatex: currentLatex(reviewed),
+                    run: {
+                      providerId: reviewed.result.providerId,
+                      model: reviewed.result.model,
+                      durationMs: reviewed.result.durationMs,
+                      confidence: reviewed.result.confidence,
+                      mode,
+                      rawLatex: reviewed.result.latex,
+                    },
+                  });
                 }}
               >
                 Conferi — usar este LaTeX

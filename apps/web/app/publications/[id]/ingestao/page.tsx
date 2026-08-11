@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 
+import { getPublicationTree } from "@modules/document-tree/application/get-publication-tree";
+import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 
 import { IngestionScreen } from "./ingestion-screen";
@@ -22,11 +24,21 @@ export default async function IngestionPage({ params }: { params: Promise<{ id: 
   const publication = await new PrismaPublicationRepository().findById(id);
   if (!publication) notFound();
 
+  // A árvore vem junto porque o destino se escolhe **na revisão** (design §14), e escolher exige
+  // ver os capítulos e grupos que existem.
+  const nodes = await getPublicationTree(new PrismaDocumentTreeRepository(), publication.id);
+
   return (
     <IngestionScreen
       publicationId={publication.id}
       workspaceId={publication.workspaceId}
       title={publication.title}
+      nodes={nodes.map((node) => ({
+        id: node.id,
+        title: node.title,
+        kind: node.kind,
+        depth: node.depth,
+      }))}
     />
   );
 }

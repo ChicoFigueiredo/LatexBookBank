@@ -8,7 +8,12 @@ import type { QuestionForPlugin, QuestionTypePlugin } from "../question-type-plu
 import { validateCommon } from "./shared";
 
 /**
- * Múltipla escolha, com quantidade **arbitrária** de alternativas.
+ * Escolha simples: alternativas em quantidade **arbitrária**, exatamente uma correta.
+ *
+ * O rótulo é "Escolha simples" e não "Múltipla escolha" porque o design fixou o vocabulário do
+ * produto (§7 dos ajustes finais) e as duas coisas são tipos distintos: aqui uma correta, em
+ * `MULTIPLE_CORRECT` uma ou mais. O nome interno `MULTIPLE_CHOICE` vem do mapa do import legado e
+ * fica onde está — trocá-lo custaria migração para renomear uma string.
  *
  * O legado fixava cinco (`a`–`e`) e guardava a letra na linha. As duas coisas eram o mesmo erro:
  * tratar a posição como identidade. Aqui a letra é projeção da ordem (D9) e o número de
@@ -17,7 +22,7 @@ import { validateCommon } from "./shared";
  */
 export const multipleChoicePlugin: QuestionTypePlugin = {
   type: "MULTIPLE_CHOICE",
-  label: "Múltipla escolha",
+  label: "Escolha simples",
 
   validate(question) {
     const issues = [...validateCommon(question)];
@@ -27,7 +32,7 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
       issues.push({
         severity: "error",
         code: "too_few_options",
-        message: "Múltipla escolha precisa de pelo menos duas alternativas.",
+        message: "Escolha simples precisa de pelo menos duas alternativas.",
       });
     }
 

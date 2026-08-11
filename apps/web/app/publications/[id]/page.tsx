@@ -17,8 +17,15 @@ import { PublicationWorkbench } from "./publication-workbench";
 /** Dinâmica: o conteúdo muda a cada edição, e no build não há banco a consultar. */
 export const dynamic = "force-dynamic";
 
-export default async function PublicationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PublicationPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const { node } = await searchParams;
 
   const publication = await new PrismaPublicationRepository().findById(id);
   if (!publication) notFound();
@@ -28,6 +35,13 @@ export default async function PublicationPage({ params }: { params: Promise<{ id
   return (
     <PublicationWorkbench
       publicationId={id}
+      /**
+       * O nó pedido pela URL, quando há um.
+       *
+       * É o que faz a busca global e o "Continuar" da Home chegarem à questão certa em vez de
+       * abrirem o livro no que estava selecionado da última vez.
+       */
+      {...(typeof node === "string" ? { requestedNodeId: node } : {})}
       // Resolvido aqui, no servidor: a tag é por workspace, e aceitar o valor do navegador seria
       // deixá-lo criar tag na biblioteca dos outros.
       workspaceId={publication.workspaceId}

@@ -3,7 +3,8 @@ import type {
   DocumentTreeRepository,
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
-import { optionLabelAt } from "@modules/questions/domain/question-type";
+import { isQuestionType, optionLabelAt, type QuestionType } from "@modules/questions/domain/question-type";
+import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import {
   hasProblem,
   statusFor,
@@ -29,7 +30,14 @@ export interface OptionDto {
 
 export interface QuestionDto {
   readonly id: string;
-  readonly type: string;
+  /**
+   * O vocabulário fechado, não `string`.
+   *
+   * O adaptador já valida (`isQuestionType` na leitura de validação), e a tela precisa do tipo
+   * para decidir se o gabarito é exclusivo e se há aba de alternativas. Declarar `string` obrigava
+   * a tela a fazer o cast — e um cast é onde um tipo novo passa sem ninguém notar.
+   */
+  readonly type: QuestionType;
   /**
    * Token de concorrência otimista, não um timestamp de auditoria.
    *
@@ -56,7 +64,15 @@ export interface QuestionDto {
 
 export interface TreeNodeDto {
   readonly id: string;
-  readonly kind: string;
+  /**
+   * O vocabulário fechado, não `string`.
+   *
+   * Era `string` porque a coluna é `String` no banco — mas a validação já acontece no adaptador
+   * (`isNodeKind`), então o que chega aqui **é** um `NodeKind`. Declarar `string` obrigava a tela
+   * a fazer o cast que a validação já tinha dispensado, e um cast é onde um tipo novo passa sem
+   * ninguém notar.
+   */
+  readonly kind: NodeKind;
   readonly title: string;
   readonly originalLabel: string | null;
   readonly depth: number;
@@ -104,6 +120,37 @@ function flatten(nodes: readonly TreeNode<TreeNodeRecord>[]): readonly TreeNodeD
   return out;
 }
 
+/**
+ * Como o nó se chama na árvore.
+ *
+ * A ordem é a do que identifica melhor: título dado, rótulo original do livro, **e então o começo
+ * do enunciado**. O trecho do enunciado entrou porque uma questão recém-criada não tem nenhum dos
+ * dois primeiros, e uma linha "Sem título" ao lado de outras cinco iguais não identifica nada —
+ * era o resultado de criar cinco questões seguidas, que é justamente o uso normal.
+ *
+ * "Questão nova" só quando nem enunciado existe: é o estado que dura os segundos entre criar e
+ * escrever, e ali "sem título" seria uma constatação inútil.
+ */
+function titleFor(node: TreeNodeRecord): string {
+  if (node.title) return node.title;
+  if (node.originalLabel) return `Questão ${node.originalLabel}`;
+
+  const statement = node.question?.statementLatex.trim() ?? "";
+  if (statement !== "") {
+    // O LaTeX cru viraria "\\textbf{Calcule" na árvore. Isto não é renderização — é uma limpeza
+    // do que atrapalha a leitura de uma linha de 30 caracteres.
+    const plain = statement
+      .replace(/\\[a-zA-Z]+\s*/g, " ")
+      .replace(/[{}$\\]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (plain !== "") return plain.length > 60 ? `${plain.slice(0, 57)}…` : plain;
+  }
+
+  return node.question ? "Questão nova" : "Sem título";
+}
+
 const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
   const { node, depth } = entry;
 
@@ -118,14 +165,17 @@ const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
   return {
     id: node.id,
     kind: node.kind,
-    // Questão sem título usa o rótulo original do livro; sem ele, um marcador neutro.
-    title: node.title ?? (node.originalLabel ? `Questão ${node.originalLabel}` : "Sem título"),
+    title: titleFor(node),
     originalLabel: node.originalLabel,
     depth,
     question: node.question
       ? {
           id: node.question.id,
-          type: node.question.type,
+          // Tipo fora do vocabulário vira discursiva **na apresentação**: a questão continua no
+          // acervo com o tipo que tem, e a tela mostra a forma mais simples em vez de quebrar a
+          // árvore inteira. Quem trata o caso de verdade é a validação, que responde
+          // "não sei avaliar" em vez de "está errado".
+          type: isQuestionType(node.question.type) ? node.question.type : "DISCURSIVE",
           version: node.question.updatedAt.toISOString(),
           statementLatex: node.question.statementLatex,
           solutionLatex: node.question.solutionLatex,

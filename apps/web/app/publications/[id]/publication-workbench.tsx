@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ArtifactStatus,
@@ -23,7 +23,6 @@ import {
   type ContextMenuItem,
   type IconName,
   type TreeNode,
-  type WorkbenchModule,
 } from "@/design-system";
 import type { AiSetupDescription } from "@modules/agents/domain/ai-setup";
 import {
@@ -40,11 +39,14 @@ import type { Change } from "@modules/agents/domain/patch-diff";
 import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
+import { isContainerKind, placementForAdd } from "@modules/document-tree/domain/add-placement";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
 import { sameTag } from "@modules/questions/domain/tag";
 
+import { RAIL_MODULES, railHref } from "../../rail";
+import { AddMenu } from "./add-menu";
 import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
 import { useTreeEditing } from "./use-tree-editing";
@@ -57,14 +59,6 @@ import { useTreeEditing } from "./use-tree-editing";
  * tela prova agora é a **geometria** — que as seis zonas existem, redimensionam, persistem e
  * conversam entre si.
  */
-
-const MODULES: readonly WorkbenchModule[] = [
-  { id: "biblioteca", label: "Biblioteca", icon: "library" },
-  { id: "publicacoes", label: "Publicações", icon: "book-open" },
-  { id: "avaliacoes", label: "Avaliações", icon: "clipboard-list" },
-  { id: "importacao", label: "Importação", icon: "download-cloud" },
-  { id: "diagnostico", label: "Diagnóstico", icon: "activity", group: "Sistema" },
-];
 
 /**
  * De estado da árvore para selo do design system.
@@ -152,6 +146,8 @@ export interface PublicationWorkbenchProps {
   readonly publicationTitle: string;
   readonly publisher: string | null;
   readonly nodes: readonly TreeNodeDto[];
+  /** Nó pedido pela URL (`?node=`) — busca global e "Continuar" da Home chegam por aqui. */
+  readonly requestedNodeId?: string;
   /**
    * Rótulos da IA configurada, resolvidos no servidor. `null` quando não há nenhuma.
    *
@@ -166,6 +162,7 @@ export function PublicationWorkbench({
   publicationTitle,
   publisher,
   nodes,
+  requestedNodeId,
   ai,
 }: PublicationWorkbenchProps) {
   /**
@@ -179,6 +176,20 @@ export function PublicationWorkbench({
     `lbb:tree:${publicationTitle}:selected`,
     nodes[0]?.id ?? null,
   );
+
+  /**
+   * O nó pedido pela URL vence o guardado.
+   *
+   * Quem chega pela busca global ou pelo "Continuar" da Home nomeou o destino; abrir no nó da
+   * sessão anterior seria ignorar o gesto que trouxe a pessoa até aqui. Uma vez só, no mount: se
+   * o efeito rodasse a cada render, clicar em outro nó da árvore voltaria sozinho para este.
+   */
+  useEffect(() => {
+    if (requestedNodeId && nodes.some((node) => node.id === requestedNodeId)) {
+      setSelectedId(requestedNodeId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedNodeId]);
 
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState("");
@@ -486,6 +497,26 @@ export function PublicationWorkbench({
   );
 
   /**
+   * O título do pai, para o menu dizer onde o item vai entrar.
+   *
+   * O DTO não expõe `parentId` (auditoria §40), e não precisa: a lista vem em pré-ordem, então o
+   * pai é o nó anterior de profundidade menor. `null` quando o nó está na raiz.
+   */
+  const parentTitleOf = useCallback(
+    (nodeId: string): string | null => {
+      const index = nodes.findIndex((n) => n.id === nodeId);
+      if (index < 0) return null;
+
+      const depth = nodes[index]?.depth ?? 0;
+      for (let i = index - 1; i >= 0; i--) {
+        if ((nodes[i]?.depth ?? 0) < depth) return nodes[i]?.title ?? null;
+      }
+      return null;
+    },
+    [nodes],
+  );
+
+  /**
    * Vizinhos imediatos na ordem visível, para o Alt+↑/↓.
    *
    * "Irmão" aqui é quem tem a mesma profundidade **e** o mesmo pai. Como o DTO não expõe
@@ -549,6 +580,21 @@ export function PublicationWorkbench({
     siblingOrderOf,
     onSelect: setSelectedId,
   });
+
+  /**
+   * O destino do próximo item — contêiner recebe dentro, folha recebe ao lado.
+   *
+   * A decisão mora no domínio (`placementForAdd`) e não aqui: o menu, o menu de contexto e o
+   * destino de uma captura aprovada precisam responder igual, e três telas decidindo por conta
+   * própria divergem no primeiro caso de borda.
+   */
+  const addPlacement = placementForAdd(selected ? { id: selected.id, kind: selected.kind } : null);
+
+  const destinationLabel = selected
+    ? isContainerKind(selected.kind)
+      ? selected.title
+      : (parentTitleOf(selected.id) ?? publicationTitle)
+    : null;
 
   const menuFor = useCallback(
     (nodeId: string): readonly (readonly ContextMenuItem[])[] => [
@@ -618,23 +664,26 @@ export function PublicationWorkbench({
           icon: "search" as const,
           hint: hit.hint,
           group: "No acervo",
-          // Sem ação por enquanto: navegar até outra publicação exige a rota de questão avulsa,
-          // que não existe. Mostrar sem navegar é honesto; navegar para lugar nenhum não seria.
+          // Agora **navega**: `/questoes/[id]` resolve publicação e nó e redireciona para cá com o
+          // nó selecionado. Resultado que aparece na lista e não abre é resultado que não deveria
+          // estar na lista (§31).
+          onSelect: () => router.push(`/questoes/${hit.id}`),
         })),
     ],
-    [found, nodes, setSelectedId],
+    [found, nodes, router, setSelectedId],
   );
 
   const breadcrumb = [
-    { label: "Publicações", href: "/" },
+    { label: "Publicações", href: "/publicacoes" },
     { label: publicationTitle },
     ...(selected ? [{ label: selected.title }] : []),
   ];
 
   return (
     <Workbench
-      modules={MODULES}
+      modules={RAIL_MODULES}
       activeModule="publicacoes"
+      onModuleSelect={(id) => router.push(railHref(id, publicationId))}
       breadcrumb={breadcrumb}
       commands={commands}
       onCommandQueryChange={searchArchive}
@@ -751,8 +800,33 @@ export function PublicationWorkbench({
             ) : (
               <EmptyState
                 icon="list-tree"
-                title="Publicação sem conteúdo"
-                description="Importe do acervo legado ou crie o primeiro capítulo."
+                title="Este livro ainda não tem estrutura"
+                // O empty state do design (§6): não é constatação, é o começo do trabalho. E não
+                // obriga a montar uma árvore antes de começar — capturar direto é caminho legítimo,
+                // e o destino se decide na revisão.
+                description="Comece por um capítulo, ou vá direto à captura da primeira questão."
+                action={
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      icon="plus"
+                      onClick={() =>
+                        void editing.create({ kind: "lastChild", parentId: null }, "CHAPTER")
+                      }
+                    >
+                      Criar primeiro capítulo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="scan-text"
+                      href={`/publications/${publicationId}/ingestao`}
+                    >
+                      Capturar primeira questão
+                    </Button>
+                  </div>
+                }
               />
             )
           ) : (
@@ -784,21 +858,12 @@ export function PublicationWorkbench({
         </>
       }
       actions={
-        <Button
-          size="sm"
-          variant="primary"
-          icon="plus"
+        <AddMenu
           disabled={editing.busy}
-          onClick={() =>
-            void editing.create(
-              selectedId
-                ? { kind: "after", siblingId: selectedId }
-                : { kind: "lastChild", parentId: null },
-            )
-          }
-        >
-          Novo nó
-        </Button>
+          destinationLabel={destinationLabel}
+          onCreateStructure={(kind) => void editing.create(addPlacement, kind)}
+          onCreateQuestion={(type) => void editing.createQuestion(addPlacement, type)}
+        />
       }
       asideTitle="Agente"
       aside={
@@ -838,7 +903,16 @@ export function PublicationWorkbench({
           </span>
         </>
       }
-      statusRight={<span>Fase 1 · shell</span>}
+      /**
+       * O que está selecionado, não em que fase o projeto está.
+       *
+       * Dizia "Fase 1 · shell" — número de fase do planejamento, na barra de status, desde a
+       * primeira versão desta tela. É a mesma coisa que a #197 tirou dos estados vazios: quem usa
+       * o produto não tem como saber o que é a Fase 1, e a informação nunca foi para ele.
+       */
+      statusRight={
+        <span>{selected ? `${selected.kind.toLowerCase()} · ${selected.title}` : "nada selecionado"}</span>
+      }
     >
       <>
         {editing.error && (
@@ -946,6 +1020,7 @@ function NodeDetail({
                 workspaceId={workspaceId}
                 onDirtyChange={onDirtyChange}
                 questionId={node.question.id}
+                questionType={node.question.type}
                 initialVersion={node.question.version}
                 initial={{
                   statementLatex: node.question.statementLatex,

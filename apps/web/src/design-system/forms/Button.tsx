@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 
 import { Icon, type IconName } from "../Icon";
 import { injectCss } from "../shared/inject-css";
@@ -19,6 +19,9 @@ const CSS = `
 .lbb-btn[data-variant="danger"]:hover:not(:disabled){background:var(--danger-text)}
 .lbb-btn:disabled{opacity:var(--disabled-opacity);cursor:not-allowed}
 .lbb-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+a.lbb-btn,a.lbb-btn:hover{text-decoration:none}
+a.lbb-btn[data-variant="primary"],a.lbb-btn[data-variant="danger"]{color:var(--on-accent)}
+a.lbb-btn[data-variant="danger"]{color:var(--text-inverse)}
 `;
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -29,6 +32,14 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   readonly size?: ControlSize;
   readonly icon?: IconName;
   readonly loading?: boolean;
+  /**
+   * Quando presente, o botão vira `<a>`.
+   *
+   * Não é açúcar: metade dos CTAs do produto **navegam** — "Abrir no editor", "Criar primeiro
+   * capítulo", "Continuar". Um `<button onClick={router.push}>` perde clique do meio, "abrir em
+   * nova aba" e o alvo que o navegador mostra na barra de status. Navegação é `<a>`.
+   */
+  readonly href?: string;
   readonly children?: ReactNode;
 }
 
@@ -45,10 +56,38 @@ export function Button({
   loading = false,
   disabled,
   type = "button",
+  href,
   children,
   ...rest
 }: ButtonProps) {
   injectCss("lbb-btn-css", CSS);
+
+  const glyph = loading ? (
+    <Icon name="loader" style={{ animation: "lbb-spin .9s linear infinite" }} />
+  ) : icon ? (
+    <Icon name={icon} />
+  ) : null;
+
+  if (href !== undefined) {
+    // Um link desabilitado não existe em HTML. `aria-disabled` conta o estado, o `tabIndex`
+    // tira do caminho do teclado e o `onClick` recusa — sem isso, "desabilitado" seria só cor.
+    const inert = disabled === true || loading;
+
+    return (
+      <a
+        className="lbb-btn"
+        data-variant={variant}
+        data-size={size}
+        href={inert ? undefined : href}
+        aria-disabled={inert || undefined}
+        {...(inert ? { tabIndex: -1 } : {})}
+        {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)}
+      >
+        {glyph}
+        {children}
+      </a>
+    );
+  }
 
   return (
     <button
@@ -60,11 +99,7 @@ export function Button({
       aria-busy={loading || undefined}
       {...rest}
     >
-      {loading ? (
-        <Icon name="loader" style={{ animation: "lbb-spin .9s linear infinite" }} />
-      ) : icon ? (
-        <Icon name={icon} />
-      ) : null}
+      {glyph}
       {children}
     </button>
   );
