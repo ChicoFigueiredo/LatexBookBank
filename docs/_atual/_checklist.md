@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 857 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 859 ✅ · 5 ◐ · 14 ⛔ · 124 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 16 itens.**
-**Última atualização:** 2026-08-11 — **a página de diagnóstico** (#189): era a única sem `main`, e a
+(20, que é do Chico). **Fora deles sobram 14 itens.**
+**Última atualização:** 2026-08-11 — **auditoria das fronteiras** (#191), agora que todas as telas
+foram percorridas: `TransactionRunner` estava definida desde a Fase 0 e **nunca foi implementada nem
+chamada**. Removida, com guarda para a próxima não passar despercebida.
+**Antes:** **a página de diagnóstico** (#189): era a única sem `main`, e a
 confirmação do import era um `confirm()` do navegador — o único gesto do produto que o navegador
 pode desligar. O export foi conferido na tela: `demo.lbb` baixou.
 **Antes:** **a lista de candidatas a prova** (#187): ela oferecia questões
@@ -236,7 +239,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1279 testes (1215 no app + 64 no renderer) + **13 de E2E, todos passando** · 94 PRs abertos, nada mergeado.
+1282 testes (1218 no app + 64 no renderer) + **13 de E2E, todos passando** · 95 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -338,7 +341,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Todas as regras verificadas com violação proposital antes de marcar
 
 **As quatro fronteiras primárias** — #5 *(D23)*
-- ✅ `Repository` — convenção por agregado documentada; `ConcurrencyConflictError` e `TransactionRunner` definidos
+- ✅ `Repository` — convenção por agregado documentada; `ConcurrencyConflictError` definido *(o `TransactionRunner` que existia aqui foi removido na #191: nunca teve implementação nem chamador)*
 - ✅ `StorageProvider` definido (`put`/`get`/`exists`/`delete`)
 - ✅ `RenderExecutor` definido — recebe `RenderBundle`, devolve `RenderResult`
 - ✅ `AiProvider` definido
@@ -1523,7 +1526,13 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 **Revisão arquitetural final**
 - ✅ Regras de boundary da §4.5 verdes *(e elas pegaram quatro problemas reais ao longo do
   trabalho: três de tipo vazando por `server-only` e uma rota consultando o banco direto)*
-- [ ] Nenhuma abstração cerimonial acrescentada além dos quatro contratos
+- ✅ Nenhuma abstração cerimonial acrescentada além dos quatro contratos *(#191 — auditado, e a
+  auditoria achou uma: `TransactionRunner`, definida na Fase 0, **exportada e nunca implementada
+  nem chamada**. As transações acontecem com `prisma.$transaction` dentro dos adaptadores, que é
+  onde pertencem — a transação é detalhe do motor, e o caso de uso não a orquestra. O planejamento
+  nunca a pediu; ela nasceu na execução. Removida. Sobram as quatro da D23 mais a
+  `MathRecognitionProvider`, que a Fase 15 pede pelo plano, e todas têm implementação. O guarda
+  novo conta as fronteiras: não impede acrescentar uma sexta, impede acrescentá-la **sem decidir**)*
 
 **Critério de sucesso do produto local** *(auditoria §48)*
 - ✅ O app não alcança host externo por conta própria — **verificado** com guarda que recusa
@@ -1715,7 +1724,10 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
 - ✅ Paste *(`Ctrl+V` só quando a tela pede; colar texto continua indo ao editor)*
 - ✅ Crop *(retângulo desenhado e ajustado no PDF; bbox normalizada)*
 - ✅ Source preservado *(o `SOURCE_PDF` não tem caminho de escrita)*
-- [ ] Inserir imagem em LaTeX *(o snippet existe; falta a tela que o monta)*
+- ✅ Inserir imagem em LaTeX *(#173 — o gesto está na aba Origem: "inserir como figura" monta o
+  snippet no cursor, com o nome que a rota de render usa para gravar o arquivo no diretório do job.
+  A linha equivalente da Fase 14 foi fechada lá e esta ficou para trás — é a mesma inconsistência
+  que a auditoria da #162 encontrou nas seções cruzadas)*
 
 ### Legado — ⛔ *o bloco inteiro depende do acervo, que **não está nesta máquina**. O domínio do
 importador existe e é testado (Fase 11); rodar o import é que não dá.*
