@@ -50,6 +50,8 @@ interface SourceState {
   readonly assetId: string;
   readonly url: string;
   readonly filename: string;
+  /** O visualizador precisa saber: PDF abre pelo `pdf.js`, imagem vai direto ao canvas (#185). */
+  readonly mimeType: string;
 }
 
 export function IngestionPanel({
@@ -85,7 +87,14 @@ export function IngestionPanel({
 
       // `URL.createObjectURL` e não uma rota de download: o arquivo já está na memória do
       // navegador, e buscá-lo de volta do servidor seria pagar duas vezes pelo mesmo byte.
-      setSource({ assetId: payload.id, url: URL.createObjectURL(file), filename: file.name });
+      setSource({
+        assetId: payload.id,
+        url: URL.createObjectURL(file),
+        filename: file.name,
+        // O tipo vem do **arquivo escolhido**, e não do que o servidor devolveu: é o mesmo blob
+        // que o `createObjectURL` acabou de publicar, então é ele que o visualizador vai desenhar.
+        mimeType: file.type,
+      });
       setCandidate(null);
       setCropUrl(null);
     } catch {
@@ -194,7 +203,11 @@ export function IngestionPanel({
           </div>
 
           <div className="lbb-ing-viewer">
-            <PdfCropViewer fileUrl={source.url} onCrop={(crop) => void saveCrop(crop)} />
+            <PdfCropViewer
+              fileUrl={source.url}
+              mimeType={source.mimeType}
+              onCrop={(crop) => void saveCrop(crop)}
+            />
           </div>
         </>
       )}

@@ -46,6 +46,17 @@ const CSS = `
 
 export interface PdfCropViewerInnerProps {
   readonly fileUrl: string;
+  /**
+   * O tipo do arquivo.
+   *
+   * A tela de ingestão promete "um PDF **ou imagem**", e até a #185 o visualizador mandava tudo
+   * para o `pdf.js`: subir um PNG dava "Não deu para abrir o PDF: Invalid PDF structure" — uma
+   * mensagem correta sobre a pergunta errada.
+   *
+   * Uma imagem é um documento de **uma página só**, e o resto do mecanismo não muda: o recorte
+   * opera sobre o canvas, e o canvas não sabe de onde veio o desenho.
+   */
+  readonly mimeType?: string;
   /** Chamado ao salvar: caixa normalizada, página e os bytes do recorte. */
   readonly onCrop: (crop: {
     pageNumber: number;
@@ -69,6 +80,7 @@ export interface PdfCropViewerInnerProps {
 
 export default function PdfCropViewerInner({
   fileUrl,
+  mimeType = "application/pdf",
   onCrop,
   initialScale = 1.2,
   initialPage = 1,
@@ -82,7 +94,7 @@ export default function PdfCropViewerInner({
   );
 
   const [pageNumber, setPageNumber] = useState(initialPage);
-  const [pageCount, setPageCount] = useState(0);
+  const [pdfPageCount, setPdfPageCount] = useState(0);
   const [scale, setScale] = useState(initialScale);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [rect, setRect] = useState<PixelRect | null>(null);
@@ -93,7 +105,25 @@ export default function PdfCropViewerInner({
     null,
   );
 
+  /** Imagem é documento de uma página. O recorte não muda: ele opera sobre o canvas. */
+  const isImage = mimeType.startsWith("image/");
+
+  /**
+   * Quantas páginas há — **derivado**, não guardado.
+   *
+   * Para PDF vem do `pdf.js`; para imagem é sempre uma. Guardar num estado exigiria escrevê-lo de
+   * dentro do efeito, e o React Compiler recusa `setState` síncrono ali. Ele tem razão: isto não é
+   * um estado, é uma consequência do tipo do arquivo.
+   */
+  const pages = isImage ? 1 : pdfPageCount;
+
   useEffect(() => {
+    // Nada a abrir quando é imagem: ela é desenhada direto no canvas pelo efeito de render, e a
+    // contagem de páginas é **derivada** logo abaixo. Marcar o estado aqui seria `setState`
+    // síncrono dentro de efeito, que o React Compiler recusa — com razão: o valor não é um estado,
+    // é uma consequência do tipo do arquivo.
+    if (isImage) return;
+
     let cancelled = false;
 
     void (async () => {
@@ -112,7 +142,7 @@ export default function PdfCropViewerInner({
         if (cancelled) return;
 
         docRef.current = doc as unknown as typeof docRef.current;
-        setPageCount(doc.numPages);
+        setPdfPageCount(doc.numPages);
       } catch (problem) {
         if (!cancelled) setError(problem instanceof Error ? problem.message : "PDF não abriu.");
       }
@@ -121,17 +151,48 @@ export default function PdfCropViewerInner({
     return () => {
       cancelled = true;
     };
-  }, [fileUrl]);
+  }, [fileUrl, isImage]);
 
   useEffect(() => {
     const doc = docRef.current;
     const canvas = canvasRef.current;
-    if (doc === null || canvas === null || pageCount === 0) return;
+    if (canvas === null || pages === 0) return;
+    if (!isImage && doc === null) return;
 
     let cancelled = false;
 
     void (async () => {
-      const page = (await doc.getPage(pageNumber)) as {
+      if (isImage) {
+        const bitmap = await new Promise<HTMLImageElement | null>((resolve) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          // Erro aqui é arquivo corrompido ou tipo que o navegador não desenha. Dizer isso é
+          // melhor que um canvas em branco que parece ter carregado.
+          image.onerror = () => resolve(null);
+          image.src = fileUrl;
+        });
+
+        if (cancelled) return;
+        if (bitmap === null) {
+          setError("A imagem não abriu.");
+          return;
+        }
+
+        // A mesma escala do PDF: é o zoom da barra, e o recorte é normalizado sobre o tamanho
+        // desenhado — então mudar o zoom não muda a caixa que se grava (D28).
+        canvas.width = Math.floor(bitmap.naturalWidth * scale);
+        canvas.height = Math.floor(bitmap.naturalHeight * scale);
+        setSize({ width: canvas.width, height: canvas.height });
+
+        const context = canvas.getContext("2d");
+        if (context === null) return;
+
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        return;
+      }
+
+      const page = (await doc!.getPage(pageNumber)) as {
         getViewport: (options: { scale: number }) => { width: number; height: number };
         render: (options: unknown) => { promise: Promise<void> };
       };
@@ -152,8 +213,8 @@ export default function PdfCropViewerInner({
     return () => {
       cancelled = true;
     };
-    // `pageCount` entra para o primeiro render acontecer assim que o documento abre.
-  }, [pageNumber, scale, pageCount]);
+    // `pages` entra para o primeiro render acontecer assim que o documento abre.
+  }, [pageNumber, scale, pages, isImage, fileUrl]);
 
   const pointFrom = useCallback((event: React.MouseEvent): Point => {
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -261,13 +322,13 @@ export default function PdfCropViewerInner({
           Anterior
         </Button>
         <span className="lbb-pdf-info">
-          {pageCount === 0 ? "abrindo…" : `página ${pageNumber} de ${pageCount}`}
+          {pages === 0 ? "abrindo…" : `página ${pageNumber} de ${pages}`}
         </span>
         <Button
           size="sm"
           variant="ghost"
-          disabled={pageNumber >= pageCount}
-          onClick={() => setPageNumber((n) => Math.min(pageCount, n + 1))}
+          disabled={pageNumber >= pages}
+          onClick={() => setPageNumber((n) => Math.min(pages, n + 1))}
         >
           Próxima
         </Button>
