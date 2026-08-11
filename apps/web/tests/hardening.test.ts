@@ -416,3 +416,55 @@ describe("toda rota de download anuncia o tamanho", () => {
     expect(semTamanho.map((f) => f.replace(root, ""))).toEqual([]);
   });
 });
+
+/**
+ * **A tela não fala do planejamento** (#197).
+ *
+ * Um estado vazio dizia "Capítulos e seções ganham conteúdo próprio no editor, **na Fase 3**" —
+ * número de fase na cara de quem usa, prometendo um futuro que chegou faz tempo. Quem lê não tem o
+ * planejamento; para essa pessoa, "Fase 3" é um jargão que não explica nada e uma promessa que já
+ * venceu.
+ *
+ * O guarda varre só **texto de interface** — `title`, `description`, `label`, `placeholder`. Os
+ * comentários do código citam fases o tempo todo, e devem citar: é lá que a decisão mora.
+ */
+describe("nenhum texto de interface cita fase do planejamento", () => {
+  const telas = [
+    ...varrerTsx(path.join(root, "app")),
+    ...varrerTsx(path.join(root, "src/modules")),
+    ...varrerTsx(path.join(root, "src/design-system")),
+  ];
+
+  it("há telas para varrer", () => {
+    expect(telas.length).toBeGreaterThan(20);
+  });
+
+  it("`Fase N` não aparece em título, descrição, rótulo nem placeholder", () => {
+    const suspeitas: string[] = [];
+
+    for (const file of telas) {
+      const code = readFileSync(file, "utf8");
+      for (const [, texto] of code.matchAll(
+        /(?:title|description|label|placeholder)=\{?"([^"]*)"/g,
+      )) {
+        if (/\bFase \d/.test(texto ?? "")) suspeitas.push(`${file.replace(root, "")}: ${texto}`);
+      }
+    }
+
+    expect(suspeitas).toEqual([]);
+  });
+});
+
+function varrerTsx(dir: string): string[] {
+  const encontrados: string[] = [];
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name !== "generated") {
+      encontrados.push(...varrerTsx(path.join(dir, entry.name)));
+    } else if (entry.isFile() && entry.name.endsWith(".tsx")) {
+      encontrados.push(path.join(dir, entry.name));
+    }
+  }
+
+  return encontrados;
+}

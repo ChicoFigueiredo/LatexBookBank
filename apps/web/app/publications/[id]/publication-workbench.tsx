@@ -963,8 +963,12 @@ function NodeDetail({
         ) : (
           <EmptyState
             icon="file-text"
-            title="Nó estrutural"
-            description="Capítulos e seções ganham conteúdo próprio no editor, na Fase 3."
+            title="Capítulo ou seção"
+            // O texto anterior dizia "ganham conteúdo próprio no editor, **na Fase 3**" — número de
+            // fase do planejamento, na tela, prometendo um futuro que chegou faz tempo (#197). Um
+            // estado vazio precisa dizer o que fazer agora; este agora aponta para a questão, que é
+            // onde o conteúdo mora.
+            description="Capítulos e seções organizam a publicação — o conteúdo fica nas questões. Selecione uma na árvore, ou crie a primeira aqui dentro com Ctrl+Shift+N."
           />
         )}
       </div>
