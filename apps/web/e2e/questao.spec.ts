@@ -94,7 +94,12 @@ test.describe("o caminho da questão", () => {
     // Sem espaço dentro da marca: `toContainText` normaliza espaços, e o Monaco reescreve alguns
     // ao digitar — a comparação falharia por um espaço, não pelo que o teste quer afirmar.
     const marca = `%e2e-${Date.now()}`;
-    await page.keyboard.type(` ${marca}`);
+    // `delay` porque o `type()` sem intervalo dispara as teclas mais rápido do que o Monaco
+    // processa, e o editor **perde caracteres** — o que chegava ao banco era `%e2e2613` no lugar
+    // de `%e2e-1786434226913`. Apareceu quando o worker do editor passou a carregar (#183): o
+    // editor ficou mais pesado por estar completo. Ninguém digita sem intervalo; o teste também
+    // não deve.
+    await page.keyboard.type(` ${marca}`, { delay: 60 });
 
     // ── autosave ────────────────────────────────────────────────────────
     // "não salvo" primeiro: sem ver este estado, "salvo" poderia ser o selo que já estava lá.
@@ -226,7 +231,7 @@ test.describe("o caminho da questão", () => {
     const editor = page.getByRole("group", { name: /Editor LaTeX/ });
     await editor.locator(".monaco-editor .view-lines").click();
     await page.keyboard.press("Control+End");
-    await page.keyboard.type(" x");
+    await page.keyboard.type(" x", { delay: 60 });
 
     // Digitou **enquanto** a compilação estava em curso.
     await expect(page.getByText("não salvo", { exact: true })).toBeVisible({ timeout: 5_000 });
@@ -245,5 +250,36 @@ test.describe("o caminho da questão", () => {
 
     // O aviso é permanente e é parte do contrato com quem lê: preview rápido **pode** diferir.
     await expect(page.getByText(/pode diferir do PDF final/i)).toBeVisible();
+  });
+
+  test("a tela da questão não lança erro não tratado", async ({ page }) => {
+    /**
+     * O guarda que faltava (#183).
+     *
+     * O Monaco tentava criar o worker a partir de uma URL que o Turbopack reescreve, e a página
+     * estourava um `TypeError` **não tratado** já no carregamento:
+     *
+     *   Failed to resolve module specifier
+     *     '/_next/static/media/editorWebWorkerMain.<hash>.js#editorWorkerService'
+     *
+     * Nada visível quebrava — o editor abria e aceitava texto —, e é o que tornava o defeito ruim:
+     * quem abre o console vê vermelho na tela principal e não tem como saber se o produto está de
+     * pé. Doze testes de E2E passavam por cima dele, porque nenhum olhava o console.
+     */
+    const erros: string[] = [];
+    page.on("pageerror", (error) => erros.push(String(error)));
+
+    const publicationId = await primeiraPublicacao(page);
+    await page.goto(`/publications/${publicationId}`);
+    await abrirPrimeiraQuestao(page);
+
+    const editor = page.getByRole("group", { name: /Editor LaTeX/ });
+    await expect(editor).toBeVisible();
+    // Um instante para o Monaco terminar de subir: o erro do worker acontecia **depois** de o
+    // editor aparecer, e um teste que só esperasse o elemento passaria por cima.
+    await editor.locator(".monaco-editor .view-lines").click();
+    await page.waitForTimeout(2_000);
+
+    expect(erros, erros.join(" | ")).toEqual([]);
   });
 });
