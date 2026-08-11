@@ -8,21 +8,18 @@ import type { QuestionForPlugin, QuestionTypePlugin } from "../question-type-plu
 import { validateCommon } from "./shared";
 
 /**
- * Escolha simples: alternativas em quantidade **arbitrária**, exatamente uma correta.
+ * Múltipla escolha: **uma ou mais** alternativas corretas.
  *
- * O rótulo é "Escolha simples" e não "Múltipla escolha" porque o design fixou o vocabulário do
- * produto (§7 dos ajustes finais) e as duas coisas são tipos distintos: aqui uma correta, em
- * `MULTIPLE_CORRECT` uma ou mais. O nome interno `MULTIPLE_CHOICE` vem do mapa do import legado e
- * fica onde está — trocá-lo custaria migração para renomear uma string.
+ * A diferença para a escolha simples precisa ser inequívoca (design §9), e ela não está só no
+ * rótulo: a validação aqui recusa "nenhuma correta" e aceita várias, enquanto a escolha simples
+ * recusa exatamente o contrário. É o que impede um gabarito ambíguo de passar sob o tipo errado.
  *
- * O legado fixava cinco (`a`–`e`) e guardava a letra na linha. As duas coisas eram o mesmo erro:
- * tratar a posição como identidade. Aqui a letra é projeção da ordem (D9) e o número de
- * alternativas é o que a questão tiver — o acervo tem questões de verdadeiro/falso com duas e
- * questões de concurso com seis.
+ * O `\item` sai com marcador de caixa (`$\square$`) e não com letra sozinha: quem lê a prova
+ * impressa precisa ver que pode marcar mais de uma sem depender do enunciado dizer.
  */
-export const multipleChoicePlugin: QuestionTypePlugin = {
-  type: "MULTIPLE_CHOICE",
-  label: "Escolha simples",
+export const multipleCorrectPlugin: QuestionTypePlugin = {
+  type: "MULTIPLE_CORRECT",
+  label: "Múltipla escolha",
 
   validate(question) {
     const issues = [...validateCommon(question)];
@@ -32,7 +29,7 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
       issues.push({
         severity: "error",
         code: "too_few_options",
-        message: "Escolha simples precisa de pelo menos duas alternativas.",
+        message: "Múltipla escolha precisa de pelo menos duas alternativas.",
       });
     }
 
@@ -44,13 +41,23 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
       });
     }
 
-    if (correct.length > 1) {
-      // Erro, e não aviso: o tipo diz "escolha uma". Se são várias, o tipo está errado —
-      // `MULTIPLE_CORRECT` existe para isso — e usar a questão assim geraria gabarito ambíguo.
+    if (correct.length === question.options.length && question.options.length > 0) {
+      // Aviso, não erro: existe questão legítima em que todas valem. Mas é também o formato de
+      // uma questão em que alguém marcou tudo por engano, e só quem escreveu sabe qual dos dois.
       issues.push({
-        severity: "error",
-        code: "multiple_correct_options",
-        message: `${correct.length} alternativas marcadas como corretas. Use "múltiplas corretas" se for o caso.`,
+        severity: "warning",
+        code: "all_options_correct",
+        message: "Todas as alternativas estão corretas — confira se é isso mesmo.",
+      });
+    }
+
+    if (correct.length === 1) {
+      // Aviso: uma correta só funciona, mas é escolha simples disfarçada — e o tipo errado muda
+      // como a prova é impressa e como o aluno responde.
+      issues.push({
+        severity: "warning",
+        code: "single_correct_option",
+        message: 'Só uma alternativa correta. Se for sempre assim, o tipo é "escolha simples".',
       });
     }
 
@@ -62,25 +69,6 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
           message: "Há alternativa vazia.",
           optionId: option.id,
         });
-      }
-    }
-
-    const seen = new Map<string, string>();
-    for (const option of question.options) {
-      const key = option.statementLatex.trim();
-      if (key === "") continue;
-      const first = seen.get(key);
-      if (first !== undefined) {
-        // Duplicata é aviso: aparece em questão legítima ("nenhuma das anteriores" repetido entre
-        // questões) e em erro de digitação, e só quem escreveu sabe qual dos dois.
-        issues.push({
-          severity: "warning",
-          code: "duplicate_option",
-          message: "Duas alternativas têm o mesmo texto.",
-          optionId: option.id,
-        });
-      } else {
-        seen.set(key, option.id);
       }
     }
 
@@ -98,20 +86,22 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
           ...question.options.map((option) => `  \\item ${option.statementLatex}`),
           "\\end{enumerate}",
         ],
-        // O `\begin{enumerate}` é a única linha de estrutura antes da primeira alternativa, e é
-        // por isso que a "linha 1" das alternativas é a alternativa `a`.
         prefixLines: 1,
       });
     }
 
     if (options?.includeSolution === true) {
-      const correctIndex = question.options.findIndex((option) => option.isCorrect);
       const solution: string[] = [];
 
-      if (correctIndex >= 0) {
-        // A letra sai do **índice**, calculada na hora de escrever. Guardá-la seria repetir o
-        // erro do legado: reordenar deixaria o gabarito apontando para a letra errada.
-        solution.push("", "\\medskip", `\\textbf{Gabarito:} ${optionLabelAt(correctIndex)}.`);
+      // **Todas** as corretas, na ordem em que aparecem — as letras saem do índice, calculadas na
+      // hora de escrever. É a mesma regra da escolha simples; o que muda é serem várias.
+      const correct = question.options
+        .map((option, index) => ({ option, index }))
+        .filter((entry) => entry.option.isCorrect)
+        .map((entry) => optionLabelAt(entry.index));
+
+      if (correct.length > 0) {
+        solution.push("", "\\medskip", `\\textbf{Gabarito:} ${correct.join(", ")}.`);
       }
       if (question.solutionLatex.trim() !== "") {
         solution.push("", `\\textbf{Resolução.} ${question.solutionLatex}`);
@@ -121,8 +111,6 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
         blocks.push({
           origin: "solutionLatex",
           lines: solution,
-          // Tudo que vem antes da resolução é estrutura — inclusive a linha do gabarito, que é
-          // **derivada** da alternativa correta e não existe em campo nenhum para editar.
           prefixLines: solution.length - 1,
         });
       }
@@ -150,13 +138,7 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
     return blocks;
   },
 
-  /**
-   * Embaralha a **ordem**, não o gabarito.
-   *
-   * `isCorrect` viaja com a alternativa porque é propriedade dela, não da posição. É este teste
-   * — "o gabarito sobrevive à reordenação" — que a spec pede explicitamente, e é o que o legado
-   * não conseguia passar.
-   */
+  /** Embaralha a ordem; `isCorrect` viaja com a alternativa, nunca com a posição (D9). */
   randomize(question: QuestionForPlugin, random: () => number): QuestionForPlugin {
     const shuffled = [...question.options];
     for (let i = shuffled.length - 1; i > 0; i -= 1) {

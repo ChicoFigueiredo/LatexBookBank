@@ -27,8 +27,15 @@ const question = (over: Partial<QuestionForPlugin> = {}): QuestionForPlugin => (
 const codes = (issues: readonly { code: string }[]): string[] => issues.map((i) => i.code);
 
 describe("registry", () => {
-  it("conhece os dois tipos registrados", () => {
-    expect([...registeredTypes()].sort()).toEqual(["DISCURSIVE", "MULTIPLE_CHOICE"]);
+  it("conhece os três tipos mínimos do Beta Editorial", () => {
+    // Escolha simples (`MULTIPLE_CHOICE`, uma correta), múltipla escolha (`MULTIPLE_CORRECT`, uma
+    // ou mais) e discursiva — §12 do prompt do time. Os outros quatro do vocabulário legado têm
+    // zero linhas no acervo e entram quando houver questão real para exercitá-los.
+    expect([...registeredTypes()].sort()).toEqual([
+      "DISCURSIVE",
+      "MULTIPLE_CHOICE",
+      "MULTIPLE_CORRECT",
+    ]);
   });
 
   it("devolve `null` para tipo sem plugin, em vez de lançar", () => {

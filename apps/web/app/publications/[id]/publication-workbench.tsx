@@ -39,12 +39,14 @@ import type { Change } from "@modules/agents/domain/patch-diff";
 import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
+import { isContainerKind, placementForAdd } from "@modules/document-tree/domain/add-placement";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
 import { sameTag } from "@modules/questions/domain/tag";
 
 import { RAIL_MODULES, railHref } from "../../rail";
+import { AddMenu } from "./add-menu";
 import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
 import { useTreeEditing } from "./use-tree-editing";
@@ -495,6 +497,26 @@ export function PublicationWorkbench({
   );
 
   /**
+   * O título do pai, para o menu dizer onde o item vai entrar.
+   *
+   * O DTO não expõe `parentId` (auditoria §40), e não precisa: a lista vem em pré-ordem, então o
+   * pai é o nó anterior de profundidade menor. `null` quando o nó está na raiz.
+   */
+  const parentTitleOf = useCallback(
+    (nodeId: string): string | null => {
+      const index = nodes.findIndex((n) => n.id === nodeId);
+      if (index < 0) return null;
+
+      const depth = nodes[index]?.depth ?? 0;
+      for (let i = index - 1; i >= 0; i--) {
+        if ((nodes[i]?.depth ?? 0) < depth) return nodes[i]?.title ?? null;
+      }
+      return null;
+    },
+    [nodes],
+  );
+
+  /**
    * Vizinhos imediatos na ordem visível, para o Alt+↑/↓.
    *
    * "Irmão" aqui é quem tem a mesma profundidade **e** o mesmo pai. Como o DTO não expõe
@@ -558,6 +580,21 @@ export function PublicationWorkbench({
     siblingOrderOf,
     onSelect: setSelectedId,
   });
+
+  /**
+   * O destino do próximo item — contêiner recebe dentro, folha recebe ao lado.
+   *
+   * A decisão mora no domínio (`placementForAdd`) e não aqui: o menu, o menu de contexto e o
+   * destino de uma captura aprovada precisam responder igual, e três telas decidindo por conta
+   * própria divergem no primeiro caso de borda.
+   */
+  const addPlacement = placementForAdd(selected ? { id: selected.id, kind: selected.kind } : null);
+
+  const destinationLabel = selected
+    ? isContainerKind(selected.kind)
+      ? selected.title
+      : (parentTitleOf(selected.id) ?? publicationTitle)
+    : null;
 
   const menuFor = useCallback(
     (nodeId: string): readonly (readonly ContextMenuItem[])[] => [
@@ -763,8 +800,33 @@ export function PublicationWorkbench({
             ) : (
               <EmptyState
                 icon="list-tree"
-                title="Publicação sem conteúdo"
-                description="Importe do acervo legado ou crie o primeiro capítulo."
+                title="Este livro ainda não tem estrutura"
+                // O empty state do design (§6): não é constatação, é o começo do trabalho. E não
+                // obriga a montar uma árvore antes de começar — capturar direto é caminho legítimo,
+                // e o destino se decide na revisão.
+                description="Comece por um capítulo, ou vá direto à captura da primeira questão."
+                action={
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      icon="plus"
+                      onClick={() =>
+                        void editing.create({ kind: "lastChild", parentId: null }, "CHAPTER")
+                      }
+                    >
+                      Criar primeiro capítulo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="scan-text"
+                      href={`/publications/${publicationId}/ingestao`}
+                    >
+                      Capturar primeira questão
+                    </Button>
+                  </div>
+                }
               />
             )
           ) : (
@@ -796,21 +858,12 @@ export function PublicationWorkbench({
         </>
       }
       actions={
-        <Button
-          size="sm"
-          variant="primary"
-          icon="plus"
+        <AddMenu
           disabled={editing.busy}
-          onClick={() =>
-            void editing.create(
-              selectedId
-                ? { kind: "after", siblingId: selectedId }
-                : { kind: "lastChild", parentId: null },
-            )
-          }
-        >
-          Novo nó
-        </Button>
+          destinationLabel={destinationLabel}
+          onCreateStructure={(kind) => void editing.create(addPlacement, kind)}
+          onCreateQuestion={(type) => void editing.createQuestion(addPlacement, type)}
+        />
       }
       asideTitle="Agente"
       aside={

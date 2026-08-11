@@ -107,6 +107,35 @@ export function useTreeEditing({ publicationId, titleOf, siblingOrderOf, onSelec
     [base, call, onSelect],
   );
 
+  /**
+   * Cria uma questão — questão e nó, numa chamada só.
+   *
+   * Rota própria (`/questions`) e não `/nodes` com `kind: "QUESTION"`: um nó do tipo questão sem
+   * `Question` é justamente o estado inconsistente que a §11 proíbe. O endpoint devolve os dois
+   * ids porque a navegação precisa dos dois — seleção é por nó, editor é por questão.
+   *
+   * Sem entrar em renomeação, ao contrário do nó de estrutura: a questão se identifica pelo
+   * enunciado, e o gesto seguinte é escrever no editor, não batizar a linha da árvore.
+   */
+  const createQuestion = useCallback(
+    async (placement: Placement, type: string) => {
+      const created = await call(
+        `/api/publications/${publicationId}/questions`,
+        { method: "POST", body: JSON.stringify({ type, placement }) },
+        "Não foi possível criar a questão",
+      );
+
+      const nodeId =
+        typeof created === "object" && created !== null && "nodeId" in created
+          ? String((created as { nodeId: unknown }).nodeId)
+          : null;
+
+      if (nodeId) onSelect(nodeId);
+      return nodeId;
+    },
+    [call, onSelect, publicationId],
+  );
+
   const move = useCallback(
     async (nodeId: string, placement: Placement) => {
       await call(
@@ -200,6 +229,7 @@ export function useTreeEditing({ publicationId, titleOf, siblingOrderOf, onSelec
     handleCommand,
     rename,
     create,
+    createQuestion,
     duplicate,
     move,
     confirmDelete,
