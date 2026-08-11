@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 854 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 855 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
 (20, que é do Chico). **Fora deles sobram 16 itens.**
-**Última atualização:** 2026-08-11 — **o erro que doze E2E não viam** (#183): o worker do Monaco
+**Última atualização:** 2026-08-11 — **a ingestão aceita imagem** (#185): a tela promete "PDF ou
+imagem" e o visualizador mandava tudo para o `pdf.js`. Conferido ponta a ponta no navegador com o
+modelo de visão real — subir, recortar, reconhecer: `gemma3:12b · 1511 ms`, com o recorte à vista.
+**Antes:** **o erro que doze E2E não viam** (#183): o worker do Monaco
 não carregava e a tela da questão estourava um `TypeError` não tratado a cada abertura. Nenhum teste
 olhava o console. O painel de histórico, sondado na mesma volta, está correto — inclusive ao dizer
 "idêntica ao estado atual" em vez de desenhar um diff vazio.
@@ -227,7 +230,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1268 testes (1204 no app + 64 no renderer) + **13 de E2E, todos passando** · 91 PRs abertos, nada mergeado.
+1272 testes (1208 no app + 64 no renderer) + **13 de E2E, todos passando** · 92 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -251,7 +254,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **03** editor LaTeX | 3 · 4 | 49 | — | — | — | **fechado** |
 | **04** preview e render | 5 · 6 | 159 | — | 3 | 1 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
-| **06** ingestão visual | 14 · 15 | 39 | 1 | — | 1 | falta o reconhecimento de **texto** |
+| **06** ingestão visual | 14 · 15 | 40 | 1 | — | 1 | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 24 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
@@ -1344,6 +1347,13 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **PDF e crop**
 - ✅ Visualizador de PDF com páginas *(`pdfjs-dist`, `ssr: false`)*
+- ✅ **E com imagens** *(#185 — a tela de ingestão promete "suba um PDF **ou imagem**" e o
+  visualizador mandava tudo para o `pdf.js`: subir um PNG dava "Não deu para abrir o PDF: Invalid
+  PDF structure", uma mensagem correta sobre a pergunta errada, e o epic de ingestão parava ali para
+  qualquer arquivo que não fosse PDF. Imagem é documento de **uma página**, e o resto do mecanismo
+  não muda — o recorte opera sobre o canvas, que não sabe de onde veio o desenho. A contagem de
+  páginas virou derivada, não estado: guardá-la exigiria `setState` dentro do efeito, e o React
+  Compiler recusa — com razão, porque ela é consequência do tipo do arquivo)*
 - ✅ Zoom
 - ✅ Navegação
 - ✅ Desenhar retângulo de crop *(em qualquer direção; o mouse fora da página não gera coordenada negativa)*
