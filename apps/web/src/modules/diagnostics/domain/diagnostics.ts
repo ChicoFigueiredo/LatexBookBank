@@ -28,6 +28,14 @@ export interface Diagnostics {
   readonly database: SectionStatus;
   readonly storage: SectionStatus;
   readonly renderer: SectionStatus;
+  /**
+   * O **cache** de render: tamanho, jobs e último erro.
+   *
+   * Separado de `renderer` porque responde outra pergunta. `renderer` é "o worker está no ar?", e
+   * se resolve subindo um contêiner; este é "o que ele andou fazendo e quanto está ocupando", e
+   * se resolve descartando derivado — ou lendo o erro que ninguém viu passar.
+   */
+  readonly renderCache: SectionStatus;
   readonly ai: SectionStatus;
   readonly backup: SectionStatus;
 }

@@ -27,6 +27,7 @@ const diagnostics = (over: Partial<Diagnostics> = {}): Diagnostics => ({
   database: section({ summary: "SQLite em ./data/latexbookbank.db" }),
   storage: section(),
   renderer: section({ health: "off", summary: "Worker configurado, mas não respondeu" }),
+  renderCache: section({ summary: "3 job(s) · 1.2 MB em 6 artefato(s)" }),
   ai: section({ health: "unconfigured", summary: "Nenhum endpoint de IA configurado" }),
   backup: section({ health: "off", summary: "Último backup falhou — 10/08/2026, 06:38" }),
   ...over,

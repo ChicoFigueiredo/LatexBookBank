@@ -5,6 +5,11 @@ import { join } from "node:path";
 
 import { profileForBaseUrl } from "@modules/agents/domain/ai-profile";
 import type { Diagnostics, SectionStatus } from "@modules/diagnostics/domain/diagnostics";
+import { probeHostTex, type HostTex } from "@modules/diagnostics/infrastructure/host-tex";
+import {
+  renderStats,
+  type RenderStats,
+} from "@modules/rendering/infrastructure/prisma-render-stats";
 import { env as appEnv } from "@/shared/config/env";
 
 /**
@@ -28,9 +33,13 @@ const PROBE_TIMEOUT_MS = 2_000;
 export async function collectDiagnostics(): Promise<Diagnostics> {
   const env = appEnv();
 
-  const [renderer, backup] = await Promise.all([
+  const [renderer, backup, hostTex, stats] = await Promise.all([
     probeRenderer(env.rendererBaseUrl, env.rendererSecret),
     readBackupStatus(),
+    probeHostTex(),
+    // O cache é derivado e a consulta é de contagem: falhar aqui não pode derrubar a página, que
+    // é justamente aonde se vai quando as coisas já estão estranhas.
+    renderStats().catch(() => null),
   ]);
 
   return {
@@ -40,6 +49,7 @@ export async function collectDiagnostics(): Promise<Diagnostics> {
       details: [
         { label: "Node/Bun", value: process.version },
         { label: "Ambiente", value: process.env["NODE_ENV"] ?? "development" },
+        ...hostTexDetails(hostTex),
       ],
     },
 
@@ -56,8 +66,66 @@ export async function collectDiagnostics(): Promise<Diagnostics> {
     },
 
     renderer,
+    renderCache: describeRenderCache(stats),
     ai: describeAi(env.aiBaseUrl, env.aiModel, env.aiApiKey !== null),
     backup,
+  };
+}
+
+/**
+ * O TeX da máquina, dito como o que é.
+ *
+ * "fallback opcional" está no texto e não só na ausência de alerta: quem lê "pdflatex 2023" numa
+ * página de diagnóstico conclui que é ele quem compila, e vai depurar a versão errada quando o
+ * PDF sair diferente. Quem compila é a imagem, que traz TeX Live 2022.
+ */
+function hostTexDetails(tex: HostTex): { label: string; value: string }[] {
+  const describe = (found: string | null): string =>
+    found === null
+      ? "ausente — fallback opcional, não bloqueia"
+      : `${found} — fallback opcional; quem compila é o worker`;
+
+  return [
+    { label: "pdflatex (host)", value: describe(tex.pdflatex) },
+    { label: "pdftocairo (host)", value: describe(tex.pdftocairo) },
+  ];
+}
+
+/**
+ * O cache de render.
+ *
+ * `health` nunca é `off` por haver falha: um job que falhou é **resultado**, não indisponibilidade
+ * — o LaTeX de alguém estava quebrado, e isso não é defeito do produto. Pintar de vermelho aqui
+ * mandaria procurar problema de infraestrutura onde há erro de documento.
+ */
+function describeRenderCache(stats: RenderStats | null): SectionStatus {
+  if (stats === null) {
+    return {
+      health: "off",
+      summary: "Não foi possível ler o cache de render",
+      details: [{ label: "Provável causa", value: "banco indisponível — ver a seção Banco" }],
+    };
+  }
+
+  return {
+    health: "ok",
+    summary:
+      stats.jobs === 0
+        ? "Nada compilado ainda"
+        : `${stats.jobs} job(s) · ${formatBytes(stats.cacheBytes)} em ${stats.artifacts} artefato(s)`,
+    details: [
+      { label: "Jobs", value: `${stats.jobs} (${stats.failed} com falha)` },
+      // Derivado é descartável (D29): este número é quanto se recupera apagando, e é a única
+      // razão de ele estar na tela.
+      { label: "Tamanho do cache", value: `${formatBytes(stats.cacheBytes)} — descartável (D29)` },
+      {
+        label: "Último erro",
+        value:
+          stats.lastError === null
+            ? "nenhum"
+            : `${format(stats.lastError.at)} · ${stats.lastError.message.slice(0, 160)}`,
+      },
+    ],
   };
 }
 
