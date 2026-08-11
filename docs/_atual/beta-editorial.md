@@ -85,6 +85,7 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 | Calibre — catálogo       | `bibliotecas/[slug]/livros/calibre`            | `browseCatalog`                   | `POST /api/catalog`                          | leitura               | `calibre-catalog`, `calibre-search` |
 | Calibre — importar       | idem                                           | `importFromCatalog`               | `POST /api/catalog/import`                   | `Publication`+assets  | `import-from-catalog`, E2E |
 | Fila de captura          | `CaptureQueuePanel`                            | `pendingQueue` · `stateOf`        | `GET/DELETE …/capture-queue`                 | derivada de `SourceAnchor` | `capture-queue`, E2E |
+| Lixeira                  | `trash-dialog.tsx`                             | `restoreNode`                     | `GET …/trash` · `POST …/nodes/[id]/restore`  | `deletedAt`           | `mutate-tree`, E2E |
 | Livro vazio              | `publication-workbench.tsx` (EmptyState)       | —                                 | —                                            | —                     | E2E |
 | Menu `+ Adicionar`       | `add-menu.tsx`                                 | `placementForAdd`                 | —                                            | —                     | `create-question` |
 | Criar estrutura          | árvore                                         | `createNode`                      | `POST …/nodes`                               | `DocumentNode`        | `mutate-tree` |
@@ -124,9 +125,10 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 
 - Import legado em volume (§56). O caminho existe desde a Fase 11 e não foi exercitado contra as
   13 bibliotecas.
-- Semântica de exclusão de questão (§32). Hoje excluir o nó exclui logicamente a subárvore e a
-  questão fica alcançável só por ele; a lixeira restaura os dois juntos. Não há questão órfã, mas
-  também não há "excluir a questão preservando o nó" — e ninguém pediu.
+- "Excluir a questão preservando o nó" não existe (§32). A semântica escolhida é **soft delete do
+  agregado**: excluir o nó leva a descendência e a questão, e restaurar traz tudo de volta na
+  mesma posição — com teste E2E. Separar as duas exclusões seria oferecer um nó de questão sem
+  questão, que é justamente o estado que a §32 quer evitar. Ninguém pediu o contrário.
 
 ## 6. Known limitations
 

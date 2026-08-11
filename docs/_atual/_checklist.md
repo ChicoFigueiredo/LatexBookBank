@@ -2005,6 +2005,8 @@ fechou:
 
 - ✅ **Calibre funcional** (Gate 3): adapter, wizard, contract test, E2E e importação verificada
   contra a biblioteca real do acervo — 64 livros, PDF de 2,7 MB copiado com capa e origem.
+- ✅ **Lixeira com tela** (§33). `listDeleted` existia desde a Fase 2 e nenhuma tela a alcançava:
+  dava para excluir e não dava para ver o que foi excluído.
 - ✅ **Fila de captura** (§26), **sem tabela nova**: ela é a pergunta "quais recortes ainda não
   viraram questão?" sobre `SourceAnchor`, que já é durável.
 

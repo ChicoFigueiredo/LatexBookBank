@@ -47,6 +47,7 @@ import { sameTag } from "@modules/questions/domain/tag";
 
 import { RAIL_MODULES, railHref } from "../../rail";
 import { AddMenu } from "./add-menu";
+import { TrashDialog } from "./trash-dialog";
 import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
 import { useTreeEditing } from "./use-tree-editing";
@@ -201,6 +202,7 @@ export function PublicationWorkbench({
   // indicador mais urgente enquanto existe.
   const [unsavedQuestionId, setUnsavedQuestionId] = useState<string | null>(null);
   const [problemOnly, setProblemOnly] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
 
   /**
    * O contexto do agente — montado por gesto, nunca por dedução.
@@ -858,12 +860,23 @@ export function PublicationWorkbench({
         </>
       }
       actions={
-        <AddMenu
-          disabled={editing.busy}
-          destinationLabel={destinationLabel}
-          onCreateStructure={(kind) => void editing.create(addPlacement, kind)}
-          onCreateQuestion={(type) => void editing.createQuestion(addPlacement, type)}
-        />
+        <>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="archive"
+            onClick={() => setTrashOpen(true)}
+            title="O que foi excluído desta publicação"
+          >
+            Lixeira
+          </Button>
+          <AddMenu
+            disabled={editing.busy}
+            destinationLabel={destinationLabel}
+            onCreateStructure={(kind) => void editing.create(addPlacement, kind)}
+            onCreateQuestion={(type) => void editing.createQuestion(addPlacement, type)}
+          />
+        </>
       }
       asideTitle="Agente"
       aside={
@@ -935,6 +948,12 @@ export function PublicationWorkbench({
               : {})}
           />
         ) : null}
+
+        <TrashDialog
+          publicationId={publicationId}
+          open={trashOpen}
+          onClose={() => setTrashOpen(false)}
+        />
 
         <Modal
           open={editing.pendingDelete !== null}
