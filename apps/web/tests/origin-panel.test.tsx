@@ -32,6 +32,7 @@ const provenance = (over: Partial<Provenance> = {}): Provenance => ({
   box: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
   rotation: null,
   source: { assetId: "src-1", filename: "prova.pdf", mimeType: "application/pdf", isPdf: true },
+  cropLatexName: "grafico-aabbccdd.png",
   cropAssetId: "crop-1",
   sourceText: null,
   extractionMethod: null,

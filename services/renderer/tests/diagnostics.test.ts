@@ -86,6 +86,32 @@ describe("parseLatexLog", () => {
   });
 });
 
+describe("erros do próprio pdfTeX", () => {
+  it("`!pdfTeX error:` — **sem espaço depois do `!`** — vira erro", () => {
+    // Achado compilando uma questão com figura corrompida (#173): o `pdfTeX` emite os erros dele
+    // sem o espaço que o LaTeX usa, e a expressão antiga exigia o espaço. O resultado era uma
+    // compilação que falhava com "Falha ao compilar" e **nenhum motivo na tela** — só um aviso de
+    // espaçamento na lista. A §42 diz que erro de compilação nunca é escondido; era.
+    const log = [
+      "!pdfTeX error: pdflatex (file /tmp/x/figura.png): libpng: internal error",
+      " ==> Fatal error occurred, no output PDF file produced!",
+    ].join("\n");
+
+    const [erro] = parseLatexLog(log);
+
+    expect(erro?.severity).toBe("error");
+    expect(erro?.message).toContain("libpng: internal error");
+  });
+
+  it("e o `! Undefined control sequence.` clássico continua funcionando", () => {
+    // Controle: relaxar a expressão não pode ter quebrado o formato que já era reconhecido.
+    const [erro] = parseLatexLog("! Undefined control sequence.\nl.12 \\naoexiste");
+
+    expect(erro).toMatchObject({ severity: "error", line: 12 });
+    expect(erro?.message).toBe("Undefined control sequence.");
+  });
+});
+
 /**
  * A linha que chega ao editor.
  *

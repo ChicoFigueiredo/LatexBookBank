@@ -9,6 +9,8 @@ import {
   type RevisionSnapshot,
 } from "@modules/questions/domain/revision-diff";
 import { HistoryPanel, type RevisionRow } from "@modules/questions/ui/HistoryPanel";
+import { figureSnippet } from "@modules/assets/domain/asset-ingestion";
+import type { Provenance } from "@modules/assets/domain/provenance";
 import { OriginPanel } from "@modules/assets/ui/OriginPanel";
 import type { QuestionMetadata } from "@modules/questions/domain/question-metadata";
 import { MetadataPanel } from "@modules/questions/ui/MetadataPanel";
@@ -355,9 +357,17 @@ export function QuestionEditor({
    * houver editor — pelo efeito, se ele já estava montado, ou pelo `onReady`, se acabou de nascer.
    */
   const pendingLine = useRef<number | null>(null);
+  /** Mesmo mecanismo, para o snippet de figura: ele também pode precisar trocar de aba antes. */
+  const pendingSnippet = useRef<string | null>(null);
   const [revealTick, setRevealTick] = useState(0);
 
   const flushReveal = useCallback(() => {
+    const snippet = pendingSnippet.current;
+    if (snippet !== null) {
+      pendingSnippet.current = null;
+      editor.current?.insertSnippet(snippet);
+    }
+
     const line = pendingLine.current;
     if (line === null) return;
 
@@ -366,6 +376,32 @@ export function QuestionEditor({
   }, []);
 
   useEffect(flushReveal, [flushReveal, revealTick, pane, field]);
+
+  /**
+   * "Inserir como figura" — o gesto que faltava.
+   *
+   * O `figureSnippet` existia desde a Fase 14, testado, e **nada o chamava**: o `OriginPanel`
+   * subia a ação e o editor não a escutava. Sexta vez do mesmo padrão neste projeto.
+   *
+   * O nome do arquivo vem do servidor (`cropLatexName`), e é o mesmo que a rota de render usa para
+   * gravar o asset no diretório do job. Inventá-lo aqui daria um `\includegraphics` que aponta
+   * para um arquivo que nunca chega — e o `pdflatex` diria "File not found", mandando procurar
+   * defeito no texto de quem escreveu.
+   */
+  const insertFigure = useCallback((provenance: Provenance) => {
+    if (provenance.cropLatexName === null) return;
+
+    // O snippet vai para o **conteúdo**: é onde a figura da questão mora. Inserir na aba aberta
+    // colocaria uma figura no meio do gabarito se a pessoa estivesse na Resposta.
+    setPane("statementLatex");
+    setField("statementLatex");
+
+    pendingSnippet.current = figureSnippet({
+      assetName: provenance.cropLatexName,
+      widthFraction: 0.8,
+    });
+    setRevealTick((tick) => tick + 1);
+  }, []);
 
   const goToDiagnostic = useCallback((target: DiagnosticTarget) => {
     // As alternativas não são um campo de texto: o destino é a aba, e o "número da linha" ali é o
@@ -538,7 +574,12 @@ export function QuestionEditor({
               {rightTab === "origem" ? (
                 // A aba estava bloqueada pela Fase 14: a âncora já guardava a página e a caixa,
                 // e não havia porta para navegá-las.
-                <OriginPanel questionId={questionId} />
+                <OriginPanel
+                  questionId={questionId}
+                  onAction={(action, provenance) => {
+                    if (action === "insert-figure") insertFigure(provenance);
+                  }}
+                />
               ) : rightTab === "historico" ? (
                 <HistoryPanel
                   revisions={revisions ?? []}

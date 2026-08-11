@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -292,5 +292,50 @@ describe("nenhum arquivo-fonte é binário", () => {
       .map((file) => relative(file));
 
     expect(binary).toEqual([]);
+  });
+});
+
+/**
+ * A `storageKey` não sai do servidor (D26).
+ *
+ * Havia teste afirmando isso para a rota de origem, e **não** para a de upload — que a devolvia em
+ * toda resposta, por um `...record` confortável. Este guarda varre as rotas atrás do padrão em vez
+ * de conferir uma resposta: espalhar um registro do servidor num JSON de resposta vaza também o
+ * campo que alguém acrescentar amanhã.
+ *
+ * Ver D26 · issue #173.
+ */
+describe("nenhuma rota devolve `storageKey`", () => {
+  const rotas = readdirSync(path.join(root, "app/api"), { recursive: true, encoding: "utf8" })
+    .filter((file) => typeof file === "string" && file.endsWith("route.ts"))
+    .map((file) => path.join(root, "app/api", String(file)));
+
+  it("há rotas para varrer", () => {
+    expect(rotas.length).toBeGreaterThan(20);
+  });
+
+  it("nenhuma monta a resposta espalhando um registro do servidor", () => {
+    // `...record`/`...stored`/`...asset` dentro de `NextResponse.json` é o formato exato do
+    // vazamento que existia: nada erra, e a chave viaja.
+    const suspeitas = rotas.filter((file) => {
+      const code = readFileSync(file, "utf8");
+      return /NextResponse\.json\(\s*\{[^}]*\.\.\.(record|stored|asset|row)\b/s.test(code);
+    });
+
+    expect(suspeitas.map((f) => f.replace(root, ""))).toEqual([]);
+  });
+
+  it("nenhuma cita `storageKey` como campo de resposta", () => {
+    const suspeitas = rotas.filter((file) => {
+      const code = readFileSync(file, "utf8")
+        // Comentários explicam **por que** a chave não sai; contá-los como violação faria a
+        // documentação da regra derrubar a regra.
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "");
+
+      return /storageKey\s*[,:]/.test(code) && !/asStorageKey\(/.test(code);
+    });
+
+    expect(suspeitas.map((f) => f.replace(root, ""))).toEqual([]);
   });
 });

@@ -22,6 +22,7 @@ const provenance = (over: Partial<Provenance> = {}): Provenance => ({
     mimeType: "application/pdf",
     isPdf: true,
   },
+  cropLatexName: "grafico-aabbccdd.png",
   cropAssetId: "crop-1",
   sourceText: null,
   extractionMethod: null,

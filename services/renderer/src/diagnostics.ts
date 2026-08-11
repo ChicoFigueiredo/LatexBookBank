@@ -36,8 +36,14 @@ const FATAL_SUMMARY = /==>\s*Fatal error occurred/;
  *
  * A linha vem depois, no formato `l.12 \naoexiste`, e é por isso que a varredura precisa olhar
  * adiante em vez de casar linha a linha isolada.
+ *
+ * O espaço depois do `!` é **opcional**: o `pdfTeX` emite os erros dele como `!pdfTeX error: …`,
+ * sem espaço, e a versão anterior desta expressão os ignorava inteiros. O sintoma era o pior
+ * possível — figura corrompida, `libpng: internal error`, nenhum PDF, e a tela dizendo "Falha ao
+ * compilar" **sem motivo nenhum**, com um aviso de espaçamento como única linha da lista. A §42
+ * diz que erro de compilação nunca é escondido; era.
  */
-const ERROR_START = /^! (.+)$/;
+const ERROR_START = /^!\s*(.+)$/;
 
 /** `l.12 ...` — o número da linha onde o TeX parou. */
 const ERROR_LINE = /^l\.(\d+)/;

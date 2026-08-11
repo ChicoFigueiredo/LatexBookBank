@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { assetLatexName } from "@modules/assets/domain/asset-latex-name";
+
 import { UploadRejectedError } from "@modules/assets/domain/asset-ingestion";
 import { inferKind, storeAsset } from "@modules/assets/application/store-asset";
 import { isAssetKind } from "@modules/assets/domain/asset-kind";
@@ -60,7 +62,26 @@ export async function POST(request: Request) {
       questionId: typeof questionId === "string" && questionId !== "" ? questionId : null,
     });
 
-    return NextResponse.json({ id: asset.id, ...record }, { status: 201 });
+    // Projeção campo a campo, e **não** `...record`: o `StoredAssetRecord` carrega a
+    // `storageKey`, e o espalhamento a mandava para o browser em toda resposta de upload. A D26 diz
+    // que a chave é opaca e do servidor — quem precisa dos bytes pede por `assetId`, e é o servidor
+    // que resolve. Um espalhamento é confortável hoje e vaza o campo que alguém acrescentar amanhã.
+    return NextResponse.json(
+      {
+        id: asset.id,
+        // O `latexName` é o que o `\includegraphics` cita, e é calculado aqui pelo mesmo módulo
+        // que a rota de render usa para nomear o arquivo no diretório do job (#173).
+        latexName: assetLatexName(record),
+        sha256: record.sha256,
+        sizeBytes: record.sizeBytes,
+        mimeType: record.mimeType,
+        originalFilename: record.originalFilename,
+        kind: record.kind,
+        width: record.width,
+        height: record.height,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof UploadRejectedError) {
       return NextResponse.json(
