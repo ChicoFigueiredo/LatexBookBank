@@ -21,11 +21,15 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 852 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 854 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
 (20, que é do Chico). **Fora deles sobram 16 itens.**
-**Última atualização:** 2026-08-11 — **a busca deixou de mostrar beco sem saída** (#181): ela não
+**Última atualização:** 2026-08-11 — **o erro que doze E2E não viam** (#183): o worker do Monaco
+não carregava e a tela da questão estourava um `TypeError` não tratado a cada abertura. Nenhum teste
+olhava o console. O painel de histórico, sondado na mesma volta, está correto — inclusive ao dizer
+"idêntica ao estado atual" em vez de desenhar um diff vazio.
+**Antes:** **a busca deixou de mostrar beco sem saída** (#181): ela não
 filtrava o nó, e devolvia questão da lixeira e questão órfã — a mesma questão aparecia seis vezes na
 paleta. Achado exercitando o `Ctrl+K` que a #179 destravou.
 **Antes:** **os atalhos, medidos** (#179). O caminho do agente passou
@@ -223,7 +227,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1268 testes (1204 no app + 64 no renderer) + **12 de E2E, todos passando** · 90 PRs abertos, nada mergeado.
+1268 testes (1204 no app + 64 no renderer) + **13 de E2E, todos passando** · 91 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -244,7 +248,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 |---|---|---:|---:|---:|---:|---|
 | **01** fundação e providers | 0 | 70 | — | — | — | **fechado** — os dois health checks entraram no `setup` (#168) |
 | **02** shell e árvore | 1 · 2 | 87 | — | 1 | 5 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
-| **03** editor LaTeX | 3 · 4 | 47 | — | — | — | **fechado** |
+| **03** editor LaTeX | 3 · 4 | 49 | — | — | — | **fechado** |
 | **04** preview e render | 5 · 6 | 159 | — | 3 | 1 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
 | **06** ingestão visual | 14 · 15 | 39 | 1 | — | 1 | falta o reconhecimento de **texto** |
@@ -548,6 +552,17 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Monaco como client component isolado, com dynamic import *(#45 — `ssr: false` **não é otimização**: `monaco-editor` toca `window` no topo do módulo e quebraria no SSR)*
 - ✅ **Monaco servido localmente, nunca de CDN** *(o default do `@monaco-editor/react` é `jsdelivr`, e quebraria o §48 "roda com a internet desligada" — em silêncio)*
 - ✅ Sem erro de hidratação *(o `loading` é o mesmo antes e depois; build e app rodando sem aviso)*
+- ✅ **A tela da questão não lança erro não tratado** *(#183 — o Monaco tentava criar o worker a
+  partir de uma URL que o Turbopack reescreve, e a página estourava um `TypeError` no
+  carregamento. Nada visível quebrava — o editor abria e aceitava texto —, e era o que tornava o
+  defeito ruim: quem abre o console vê vermelho na tela principal e não sabe se o produto está de
+  pé. **Doze testes de E2E passavam por cima**, porque nenhum olhava o console. Agora há um que
+  olha, conferido contra a violação proposital: sem a correção ele acusa 6 erros)*
+- ✅ **Sem sugestão de palavra do próprio documento** *(#183 — o Monaco propõe as palavras do texto
+  aberto, e num enunciado de prova isso é ruído: ele sugere "montante" enquanto alguém escreve
+  "montante". A lista útil deste produto são os 652 autocompletes do acervo. Estava desligado por
+  acidente — a sugestão é calculada no worker, e o worker não carregava; consertá-lo acordaria o
+  comportamento sem ninguém ter decidido por ele)*
 - ✅ Estado de loading enquanto carrega *(não colapsa o painel — senão o layout pularia)*
 - ✅ Redimensiona junto com o painel *(`automaticLayout`)*
 - ✅ Tema claro e escuro seguindo o tema do app

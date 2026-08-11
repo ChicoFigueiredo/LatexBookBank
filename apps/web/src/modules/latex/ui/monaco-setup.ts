@@ -23,10 +23,45 @@ import {
 
 let configured = false;
 
+/**
+ * O worker do Monaco, apontado à mão.
+ *
+ * Sem isto o Monaco tenta criar o worker a partir de uma URL que o Turbopack reescreve, e a
+ * página estoura um `TypeError` **não tratado** já no carregamento:
+ *
+ * ```
+ * Failed to resolve module specifier
+ *   '/_next/static/media/editorWebWorkerMain.<hash>.js#editorWorkerService'
+ * ```
+ *
+ * Nada visível quebra na hora — o editor abre e aceita texto —, e é o que torna o defeito ruim:
+ * quem abre o console vê um erro vermelho na tela principal e não tem como saber se o produto está
+ * de pé. E o que **de fato** depende do worker é o cálculo de diferença, que é a superfície onde a
+ * pessoa decide se aceita o que o agente propôs.
+ *
+ * `new URL(..., import.meta.url)` é a forma que o bundler entende: ele empacota o arquivo e
+ * resolve o caminho final. Uma string literal seria um caminho que só existe em desenvolvimento.
+ *
+ * O caminho é `monaco-editor/editor/editor.worker.js` e **não** `.../esm/vs/...`: o `exports` do
+ * pacote mapeia `"./*.js"` para `"./esm/vs/*.js"`, então escrever o caminho físico o duplica e o
+ * bundler não acha nada.
+ */
+function installWorker(): void {
+  if (typeof window === "undefined") return;
+
+  (window as unknown as { MonacoEnvironment?: unknown }).MonacoEnvironment = {
+    getWorker: () =>
+      new Worker(new URL("monaco-editor/editor/editor.worker.js", import.meta.url), {
+        type: "module",
+      }),
+  };
+}
+
 export function setupMonaco(): void {
   if (configured) return;
   configured = true;
 
+  installWorker();
   loader.config({ monaco });
 
   if (!monaco.languages.getLanguages().some((language) => language.id === LATEX_LANGUAGE_ID)) {
@@ -70,7 +105,18 @@ export const LATEX_EDITOR_OPTIONS = {
   tabSize: 2,
   bracketPairColorization: { enabled: true },
   padding: { top: 12, bottom: 12 },
-  // O editor não pode capturar Ctrl+K: é a paleta de comandos do workbench, e um atalho que
-  // funciona fora do editor e para dentro dele é pior que atalho nenhum.
   quickSuggestions: { other: true, comments: false, strings: false },
+  /**
+   * **Sem sugestão de palavra do próprio documento** (#183).
+   *
+   * O Monaco propõe, por padrão, as palavras que já existem no texto aberto. Num editor de código
+   * isso ajuda; num enunciado de prova é ruído — ele sugere "montante" enquanto alguém escreve
+   * "montante", e a lista útil deste produto é outra: os 652 autocompletes do acervo legado, que
+   * chegam pelo provider da Fase 4.
+   *
+   * A opção estava desligada **por acidente** até aqui: sugestão baseada em palavras é calculada no
+   * worker, e o worker não carregava. Consertá-lo (nesta mesma issue) acordaria o comportamento
+   * junto, sem ninguém ter decidido por ele — e a decisão certa continua sendo desligar.
+   */
+  wordBasedSuggestions: "off",
 } as const;
