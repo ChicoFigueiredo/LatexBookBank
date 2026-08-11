@@ -21,11 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 836 ✅ · 5 ◐ · 14 ⛔ · 138 `[ ]` — e **111 dos 138 abertos estão em quatro blocos que
+**Progresso:** 842 ✅ · 5 ◐ · 14 ⛔ · 132 `[ ]` — e **111 dos 132 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 27 itens.**
-**Última atualização:** 2026-08-10 — **os dois defeitos que impediam usar o produto** (#156, #166).
+(20, que é do Chico). **Fora deles sobram 21 itens.**
+**Última atualização:** 2026-08-10 — **`bun run setup` deixou de mentir** (#168): ele agora constrói
+a imagem do renderer, sobe o worker, espera o `/health` e sincroniza o segredo entre o `.env` da
+raiz e o `.env.local` — as duas checagens que o planejamento marca como *obrigatórias* desde a Fase
+0, e que estavam abertas desde então. A página de diagnóstico ganhou o cache de render (tamanho,
+jobs, último erro) e o TeX do host marcado como fallback. Um clone novo vira produto rodando com
+`bun run setup && bun run dev`, sem ler comentário de `.env.example`.
+**Antes, no mesmo dia:** **os dois defeitos que impediam usar o produto** (#156, #166).
 Salvar duas vezes seguidas dava 409 e o autosave parava, então valia um salvamento por carregamento
 de página; e recompilar uma questão cuja saída não mudou dava 500 dizendo "falha ao compilar" sobre
 uma compilação bem-sucedida. O segundo apareceu **ao consertar o primeiro**, e o E2E que estava
@@ -188,7 +194,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1206 testes (1144 no app + 62 no renderer) + **7 de E2E, todos passando** · 82 PRs abertos, nada mergeado.
+1228 testes (1166 no app + 62 no renderer) + **7 de E2E, todos passando** · 83 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -207,7 +213,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 
 | Épico | Fases | ✅ | ◐ | ⛔ | `[ ]` | Estado |
 |---|---|---:|---:|---:|---:|---|
-| **01** fundação e providers | 0 | 68 | — | — | 2 | os dois health checks do `setup`, que a Fase 6 destravou |
+| **01** fundação e providers | 0 | 70 | — | — | — | **fechado** — os dois health checks entraram no `setup` (#168) |
 | **02** shell e árvore | 1 · 2 | 86 | — | 1 | 6 | 4 são a conferência visual; 1 é virtualização, adiada por decisão |
 | **03** editor LaTeX | 3 · 4 | 47 | — | — | — | **fechado** |
 | **04** preview e render | 5 · 6 | 150 | — | 3 | 4 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
@@ -216,7 +222,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 22 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
-| **10** operação e busca | 10 · 12 · 17 | 52 | — | 3 | 8 | diagnóstico incompleto, guarda de autorização, e 2 presos ao acervo |
+| **10** operação e busca | 10 · 12 · 17 | 56 | — | 3 | 4 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
 | — seções cruzadas | §8–§15 | 173 | — | 1 | 31 | 12 são o checklist visual; 8 são o §33 "Legado" |
@@ -335,10 +341,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **`bun run setup`** — #10 *(2ª auditoria §19, §21)*
 - ✅ **Docker disponível** — obrigatório
-- [ ] **Imagem do renderer buildável** — obrigatório *(deixou de ser impedimento: a imagem existe
-      desde a Fase 6 e o CI a constrói (#151); o `setup` é que ainda não a verifica)*
-- [ ] **Renderer inicia e `GET /health` responde** — obrigatório *(idem: o `/health` responde e a
-      página de diagnóstico o consulta; falta o `setup` fazer a checagem)*
+- ✅ **Imagem do renderer buildável** — obrigatório *(#168 — o `setup` constrói quando a imagem não
+  existe e diz que vai levar minutos, porque leva: é TeX Live inteiro. Quando já existe, não
+  reconstrói — cobrar minutos de quem só queria rodar as migrations seria pior que não checar)*
+- ✅ **Renderer inicia e `GET /health` responde** — obrigatório *(#168 — o `setup` sobe o worker e
+  espera o `/health`, com espera ativa curta em vez de `sleep` fixo. E resolve o que faltava para
+  isso funcionar num clone novo: o **mesmo** segredo em dois arquivos — o `.env` da raiz, que o
+  compose lê, e o `.env.local`, que manda o cabeçalho. Era um comentário no `.env.example`, e o
+  sintoma de errar era 401 que a app não tinha como explicar)*
 - ✅ Provider de IA alcançável — informativo
 - ✅ **TeX no host detectado, marcado como fallback opcional — nunca bloqueia** *(verificado com PATH reduzido)*
 - ✅ Cria diretórios locais e `.env.local` a partir de exemplo
@@ -1355,13 +1365,18 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ **Saúde do worker consultada via `GET /health`**
 - ✅ `rendererVersion` · `pdfLatexVersion` · `pdfToCairoVersion` · `profileCount` *(o que o
   `/health` devolver aparece; o que ele não devolver não vira linha vazia)*
-- [ ] TeX do host exibido como fallback opcional
+- ✅ TeX do host exibido como fallback opcional *(#168 — e **dito assim** no texto: quem lê
+  "pdflatex 2023" numa página de diagnóstico conclui que é ele quem compila, e vai depurar a versão
+  errada quando o PDF sair diferente. Quem compila é a imagem, que traz TeX Live 2022)*
 - ✅ Último backup: data, tamanho e resultado *(D32/D36)*
 - ✅ Provider de IA e modelo — **a chave nunca aparece, nem truncada**
 - ✅ Ollama disponível *(pelo botão "testar conexão")*
-- [ ] Tamanho do cache
-- [ ] Jobs
-- [ ] Último erro
+- ✅ Tamanho do cache *(#168 — só os artefatos derivados, e com "descartável (D29)" ao lado: o
+  número existe para responder **quanto se recupera apagando**, e somar a fonte junto diria que
+  apagar o cache liberaria patrimônio)*
+- ✅ Jobs *(#168 — total e quantos falharam)*
+- ✅ Último erro *(#168 — a primeira mensagem de **severidade `error`**, com a linha do corpo;
+  pegar o primeiro diagnóstico da lista apontaria `Overfull \hbox` como causa da falha)*
 
 **Logs**
 - ✅ Logs estruturados de render · import · agente · persistência *(uma linha JSON por evento,

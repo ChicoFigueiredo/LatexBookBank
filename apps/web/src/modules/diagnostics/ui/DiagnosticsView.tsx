@@ -120,6 +120,7 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
       <Card title="Banco" status={diagnostics.database} />
       <Card title="Storage" status={diagnostics.storage} />
       <Card title="Render" status={diagnostics.renderer} />
+      <Card title="Cache de render" status={diagnostics.renderCache} />
 
       <Card title="IA" status={diagnostics.ai}>
         {aiTest !== null && (
