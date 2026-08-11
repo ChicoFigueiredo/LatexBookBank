@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 856 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 857 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
 (20, que é do Chico). **Fora deles sobram 16 itens.**
-**Última atualização:** 2026-08-11 — **a lista de candidatas a prova** (#187): ela oferecia questões
+**Última atualização:** 2026-08-11 — **a página de diagnóstico** (#189): era a única sem `main`, e a
+confirmação do import era um `confirm()` do navegador — o único gesto do produto que o navegador
+pode desligar. O export foi conferido na tela: `demo.lbb` baixou.
+**Antes:** **a lista de candidatas a prova** (#187): ela oferecia questões
 da lixeira, e montar uma prova com elas põe no papel uma questão que a pessoa acha ter excluído. A
 tela em si está sem erro de console — o defeito estava na consulta.
 **Antes:** **a ingestão aceita imagem** (#185): a tela promete "PDF ou
@@ -233,7 +236,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1276 testes (1212 no app + 64 no renderer) + **13 de E2E, todos passando** · 93 PRs abertos, nada mergeado.
+1279 testes (1215 no app + 64 no renderer) + **13 de E2E, todos passando** · 94 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1299,7 +1302,11 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão
 - ✅ **Nada é sobrescrito em silêncio**
 - ✅ Relatório de importação *(com `dryRun=1` para ver antes de gravar)*
-- ✅ UI de importação *(com dry-run **antes** de gravar, sempre)*
+- ✅ UI de importação *(com dry-run **antes** de gravar, sempre — e desde a #189 a confirmação é um
+  `Modal`, não o `confirm()` do navegador. O nativo é o único gesto da tela que o **navegador pode
+  desligar**: marcada a caixa "impedir esta página de criar diálogos", ele devolve `false` sem
+  aparecer, e o import deixaria de acontecer em silêncio, com a tela dizendo "cancelado" sobre algo
+  que ninguém cancelou. É a mesma convenção da exclusão na árvore, pelo mesmo motivo)*
 
 **Backup recorrente** *(D32, corrigida por D36)*
 - ✅ **Backup não roda dentro do processo do renderer**
@@ -1313,6 +1320,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Destino configurável *(`BACKUP_DESTINATION`)*
 - ✅ Falha de backup fica registrada em `backup-status.json`, nunca em silêncio
 - ✅ Página de diagnóstico lendo esse arquivo
+- ✅ **A página de diagnóstico tem marca de região** *(#189 — era a única do produto sem `main`: a
+  inicial, as avaliações, a ingestão e o workbench já tinham a sua. Sem ela, quem navega por leitor
+  de tela não pula para o conteúdo — e é justamente esta a página aonde se vai quando algo não está
+  funcionando)*
 - ✅ Último backup registrado com data e tamanho
 
 **Aceite da fase**
