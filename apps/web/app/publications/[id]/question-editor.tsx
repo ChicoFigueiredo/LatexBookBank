@@ -14,6 +14,7 @@ import type { Provenance } from "@modules/assets/domain/provenance";
 import { OriginPanel } from "@modules/assets/ui/OriginPanel";
 import type { QuestionMetadata } from "@modules/questions/domain/question-metadata";
 import { MetadataPanel } from "@modules/questions/ui/MetadataPanel";
+import { ValidationPane } from "@modules/questions/ui/ValidationPane";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
 
 import { OptionsPane } from "./options-pane";
@@ -51,7 +52,7 @@ export interface QuestionEditorOption {
 }
 
 /** As três respostas para "como isto está?": aproximada, autoritativa e histórica. */
-type RightTab = "rapido" | "render" | "historico" | "origem";
+type RightTab = "rapido" | "render" | "validacao" | "historico" | "origem";
 
 /**
  * O que ocupa o centro: um campo de texto, as alternativas ou os metadados.
@@ -557,6 +558,7 @@ export function QuestionEditor({
                 tabs={[
                   { id: "rapido", label: "Preview rápido" },
                   { id: "render", label: "PDF compilado" },
+                  { id: "validacao", label: "Validação" },
                   { id: "historico", label: "Histórico" },
                   { id: "origem", label: "Origem" },
                 ]}
@@ -579,6 +581,12 @@ export function QuestionEditor({
                   onAction={(action, provenance) => {
                     if (action === "insert-figure") insertFigure(provenance);
                   }}
+                />
+              ) : rightTab === "validacao" ? (
+                <ValidationPane
+                  publicationId={publicationId}
+                  questionId={questionId}
+                  disabled={blocked}
                 />
               ) : rightTab === "historico" ? (
                 <HistoryPanel
