@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 851 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 852 ✅ · 5 ◐ · 14 ⛔ · 126 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
 (20, que é do Chico). **Fora deles sobram 16 itens.**
-**Última atualização:** 2026-08-11 — **os atalhos, medidos** (#179). O caminho do agente passou
+**Última atualização:** 2026-08-11 — **a busca deixou de mostrar beco sem saída** (#181): ela não
+filtrava o nó, e devolvia questão da lixeira e questão órfã — a mesma questão aparecia seis vezes na
+paleta. Achado exercitando o `Ctrl+K` que a #179 destravou.
+**Antes:** **os atalhos, medidos** (#179). O caminho do agente passou
 limpo pela sonda de escopo (revisão de outra questão, questão inexistente e campo fora da whitelist
 são todos recusados), então a iteração foi para o item aberto desde a Fase 2. A árvore não conflita
 — seus atalhos vivem na linha. O conflito real era o oposto do esperado: o Monaco engolia o
@@ -220,7 +223,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1262 testes (1198 no app + 64 no renderer) + **12 de E2E, todos passando** · 89 PRs abertos, nada mergeado.
+1268 testes (1204 no app + 64 no renderer) + **12 de E2E, todos passando** · 90 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -248,7 +251,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 24 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
-| **10** operação e busca | 10 · 12 · 17 | 57 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
+| **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
 | — seções cruzadas | §8–§15 | 173 | — | 1 | 31 | 12 são o checklist visual; 8 são o §33 "Legado" |
@@ -1220,7 +1223,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Filtro por ano
 - ✅ Filtro por tipo
 - ✅ Filtro por dificuldade
-- ✅ Integração com `Ctrl+K` *(busca no servidor a partir de três letras)*
+- ✅ Integração com `Ctrl+K` *(busca no servidor a partir de três letras — conferido no navegador
+  na #181, junto com o limiar: com duas letras só os nós da árvore aparecem)*
+- ✅ **A busca só mostra o que existe em alguma tela** *(#181 — ela não filtrava o nó, e devolvia
+  questão de nó **excluído** (a árvore a esconde por `deletedAt`) e questão **órfã**, sem nó
+  nenhum. A órfã é o caso grave: `Question` só alcança workspace pelo nó, então sem nó ela não tem
+  dono — não é exportada, não é escopada pelo guarda da #175, não aparece em tela alguma. Na
+  paleta, a mesma questão aparecia seis vezes. O que fazer com o conteúdo órfão continua sendo
+  decisão do Chico; aqui se decidiu só o que a busca mostra)*
 - ✅ Avaliação do FTS5 do SQLite
 - ⛔ Benchmark sobre o **acervo importado** — o acervo não está nesta máquina. Rodou sobre corpus
   sintético de 20 mil e 200 mil questões (670× o acervo real), que é o que responde a pergunta

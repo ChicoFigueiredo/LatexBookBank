@@ -1,6 +1,8 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+
+import { buildWhere } from "./prisma-question-search-where";
 import { isQuestionType, isDifficulty } from "@modules/questions/domain/question-type";
 import type {
   QuestionSearchService,
@@ -65,36 +67,6 @@ export class PrismaQuestionSearch implements QuestionSearchService {
       hasMore,
     };
   }
-}
-
-function buildWhere(query: SearchQuery): Record<string, unknown> {
-  const and: Record<string, unknown>[] = [];
-
-  if (query.text !== "") {
-    // Título, apelido e enunciado na mesma busca: quem procura "juros" não sabe nem se lembra em
-    // qual campo a palavra está, e obrigá-lo a escolher transformaria uma busca em três.
-    and.push({
-      OR: [
-        { nickname: { contains: query.text } },
-        { statementLatex: { contains: query.text } },
-        { node: { title: { contains: query.text } } },
-      ],
-    });
-  }
-
-  // Tags em `E`: cada uma vira uma condição própria. Um `in` faria `OU`, e "juros **e** simples"
-  // é o que alguém quer dizer ao marcar duas tags (mesma regra do filtro da árvore).
-  for (const tag of query.tags) {
-    and.push({ tags: { some: { tag: { name: tag } } } });
-  }
-
-  if (query.boards.length > 0) and.push({ board: { in: [...query.boards] } });
-  if (query.institutions.length > 0) and.push({ institution: { in: [...query.institutions] } });
-  if (query.years.length > 0) and.push({ year: { in: [...query.years] } });
-  if (query.types.length > 0) and.push({ type: { in: [...query.types] } });
-  if (query.difficulties.length > 0) and.push({ difficulty: { in: [...query.difficulties] } });
-
-  return and.length > 0 ? { AND: and } : {};
 }
 
 function toHit(row: {
