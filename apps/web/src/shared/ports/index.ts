@@ -27,7 +27,6 @@
  * ```
  */
 
-export type { TransactionRunner } from "./repository";
 export { ConcurrencyConflictError } from "./repository";
 
 export type {

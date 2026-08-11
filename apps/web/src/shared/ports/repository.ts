@@ -43,14 +43,3 @@ export class ConcurrencyConflictError extends Error {
     this.name = "ConcurrencyConflictError";
   }
 }
-
-/**
- * Executa um bloco dentro de uma transação.
- *
- * Existe porque o fluxo agêntico exige atomicidade real: criar a revisão anterior e aplicar o
- * patch precisam acontecer juntos ou não acontecer (spec §24, §14.6). Sem isso, uma falha no
- * meio deixaria conteúdo alterado sem revisão para reverter.
- */
-export interface TransactionRunner {
-  run<T>(work: () => Promise<T>): Promise<T>;
-}
