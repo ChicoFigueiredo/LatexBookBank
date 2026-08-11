@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { abrirQuestao } from "./acervo";
+
 /**
  * **Os atalhos não brigam com o Monaco** (§34, aberto desde a Fase 2).
  *
@@ -13,24 +15,6 @@ import { expect, test, type Page } from "@playwright/test";
  * Ver spec §34 · §42 · issue #179.
  */
 
-async function abrirQuestao(page: Page): Promise<void> {
-  await page.goto("/");
-  const link = page.locator('a[href^="/publications/"]').first();
-  await expect(link).toBeVisible();
-  await link.click();
-
-  const questao = page.getByRole("treeitem").filter({ hasText: /Quest/i }).first();
-  await page.getByRole("tree").getByRole("button").first().click();
-
-  for (let passo = 0; passo < 20 && (await questao.count()) === 0; passo += 1) {
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowDown");
-  }
-  await expect(questao).toHaveCount(1, { timeout: 5_000 });
-  await questao.click();
-
-  await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
-}
 
 const focarEditor = async (page: Page) => {
   await page

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { acharQuestao } from "./acervo";
+
 /**
  * A metade agêntica da §27: abrir agente → pedir correção → revisar diff → aplicar.
  *
@@ -14,26 +16,15 @@ import { expect, test, type Page } from "@playwright/test";
  * Ver spec §27 · §14.6 · issue #155.
  */
 
-async function primeiraPublicacao(page: Page): Promise<string> {
-  await page.goto("/");
-  const link = page.locator('a[href^="/publications/"]').first();
-  await expect(link).toBeVisible();
-
-  return ((await link.getAttribute("href")) ?? "").split("/").pop() ?? "";
-}
-
-async function abrirPrimeiraQuestao(page: Page): Promise<void> {
-  const questao = page.getByRole("treeitem").filter({ hasText: /Quest/i }).first();
-  await page.getByRole("tree").getByRole("button").first().click();
-
-  for (let passo = 0; passo < 20 && (await questao.count()) === 0; passo += 1) {
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowDown");
-  }
-
-  await expect(questao).toHaveCount(1, { timeout: 5_000 });
-  await questao.click();
-}
+/**
+ * A publicação e o nó, resolvidos pela API.
+ *
+ * Antes: o primeiro link da Home e vinte setas até um `treeitem` com "Quest" no rótulo. As duas
+ * heurísticas quebraram quando a Home passou a listar bibliotecas e a questão passou a se chamar
+ * pelo enunciado.
+ */
+const primeiraPublicacao = async (page: Page): Promise<string> =>
+  (await acharQuestao(page)).publicationId;
 
 /**
  * A resposta que o agente daria — sem o agente.
@@ -42,6 +33,13 @@ async function abrirPrimeiraQuestao(page: Page): Promise<void> {
  * que o domínio valida antes de gravar. Um dublê que devolvesse lixo passaria pela tela e seria
  * recusado na rota — o que também é um resultado, mas não o que este teste quer ver.
  */
+/** Seleciona a questão da publicação já aberta, pelo `?node=`. */
+async function selecionarQuestao(page: Page): Promise<void> {
+  const { publicationId, nodeId } = await acharQuestao(page);
+  await page.goto(`/publications/${publicationId}?node=${nodeId}`);
+  await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
+}
+
 const propostaFake = (texto: string) => ({
   answer: "Achei um espaço a mais no enunciado.",
   toolCalls: [],
@@ -82,7 +80,7 @@ test.describe("o caminho do agente", () => {
   test("propor, revisar e **aplicar** — o gesto humano no meio", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
     await page.goto(`/publications/${publicationId}`);
-    await abrirPrimeiraQuestao(page);
+    await selecionarQuestao(page);
 
     const marca = `e2e-agente-${Date.now()}`;
 
@@ -160,7 +158,7 @@ test.describe("o caminho do agente", () => {
     // `planApply` recusa lista vazia no domínio; aqui se afirma que a tela não oferece o gesto.
     const publicationId = await primeiraPublicacao(page);
     await page.goto(`/publications/${publicationId}`);
-    await abrirPrimeiraQuestao(page);
+    await selecionarQuestao(page);
 
     await page.route("**/api/agents/ask", async (route) => {
       await route.fulfill({ json: propostaFake("nunca aplicado") });
@@ -186,7 +184,7 @@ test.describe("o caminho do agente", () => {
 
     await page.route("**/api/ai/**", (route) => route.fulfill({ status: 503, json: {} }));
     await page.goto(`/publications/${publicationId}`);
-    await abrirPrimeiraQuestao(page);
+    await selecionarQuestao(page);
 
     const botao = page.getByRole("button", { name: /Agente/ }).first();
     await expect(botao).toBeVisible();

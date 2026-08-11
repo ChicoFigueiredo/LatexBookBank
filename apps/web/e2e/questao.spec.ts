@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { abrirPrimeiraQuestao, acharQuestao } from "./acervo";
+
 /**
  * O caminho da §27, num navegador de verdade.
  *
@@ -10,60 +12,21 @@ import { expect, test, type Page } from "@playwright/test";
  * clicar numa questão deixa o editor pronto para receber texto, que o texto digitado dispara o
  * autosave de verdade, e que o render usa o que acabou de ser salvo.
  *
+ * A publicação vem de `publicacaoComQuestao` e não da primeira da Home: com a Home real, e com os
+ * livros que o próprio E2E do Beta cria, "a primeira" é quase sempre um livro vazio — e a espera
+ * por uma questão estourava o timeout dizendo outra coisa.
+ *
  * Ver spec §27 · issue #155.
  */
+const primeiraPublicacao = async (page: Page): Promise<string> => {
+  const { publicationId, nodeId } = await acharQuestao(page);
+  // O `?node=` fica guardado no closure para os `goto` do próprio spec, que montam a URL à mão.
+  alvo = nodeId;
+  return publicationId;
+};
 
-/** A publicação de demonstração. Descoberta pela API, e não fixa: id fixo quebra a cada seed. */
-async function primeiraPublicacao(page: Page): Promise<string> {
-  const response = await page.request.get("/api/workspaces");
-  const { workspaces } = (await response.json()) as { workspaces: { slug: string }[] };
-  const slug = workspaces[0]?.slug;
-  expect(slug, "nenhum workspace no banco — rode `bun run db:seed`").toBeTruthy();
-
-  const tree = await page.request.get(`/api/publications?workspace=${slug}`);
-  if (tree.ok()) {
-    const { publications } = (await tree.json()) as { publications?: { id: string }[] };
-    const id = publications?.[0]?.id;
-    if (id !== undefined) return id;
-  }
-
-  // Sem rota de listagem por slug, a página inicial linka as publicações — e é por ela que uma
-  // pessoa chegaria também.
-  await page.goto("/");
-  const link = page.locator('a[href^="/publications/"]').first();
-  await expect(link).toBeVisible();
-
-  const href = await link.getAttribute("href");
-  return (href ?? "").split("/").pop() ?? "";
-}
-
-/**
- * Chega até a primeira questão pelo **teclado**.
- *
- * A árvore nasce com os capítulos abertos e as seções fechadas, e o único gesto de mouse para
- * expandir é um caret com `role="presentation"` — invisível para um seletor por papel, de
- * propósito: ele não é um controle próprio, é parte da linha.
- *
- * Navegar por teclado é melhor aqui do que caçar o pixel do caret: é o que a spec §4.1 promete
- * (`ArrowRight` expande, `ArrowDown` desce), e passar por ele significa que a promessa vale.
- */
-async function abrirPrimeiraQuestao(page: Page): Promise<void> {
-  const questao = page.getByRole("treeitem").filter({ hasText: /Quest/i }).first();
-
-  await page.getByRole("tree").getByRole("button").first().click();
-
-  // Vinte passos cobrem a maior publicação do acervo com folga. O laço termina no primeiro
-  // `Questão` visível — e falha ruidosamente se a navegação por teclado parar de funcionar.
-  for (let passo = 0; passo < 20 && (await questao.count()) === 0; passo += 1) {
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowDown");
-  }
-
-  await expect(questao, "não cheguei a nenhuma questão pelo teclado").toHaveCount(1, {
-    timeout: 5_000,
-  });
-  await questao.click();
-}
+/** O nó da questão da rodada. Preenchido por `primeiraPublicacao`. */
+let alvo = "";
 
 test.describe("o caminho da questão", () => {
   test("abrir, selecionar, editar, salvar e renderizar", async ({ page }) => {
@@ -71,7 +34,7 @@ test.describe("o caminho da questão", () => {
     expect(publicationId).not.toBe("");
 
     // ── abrir publicação ────────────────────────────────────────────────
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}?node=${alvo}`);
     const arvore = page.getByRole("tree");
     await expect(arvore).toBeVisible();
 
@@ -144,7 +107,7 @@ test.describe("o caminho da questão", () => {
   test("render compila e o resultado aparece na tela", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
     await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
 
@@ -213,7 +176,7 @@ test.describe("o caminho da questão", () => {
     // porque lá não existe um editor para travar.
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     // O render fica pendurado de propósito: se a edição depende dele, é agora que trava.
@@ -245,7 +208,7 @@ test.describe("o caminho da questão", () => {
   test("o preview rápido aparece sem passar pelo servidor", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     // O aviso é permanente e é parte do contrato com quem lê: preview rápido **pode** diferir.
@@ -270,7 +233,7 @@ test.describe("o caminho da questão", () => {
     page.on("pageerror", (error) => erros.push(String(error)));
 
     const publicationId = await primeiraPublicacao(page);
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     const editor = page.getByRole("group", { name: /Editor LaTeX/ });

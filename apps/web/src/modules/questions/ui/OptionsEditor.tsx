@@ -29,6 +29,15 @@ export interface OptionsEditorProps {
   readonly onMove: (optionId: string, targetIndex: number) => void;
   readonly onSetCorrect: (optionId: string) => void;
   readonly onEdit: (optionId: string, statementLatex: string) => void;
+  /**
+   * `true` quando o tipo aceita **uma** correta.
+   *
+   * Muda a semântica do controle, não só a aparência: escolha simples é rádio — marcar uma
+   * desmarca a outra —, e múltipla escolha é caixa, que alterna sozinha. O design §9 pede a
+   * diferença inequívoca, e "não usar exatamente a mesma UI trocando apenas o título" começa aqui,
+   * no papel que o leitor de tela anuncia.
+   */
+  readonly exclusive?: boolean;
   readonly disabled?: boolean;
 }
 
@@ -39,6 +48,7 @@ export function OptionsEditor({
   onMove,
   onSetCorrect,
   onEdit,
+  exclusive = true,
   disabled = false,
 }: OptionsEditorProps) {
   const ordered = useMemo(() => sortOptions(options), [options]);
@@ -139,9 +149,10 @@ export function OptionsEditor({
                 type="button"
                 onClick={() => onSetCorrect(option.id)}
                 disabled={disabled}
-                // `radio` e não `checkbox`: em múltipla escolha marcar uma desmarca a outra, e é
-                // o leitor de tela que precisa saber disso — não só a cor da borda.
-                role="radio"
+                // O papel segue o tipo: `radio` quando só uma pode estar correta — marcar uma
+                // desmarca a outra —, `checkbox` quando várias podem. É o leitor de tela que
+                // precisa saber disso, não só a cor da borda.
+                role={exclusive ? "radio" : "checkbox"}
                 aria-checked={option.isCorrect}
                 aria-label={`Marcar ${optionLabelAt(index)} como correta`}
                 style={{

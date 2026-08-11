@@ -16,6 +16,7 @@ import type { QuestionMetadata } from "@modules/questions/domain/question-metada
 import { MetadataPanel } from "@modules/questions/ui/MetadataPanel";
 import { ValidationPane } from "@modules/questions/ui/ValidationPane";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
+import type { QuestionType } from "@modules/questions/domain/question-type";
 
 import { OptionsPane } from "./options-pane";
 import { TagsPane } from "./tags-pane";
@@ -67,6 +68,16 @@ const EXTRA_PANES = [
   { id: "tags", label: "Tags" },
 ] as const;
 
+/**
+ * A discursiva **não** mostra aba de alternativas.
+ *
+ * Não é que estejam faltando — é que não existem (design §10). Uma aba que abre numa lista vazia
+ * com um botão "Adicionar" convida a criar alternativa em questão que não tem, e o resultado é o
+ * aviso `discursive_has_options` que a validação teria de explicar depois.
+ */
+const panesFor = (type: QuestionType) =>
+  type === "DISCURSIVE" ? EXTRA_PANES.filter((entry) => entry.id !== "options") : EXTRA_PANES;
+
 type Pane = QuestionFieldId | (typeof EXTRA_PANES)[number]["id"];
 
 const isField = (pane: Pane): pane is QuestionFieldId =>
@@ -77,6 +88,8 @@ export interface QuestionEditorProps {
   /** O workspace dono. A tag é por workspace, e o autocomplete precisa saber de qual. */
   readonly workspaceId: string;
   readonly questionId: string;
+  /** O tipo da questão. Decide se o gabarito é exclusivo e se há aba de alternativas. */
+  readonly questionType: QuestionType;
   readonly initial: Readonly<Record<QuestionFieldId, string>>;
   readonly initialVersion: string;
   readonly options?: readonly QuestionEditorOption[];
@@ -100,6 +113,7 @@ export function QuestionEditor({
   publicationId,
   workspaceId,
   questionId,
+  questionType,
   initial,
   initialVersion,
   options = [],
@@ -432,7 +446,7 @@ export function QuestionEditor({
         <Tabs
           tabs={[
             ...QUESTION_FIELDS.map((f) => ({ id: f.id, label: f.label })),
-            ...EXTRA_PANES.map((entry) => ({ id: entry.id, label: entry.label })),
+            ...panesFor(questionType).map((entry) => ({ id: entry.id, label: entry.label })),
           ]}
           value={pane}
           onChange={(id) => {
@@ -501,7 +515,12 @@ export function QuestionEditor({
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           {pane === "options" ? (
-            <OptionsPane publicationId={publicationId} questionId={questionId} disabled={blocked} />
+            <OptionsPane
+              publicationId={publicationId}
+              questionId={questionId}
+              exclusive={questionType !== "MULTIPLE_CORRECT"}
+              disabled={blocked}
+            />
           ) : pane === "tags" ? (
             <TagsPane questionId={questionId} workspaceId={workspaceId} disabled={blocked} />
           ) : pane === "metadata" ? (

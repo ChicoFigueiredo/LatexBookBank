@@ -903,7 +903,16 @@ export function PublicationWorkbench({
           </span>
         </>
       }
-      statusRight={<span>Fase 1 · shell</span>}
+      /**
+       * O que está selecionado, não em que fase o projeto está.
+       *
+       * Dizia "Fase 1 · shell" — número de fase do planejamento, na barra de status, desde a
+       * primeira versão desta tela. É a mesma coisa que a #197 tirou dos estados vazios: quem usa
+       * o produto não tem como saber o que é a Fase 1, e a informação nunca foi para ele.
+       */
+      statusRight={
+        <span>{selected ? `${selected.kind.toLowerCase()} · ${selected.title}` : "nada selecionado"}</span>
+      }
     >
       <>
         {editing.error && (
@@ -1011,6 +1020,7 @@ function NodeDetail({
                 workspaceId={workspaceId}
                 onDirtyChange={onDirtyChange}
                 questionId={node.question.id}
+                questionType={node.question.type}
                 initialVersion={node.question.version}
                 initial={{
                   statementLatex: node.question.statementLatex,

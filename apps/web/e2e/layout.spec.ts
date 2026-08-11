@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { abrirQuestao } from "./acervo";
+
 /**
  * **O que do checklist visual é medida, e não gosto** (§34 · issue #197).
  *
@@ -20,20 +22,6 @@ import { expect, test, type Page } from "@playwright/test";
 const MINIMA = { width: 1366, height: 768 };
 const CONFORTAVEL = { width: 1920, height: 1080 };
 
-async function abrirQuestao(page: Page): Promise<void> {
-  await page.goto("/");
-  await page.locator('a[href^="/publications/"]').first().click();
-
-  const questao = page.getByRole("treeitem").filter({ hasText: /Quest/i }).first();
-  await page.getByRole("tree").getByRole("button").first().click();
-
-  for (let i = 0; i < 20 && (await questao.count()) === 0; i += 1) {
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowDown");
-  }
-  await questao.click();
-  await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
-}
 
 /** `true` quando a janela ganhou uma barra de rolagem horizontal que ninguém pediu. */
 const transborda = (page: Page) =>

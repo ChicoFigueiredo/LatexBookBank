@@ -130,6 +130,45 @@ describe("Tree — teclado ARIA", () => {
   });
 });
 
+describe("Tree — o selecionado aparece", () => {
+  it("abre o caminho até o nó selecionado, mesmo com o ramo fechado", () => {
+    // O caso que motiva: criar uma questão dentro de um grupo recém-criado. O grupo não estava
+    // nos expandidos — ele acabou de nascer —, e a questão nascia selecionada e **invisível**:
+    // o editor abria com ela, o cabeçalho a nomeava, e a árvore não mostrava linha nenhuma.
+    render(<Tree nodes={NODES} selected="sec-2" />);
+
+    expect(screen.getByText("Seção 1.2")).toBeTruthy();
+    expect(itemOf("cap-1").getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("**não** grava essa abertura", () => {
+    // Fosse gravada, a árvore voltaria aberta amanhã por causa de um nó que a pessoa nem lembra
+    // de ter visitado. O que fica guardado é o que ela abriu com o gesto dela.
+    const onExpandedChange = vi.fn();
+    render(<Tree nodes={NODES} selected="sec-2" storageKey="lbb:tree:teste" onExpandedChange={onExpandedChange} />);
+
+    expect(onExpandedChange).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("lbb:tree:teste")).toBeNull();
+  });
+
+  it("fechar o ramo aberto pela seleção **fecha**, não reabre", () => {
+    render(<Tree nodes={NODES} selected="sec-2" />);
+
+    // O caret do capítulo. Aberto por causa da seleção; clicar nele é o gesto de fechar, e o
+    // resultado precisa ser fechado — senão o clique parece não fazer nada.
+    const caret = itemOf("cap-1").querySelector("[data-open]") as HTMLElement;
+    fireEvent.click(caret);
+
+    expect(itemOf("cap-1").getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("Seção 1.2")).toBeNull();
+  });
+
+  it("nó de raiz selecionado não muda nada", () => {
+    render(<Tree nodes={NODES} selected="cap-2" />);
+    expect(itemOf("cap-1").getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
 describe("Tree — persistência", () => {
   it("grava expandidos e selecionado sob a chave informada", () => {
     render(<Tree nodes={NODES} storageKey="lbb:tree:teste" />);

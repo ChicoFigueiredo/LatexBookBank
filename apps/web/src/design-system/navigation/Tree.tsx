@@ -63,6 +63,29 @@ interface PersistedTreeState {
   readonly selected?: string | undefined;
 }
 
+/**
+ * Os ancestrais de um nó, da raiz até o pai.
+ *
+ * Vazio quando o nó é raiz ou não está na árvore — os dois casos não pedem expansão nenhuma.
+ */
+function ancestorsOf(
+  nodes: readonly TreeNode[],
+  target: string,
+  path: readonly string[] = [],
+): readonly string[] {
+  for (const node of nodes) {
+    if (node.id === target) return path;
+
+    if (node.children?.length) {
+      // Achar sempre devolve pelo menos `[...path, node.id]` — o próprio pai. Uma lista vazia aqui
+      // significa "não está neste ramo", e a busca continua nos irmãos.
+      const found = ancestorsOf(node.children, target, [...path, node.id]);
+      if (found.length > 0) return found;
+    }
+  }
+  return [];
+}
+
 function readPersisted(storageKey: string | null): readonly string[] | null {
   if (!storageKey || typeof window === "undefined") return null;
   try {
@@ -223,7 +246,46 @@ export function Tree({
   const rows = useRef(new Map<string, HTMLButtonElement>());
   const [focusId, setFocusId] = useState<string | null>(null);
 
-  const visible = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
+  /**
+   * Ramos que a pessoa fechou **apesar** de conterem o selecionado.
+   *
+   * Sem isto, revelar o caminho do selecionado tornava impossível fechá-lo: o clique no caret
+   * gravava "fechado" e a revelação reabria no mesmo render — na tela, um caret que não faz nada.
+   * Selecionar outro nó zera a lista, porque a decisão era sobre aquela seleção.
+   */
+  const [collapsedAnyway, setCollapsedAnyway] = useState<readonly string[]>([]);
+  const [lastSelected, setLastSelected] = useState(selected);
+
+  // Ajuste de estado no render, e não num efeito: é o padrão que o React documenta para "derivar
+  // estado de uma prop que mudou", e evita a renderização em cascata que um efeito daria aqui.
+  if (selected !== lastSelected) {
+    setLastSelected(selected);
+    setCollapsedAnyway([]);
+  }
+
+  /**
+   * O caminho até o nó selecionado, sempre aberto.
+   *
+   * O caso que motiva: criar uma questão dentro de um grupo recém-criado. O grupo não estava na
+   * lista de expandidos — ele acabou de nascer —, então a questão nascia selecionada e
+   * **invisível**: o editor abria com ela, o cabeçalho a nomeava, e a árvore não mostrava linha
+   * nenhuma. Vale igual para a busca global, que seleciona um nó em qualquer profundidade.
+   *
+   * Derivado no render, e não num efeito que chama `setExpanded`: um efeito daria uma renderização
+   * em cascata e, pior, **gravaria** essa abertura no `localStorage` — a árvore voltaria aberta
+   * amanhã por causa de um nó que a pessoa nem lembra de ter visitado. Aqui a abertura dura
+   * enquanto a seleção durar; o que a pessoa abre com o mouse continua sendo o que fica guardado.
+   */
+  const revealed = useMemo(() => {
+    if (selected === undefined) return expanded;
+
+    const path = ancestorsOf(nodes, selected).filter(
+      (id) => !expanded.includes(id) && !collapsedAnyway.includes(id),
+    );
+    return path.length === 0 ? expanded : [...expanded, ...path];
+  }, [collapsedAnyway, expanded, nodes, selected]);
+
+  const visible = useMemo(() => flatten(nodes, revealed), [nodes, revealed]);
 
   const persist = useCallback(
     (nextExpanded: readonly string[], nextSelected: string | undefined) => {
@@ -244,13 +306,23 @@ export function Tree({
   const toggle = useCallback(
     (node: TreeNode) => {
       if (!node.children?.length) return;
+      const fechando = revealed.includes(node.id);
+
+      // Um ramo aberto **porque** contém o selecionado precisa fechar ao clique, e não reabrir no
+      // render seguinte. O que entra no guardado é o resultado do gesto.
       setExpanded(
-        expanded.includes(node.id)
-          ? expanded.filter((id) => id !== node.id)
-          : [...expanded, node.id],
+        fechando ? revealed.filter((id) => id !== node.id) : [...revealed, node.id],
+      );
+
+      setCollapsedAnyway((current) =>
+        fechando
+          ? current.includes(node.id)
+            ? current
+            : [...current, node.id]
+          : current.filter((id) => id !== node.id),
       );
     },
-    [expanded, setExpanded],
+    [revealed, setExpanded],
   );
 
   const focusRow = useCallback((id: string) => {
@@ -291,7 +363,7 @@ export function Tree({
     node: TreeNode,
     index: number,
   ) => {
-    const isOpen = expanded.includes(node.id);
+    const isOpen = revealed.includes(node.id);
     const hasChildren = (node.children?.length ?? 0) > 0;
 
     switch (event.key) {
@@ -401,7 +473,7 @@ export function Tree({
   const renderLevel = (list: readonly TreeNode[], depth: number): ReactNode =>
     list.map((node) => {
       const hasChildren = (node.children?.length ?? 0) > 0;
-      const isOpen = expanded.includes(node.id);
+      const isOpen = revealed.includes(node.id);
       const index = visible.findIndex((v) => v.node.id === node.id);
       if (index === -1) return null;
 

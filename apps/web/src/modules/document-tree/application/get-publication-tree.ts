@@ -3,7 +3,7 @@ import type {
   DocumentTreeRepository,
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
-import { optionLabelAt } from "@modules/questions/domain/question-type";
+import { isQuestionType, optionLabelAt, type QuestionType } from "@modules/questions/domain/question-type";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import {
   hasProblem,
@@ -30,7 +30,14 @@ export interface OptionDto {
 
 export interface QuestionDto {
   readonly id: string;
-  readonly type: string;
+  /**
+   * O vocabulário fechado, não `string`.
+   *
+   * O adaptador já valida (`isQuestionType` na leitura de validação), e a tela precisa do tipo
+   * para decidir se o gabarito é exclusivo e se há aba de alternativas. Declarar `string` obrigava
+   * a tela a fazer o cast — e um cast é onde um tipo novo passa sem ninguém notar.
+   */
+  readonly type: QuestionType;
   /**
    * Token de concorrência otimista, não um timestamp de auditoria.
    *
@@ -164,7 +171,11 @@ const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
     question: node.question
       ? {
           id: node.question.id,
-          type: node.question.type,
+          // Tipo fora do vocabulário vira discursiva **na apresentação**: a questão continua no
+          // acervo com o tipo que tem, e a tela mostra a forma mais simples em vez de quebrar a
+          // árvore inteira. Quem trata o caso de verdade é a validação, que responde
+          // "não sei avaliar" em vez de "está errado".
+          type: isQuestionType(node.question.type) ? node.question.type : "DISCURSIVE",
           version: node.question.updatedAt.toISOString(),
           statementLatex: node.question.statementLatex,
           solutionLatex: node.question.solutionLatex,
