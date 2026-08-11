@@ -22,11 +22,20 @@ export interface CreateAssetInput extends StoredAssetRecord {
 }
 
 export async function createAsset(input: CreateAssetInput): Promise<{ id: string }> {
-  // O mesmo conteúdo já subido devolve o asset existente. A `storageKey` é `@unique` e contém o
-  // hash — insistir em criar daria erro de constraint por uma situação que é o caso comum:
-  // a mesma figura usada em duas questões.
-  const existing = await prisma.asset.findUnique({
-    where: { storageKey: input.storageKey },
+  // O mesmo conteúdo já subido devolve o asset existente: a `storageKey` contém o hash, então
+  // chave igual é conteúdo igual, e a mesma figura em duas questões é o caso comum.
+  //
+  // `findFirst` e não `findUnique` desde a #156: a coluna deixou de ser `@unique`, porque a mesma
+  // chave pode ser referenciada por dois renders. **A dedup de fonte é esta linha** — antes ela
+  // tinha a constraint atrás como rede, e agora é o único guarda. Por isso ela vem antes de
+  // qualquer criação, e não como tratamento de erro.
+  //
+  // `renderJobId: null` é o que impede o pior desfecho possível: reaproveitar a linha de um
+  // **artefato de render** para um arquivo que a pessoa subiu. Ela é `onDelete: Cascade` do job,
+  // e descartar o job — que a D29 diz ser sempre permitido — levaria junto a fonte de alguém.
+  // Derivado é descartável; a fonte é patrimônio, e as duas coisas não podem dividir uma linha.
+  const existing = await prisma.asset.findFirst({
+    where: { storageKey: input.storageKey, renderJobId: null },
     select: { id: true },
   });
   if (existing) return existing;

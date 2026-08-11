@@ -87,7 +87,9 @@ test.describe("o caminho da questão", () => {
     // de IME, `aria-hidden` e coberta pelo conteúdo — clicar nela dá "outro elemento intercepta
     // o ponteiro". Clicar na linha é o que uma pessoa faz, e é o que põe o cursor onde ela quer.
     await editor.locator(".monaco-editor .view-lines").click();
-    await page.keyboard.press("End");
+    // `Control+End` e não `End`: o clique cai onde o ponteiro estiver, e `End` iria ao fim
+    // **daquela** linha — num enunciado de várias linhas isso escreveria no meio do texto.
+    await page.keyboard.press("Control+End");
 
     // Sem espaço dentro da marca: `toContainText` normaliza espaços, e o Monaco reescreve alguns
     // ao digitar — a comparação falharia por um espaço, não pelo que o teste quer afirmar.
@@ -113,7 +115,9 @@ test.describe("o caminho da questão", () => {
     // encontraria a questão crescida pela anterior, e em dez execuções o enunciado seria uma
     // fileira de marcas de teste.
     await recarregado.locator(".monaco-editor .view-lines").click();
-    await page.keyboard.press("End");
+    // `Control+End`: o clique cai onde o ponteiro estiver, e `End` iria ao fim **daquela** linha.
+    // Num enunciado de várias linhas os backspaces comeriam o texto de alguém — aconteceu.
+    await page.keyboard.press("Control+End");
     // +1 pelo espaço que separou a marca do enunciado.
     for (let i = 0; i < marca.length + 1; i += 1) await page.keyboard.press("Backspace");
 
@@ -122,17 +126,17 @@ test.describe("o caminho da questão", () => {
   });
 
   /**
-   * Bloqueado pela issue #156, e é o **E2E que a achou**.
+   * O teste que achou a #156 — e que agora a afirma corrigida.
    *
    * Compilar uma questão cujo fonte mudou mas cuja **saída é idêntica** — acrescentar um
-   * comentário LaTeX basta — cria um job novo apontando para bytes que já existem, e
-   * `Asset.storageKey @unique` derruba a gravação com 500. A tela diz "Falha ao compilar", que é
-   * mentira: a compilação deu certo.
+   * comentário LaTeX basta — cria um job novo apontando para bytes que já existem. Com
+   * `Asset.storageKey @unique`, a gravação caía com 500 e a tela dizia "Falha ao compilar", que
+   * era mentira: a compilação tinha dado certo.
    *
-   * Fica `fixme` e não removido: um teste apagado leva o achado junto. A correção é de schema e
-   * está descrita na issue.
+   * Ficou `fixme` por uma sessão inteira em vez de ser apagado, porque um teste removido leva o
+   * achado junto.
    */
-  test.fixme("render compila e o resultado aparece na tela", async ({ page }) => {
+  test("render compila e o resultado aparece na tela", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
     await page.goto(`/publications/${publicationId}`);
@@ -154,6 +158,48 @@ test.describe("o caminho da questão", () => {
     const indisponivel = page.getByText(/worker.*(não respondeu|fora do ar)|não configurado/i);
 
     await expect(pronto.or(indisponivel)).toBeVisible({ timeout: 45_000 });
+
+    // ── e agora a #156, que é o motivo de este teste existir ────────────
+    // Um comentário LaTeX numa linha só: o fonte muda (o cache não pega, um job novo nasce) e o
+    // PDF sai **byte a byte igual**, porque comentário não vira tinta. Era aqui que a segunda
+    // compilação batia em `Asset.storageKey @unique` e devolvia 500.
+    const editor = page.getByRole("group", { name: /Editor LaTeX/ });
+    await editor.locator(".monaco-editor .view-lines").click();
+    // `Control+End` e não `End`: o clique cai onde o ponteiro estiver, e `End` iria só ao fim
+    // **daquela** linha. Numa questão de várias linhas isso escreveria no meio do enunciado — e
+    // foi exatamente o que a primeira versão deste teste fez com o acervo de demonstração.
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("%e2e-comentario");
+
+    await expect(page.getByText("salvo", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("tab", { name: "PDF compilado" }).click();
+    await page
+      .getByRole("button", { name: /Compilar/i })
+      .first()
+      .click();
+
+    await expect(pronto.or(indisponivel)).toBeVisible({ timeout: 45_000 });
+    // A afirmação que importa: **nunca** "Falha ao compilar". É o texto que a tela mostrava para
+    // uma compilação bem-sucedida, e é a mentira que a #156 corrigiu.
+    await expect(page.getByText("Falha ao compilar")).toHaveCount(0);
+
+    // E desfaz, para não deixar resíduo no acervo de demonstração.
+    //
+    // Selecionar a linha inteira em vez de contar backspaces: contar depende de o cursor estar
+    // onde se imagina, e quando não está o teste apaga o enunciado de alguém. Aqui a seleção é
+    // `Control+End` → `Shift+Home` (a última linha inteira), e o `Backspace` final leva a quebra
+    // de linha que a criou.
+    const atual = page.getByRole("group", { name: /Editor LaTeX/ });
+    await atual.locator(".monaco-editor .view-lines").click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Shift+Home");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.press("Backspace");
+
+    await expect(page.getByText("salvo", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(atual).not.toContainText("e2e-comentario");
   });
 
   test("dá para continuar digitando enquanto o render roda", async ({ page }) => {
@@ -179,7 +225,7 @@ test.describe("o caminho da questão", () => {
 
     const editor = page.getByRole("group", { name: /Editor LaTeX/ });
     await editor.locator(".monaco-editor .view-lines").click();
-    await page.keyboard.press("End");
+    await page.keyboard.press("Control+End");
     await page.keyboard.type(" x");
 
     // Digitou **enquanto** a compilação estava em curso.

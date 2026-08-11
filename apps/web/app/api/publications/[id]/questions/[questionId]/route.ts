@@ -149,7 +149,7 @@ export async function PATCH(
     // reavaliar a cada pausa da digitação seria custo por questão que não mudou. Falha aqui não
     // derruba o salvamento — o texto já está no banco, e um selo desatualizado é menos grave que
     // um 500 depois de gravar.
-    if (result.written) await revalidate(questionId);
+    if (result.written) await revalidate(questionId, result.snapshot.updatedAt);
 
     return NextResponse.json({
       id: result.snapshot.id,
@@ -196,12 +196,15 @@ export async function PATCH(
  * Silenciosa de propósito: o salvamento já respondeu que deu certo, e deu. Um selo desatualizado
  * é menos grave que um 500 depois de gravar.
  */
-async function revalidate(questionId: string): Promise<void> {
+async function revalidate(questionId: string, keepVersion: Date): Promise<void> {
   try {
     const question = await questionForValidation(questionId);
     if (question === null) return;
 
-    await validateAndPersist(new PrismaValidationWriter(), questionId, question);
+    // `keepVersion` é a versão que este `PATCH` acabou de devolver ao cliente. Gravar o veredito
+    // **sem movê-la** é o que impede o próprio salvamento de invalidar o cliente que ele acabou
+    // de responder — ver #166, e o comentário longo no adaptador.
+    await validateAndPersist(new PrismaValidationWriter(), questionId, question, keepVersion);
   } catch {
     return;
   }

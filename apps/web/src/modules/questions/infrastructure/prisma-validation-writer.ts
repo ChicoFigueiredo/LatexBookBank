@@ -15,12 +15,35 @@ import { isQuestionType, type ValidationStatus } from "@modules/questions/domain
  * Ver spec §4.1 · issue #147.
  */
 export class PrismaValidationWriter implements ValidationWriter {
-  async setValidationStatus(questionId: string, status: ValidationStatus): Promise<void> {
+  async setValidationStatus(
+    questionId: string,
+    status: ValidationStatus,
+    keepVersion?: Date,
+  ): Promise<void> {
     // `updateMany` e não `update`: a questão pode ter sido apagada entre o salvamento e a
     // validação, e derrubar o salvamento por causa disso seria trocar um dado bom por um erro.
     await prisma.question.updateMany({
-      where: { id: questionId },
-      data: { validationStatus: status },
+      where: {
+        id: questionId,
+        // Condicional pela versão: se alguém editou entre o salvamento e a validação, o veredito
+        // que está sendo gravado é sobre um texto que já não existe. Não gravar é o certo — a
+        // edição nova vai disparar a própria validação.
+        ...(keepVersion === undefined ? {} : { updatedAt: keepVersion }),
+      },
+      data: {
+        validationStatus: status,
+        // **`updatedAt` escrito de propósito, com o mesmo valor** (#166).
+        //
+        // Sem isto, o `@updatedAt` do Prisma avança o relógio, e `updatedAt` é o token de
+        // concorrência da questão. O efeito era o pior possível para quem escreve: salvar
+        // deixava o editor com a versão vencida — a resposta do `PATCH` já tinha saído com a
+        // versão de antes —, e o **salvamento seguinte** batia em 409. Na tela: digite, espere
+        // salvar, continue digitando, e a barra diz "conflito · recarregue".
+        //
+        // A validação é estado **derivado** do texto que acabou de ser gravado. Derivado não é
+        // uma versão nova da questão, e não pode se passar por uma.
+        ...(keepVersion === undefined ? {} : { updatedAt: keepVersion }),
+      },
     });
   }
 }

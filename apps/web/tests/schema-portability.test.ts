@@ -222,6 +222,20 @@ describe("índices declarados", () => {
     }
   });
 
+  it("**`storageKey` não é única** — e é indexada, que é o que ela precisava ser (#156)", () => {
+    // A chave endereça o **objeto guardado**; esta tabela guarda referências a ele, e várias
+    // referências ao mesmo objeto são o caso normal: dois renders com PDF idêntico (basta o fonte
+    // mudar só num comentário), a mesma figura em duas questões.
+    //
+    // Com o `@unique`, o segundo render devolvia 500 e a tela dizia "falha ao compilar" sobre uma
+    // compilação que tinha dado certo. Este teste existe porque a constraint é a coisa mais fácil
+    // do mundo de repor "arrumando" o schema — ela **parece** certa lida isolada.
+    const asset = models.find((m) => m.name === "Asset");
+
+    expect(asset?.body).not.toMatch(/storageKey\s+String\s+@unique/);
+    expect(asset?.body).toMatch(/@@index\(\[storageKey\]\)/);
+  });
+
   it("o cache de render é garantido por unique, não por convenção", () => {
     // Sem o unique, duas compilações simultâneas da mesma entrada criariam dois jobs e o cache
     // passaria a depender de qual o `findFirst` devolvesse — não determinístico, e por isso pior
