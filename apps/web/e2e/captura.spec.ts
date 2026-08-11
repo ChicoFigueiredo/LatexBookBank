@@ -117,7 +117,46 @@ test("da imagem colada à questão com origem", async ({ page }) => {
     await expect(page.getByText(/confiança baixa/i)).toBeVisible();
   });
 
+  await test.step("**a fila sobrevive ao recarregamento**", async () => {
+    /**
+     * O recorte é durável desde que foi salvo: `Asset` + `SourceAnchor`, gravados antes de o
+     * reconhecimento acontecer. Fechar a aba no meio de dez capturas não pode custar as dez
+     * (§26, §53), e é isso que este passo prova.
+     *
+     * O item aparece como **aguardando**, e não como "revisar", por causa do dublê: o
+     * reconhecimento deste E2E é interceptado no navegador, então o servidor não chegou a rodar a
+     * rota e não gravou transcrição nenhuma na âncora. Quem prova a gravação é o último passo,
+     * sobre a proveniência — ali o caminho é real.
+     */
+    await page.reload();
+
+    const fila = page.getByRole("region", { name: "Fila de captura" });
+    await expect(fila).toBeVisible();
+    await expect(fila.getByText("página 1")).toBeVisible();
+    await expect(fila.getByAltText("Recorte da página 1")).toBeVisible();
+
+    // E dá para retomar dali, sem chamar o modelo de novo.
+    await fila.getByRole("button", { name: "Revisar" }).click();
+    await expect(page.getByText("Conferido — falta dizer onde entra")).toBeVisible();
+  });
+
+  await test.step("descartar tira o recorte da fila", async () => {
+    // Recorte rejeitado é seleção errada na página, não patrimônio — a **fonte** continua
+    // intacta, e recortar de novo é sempre possível.
+    const fila = page.getByRole("region", { name: "Fila de captura" });
+    await fila.getByRole("button", { name: /Descartar recorte/ }).click();
+
+    await expect(fila).toHaveCount(0);
+  });
+
   await test.step("corrigir o erro do modelo antes de aceitar", async () => {
+    // O recarregamento limpou o painel de captura — o arquivo estava só na memória do navegador,
+    // e é assim mesmo: o que o produto promete guardar é o **recorte**, não a sessão de upload.
+    await page.setInputFiles('input[type="file"]', FIXTURE);
+    await page.getByRole("button", { name: "Texto com fórmula" }).click();
+    await recortar(page);
+
+    await expect(page.getByLabel("LaTeX reconhecido")).toHaveValue(CANDIDATO.result.latex);
     await page.getByLabel("LaTeX reconhecido").fill(CORRIGIDO);
     await page.getByRole("button", { name: "Conferi — usar este LaTeX" }).click();
 

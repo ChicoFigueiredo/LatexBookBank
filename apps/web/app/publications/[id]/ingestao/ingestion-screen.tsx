@@ -1,13 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, Callout, Field, Input, PageHeader, Select } from "@/design-system";
 import { isContainerKind } from "@modules/document-tree/domain/add-placement";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import { CREATABLE_TYPES } from "@modules/questions/domain/question-blueprint";
 import type { QuestionType } from "@modules/questions/domain/question-type";
+import {
+  CaptureQueuePanel,
+  type QueueItem,
+} from "@modules/recognition/ui/CaptureQueuePanel";
 import {
   IngestionPanel,
   type AcceptedRecognition,
@@ -75,6 +79,87 @@ export function IngestionScreen({
   const [created, setCreated] = useState<CreatedInfo | null>(null);
   const [count, setCount] = useState(0);
 
+  /**
+   * A fila dos recortes que ainda não viraram questão.
+   *
+   * Ela é lida do servidor e **não** vive no estado desta tela: recarregar a página, ou voltar
+   * amanhã, encontra o mesmo trabalho pendente. É o que a §26 pede com "persistir o suficiente
+   * para não perder trabalho" — e ela não custou tabela nenhuma, porque o recorte já é durável.
+   */
+  const [queue, setQueue] = useState<readonly QueueItem[]>([]);
+  // Um contador em vez de uma função de recarga chamada de fora do efeito: o efeito busca, e quem
+  // muta só diz que a fila envelheceu. Mantém uma única origem para o `fetch`.
+  const [queueAge, setQueueAge] = useState(0);
+  const refreshQueue = useCallback(() => setQueueAge((current) => current + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetch(`/api/publications/${publicationId}/capture-queue`)
+      .then(async (response) => {
+        const payload = (await response.json()) as { items?: QueueItem[] };
+        if (!cancelled) setQueue(payload.items ?? []);
+      })
+      // A fila é auxiliar: falhar ao carregá-la não pode impedir de capturar. Ela some, e a
+      // próxima captura a traz de volta.
+      .catch(() => {
+        if (!cancelled) setQueue([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publicationId, queueAge, accepted, created]);
+
+  /**
+   * Traz um item da fila para a revisão.
+   *
+   * O texto vem do que ficou guardado na âncora — não é uma segunda chamada ao modelo. Reconhecer
+   * de novo custaria uma rodada do modelo de visão para reproduzir o que já está no banco.
+   */
+  const revisar = (item: QueueItem) => {
+    setError(null);
+    setCreated(null);
+    setAccepted({
+      anchorId: item.anchorId,
+      cropAssetId: item.cropAssetId ?? "",
+      statementLatex: item.recognizedText ?? "",
+      run: {
+        providerId: "fila",
+        model: item.model ?? "desconhecido",
+        durationMs: 0,
+        confidence: null,
+        mode: "mixed",
+        rawLatex: item.recognizedText ?? "",
+      },
+    });
+  };
+
+  const descartar = async (item: QueueItem) => {
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/publications/${publicationId}/capture-queue/${item.anchorId}`,
+        { method: "DELETE" },
+      );
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { message?: string };
+        setError(payload.message ?? "Não deu para descartar este recorte.");
+        return;
+      }
+
+      if (accepted?.anchorId === item.anchorId) setAccepted(null);
+      refreshQueue();
+    } catch {
+      setError("Não deu para falar com o servidor.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const create = async (andContinue: boolean) => {
     if (accepted === null) return;
 
@@ -117,6 +202,7 @@ export function IngestionScreen({
 
       setCount((current) => current + 1);
       setOriginalLabel("");
+      refreshQueue();
 
       if (andContinue) {
         // "Criar e continuar capturando": o candidato sai, a tela de captura volta limpa, e o
@@ -182,11 +268,32 @@ export function IngestionScreen({
           : {})}
       />
 
-      <IngestionPanel
-        workspaceId={workspaceId}
-        publicationId={publicationId}
-        onAccept={setAccepted}
-      />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: queue.length > 0 ? "minmax(0, 1fr) 22rem" : "1fr",
+          gap: "var(--space-4)",
+          alignItems: "start",
+        }}
+      >
+        <IngestionPanel
+          workspaceId={workspaceId}
+          publicationId={publicationId}
+          onAccept={setAccepted}
+        />
+
+        {queue.length > 0 && (
+          <div style={{ padding: "var(--space-4) var(--space-4) var(--space-4) 0" }}>
+            <CaptureQueuePanel
+              items={queue}
+              currentAnchorId={accepted?.anchorId ?? null}
+              busy={busy}
+              onReview={revisar}
+              onDiscard={(item) => void descartar(item)}
+            />
+          </div>
+        )}
+      </div>
 
       {accepted && (
         <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>

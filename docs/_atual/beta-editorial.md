@@ -53,7 +53,7 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 | Menu `+ Adicionar`                    | não existia         | feito |
 | `Candidate → Question`                | não existia         | feito |
 | Importar `.lbb`                       | endpoint sem tela   | tela feita |
-| Fila de captura                       | —                   | P1, não implementada |
+| Fila de captura                       | —                   | feita, **sem tabela nova** — derivada dos recortes |
 | Calibre                               | —                   | spike, adapter, wizard e E2E — feito |
 
 ## 3. Progresso por slice (§58)
@@ -68,7 +68,7 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 | 6 · Origem e proveniência   | ✓      | ✓      | ✓   | ✓       | pronto |
 | 7 · Capture Studio          | ✓      | ✓ 8    | ✓   | ✓       | pronto |
 | 8 · Candidate → Question    | ✓      | ✓ 9    | ✓   | ✓       | pronto |
-| 9 · Fila de captura         | —      | —      | —   | —       | P1 |
+| 9 · Fila de captura         | ✓      | ✓ 8    | ✓   | ✓       | pronto |
 | 10 · Calibre                | ✓      | ✓ 27   | ✓   | ✓       | pronto, validado contra biblioteca real |
 
 ## 4. Matriz Design → Código (§92)
@@ -84,6 +84,7 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 | Publicações (catálogo)   | `app/publicacoes`                              | `listPublicationCatalog`          | `GET /api/publications`                      | leitura               | E2E |
 | Calibre — catálogo       | `bibliotecas/[slug]/livros/calibre`            | `browseCatalog`                   | `POST /api/catalog`                          | leitura               | `calibre-catalog`, `calibre-search` |
 | Calibre — importar       | idem                                           | `importFromCatalog`               | `POST /api/catalog/import`                   | `Publication`+assets  | `import-from-catalog`, E2E |
+| Fila de captura          | `CaptureQueuePanel`                            | `pendingQueue` · `stateOf`        | `GET/DELETE …/capture-queue`                 | derivada de `SourceAnchor` | `capture-queue`, E2E |
 | Livro vazio              | `publication-workbench.tsx` (EmptyState)       | —                                 | —                                            | —                     | E2E |
 | Menu `+ Adicionar`       | `add-menu.tsx`                                 | `placementForAdd`                 | —                                            | —                     | `create-question` |
 | Criar estrutura          | árvore                                         | `createNode`                      | `POST …/nodes`                               | `DocumentNode`        | `mutate-tree` |
@@ -106,9 +107,6 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
 
 ### P1 — não bloqueiam o Beta
 
-- **Fila de captura** (§26). O fluxo unitário fecha a jornada; a fila é produtividade em volume.
-  Sem ela, capturar dez questões seguidas é dez ciclos de "Criar e continuar capturando" — que
-  funciona, e é o CTA que existe para isso.
 - **Ações contextuais sobre questão existente** (§25 do prompt): inserir no cursor, adicionar
   alternativa a partir de recorte, salvar como figura. "Salvar como figura" já funciona pela aba
   Origem; os outros dependem da fila para valerem a pena.
@@ -140,6 +138,12 @@ Sem seed obrigatório, sem Prisma Studio, sem `curl`, sem copiar LaTeX entre tel
   quando o modelo devolve um `%` não escapado.
 - **`Ctrl+V` de imagem** funciona na tela de captura (`AssetDropzone` com `listenToPaste`), não no
   editor. Colar screenshot direto no Monaco não foi implementado.
+- **A fila não guarda o `recognizing`.** Ele dura segundos e vive no cliente. Persistir um estado
+  transitório traria o problema que ele resolve — uma linha travada em "reconhecendo" para sempre
+  porque o servidor caiu no meio.
+- **O arquivo aberto no Capture Studio não sobrevive ao recarregamento** — só o **recorte**. É a
+  promessa certa: o que o produto guarda é o pedaço de página que virou trabalho, não a sessão de
+  upload.
 - **O E2E de captura usa provider dublê**, por exigência da §42. O provider real (`gemma3:12b` via
   Ollama) é exercitado à mão e pelos testes de unidade do `VisionMathRecognizer`.
 - **A árvore revela o caminho do nó selecionado sem gravar essa abertura.** Fechar o ramo à mão

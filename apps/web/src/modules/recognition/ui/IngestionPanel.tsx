@@ -181,7 +181,10 @@ export function IngestionPanel({
       setCropUrl(URL.createObjectURL(crop.png));
       // Reconhecer é o passo seguinte natural, e pedir mais um clique aqui só acrescentaria
       // cerimônia — a revisão continua obrigatória de qualquer forma.
-      await recognize(crop.png, payload.cropAssetId);
+      //
+      // A âncora vai **explícita**: `setAnchorId` acabou de ser chamado e o estado ainda não
+      // chegou nesta closure. Ler o estado aqui mandaria `null` e o servidor não guardaria nada.
+      await recognize(crop.png, payload.cropAssetId, mode, payload.anchorId);
     } catch {
       setError("Não deu para falar com o servidor.");
     } finally {
@@ -189,13 +192,21 @@ export function IngestionPanel({
     }
   };
 
-  const recognize = async (png: Blob, assetId: string, modo: RecognitionMode = mode) => {
+  const recognize = async (
+    png: Blob,
+    assetId: string,
+    modo: RecognitionMode = mode,
+    anchor: string | null = anchorId,
+  ) => {
     setBusy("reconhecendo");
     try {
       const form = new FormData();
       form.set("image", png, "crop.png");
       form.set("cropAssetId", assetId);
       form.set("mode", modo);
+      // A âncora vai junto para o servidor **guardar** o que o modelo leu. É o que faz reconhecer
+      // dez recortes e fechar a aba não perder as dez transcrições (§26).
+      if (anchor !== null) form.set("anchorId", anchor);
 
       const response = await fetch("/api/recognition", { method: "POST", body: form });
       const payload = (await response.json()) as

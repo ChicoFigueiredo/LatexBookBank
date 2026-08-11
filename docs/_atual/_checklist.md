@@ -2003,5 +2003,10 @@ fechou:
 - ✅ **E2E mestre do Beta**, do banco limpo à questão persistida, sem tocar no banco.
 - ✅ **E2E de captura** com provider dublê e fixture sintética.
 
-Segue aberto, e por decisão: fila de captura, wizard do Calibre, reconhecimento de questão
-completa e import legado em volume. Os motivos estão em `beta-editorial.md` §5.
+- ✅ **Calibre funcional** (Gate 3): adapter, wizard, contract test, E2E e importação verificada
+  contra a biblioteca real do acervo — 64 livros, PDF de 2,7 MB copiado com capa e origem.
+- ✅ **Fila de captura** (§26), **sem tabela nova**: ela é a pergunta "quais recortes ainda não
+  viraram questão?" sobre `SourceAnchor`, que já é durável.
+
+Segue aberto, e por decisão: reconhecimento de questão completa, escolha de formato no Calibre,
+importação em lote e import legado em volume. Os motivos estão em `beta-editorial.md` §5.
