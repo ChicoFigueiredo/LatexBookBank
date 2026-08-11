@@ -21,11 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 860 ✅ · 5 ◐ · 14 ⛔ · 123 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
+**Progresso:** 861 ✅ · 5 ◐ · 14 ⛔ · 122 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
 não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
 no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Fora deles sobram 13 itens.**
-**Última atualização:** 2026-08-11 — **reconhecer texto do recorte** (#193), sem porta nova: a
+(20, que é do Chico). **Fora deles sobram 12 itens.**
+**Última atualização:** 2026-08-11 — **o download do `.lbb` diz o tamanho** (#195). Ele saía
+`chunked`, e o navegador mostrava "tamanho desconhecido" — sem barra e sem como distinguir lento de
+travado. O guarda novo amarra o par: quem oferece download anuncia o tamanho.
+**Antes:** **reconhecer texto do recorte** (#193), sem porta nova: a
 fronteira já tinha `mode`. O trabalho foi o escape — prosa de um scan traz `%`, e ele comenta o
 resto da linha. Conferido com o modelo de visão real sobre um render do acervo.
 **Antes:** **auditoria das fronteiras** (#191), agora que todas as telas
@@ -242,7 +245,7 @@ quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O
 arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
 revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
 esse é o pior lugar possível para uma mudança se esconder.
-1291 testes (1227 no app + 64 no renderer) + **13 de E2E, todos passando** · 96 PRs abertos, nada mergeado.
+1293 testes (1229 no app + 64 no renderer) + **13 de E2E, todos passando** · 97 PRs abertos, nada mergeado.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -271,7 +274,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
-| — portabilidade `.lbb` | 13 | 39 | — | — | 2 | progresso visível e migradores de formato (escopo futuro) |
+| — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
 | — seções cruzadas | §8–§15 | 173 | — | 1 | 31 | 12 são o checklist visual; 8 são o §33 "Legado" |
 
@@ -1298,7 +1301,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Exporta um workspace inteiro *(artefato de render **não** atravessa — é cache regenerável)*
 - ✅ Assets duplicados aparecem uma única vez no zip
 - ✅ Checksums calculados e gravados
-- [ ] Progresso visível para acervos grandes
+- ✅ Progresso visível para acervos grandes *(#195 — a resposta saía `chunked`, **sem
+  `content-length`**: o navegador mostrava "tamanho desconhecido", sem barra, sem estimativa e sem
+  como distinguir um download lento de um travado. Num acervo de 109 MB é a diferença entre esperar
+  e desistir. O número é exato, não estimativa, porque o arquivo já está inteiro em memória — e é
+  esse mesmo fato que marca o **limite honesto** deste item: a montagem do zip acontece antes do
+  primeiro byte, e esse tempo continua silencioso. Mostrá-lo exigiria montar em fluxo, e o mesmo
+  escritor serve o backup (D32/D36): duas montagens do mesmo formato divergiriam, e o teste de
+  round-trip existe justamente porque essa divergência é cara)*
 - ✅ UI de exportação *(um `<a download>` por workspace na página de diagnóstico)*
 
 **Importação**
