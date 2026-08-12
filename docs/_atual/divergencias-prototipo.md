@@ -540,26 +540,36 @@ reproduzir primeiro, teria sido um palpite com aparência de conserto.
 
 ---
 
-## Achado fora da lista 10: a suíte de E2E ficou instável, e não sei por quê
+## Achado fora da lista 10: a instabilidade da suíte era o servidor de dev envelhecido
 
-**O que é medido, sem interpretação:** a suíte saiu de 21 testes e ~2,6 min (início desta série)
-para 58 testes e ~10 min. Nas últimas rodadas, corridas completas falham em **testes diferentes a
-cada execução** — `layout`, `calibre`, `captura`, `questao`, `agente`, `livro-vazio` já apareceram
-—, e **todos passam isolados**, inclusive rodando o arquivo inteiro.
+Durante várias rodadas, corridas completas falharam em **testes diferentes a cada execução** —
+`layout`, `calibre`, `captura`, `questao`, `agente`, `livro-vazio` —, todos passando isolados. Ficou
+registrado como “não sei por quê”, e a rodada seguinte foi gasta em descobrir.
 
-**O que não é conclusão**: a hipótese mais provável é contenção com o servidor de desenvolvimento,
-que compila rota sob demanda e acumula memória ao longo de dez minutos — quatro vezes nesta série
-ele morreu sozinho no meio de uma corrida. Mas é hipótese: não capturei a mensagem de falha das
-últimas ocorrências, e sem ela não dá para afirmar.
+**O que a medição mostrou:**
 
-**O que não foi feito, de propósito**: ligar `retries`. O `playwright.config.ts` diz por quê —
-*“um teste que passa na segunda tentativa é um teste que não diz nada”* — e a regra é boa. Um
-verde comprado com repetição esconderia exatamente o que precisa ser investigado.
+| | corrida | resultado |
+|---|---|---|
+| servidor com **5 h de uptime e 6,3 GB de RSS** | 58 testes | **6 falhas** |
+| mesmo código, servidor **recém-subido** | 58 testes | **1 falha** |
+| depois de corrigir essa falha (que era do teste) | 58 testes | **58 passam** |
 
-**O que decidiria**: rodar contra um build de produção (`next build && next start`) em vez do
-servidor de dev, que tira a compilação sob demanda da equação; e preservar o output completo da
-corrida que falha, para saber em que passo o tempo acabou. É trabalho de uma rodada inteira, e não
-de um resto de rodada — está aqui para não virar folclore.
+O `playwright.config.ts` usa `reuseExistingServer: true` — sensato em desenvolvimento —, e o efeito
+colateral é que **todas** as corridas de uma sessão longa passam pelo mesmo processo, que vai
+inchando. As seis falhas eram todas de **espera** (timeout, “não apareceu”), nenhuma de conteúdo:
+a assinatura de servidor lento, e não de comportamento quebrado.
+
+**A regra prática**: numa sessão de trabalho longa, reinicie o servidor de dev antes de tratar uma
+corrida completa como veredito. Um vermelho vindo de um processo de cinco horas não é resultado.
+
+**O que continua valendo**: não ligar `retries`. O config diz por quê — *“um teste que passa na
+segunda tentativa é um teste que não diz nada”* —, e esta investigação é o argumento a favor dessa
+regra: foi justamente a recusa em comprar o verde com repetição que obrigou a achar a causa.
+
+**Bônus honesto**: a única falha que sobrou no servidor novo era de um teste escrito na mesma
+rodada. Ele esperava o `pdf.js` renderizar a fixture do Calibre — um PDF-stub de três linhas,
+montado para o `storeAsset` conferir mime e tamanho, não para ser um documento. Media a tolerância
+do `pdf.js` a arquivo inválido em vez do que afirmava. Passou a aferir a fonte escolhida.
 
 ---
 

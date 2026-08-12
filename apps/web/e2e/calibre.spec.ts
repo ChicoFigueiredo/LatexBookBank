@@ -194,8 +194,19 @@ test("do catálogo do Calibre a um livro do acervo", async ({ page }) => {
 
     await usar.click();
 
-    // Sem passar por upload nenhum: o visualizador abre direto no arquivo que já estava lá.
-    await expect(page.locator(".lbb-pdf-holder")).toBeVisible({ timeout: 20_000 });
+    /*
+     * Pela fonte **escolhida**, e não pelo visualizador renderizado.
+     *
+     * A primeira versão esperava o `.lbb-pdf-holder`, e isso pede ao pdf.js que renderize o PDF
+     * desta fixture — que é um stub de três linhas, montado para o `storeAsset` conferir mime e
+     * tamanho, não para ser um documento. Passou uma vez e falhou depois: o teste media a
+     * capacidade do pdf.js de tolerar um arquivo inválido, e não o que ele afirma.
+     *
+     * O que ele afirma é que a fonte do livro entra **sem upload**. O nome do arquivo no lugar da
+     * dropzone é exatamente esse fato.
+     */
+    await expect(page.getByText(/\.pdf$/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Arraste um PDF ou imagem")).toHaveCount(0);
   });
 
   await test.step("reimportar o mesmo livro é recusado, com saída", async () => {
