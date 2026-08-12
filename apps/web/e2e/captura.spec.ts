@@ -344,6 +344,26 @@ test("“Questão completa” separa as alternativas, mostra a separação, e gr
 
   await test.step("aceitar grava enunciado e alternativas, sem repetir o bloco", async () => {
     await page.getByRole("button", { name: "Conferi — usar este LaTeX" }).click();
+
+    /*
+     * **Uma divergência deliberada do protótipo**, e por isso guardada.
+     *
+     * Ele escreve, ao lado das ações: `nada é gravado antes disto`. Neste app é **falso**, e falso
+     * de propósito — o recorte, a âncora e a transcrição são gravados assim que o modelo responde,
+     * justamente para reconhecer dez recortes e fechar a aba não perder as dez (§26). A fila
+     * existe por causa disso, e outro teste deste arquivo prova que ela sobrevive ao recarregar.
+     *
+     * O que de fato não existe ainda é a **questão**. Dizer isso é o que torna `Descartar`
+     * legível: quem descarta não perde o recorte, perde a decisão.
+     *
+     * Este teste falha se alguém colar a frase do protótipo por cima — que é o risco de uma frase
+     * que discorda do desenho de propósito.
+     */
+    await expect(
+      page.getByText("o recorte e a transcrição já estão guardados na fila"),
+    ).toBeVisible();
+    await expect(page.getByText("nada é gravado antes disto")).toHaveCount(0);
+
     await page.getByRole("button", { name: /Criar questão/ }).click();
 
     await expect(page.getByText(/Questão criada/i)).toBeVisible({ timeout: 20_000 });

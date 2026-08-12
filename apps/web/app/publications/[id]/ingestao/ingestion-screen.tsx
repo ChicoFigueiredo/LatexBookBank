@@ -364,6 +364,24 @@ export function IngestionScreen({
               Descartar
             </Button>
           </div>
+
+          {/*
+            O que já está guardado e o que ainda não — e é aqui que a versão do protótipo não
+            serve.
+
+            Ele escreve `nada é gravado antes disto`. Neste app isso é **falso**, e falso de
+            propósito: o recorte, a âncora e a transcrição são gravados assim que o modelo
+            responde, justamente para reconhecer dez recortes e fechar a aba não perder as dez
+            (§26). A fila existe por causa disso.
+
+            O que de fato não existe ainda é a **questão** — nada entra na árvore antes deste
+            clique. Dizer isso, e não a frase do protótipo, é o que torna `Descartar` legível: quem
+            descarta não perde o recorte, perde a decisão.
+          */}
+          <span className="lbb-ing-meta" style={{ display: "block", marginTop: "var(--space-3)" }}>
+            o recorte e a transcrição já estão guardados na fila · a questão só nasce com este
+            clique
+          </span>
         </div>
       )}
     </main>

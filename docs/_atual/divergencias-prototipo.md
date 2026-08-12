@@ -85,6 +85,38 @@ o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linh
 
 ---
 
+## Onde o app **discorda** do protótipo de propósito
+
+Este documento é uma lista do que falta. Faltava a lista do que **não vai vir**, e por quê — porque
+uma frase que discorda do desenho é a mais fácil de alguém "corrigir" de volta seis meses depois,
+lendo o protótipo e achando que achou um bug.
+
+### `nada é gravado antes disto` → `o recorte e a transcrição já estão guardados na fila`
+
+O protótipo põe a primeira frase ao lado das ações da revisão da captura. Neste app ela é **falsa**,
+e falsa de propósito: o recorte, a âncora e a transcrição são gravados assim que o modelo responde,
+justamente para reconhecer dez recortes e fechar a aba não perder as dez (§26). A fila de captura
+existe por causa disso, e `e2e/captura.spec.ts` prova que ela sobrevive ao recarregamento.
+
+O que de fato ainda não existe é a **questão**. Dizer isso, e não a frase do protótipo, é o que
+torna `Descartar` legível: quem descarta não perde o recorte, perde a decisão.
+
+### `⇧⏎ abrir ao lado` → `⇧⏎ abrir em nova aba`
+
+Não há painel lateral neste app. O atalho **funciona**, e o rótulo diz o que ele faz. Ver §10.
+
+### `busca no enunciado, tags, banca e ano` → `busca no enunciado e no apelido · tag, banca e ano são filtros`
+
+A busca livre olha `statementLatex` e `nickname`; o resto é filtro estruturado. Ver §10.
+
+### `Último backup automático há 1 h · 3 cópias mantidas` → o estado real, lido
+
+Frase fixa virou leitura do `backup-status.json`. Ver §8.
+
+**Os quatro têm teste que falha se a frase do protótipo voltar.**
+
+---
+
 ## 19. Duas alternativas coladas num bloco só — ✅ resolvido
 
 **Protótipo** (1702–1712): quando o OCR devolve `b) R$ 6.341,21 c) R$ 6.529,67` na mesma linha, a
