@@ -44,6 +44,20 @@ import { useRender } from "@modules/rendering/ui/use-render";
 
 const AUTOSAVE_DELAY_MS = 1200;
 
+/**
+ * De quanto em quanto tempo o autosave insiste depois de uma falha (protótipo, 706–712).
+ *
+ * Sem isto o autosave desistia calado. O `catch` marcava `error`, um selo de três letras acendia
+ * num canto da barra de abas, e **nada mais acontecia**: a próxima tecla digitada reagendava o
+ * salvamento, então quem continuava escrevendo se recuperava sozinho e nunca via o problema. Quem
+ * terminava o parágrafo e parava — que é o caso normal de quem acabou de escrever alguma coisa —
+ * ficava com o texto só na tela, e fechava a aba com ele.
+ *
+ * Trinta segundos é o número do protótipo, e é o certo: rápido para recuperar um blip de rede sem
+ * intervenção, lento para não martelar um servidor que já está fora.
+ */
+const RETRY_DELAY_MS = 30_000;
+
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
 /** Alternativas, só para o preview: quem as edita é a Fase 7. */
@@ -281,6 +295,20 @@ export function QuestionEditor({
   }, [publicationId, questionId]);
 
   /**
+   * Depois de uma falha, insiste — mas só depois de **falha**, nunca depois de conflito.
+   *
+   * A distinção é a §42: conflito nunca sobrescreve. Insistir num 409 seria o autosave brigando
+   * pela versão de quem está com a tela aberta contra quem já gravou, e vencendo por repetição.
+   * Falha de rede é o oposto: ninguém gravou nada, e o único risco é o texto ficar para trás.
+   */
+  useEffect(() => {
+    if (state !== "error") return;
+
+    const retry = setTimeout(() => void save(), RETRY_DELAY_MS);
+    return () => clearTimeout(retry);
+  }, [state, save]);
+
+  /**
    * Editar metadado usa o mesmo autosave do texto.
    *
    * O erro de validação vem do servidor e cai no mesmo `Banner`: o `MetadataPanel` já recusa
@@ -504,10 +532,27 @@ export function QuestionEditor({
         <div style={{ padding: "var(--space-3) var(--space-4) 0" }}>
           <Banner
             tone={blocked ? "warn" : "danger"}
-            title={blocked ? "Conflito" : "Erro ao salvar"}
+            title={blocked ? "Conflito" : "O salvamento automático falhou"}
+            {...(blocked
+              ? {}
+              : {
+                  actions: (
+                    <Button size="sm" variant="secondary" onClick={() => void save()}>
+                      Tentar agora
+                    </Button>
+                  ),
+                })}
           >
             {message}
-            {blocked && " O autosave está pausado até você recarregar."}
+            {/*
+              A frase do protótipo (709), e ela faz três trabalhos numa linha: diz que o texto não
+              se perdeu — que é a primeira pergunta de quem lê "falhou" —, diz que a máquina
+              continua tentando, e diz de quanto em quanto tempo. Sem ela, "erro ao salvar" manda
+              a pessoa decidir sozinha se copia o texto para um bloco de notas.
+            */}
+            {blocked
+              ? " O autosave está pausado até você recarregar."
+              : " O texto continua aqui e nada foi perdido — tentamos de novo a cada 30 s."}
           </Banner>
         </div>
       )}

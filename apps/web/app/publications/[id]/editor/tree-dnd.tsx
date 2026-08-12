@@ -128,6 +128,24 @@ export function TreeDnd({ subtreeOf, onMove, children }: TreeDndProps) {
 
   return (
     <DndContext
+      /**
+       * `id` fixo, e é uma correção de hidratação — não estética.
+       *
+       * Sem ele, o dnd-kit gera os ids de acessibilidade a partir de um **contador de módulo**:
+       * `DndDescribedBy-0`, `-1`, `-2`… No servidor o contador nasce zerado a cada requisição. No
+       * cliente, ele vive enquanto a aba viver — então quem chega ao editor **navegando** por
+       * dentro do app, depois de outra tela ter montado um `DndContext`, hidrata com um número
+       * diferente do que o servidor escreveu.
+       *
+       * O React responde a isso descartando a árvore: *"this won't be patched up"*. É o mesmo
+       * defeito que fez a Home parar de reagir a clique com "há 51 min" contra "há 52 min", com o
+       * mesmo sintoma — tela com aparência de pronta e botões que são enfeite. E era **igualmente
+       * intermitente**: abrir o editor direto pela URL funcionava, porque aí os dois contadores
+       * estavam em zero.
+       *
+       * Achado pelo `e2e/hidratacao.spec.ts` no dia em que o editor entrou na lista dele.
+       */
+      id="lbb-tree-dnd"
       sensors={sensors}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}

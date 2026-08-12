@@ -31,6 +31,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 9 | Statusbar — infraestrutura viva | Baixa | ✅ resolvido |
 | 10 | Busca global — rodapé de atalhos | Baixa | ✅ resolvido |
 | 11 | Livro · vazio — estado inexistente | Alta | ✅ resolvido |
+| 12 | Autosave falho — sem insistência e sem garantia | Alta | ✅ resolvido |
 
 ---
 
@@ -74,6 +75,65 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 12. Autosave — o salvamento desistia calado — ✅ resolvido
+
+**Protótipo** (706–712): quando o salvamento automático falha, uma faixa em `danger` diz
+*"O salvamento automático falhou. O texto continua aqui e nada foi perdido — tentamos de novo a
+cada 30 s."*, com um botão `Tentar agora`.
+
+**Antes**: o `catch` marcava `error`, um selo de três letras — **"erro"** — acendia num canto da
+barra de abas, e nada mais acontecia. A próxima tecla digitada reagendava o salvamento, então quem
+continuava escrevendo se recuperava sozinho e nunca via o problema. Quem terminava o parágrafo e
+parava — que é o caso normal de quem acabou de escrever alguma coisa — ficava com o texto só na
+tela, e fechava a aba com ele.
+
+Um blip de rede de dois segundos custava o último parágrafo. O sintoma era três letras.
+
+A frase do protótipo faz três trabalhos numa linha, e é por isso que ela é a frase certa: diz que o
+texto não se perdeu — que é a primeira pergunta de quem lê "falhou" —, diz que a máquina continua
+tentando, e diz de quanto em quanto tempo. Sem ela, "erro ao salvar" manda a pessoa decidir sozinha
+se copia o texto para um bloco de notas.
+
+**A insistência é só depois de falha, nunca depois de conflito.** É a §42: conflito nunca
+sobrescreve. Insistir num 409 seria o autosave brigando pela versão de quem está com a tela aberta
+contra quem já gravou — e vencendo por repetição, que é a pior forma de decidir de quem é o texto.
+`e2e/autosave-insiste.spec.ts` derruba a rota de gravação de propósito e guarda as duas metades.
+
+---
+
+## Achado fora da lista 6: o editor descartava a árvore ao ser aberto por navegação
+
+O `e2e/hidratacao.spec.ts` vigiava Home, bibliotecas e publicações — as três telas que o defeito
+original tinha tocado. **Vigiar só onde já deu errado é vigiar o passado.** O editor é a tela mais
+pesada do produto, é onde o usuário passa o dia, e é onde uma árvore descartada custa o texto que
+ele acabou de escrever.
+
+No dia em que o editor entrou na lista, o guarda pegou, na primeira corrida completa:
+
+> A tree hydrated but some attributes of the server rendered HTML didn't match the client
+> properties. **This won't be patched up.**
+
+O atributo, no log do servidor: `aria-describedby="DndDescribedBy-0"` contra `-1`. O `DndContext`
+do dnd-kit gera os ids de acessibilidade a partir de um **contador de módulo**. No servidor ele
+nasce zerado a cada requisição; no cliente, vive enquanto a aba viver. Quem chega ao editor por
+dentro do app, depois de o contador já ter andado, hidrata com um número diferente do que o
+servidor escreveu — e o React responde descartando a árvore.
+
+Mesmo defeito da Home com "há 51 min" contra "há 52 min", mesmo sintoma — tela com aparência de
+pronta e botões que são enfeite — e igualmente intermitente. Abrir o editor direto pela URL
+funcionava, porque aí os dois contadores estavam em zero.
+
+A cura é o `id` fixo, que é exatamente para isso que o dnd-kit o oferece.
+
+**Honestidade sobre a verificação**: os outros guardas deste documento foram checados reintroduzindo
+o defeito de propósito. Este **não foi** — tirar o `id` e rodar o teste sozinho continua passando,
+porque a reprodução depende de o contador do cliente já ter andado, e não consegui construir a
+sequência de navegação que faz isso de forma determinística. O erro é real (o texto do React acima
+é literal, capturado numa corrida completa) e a correção é o mecanismo que a biblioteca documenta
+para SSR — mas o guarda ainda não está provado contra este defeito específico.
 
 ---
 
