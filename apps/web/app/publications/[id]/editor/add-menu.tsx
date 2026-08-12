@@ -53,6 +53,15 @@ export interface AddMenuProps {
   readonly onCreateQuestion: (type: QuestionType) => void;
   /** Onde vai entrar, em texto — "em Capítulo 3 › Exercícios". Some quando é a raiz. */
   readonly destinationLabel?: string | null;
+  /**
+   * Abre de fora — é o que `Ctrl Q` usa.
+   *
+   * Controlado e opcional: sem estas duas props o menu continua dono do próprio estado, que é o
+   * certo para quem só clica no botão. O atalho é a única razão de a abertura precisar vir de
+   * fora, e não vale transformar todo consumidor num gerente de estado por causa dele.
+   */
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 export function AddMenu({
@@ -60,9 +69,17 @@ export function AddMenu({
   onCreateStructure,
   onCreateQuestion,
   destinationLabel,
+  open: openProp,
+  onOpenChange,
 }: AddMenuProps) {
   injectCss("lbb-addmenu-css", CSS);
-  const [open, setOpen] = useState(false);
+  const [openInterno, setOpenInterno] = useState(false);
+
+  const open = openProp ?? openInterno;
+  const setOpen = (proximo: boolean) => {
+    setOpenInterno(proximo);
+    onOpenChange?.(proximo);
+  };
 
   const pick = (run: () => void) => () => {
     // Fecha antes de disparar: a chamada recarrega a árvore, e um popover aberto sobre a árvore

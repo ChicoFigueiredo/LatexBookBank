@@ -223,7 +223,9 @@ test("enquanto o modelo lê, a tela diz o que já está garantido", async ({ pag
   const marca = `${Date.now()}`;
   const publicationId = await criarLivroVazio(page, marca);
 
-  let liberar: (() => void) | null = null;
+  // Inicializado com um no-op, e não com `null`: o TypeScript não enxerga a atribuição feita
+  // dentro do callback do `Promise` e estreita o tipo para `null`, tornando a chamada inválida.
+  let liberar: () => void = () => {};
   const presa = new Promise<void>((resolve) => {
     liberar = resolve;
   });
@@ -260,7 +262,7 @@ test("enquanto o modelo lê, a tela diz o que já está garantido", async ({ pag
     "se o reconhecimento falhar, o recorte fica — dá para transcrever à mão",
   );
 
-  liberar?.();
+  liberar();
 
   // Terminada a leitura, a prestação de contas sai: ela é da espera, e a espera acabou.
   await expect(page.getByLabel("LaTeX reconhecido")).toHaveValue(CANDIDATO.result.latex);

@@ -234,6 +234,34 @@ export function PublicationWorkbench({
   const counts = useRailCounts();
 
   /**
+   * `Ctrl Q` — nova questão, abrindo o seletor de tipo (handoff: tabela de atalhos).
+   *
+   * Era o único dos onze atalhos do contrato que não existia. Global e não preso à linha da
+   * árvore, ao contrário de `F2`, `Del` e `Ctrl N`: aqueles agem **sobre um nó** e por isso vivem
+   * na linha — a §`atalhos.spec.ts` guarda essa distinção. Este cria um nó novo, e quem quer criar
+   * pode estar com o foco em qualquer lugar da tela.
+   *
+   * `preventDefault` porque `Ctrl Q` fecha o Firefox no Linux. Perder o editor para o navegador
+   * saindo seria bem pior que não ter o atalho.
+   */
+  const [addOpen, setAddOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+      // `code` e não `key`: em teclado ABNT2 e AZERTY o `key` da mesma tecla física muda, e o
+      // atalho passaria a depender do layout de quem digita.
+      if (event.code !== "KeyQ") return;
+
+      event.preventDefault();
+      setAddOpen(true);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  /**
    * A proposta pendente — uma de cada vez.
    *
    * Revisar duas propostas concorrentes sobre a mesma questão é revisar um diff contra um estado
@@ -890,6 +918,8 @@ export function PublicationWorkbench({
           <AddMenu
             disabled={editing.busy}
             destinationLabel={destinationLabel}
+            open={addOpen}
+            onOpenChange={setAddOpen}
             onCreateStructure={(kind) => void editing.create(addPlacement, kind)}
             onCreateQuestion={(type) => void editing.createQuestion(addPlacement, type)}
           />

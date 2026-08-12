@@ -33,6 +33,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 11 | Livro · vazio — estado inexistente | Alta | ✅ resolvido |
 | 12 | Autosave falho — sem insistência e sem garantia | Alta | ✅ resolvido |
 | 13 | Reconhecimento — a espera não prestava contas | Média | ✅ resolvido |
+| 14 | `Ctrl Q` — o atalho que faltava do contrato | Baixa | ✅ resolvido |
 
 ---
 
@@ -76,6 +77,40 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 14. `Ctrl Q` — o único atalho do contrato que não existia — ✅ resolvido
+
+O bloco **Notas de produto (handoff)** do protótipo tem uma tabela de atalhos com onze linhas — o
+contrato de teclado, escrito item a item. Conferir uma tabela linha a linha é mais barato que
+descobrir o buraco pelo usuário, e a conferência achou **um** ausente:
+
+| Atalho | Contrato | App |
+|---|---|---|
+| `Ctrl K` · `Ctrl S` · `Ctrl V` · `Ctrl ⏎` | busca, salvar, colar, renderizar | ✅ |
+| `Ctrl N` · `Ctrl ⇧ N` · `F2` · `Del` | irmão, filho, renomear, excluir | ✅ na linha da árvore |
+| `Ctrl ⇧ A` · `Esc` | agente, fechar | ✅ |
+| **`Ctrl Q`** | **nova questão (abre o seletor de tipo)** | **faltava** |
+
+Global, e não preso à linha da árvore. A distinção é a que `atalhos.spec.ts` já guardava: `F2`,
+`Del` e `Ctrl N` agem **sobre um nó** e por isso vivem na linha; este **cria** um nó, e quem quer
+criar pode estar com o foco em qualquer lugar — inclusive dentro do editor, que é onde a pessoa
+está quando termina uma questão e quer a próxima.
+
+Dois detalhes que não são estética: `preventDefault`, porque `Ctrl Q` fecha o Firefox no Linux e
+perder o editor para o navegador saindo seria pior que não ter o atalho; e `event.code` em vez de
+`event.key`, porque em ABNT2 e AZERTY o `key` da mesma tecla física muda e o atalho passaria a
+depender do layout de quem digita.
+
+### O que a mesma varredura decidiu **não** perseguir
+
+O handoff também traz uma tabela de resoluções com larguras exatas — `1366 × 768: rail 216 · árvore
+264 · editor ≥ 549 · preview 337`. Medido: rail **216** (exato), árvore **280** (16 px a mais).
+
+Não vira divergência, e a razão está no topo deste documento: o protótipo **não é contrato de
+largura exata** (brief §21 e §34). Perseguir 264 seria trocar a regra declarada pelo número mais
+recente que apareceu na tela — e a régua deste documento é conteúdo, estrutura e comportamento.
 
 ---
 
