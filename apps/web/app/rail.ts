@@ -15,6 +15,7 @@ export const RAIL_MODULES: readonly WorkbenchModule[] = [
   { id: "inicio", label: "Início", icon: "house", group: "Acervo" },
   { id: "bibliotecas", label: "Bibliotecas", icon: "library", group: "Acervo" },
   { id: "publicacoes", label: "Publicações", icon: "book-open", group: "Acervo" },
+  { id: "editor", label: "Editor do livro", icon: "list-tree", group: "Acervo" },
   { id: "captura", label: "Captura", icon: "scan-text", group: "Produção" },
   { id: "avaliacoes", label: "Avaliações", icon: "clipboard-list", group: "Produção" },
   { id: "diagnostico", label: "Diagnóstico", icon: "activity", group: "Sistema" },
@@ -23,9 +24,13 @@ export const RAIL_MODULES: readonly WorkbenchModule[] = [
 /**
  * Para onde cada módulo leva.
  *
- * "Captura" depende de um livro aberto — capturar sem destino não é um estado que faça sentido —,
- * então quem não tem publicação corrente cai na lista de publicações para escolher uma. Botão que
- * não leva a lugar nenhum é pior que botão ausente (§81).
+ * "Captura" e "Editor do livro" dependem de um livro aberto — editar sem destino não é um estado
+ * que faça sentido —, então quem não tem publicação corrente cai na lista de publicações para
+ * escolher uma. Botão que não leva a lugar nenhum é pior que botão ausente (§81).
+ *
+ * `Publicações` e `Editor do livro` são destinos **diferentes** e é assim no protótipo: um é a
+ * lista de onde se escolhe, o outro é a árvore de um livro já escolhido. Enquanto a rota do livro
+ * abria o workbench direto, os dois eram o mesmo lugar e o segundo não existia.
  */
 export function railHref(id: string, publicationId?: string | null): string {
   switch (id) {
@@ -35,6 +40,8 @@ export function railHref(id: string, publicationId?: string | null): string {
       return "/bibliotecas";
     case "publicacoes":
       return "/publicacoes";
+    case "editor":
+      return publicationId ? `/publications/${publicationId}/editor` : "/publicacoes";
     case "captura":
       return publicationId ? `/publications/${publicationId}/ingestao` : "/publicacoes";
     case "avaliacoes":

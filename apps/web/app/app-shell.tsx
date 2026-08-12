@@ -22,6 +22,13 @@ export interface AppShellProps {
   readonly actions?: ReactNode;
   readonly children: ReactNode;
   readonly statusLeft?: ReactNode;
+  /**
+   * O livro corrente, quando a tela tem um.
+   *
+   * Sem ele, "Captura" e "Editor do livro" caem na lista de publicações para escolher um livro —
+   * que é o certo na Home, e é desperdício no overview, onde o livro está na tela.
+   */
+  readonly publicationId?: string;
 }
 
 export function AppShell({
@@ -30,6 +37,7 @@ export function AppShell({
   actions,
   children,
   statusLeft,
+  publicationId,
 }: AppShellProps) {
   const router = useRouter();
   const [found, setFound] = useState<readonly SearchHit[]>([]);
@@ -66,7 +74,7 @@ export function AppShell({
     <Workbench
       modules={RAIL_MODULES}
       activeModule={activeModule}
-      onModuleSelect={(id) => router.push(railHref(id))}
+      onModuleSelect={(id) => router.push(railHref(id, publicationId))}
       breadcrumb={breadcrumb}
       commands={commands}
       onCommandQueryChange={search}

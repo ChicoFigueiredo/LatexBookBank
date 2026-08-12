@@ -144,7 +144,7 @@ export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }:
               position: "fixed" as const,
               inset: 0,
               zIndex: 60,
-              background: "var(--surface-default)",
+              background: "var(--surface)",
             }
           : {}),
       }}

@@ -115,7 +115,7 @@ export function NewPublicationScreen({
             primeira questão.
           </Callout>
           <div className="lbb-acervo-actions">
-            <Button variant="primary" icon="list-tree" href={`/publications/${saved.id}`}>
+            <Button variant="primary" icon="list-tree" href={`/publications/${saved.id}/editor`}>
               Abrir no editor
             </Button>
             <Button

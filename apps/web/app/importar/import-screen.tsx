@@ -78,7 +78,7 @@ export function ImportScreen() {
 
   return (
     <AppShell activeModule="bibliotecas" breadcrumb={[{ label: "Bibliotecas", href: "/bibliotecas" }, { label: "Importar" }]}>
-      <div style={{ padding: "var(--space-6) var(--space-7)", maxWidth: "48rem" }}>
+      <div style={{ padding: "var(--space-6) var(--space-8)", maxWidth: "48rem" }}>
         <PageHeader
           eyebrow="PORTABILIDADE"
           title="Importar biblioteca"

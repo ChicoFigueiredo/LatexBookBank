@@ -5,19 +5,7 @@ import type { ReactNode } from "react";
 
 import { Icon, type IconName } from "../Icon";
 import { injectCss } from "../shared/inject-css";
-
-const CSS = `
-.lbb-ctx{z-index:var(--z-dropdown);min-width:200px;padding:4px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-overlay);box-shadow:var(--shadow-md);font-family:var(--font-ui);font-size:var(--text-body)}
-.lbb-ctx-item{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:var(--radius-sm);color:var(--text-primary);cursor:pointer;outline:none;user-select:none}
-.lbb-ctx-item[data-highlighted]{background:var(--accent-surface);color:var(--accent-text)}
-.lbb-ctx-item[data-tone="danger"]{color:var(--danger-text)}
-.lbb-ctx-item[data-tone="danger"][data-highlighted]{background:var(--danger-surface);color:var(--danger-text)}
-.lbb-ctx-item[data-disabled]{color:var(--text-disabled);cursor:not-allowed}
-.lbb-ctx-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lbb-ctx-shortcut{font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
-.lbb-ctx-item[data-highlighted] .lbb-ctx-shortcut{color:inherit;opacity:.8}
-.lbb-ctx-sep{height:1px;margin:4px 6px;background:var(--border-subtle)}
-`;
+import { MENU_CSS, MENU_CSS_ID } from "./menu-css";
 
 export interface ContextMenuItem {
   readonly id: string;
@@ -53,7 +41,7 @@ export interface ContextMenuProps {
  * menu abre. O menu não confirma nada: confirmação é da tela, num `Modal`.
  */
 export function ContextMenu({ groups, children, "aria-label": ariaLabel }: ContextMenuProps) {
-  injectCss("lbb-ctx-css", CSS);
+  injectCss(MENU_CSS_ID, MENU_CSS);
   const visible = groups.filter((group) => group.length > 0);
 
   return (

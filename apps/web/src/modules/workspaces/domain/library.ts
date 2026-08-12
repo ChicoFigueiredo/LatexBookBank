@@ -28,6 +28,20 @@ export class LibraryNotFoundError extends Error {
   }
 }
 
+/**
+ * A confirmação digitada não bate com o nome da biblioteca.
+ *
+ * A exclusão é permanente e leva livros, questões e arquivos junto. Digitar o nome é o que
+ * transforma o gesto em decisão — e a checagem mora aqui, não só no diálogo: um `DELETE` disparado
+ * por engano fora da tela precisa esbarrar na mesma trava.
+ */
+export class LibraryConfirmationMismatchError extends Error {
+  constructor(readonly libraryName: string) {
+    super(`Digite “${libraryName}” para confirmar a exclusão.`);
+    this.name = "LibraryConfirmationMismatchError";
+  }
+}
+
 export const LIBRARY_NAME_MAX = 120;
 
 /**
@@ -49,6 +63,43 @@ export function normalizeLibraryName(raw: unknown): string {
   }
 
   return name;
+}
+
+export const LIBRARY_DESCRIPTION_MAX = 400;
+
+/**
+ * Descrição é opcional, e "vazia" é `null`.
+ *
+ * Guardar `""` e `null` como coisas diferentes obrigaria toda leitura a tratar dos dois casos para
+ * chegar à mesma conclusão. Aqui existe **um** jeito de não ter descrição.
+ */
+export function normalizeLibraryDescription(raw: unknown): string | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== "string") {
+    throw new InvalidLibraryNameError("A descrição precisa ser texto.");
+  }
+
+  const description = raw.trim().replace(/[ \t]+/g, " ");
+  if (description === "") return null;
+  if (description.length > LIBRARY_DESCRIPTION_MAX) {
+    throw new InvalidLibraryNameError(
+      `A descrição passa de ${LIBRARY_DESCRIPTION_MAX} caracteres.`,
+    );
+  }
+
+  return description;
+}
+
+/**
+ * A confirmação digitada bate com o nome?
+ *
+ * Espaço em excesso é perdoado — quem copia o nome da tela às vezes leva um espaço junto. Caixa e
+ * acento **não** são: aqui a comparação frouxa de `existsByName` trabalharia contra o propósito.
+ * O ponto de digitar o nome é obrigar a olhar para qual biblioteca está sendo apagada.
+ */
+export function matchesLibraryName(typed: unknown, name: string): boolean {
+  if (typeof typed !== "string") return false;
+  return typed.trim().replace(/\s+/g, " ") === name;
 }
 
 /**

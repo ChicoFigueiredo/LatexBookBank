@@ -86,7 +86,7 @@ export async function createQuestionFromRecognition(
 
   return {
     ...created,
-    href: `/publications/${created.publicationId}?node=${created.nodeId}`,
+    href: `/publications/${created.publicationId}/editor?node=${created.nodeId}`,
     warnings: candidate.warnings,
   };
 }

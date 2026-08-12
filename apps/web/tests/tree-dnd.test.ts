@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { placementFor, zoneFromOffset } from "../app/publications/[id]/tree-dnd";
+import { placementFor, zoneFromOffset } from "../app/publications/[id]/editor/tree-dnd";
 
 /**
  * A aritmética do arraste.

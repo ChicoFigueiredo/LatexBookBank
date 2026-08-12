@@ -39,6 +39,12 @@ model Workspace {
   name String
   slug String @unique
 
+  /// Descrição livre, opcional (protótipo do Beta Editorial, diálogo "Criar biblioteca").
+  ///
+  /// Nula e vazia são a mesma coisa para quem lê, e guardar as duas obrigaria toda leitura a
+  /// tratar dos dois casos — o caso de uso normaliza `""` para `null` antes de gravar.
+  description String?
+
   /// `IdBiblio` de `padrao.knowchicoconfig`.
   legacyId         Int?    @unique
   /// Pasta de origem, guardada só para auditoria do import.

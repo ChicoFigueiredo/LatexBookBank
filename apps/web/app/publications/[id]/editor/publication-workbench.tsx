@@ -45,7 +45,7 @@ import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter"
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
 import { sameTag } from "@modules/questions/domain/tag";
 
-import { RAIL_MODULES, railHref } from "../../rail";
+import { RAIL_MODULES, railHref } from "../../../rail";
 import { AddMenu } from "./add-menu";
 import { TrashDialog } from "./trash-dialog";
 import { QuestionEditor } from "./question-editor";
@@ -675,16 +675,25 @@ export function PublicationWorkbench({
     [found, nodes, router, setSelectedId],
   );
 
+  /**
+   * O título do livro agora **volta** para o resumo, e "Editor" virou um degrau.
+   *
+   * Não é decoração: o `Breadcrumb` só transforma em link o que não é o último item — o último é
+   * a página onde se está. Enquanto o livro era o último degrau, ele não podia ser clicável, e a
+   * tela de resumo ficaria sem caminho de volta a partir do editor. Nomear o editor é o que torna
+   * o livro um degrau intermediário — e é verdade, porque agora são duas páginas.
+   */
   const breadcrumb = [
     { label: "Publicações", href: "/publicacoes" },
-    { label: publicationTitle },
+    { label: publicationTitle, href: `/publications/${publicationId}` },
+    { label: "Editor", ...(selected ? { href: `/publications/${publicationId}/editor` } : {}) },
     ...(selected ? [{ label: selected.title }] : []),
   ];
 
   return (
     <Workbench
       modules={RAIL_MODULES}
-      activeModule="publicacoes"
+      activeModule="editor"
       onModuleSelect={(id) => router.push(railHref(id, publicationId))}
       breadcrumb={breadcrumb}
       commands={commands}
@@ -929,7 +938,7 @@ export function PublicationWorkbench({
     >
       <>
         {editing.error && (
-          <div style={{ padding: "var(--space-4) var(--space-7) 0" }}>
+          <div style={{ padding: "var(--space-4) var(--space-4) 0" }}>
             <Banner tone="danger" title={editing.error.title} onDismiss={editing.dismissError}>
               {editing.error.message}
             </Banner>
@@ -1012,7 +1021,18 @@ function NodeDetail({
         }
       />
 
-      <div style={{ padding: "0 var(--space-7) var(--space-8)", maxWidth: "min(100%, 96rem)" }}>
+      {/*
+        Sem recuo lateral, e isto é decisão e não descuido.
+        
+        No 1366×768 cada pixel aqui sai da largura do editor, e o piso declarado para ele é 420px
+        (`e2e/layout.spec.ts`) — largura de uma linha de LaTeX sem quebra no meio de um comando.
+        Com 16px de cada lado sobram 416. Num workbench o recuo pertence ao editor **por dentro**,
+        que é onde o protótipo também o coloca; o painel encosta na borda de propósito.
+        
+        A regra valia por acidente até agora: o `var(--space-7)` que estava aqui não existe, então
+        o CSS descartava a declaração inteira e o padding era zero sem ninguém ter escolhido isso.
+      */}
+      <div style={{ padding: "0 0 var(--space-8)", maxWidth: "min(100%, 96rem)" }}>
         {node.question ? (
           <>
             <div

@@ -34,7 +34,7 @@ test.describe("o caminho da questão", () => {
     expect(publicationId).not.toBe("");
 
     // ── abrir publicação ────────────────────────────────────────────────
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     const arvore = page.getByRole("tree");
     await expect(arvore).toBeVisible();
 
@@ -107,7 +107,7 @@ test.describe("o caminho da questão", () => {
   test("render compila e o resultado aparece na tela", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
     await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
 
@@ -176,7 +176,7 @@ test.describe("o caminho da questão", () => {
     // porque lá não existe um editor para travar.
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     // O render fica pendurado de propósito: se a edição depende dele, é agora que trava.
@@ -208,7 +208,7 @@ test.describe("o caminho da questão", () => {
   test("o preview rápido aparece sem passar pelo servidor", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     // O aviso é permanente e é parte do contrato com quem lê: preview rápido **pode** diferir.
@@ -233,7 +233,7 @@ test.describe("o caminho da questão", () => {
     page.on("pageerror", (error) => erros.push(String(error)));
 
     const publicationId = await primeiraPublicacao(page);
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     const editor = page.getByRole("group", { name: /Editor LaTeX/ });

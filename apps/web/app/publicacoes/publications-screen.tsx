@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Button, EmptyState, Icon, Input, PageHeader } from "@/design-system";
-import { relativeTime } from "@/shared/format/relative-time";
 
 import { useAcervoStyles } from "../acervo-styles";
 import { AppShell } from "../app-shell";
@@ -15,7 +14,8 @@ export interface CatalogPublication {
   readonly libraryName: string;
   readonly librarySlug: string;
   readonly questionCount: number;
-  readonly updatedAt: string;
+  /** Já formatado no servidor: formatar no cliente quebra a hidratação na virada do minuto. */
+  readonly updatedLabel: string;
 }
 
 /** O catálogo de livros — o caminho para abrir um livro e para começar uma captura. */
@@ -26,7 +26,6 @@ export function PublicationsScreen({
 }) {
   useAcervoStyles();
   const [query, setQuery] = useState("");
-  const now = new Date();
 
   // Sem `useMemo`: o React Compiler memoiza sozinho, e a memoização manual aqui é justamente a
   // que ele não consegue preservar — o lint recusa. Título **e** biblioteca no filtro: quem digita
@@ -96,11 +95,16 @@ export function PublicationsScreen({
                   <span className="lbb-card-meta">
                     {entry.libraryName} · {entry.questionCount}{" "}
                     {entry.questionCount === 1 ? "questão" : "questões"} ·{" "}
-                    {relativeTime(new Date(entry.updatedAt), now)}
+                    {entry.updatedLabel}
                   </span>
                   <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                    <Button size="sm" variant="ghost" icon="list-tree" href={`/publications/${entry.id}`}>
-                      Abrir
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="list-tree"
+                      href={`/publications/${entry.id}/editor`}
+                    >
+                      Abrir no editor
                     </Button>
                     <Button
                       size="sm"

@@ -157,7 +157,7 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
      * conteúdo — e é justamente esta a página aonde se vai quando algo não está funcionando.
      */
     <main className="lbb-diag">
-      <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)" }}>
+      <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)" }}>
         Diagnóstico
       </h1>
 

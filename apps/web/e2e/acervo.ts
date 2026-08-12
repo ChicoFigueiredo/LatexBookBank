@@ -68,7 +68,7 @@ export const publicacaoComQuestao = async (page: Page): Promise<string> =>
 export async function abrirQuestao(page: Page): Promise<QuestaoAberta> {
   const alvo = await acharQuestao(page);
 
-  await page.goto(`/publications/${alvo.publicationId}?node=${alvo.nodeId}`);
+  await page.goto(`/publications/${alvo.publicationId}/editor?node=${alvo.nodeId}`);
   await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
 
   return alvo;

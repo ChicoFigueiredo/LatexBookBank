@@ -37,8 +37,11 @@ async function criarBiblioteca(page: Page, nome: string): Promise<void> {
   await dialogo.getByLabel("Nome").fill(nome);
   await dialogo.getByRole("button", { name: "Criar biblioteca" }).click();
 
-  // A tela da biblioteca nova, e não um toast: criar biblioteca **leva** para ela, porque o passo
-  // seguinte é sempre o primeiro livro.
+  // Criar não despeja o usuário na biblioteca vazia: o diálogo pergunta qual é o próximo passo.
+  // É o segundo passo do protótipo, e a jornada passa por ele.
+  await expect(dialogo.getByText("Ela está vazia")).toBeVisible();
+  await dialogo.getByRole("link", { name: "Abrir biblioteca" }).click();
+
   await expect(page.getByRole("heading", { name: nome })).toBeVisible();
 }
 
@@ -189,8 +192,20 @@ test("do banco limpo à questão persistida, sem tocar no banco", async ({ page 
 
     // "Continuar" é a primeira coisa da Home para quem já trabalha (design §19), e ele nomeia o
     // caminho inteiro — não só o livro.
+    //
+    // O caminho é um breadcrumb com chevrons entre os segmentos, como no protótipo, então não há
+    // um nó de texto `"Capítulo 1 › Exercícios"` para casar. O que o teste garante continua sendo
+    // o mesmo: os dois níveis aparecem, e a folha vem por último.
     await expect(page.getByText("Continuar").first()).toBeVisible();
-    await expect(page.getByText("Capítulo 1 › Exercícios")).toBeVisible();
+
+    const caminho = page.locator(".lbb-continue-path");
+    await expect(caminho).toContainText("Capítulo 1");
+    await expect(caminho).toContainText("Exercícios");
+    await expect(caminho.locator(".lbb-continue-leaf")).toBeVisible();
+
+    // A faixa do cartão diz o tamanho do livro — é o que separa retomar de só ter um atalho.
+    await expect(page.getByText(/capítulos \d+/)).toBeVisible();
+    await expect(page.getByText("retomar: Ctrl+Shift+O")).toBeVisible();
 
     // A biblioteca aparece **duas vezes**: no cartão dela e no rodapé do livro recente. É o certo
     // — os dois respondem perguntas diferentes —, e o teste pega o cartão, que é o que navega.

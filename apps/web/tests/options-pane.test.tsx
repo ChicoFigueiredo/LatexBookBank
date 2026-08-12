@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { OptionsPane } from "../app/publications/[id]/options-pane";
+import { OptionsPane } from "../app/publications/[id]/editor/options-pane";
 
 /**
  * A ligação entre o editor de alternativas e as rotas.

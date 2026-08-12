@@ -83,6 +83,7 @@ const LIBRARY: LibrarySummary = {
   id: "lib-1",
   name: "Acervo",
   slug: "acervo",
+  description: null,
   publicationCount: 0,
   updatedAt: new Date(0),
 };
@@ -95,6 +96,10 @@ const libraries: LibraryRepository = {
   existsByName: async () => false,
   create: async () => LIBRARY,
   rename: async () => LIBRARY,
+  // Importar do Calibre não exclui nada; estão aqui só porque a porta os exige.
+  contentsOf: async () => ({ publicationCount: 0, questionCount: 0, assetCount: 0 }),
+  listAssetKeys: async () => [],
+  delete: async () => false,
 };
 
 class FakePublications implements PublicationRepository {

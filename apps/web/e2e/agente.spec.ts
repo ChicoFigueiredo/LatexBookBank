@@ -36,7 +36,7 @@ const primeiraPublicacao = async (page: Page): Promise<string> =>
 /** Seleciona a questão da publicação já aberta, pelo `?node=`. */
 async function selecionarQuestao(page: Page): Promise<void> {
   const { publicationId, nodeId } = await acharQuestao(page);
-  await page.goto(`/publications/${publicationId}?node=${nodeId}`);
+  await page.goto(`/publications/${publicationId}/editor?node=${nodeId}`);
   await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
 }
 
@@ -79,7 +79,7 @@ const propostaFake = (texto: string) => ({
 test.describe("o caminho do agente", () => {
   test("propor, revisar e **aplicar** — o gesto humano no meio", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}/editor`);
     await selecionarQuestao(page);
 
     const marca = `e2e-agente-${Date.now()}`;
@@ -157,7 +157,7 @@ test.describe("o caminho do agente", () => {
   }) => {
     // `planApply` recusa lista vazia no domínio; aqui se afirma que a tela não oferece o gesto.
     const publicationId = await primeiraPublicacao(page);
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}/editor`);
     await selecionarQuestao(page);
 
     await page.route("**/api/agents/ask", async (route) => {
@@ -183,7 +183,7 @@ test.describe("o caminho do agente", () => {
     const publicationId = await primeiraPublicacao(page);
 
     await page.route("**/api/ai/**", (route) => route.fulfill({ status: 503, json: {} }));
-    await page.goto(`/publications/${publicationId}`);
+    await page.goto(`/publications/${publicationId}/editor`);
     await selecionarQuestao(page);
 
     const botao = page.getByRole("button", { name: /Agente/ }).first();

@@ -1,21 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
-import { Button, EmptyState, Icon, PageHeader } from "@/design-system";
-import { relativeTime } from "@/shared/format/relative-time";
+import { Button, EmptyState, PageHeader } from "@/design-system";
 
 import { useAcervoStyles } from "../acervo-styles";
 import { AppShell } from "../app-shell";
 import { CreateLibraryDialog } from "../create-library-dialog";
+import { DeleteLibraryDialog, type DeleteLibraryTarget } from "../delete-library-dialog";
+import { LibraryCard } from "../library-card";
 
 export interface LibrariesScreenLibrary {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
   readonly publicationCount: number;
-  readonly updatedAt: string;
+  /** Já formatado no servidor: formatar no cliente quebra a hidratação na virada do minuto. */
+  readonly updatedLabel: string;
 }
 
 /** A lista de bibliotecas — o acervo visto de cima. */
@@ -26,7 +27,7 @@ export function LibrariesScreen({
 }) {
   useAcervoStyles();
   const [creating, setCreating] = useState(false);
-  const now = new Date();
+  const [deleting, setDeleting] = useState<DeleteLibraryTarget | null>(null);
 
   return (
     <AppShell
@@ -64,22 +65,22 @@ export function LibrariesScreen({
         ) : (
           <div className="lbb-acervo-grid">
             {libraries.map((library) => (
-              <Link key={library.id} className="lbb-card" href={`/bibliotecas/${library.slug}`}>
-                <span className="lbb-card-title">
-                  <Icon name="library" />
-                  {library.name}
-                </span>
-                <span className="lbb-card-meta">
-                  {library.publicationCount} {library.publicationCount === 1 ? "livro" : "livros"} ·{" "}
-                  {relativeTime(new Date(library.updatedAt), now)}
-                </span>
-              </Link>
+              <LibraryCard
+                key={library.id}
+                href={`/bibliotecas/${library.slug}`}
+                name={library.name}
+                meta={`${library.publicationCount} ${
+                  library.publicationCount === 1 ? "livro" : "livros"
+                } · ${library.updatedLabel}`}
+                onDelete={() => setDeleting({ id: library.id, name: library.name })}
+              />
             ))}
           </div>
         )}
       </div>
 
       <CreateLibraryDialog open={creating} onClose={() => setCreating(false)} />
+      <DeleteLibraryDialog target={deleting} onClose={() => setDeleting(null)} />
     </AppShell>
   );
 }
