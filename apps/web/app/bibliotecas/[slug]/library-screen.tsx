@@ -25,6 +25,8 @@ export interface ShelfBook {
   readonly id: string;
   readonly title: string;
   readonly subtitle: string | null;
+  /** Como o usuário chama o livro — "FME 3". Procura-se por ele antes que pelo título da capa. */
+  readonly nickname: string | null;
   readonly mark: string;
   readonly authors: string | null;
   readonly edition: string | null;
@@ -73,7 +75,7 @@ export function LibraryScreen({
   const alvo = filtro.trim().toLowerCase();
   const visiveis = alvo
     ? books.filter((book) =>
-        [book.title, book.subtitle, book.authors, book.edition]
+        [book.title, book.nickname, book.subtitle, book.authors, book.edition]
           .filter((campo): campo is string => campo !== null)
           .some((campo) => campo.toLowerCase().includes(alvo)),
       )
@@ -166,7 +168,7 @@ export function LibraryScreen({
                 <EmptyState
                   icon="search"
                   title={`Nenhum livro casa com “${filtro.trim()}”`}
-                  description="O filtro olha título, subtítulo, autor e edição."
+                  description="O filtro olha título, apelido, subtítulo, autor e edição."
                   action={
                     <Button variant="secondary" onClick={() => setFiltro("")}>
                       Limpar filtro
@@ -236,6 +238,17 @@ export function LibraryScreen({
             title="Cadastrar manualmente"
             desc="Título, autor e editora agora; ISBN, série e capa quando você quiser."
           />
+          {/*
+            A quarta origem do protótipo (2431–2481). Ela e "Importar acervo .lbb" pareciam a
+            mesma coisa enquanto nenhuma das duas dizia o que fazia: uma cria **um** livro a partir
+            de um arquivo, a outra despeja um acervo inteiro e não cria livro nenhum.
+          */}
+          <Origem
+            href={`/bibliotecas/${library.slug}/livros/novo?fonte=arquivo`}
+            icon="file-text"
+            title="A partir de um arquivo"
+            desc="PDF, imagem ou EPUB como fonte editorial de um livro novo."
+          />
           <Origem
             href="/importar"
             icon="download-cloud"
@@ -259,7 +272,14 @@ function ShelfRow({ book }: { readonly book: ShelfBook }) {
       </span>
 
       <span style={{ minWidth: 0 }} role="cell">
-        <span className="lbb-shelf-title">{book.title}</span>
+        <span className="lbb-shelf-title">
+          {book.title}
+          {/*
+            O apelido em mono ao lado do título, e não no lugar dele: quem procura "FME 3" precisa
+            achá-lo, e quem não conhece o apelido precisa continuar reconhecendo a capa.
+          */}
+          {book.nickname && <span className="lbb-shelf-nick">{book.nickname}</span>}
+        </span>
         {book.subtitle && <span className="lbb-shelf-sub">{book.subtitle}</span>}
       </span>
 

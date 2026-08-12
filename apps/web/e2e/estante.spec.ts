@@ -30,7 +30,7 @@ test("a estante compara livros por coluna, e o filtro estreita", async ({ page }
   // Um termo que nenhum título casa: a lista vazia precisa explicar o que o filtro olha, e
   // oferecer a saída — lista vazia sem saída é beco.
   await page.getByLabel("Filtrar os livros").fill("zzzz-nao-existe");
-  await expect(page.getByText("O filtro olha título, subtítulo, autor e edição.")).toBeVisible();
+  await expect(page.getByText("O filtro olha título, apelido, subtítulo, autor e edição.")).toBeVisible();
 
   await page.getByRole("button", { name: "Limpar filtro" }).click();
   await expect(tabela.getByRole("row")).toHaveCount(antes);

@@ -84,7 +84,10 @@ a.lbb-shelf-row:hover{background:var(--hover-overlay);text-decoration:none}
 a.lbb-shelf-row:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-2px}
 .lbb-shelf>:last-child{border-bottom:0}
 .lbb-shelf-mark{width:28px;height:38px;display:grid;place-items:center;border:1px solid var(--border-default);border-radius:2px;background:var(--surface-paper);font-family:var(--font-mono);font-size:9px;font-weight:var(--weight-bold);color:var(--accent-warm)}
-.lbb-shelf-title{font-weight:var(--weight-medium);color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbb-shelf-title{display:flex;align-items:baseline;gap:7px;min-width:0;font-weight:var(--weight-medium);color:var(--text-strong)}
+.lbb-shelf-title>:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* O apelido é etiqueta, não título: mono, discreto, e nunca rouba a largura da capa. */
+.lbb-shelf-nick{flex-shrink:0;font-family:var(--font-mono);font-size:var(--text-meta);font-weight:var(--weight-regular);color:var(--text-muted);padding:0 5px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
 .lbb-shelf-sub{font-size:var(--text-body-sm);color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lbb-shelf-cell{font-size:var(--text-body-sm);color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lbb-shelf-num{font-family:var(--font-mono);font-size:var(--text-body-sm);text-align:right;color:var(--text-primary)}
@@ -105,6 +108,9 @@ a.lbb-shelf-row:focus-visible{outline:2px solid var(--focus-ring);outline-offset
 .lbb-pick-desc{font-size:var(--text-body-sm);color:var(--text-secondary);text-wrap:pretty}
 .lbb-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:var(--space-4);margin-top:var(--space-4)}
 .lbb-form-wide{grid-column:1/-1}
+/* Título e apelido: 2 para 1, porque o apelido é curto por definição ("FME 3"). */
+.lbb-form-2-1{grid-template-columns:2fr 1fr}
+@media (max-width:34rem){.lbb-form-2-1{grid-template-columns:minmax(0,1fr)}}
 
 /* ── Livro · overview: a parada entre escolher o livro e editá-lo (protótipo, 492–599) ── */
 .lbb-book-head{display:flex;gap:var(--space-5)}

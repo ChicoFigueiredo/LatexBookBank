@@ -42,6 +42,8 @@ export interface BookOverview {
   readonly id: string;
   readonly title: string;
   readonly subtitle: string | null;
+  /** Como o usuário chama o livro — "FME 3". Fica ao lado do título, não na grade de metadados. */
+  readonly nickname: string | null;
   readonly authors: string | null;
   readonly libraryName: string;
   readonly librarySlug: string;
@@ -64,6 +66,7 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
       id: true,
       title: true,
       subtitle: true,
+      nickname: true,
       volume: true,
       edition: true,
       editionYear: true,
@@ -142,6 +145,7 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
     id: publication.id,
     title: publication.title,
     subtitle: publication.subtitle,
+    nickname: publication.nickname,
     authors: nomesPorExtenso(publication.authors.map((entry) => entry.author.name)),
     libraryName: publication.workspace.name,
     librarySlug: publication.workspace.slug,

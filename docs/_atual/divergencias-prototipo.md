@@ -22,7 +22,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 3 | Biblioteca — tabela de livros | Alta | ✅ resolvido |
 | 4 | Livro · overview — tela inexistente | Alta | ✅ resolvido |
 | 5 | Rail — três destinos ausentes e nenhuma contagem | Média | 🟡 parcial (`Editor do livro` e `Lixeira` feitos; falta `Importar/exportar` e as contagens) |
-| 6 | Adicionar livro — origens sem explicação | Média | 🟡 parcial (seletor feito; cadastro manual pendente) |
+| 6 | Adicionar livro — origens sem explicação | Média | ✅ resolvido (capa e tags fora — ver nota) |
 | 7 | Lixeira global | Média | ✅ resolvido |
 | 8 | Importar/exportar — dry-run, conflitos, backup | Média | ⬜ aberto |
 | 9 | Statusbar — infraestrutura viva | Baixa | ⬜ aberto |
@@ -70,6 +70,30 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## Achado fora da lista 4: o apelido do livro existia inteiro e não aparecia em lugar nenhum
+
+`Publication.nickname` está no schema, é normalizado por `parsePublicationDraft`, é validado com
+teto de 120 caracteres, é persistido pelo `PrismaPublicationRepository` e atravessa o exportador
+`.lbb` em `portable-schema.ts`. **Nenhuma tela do produto o escrevia ou o mostrava.**
+
+O app guardava com cuidado um dado que o usuário não tinha como fornecer nem como ler — a §49 pelo
+avesso: aqui não era só endpoint sem jornada, era o caminho inteiro do dado construído e sem as
+duas pontas. Um `POST` com `nickname` funcionava perfeitamente desde sempre; só não havia de onde
+mandá-lo.
+
+Importa porque é assim que um professor chama o livro. Ninguém digita “Fundamentos de Matemática
+Elementar 3” para se referir a ele — digita “FME 3”, e era exatamente essa busca que falhava.
+
+O apelido agora tem as três pontas: campo no cadastro (ao lado do título, 2 para 1, como no
+protótipo 2312–2322), etiqueta mono na estante e no resumo do livro, e entrada no filtro da estante
+— cuja frase de lista vazia passou a nomeá-lo. `e2e/apelido.spec.ts` percorre o circuito fechado,
+porque o defeito não era de nenhuma tela em particular: era de nenhuma delas ter fechado o circuito.
+
+**O que continua sem jornada, pelo mesmo motivo**: `coverAssetId` — o schema guarda, a importação
+do Calibre preenche, e não há como escolher uma capa nem vê-la fora da lombada desenhada.
 
 ---
 
@@ -209,7 +233,7 @@ aceita `badge`, então o que falta é a fonte de dados — um resumo único serv
 
 ---
 
-## 6. Adicionar livro — origens
+## 6. Adicionar livro — origens — ✅ resolvido
 
 O protótipo (2431–2481) dá **quatro** origens, cada uma com uma frase que explica o que faz:
 
@@ -218,12 +242,27 @@ O protótipo (2431–2481) dá **quatro** origens, cada uma com uma frase que ex
 - *A partir de um arquivo* — “PDF, imagem ou EPUB como fonte editorial de um livro novo.”
 - *Importar acervo .lbb* — “Traz livros e questões já estruturados — não cria um livro novo.”
 
-O app tem três botões sem descrição nenhuma, e não distingue “arquivo como fonte de um livro novo”
-de “importar acervo”.
+**A quarta origem** entrou, e não como tela própria: um livro que nasce de um PDF é um livro
+cadastrado com uma fonte anexada, e o app já sabia fazer as duas coisas. O que faltava era **dizer**
+que são duas e emendá-las — `?fonte=arquivo` avisa na entrada e, ao salvar, troca a ação primária
+de “Abrir no editor” para “Anexar a fonte”. Oferecer o editor a quem está com o PDF na mão é mandar
+guardar o arquivo e voltar depois.
 
-O cadastro manual do protótipo (2298–2430) também é mais completo: **apelido**, capa, idioma,
-série, volume, e um progressive disclosure (`Mais detalhes`) — com “Só o título é obrigatório”
-escrito na tela.
+Ela e “Importar acervo .lbb” pareciam a mesma operação com extensões diferentes enquanto nenhuma
+das duas dizia o que fazia. São opostas: uma cria **um** livro, a outra despeja um acervo inteiro e
+não cria livro nenhum.
+
+**O que faltava no cadastro manual era só o apelido — e o apelido é o achado desta rodada. Ver
+abaixo.** Progressive disclosure, “Só o título é obrigatório”, idioma, série e volume já estavam.
+
+**O que deliberadamente não entrou, e por quê:**
+
+- **Capa.** Exige a plumbing de upload de imagem no cadastro (o `AssetDropzone` existe, mas só na
+  ingestão, e ligado a uma publicação que já existe). `coverAssetId` está no schema e continua sem
+  jornada — é a mesma dívida do apelido, um degrau acima.
+- **Tags no livro.** **Não têm suporte no schema**: `Tag` é por workspace e se liga a `Question`
+  via `QuestionTag`. Não há `PublicationTag`. Pôr o campo na tela sem isso seria um campo que
+  aceita texto e o descarta — pior que campo ausente.
 
 ---
 

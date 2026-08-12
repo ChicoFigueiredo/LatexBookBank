@@ -50,6 +50,7 @@ export interface BookOverviewScreenProps {
     readonly id: string;
     readonly title: string;
     readonly subtitle: string | null;
+    readonly nickname: string | null;
     readonly authors: string | null;
     readonly libraryName: string;
     readonly librarySlug: string;
@@ -104,7 +105,15 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="lbb-greet">Publicação · {book.libraryName}</div>
-            <h1 className="lbb-book-title">{book.title}</h1>
+            <h1 className="lbb-book-title">
+              {book.title}
+              {/*
+                O apelido ao lado do título, e não na grade de metadados: metadado é o que se
+                consulta, e o apelido é como o livro se chama — pertence à identidade, junto do
+                título, e não à lista de fichas catalográficas embaixo.
+              */}
+              {book.nickname && <span className="lbb-shelf-nick">{book.nickname}</span>}
+            </h1>
             <div className="lbb-book-sub">
               {[book.subtitle, book.authors].filter(Boolean).join(" · ") || "Sem subtítulo"}
             </div>

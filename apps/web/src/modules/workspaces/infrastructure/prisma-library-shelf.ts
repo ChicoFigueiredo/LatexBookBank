@@ -27,6 +27,14 @@ export interface ShelfBook {
   readonly id: string;
   readonly title: string;
   readonly subtitle: string | null;
+  /**
+   * Como o usuário chama o livro — "FME 3".
+   *
+   * O campo existia no domínio, atravessava o exportador, e **nenhuma tela o escrevia ou o
+   * mostrava**: um dado que o produto validava e o usuário nunca via. Aqui ele ganha o lugar onde
+   * serve, que é a coluna onde se procura o livro.
+   */
+  readonly nickname: string | null;
   /** O carimbo da lombada: volume quando há, senão a inicial do título. */
   readonly mark: string;
   readonly authors: string | null;
@@ -52,6 +60,7 @@ export async function readLibraryShelf(workspaceId: string): Promise<LibraryShel
       id: true,
       title: true,
       subtitle: true,
+      nickname: true,
       volume: true,
       edition: true,
       editionYear: true,
@@ -82,6 +91,7 @@ export async function readLibraryShelf(workspaceId: string): Promise<LibraryShel
       id: row.id,
       title: row.title,
       subtitle: row.subtitle,
+      nickname: row.nickname,
       mark: carimboDaLombada(row.title, row.volume),
       authors: formatarAutores(row.authors.map((entry) => entry.author.name)),
       edition: formatarEdicao(row.edition, row.editionYear),
