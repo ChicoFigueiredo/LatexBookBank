@@ -245,4 +245,73 @@ test.describe("o caminho da questão", () => {
 
     expect(erros, erros.join(" | ")).toEqual([]);
   });
+
+  /**
+   * **Um render que falha não leva o PDF bom junto** (protótipo, 1243–1245).
+   *
+   * O protótipo promete, na faixa de falha: *"O último PNG válido continua na aba PNG; o PDF sob
+   * demanda usa sempre a última compilação bem-sucedida."* Não era verdade aqui — o resultado que
+   * falhou substituía o anterior no estado do painel, e a aba do PDF ficava vazia.
+   *
+   * É o pior momento possível para perder o PDF bom: a pessoa quer justamente comparar o que
+   * quebrou com o que funcionava dez segundos antes. Os artefatos do job antigo nunca saíram do
+   * servidor — o que faltava era o painel lembrar de qual era.
+   */
+  test("render que falha mantém o último PDF bom, e diz que o texto está salvo", async ({ page }) => {
+    const publicationId = await primeiraPublicacao(page);
+
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
+    await abrirPrimeiraQuestao(page);
+
+    await page.getByRole("tab", { name: "PDF compilado" }).click();
+
+    await test.step("uma compilação que dá certo", async () => {
+      await page.getByRole("button", { name: /Compilar/i }).first().click();
+      // Pelo `<object>`, e não pelo `<a>` dentro dele: aquele link é o fallback de quem não tem
+      // leitor de PDF, e no Chromium ele nunca aparece.
+      await expect(page.locator('object[aria-label="PDF compilado"]')).toBeVisible({
+        timeout: 60_000,
+      });
+    });
+
+    await test.step("a seguinte falha — e o PDF anterior continua ali", async () => {
+      // A falha vem do servidor, com a forma de uma compilação que rodou e não passou: é o caso
+      // que o painel confundia com "não há nada compilado".
+      await page.route("**/questions/*/render", async (route) => {
+        await route.fulfill({
+          status: 200,
+          json: {
+            jobId: "job-falho",
+            state: "FAILED",
+            success: false,
+            cacheHit: false,
+            durationMs: 42,
+            diagnostics: [{ severity: "error", message: "! Extra }, or forgotten $.", line: 4 }],
+            artifacts: [],
+          },
+        });
+      });
+
+      await page.getByRole("button", { name: /Compilar/i }).first().click();
+
+      // A garantia, no instante da falha — a mesma frase que faltava no autosave e na espera do
+      // reconhecimento.
+      await expect(page.getByText("O render falhou — o texto continua salvo")).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(
+        page.getByText("A última compilação que deu certo continua nas abas PDF e PNG"),
+      ).toBeVisible();
+
+      // E ele está **na tela**, não só prometido na frase.
+      await expect(page.locator('object[aria-label="PDF compilado"]')).toBeVisible();
+    });
+
+    await test.step("mas o log é o da falha — a evidência não pode ser escondida", async () => {
+      await page.getByRole("tab", { name: /Log/i }).click();
+      // Sem `tabpanel`: o painel de render usa `Tabs` para trocar o conteúdo mas não envolve o
+      // corpo num `role="tabpanel"`. O que importa aqui é o texto do erro estar na tela.
+      await expect(page.getByText("Extra }", { exact: false }).first()).toBeVisible();
+    });
+  });
 });

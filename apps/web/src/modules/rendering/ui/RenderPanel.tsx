@@ -73,6 +73,14 @@ export interface RenderPanelProps {
    * continua listado, só não vira botão. Um botão que não leva a lugar nenhum é pior que texto.
    */
   readonly onGoToDiagnostic?: (target: DiagnosticTarget) => void;
+  /**
+   * Qual questão este painel está mostrando.
+   *
+   * Serve a uma coisa só: esquecer a última compilação boa ao trocar de questão. Exibir o PDF de
+   * outra questão como "o último que deu certo" é a pior forma de errar — parece certo e é de
+   * outro documento.
+   */
+  readonly questionKey?: string;
 }
 
 type PanelTab = "pdf" | "png" | "log" | "source";
@@ -100,12 +108,54 @@ const FIELD_LABEL: Record<RenderSourceField, string> = {
 const artifactUrl = (jobId: string, name: string): string =>
   `/api/render-jobs/${encodeURIComponent(jobId)}/artifacts/${encodeURIComponent(name)}`;
 
-export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }: RenderPanelProps) {
+export function RenderPanel({
+  status,
+  onRender,
+  sourceLatex,
+  onGoToDiagnostic,
+  questionKey,
+}: RenderPanelProps) {
   const [tab, setTab] = useState<PanelTab>("pdf");
   const [expanded, setExpanded] = useState(false);
   const render = useCallback(() => onRender(), [onRender]);
 
   const outcome = status.kind === "done" ? status.outcome : null;
+
+  /**
+   * A última compilação que deu certo — e por que ela precisa sobreviver à seguinte que falhar.
+   *
+   * O protótipo (1244) promete: *"O último PNG válido continua na aba PNG; o PDF sob demanda usa
+   * sempre a última compilação bem-sucedida."* Não era verdade aqui. Uma compilação que falha
+   * substitui o resultado anterior no estado do painel, e a aba do PDF fica vazia — a pessoa
+   * perde de vista o PDF bom que tinha há dez segundos, no exato momento em que quer comparar o
+   * que quebrou com o que funcionava.
+   *
+   * Os artefatos do job antigo continuam no servidor: eles são buscados por `jobId`, e nada os
+   * apaga. O que faltava era o painel lembrar de qual era.
+   */
+  const [ultimoBom, setUltimoBom] = useState<RenderOutcomeView | null>(null);
+  const [chaveVista, setChaveVista] = useState(questionKey);
+
+  /*
+   * Ajuste **durante o render**, e não num efeito.
+   *
+   * É o padrão que o React documenta para estado derivado de props, e é o que o lint deste projeto
+   * exige: `setState` dentro de `useEffect` dispara um segundo render em cascata, e aqui o valor
+   * novo já é conhecido no primeiro. O React descarta este render e refaz antes de pintar, sem
+   * frame intermediário.
+   */
+  if (chaveVista !== questionKey) {
+    // Trocar de questão zera a memória: o PDF de outra questão exibido como "o último bom" desta
+    // seria a pior forma de errar — parece certo e é de outro documento.
+    setChaveVista(questionKey);
+    setUltimoBom(null);
+  } else if (outcome?.success === true && ultimoBom !== outcome) {
+    setUltimoBom(outcome);
+  }
+
+  const falhou = outcome !== null && !outcome.success;
+  /** O que a aba do PDF mostra: o resultado atual quando prestou, senão o último que prestou. */
+  const exibido = falhou ? ultimoBom : outcome;
 
   // O corpo de verdade quando existe; o enunciado da tela enquanto não se compilou nada. A
   // diferença aparece assim que a questão tem alternativas — elas entram no documento e não no
@@ -209,6 +259,27 @@ export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }:
         </div>
       )}
 
+      {/*
+        A garantia, no instante da falha (protótipo, 1243–1245).
+
+        Um render que falha devolve uma parede de erro do TeX, e a primeira pergunta de quem a lê
+        não é sobre o `\hbox`: é "perdi alguma coisa?". A resposta é **não** em duas frentes, e as
+        duas são verdade — o texto nunca passou pelo render, e o PDF anterior continua no servidor,
+        buscável pelo `jobId` do job que deu certo.
+
+        É a mesma frase que faltava no autosave e na espera do reconhecimento: durante a falha é
+        quando ela vale.
+      */}
+      {falhou && (
+        <div style={{ padding: "var(--space-3) var(--space-3) 0" }}>
+          <Banner tone="danger" title="O render falhou — o texto continua salvo">
+            {ultimoBom
+              ? "A última compilação que deu certo continua nas abas PDF e PNG, e é ela que vale até esta passar."
+              : "Nada foi compilado com sucesso ainda nesta sessão, então não há PDF anterior para mostrar."}
+          </Banner>
+        </div>
+      )}
+
       {outcome !== null && outcome.diagnostics.length > 0 && (
         <div style={{ padding: "var(--space-3) var(--space-3) 0" }}>
           <Diagnostics
@@ -228,12 +299,18 @@ export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }:
           <p style={{ color: "var(--text-secondary)" }}>Compilando com o TeX…</p>
         ) : outcome === null ? (
           <EmptyHint />
-        ) : tab === "pdf" ? (
-          <PdfView outcome={outcome} />
-        ) : tab === "png" ? (
-          <PngView outcome={outcome} />
-        ) : (
+        ) : tab === "log" ? (
+          // O log é **sempre** o da compilação atual: é ele que explica a falha, e mostrar o log
+          // da compilação bem-sucedida ao lado de uma falha seria esconder a evidência.
           <LogView outcome={outcome} />
+        ) : exibido === null ? (
+          <EmptyHint />
+        ) : tab === "pdf" ? (
+          <PdfView outcome={exibido} />
+        ) : tab === "png" ? (
+          <PngView outcome={exibido} />
+        ) : (
+          <LogView outcome={exibido} />
         )}
       </div>
     </div>

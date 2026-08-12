@@ -36,6 +36,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 14 | `Ctrl Q` — o atalho que faltava do contrato | Baixa | ✅ resolvido |
 | 15 | Reconhecimento — faltava “Questão completa” | Alta | ✅ resolvido |
 | 16 | Catálogo do Calibre — sem filtros e sem a série | Média | ✅ resolvido |
+| 17 | Render que falha levava o PDF bom junto | Alta | ✅ resolvido |
 
 ---
 
@@ -79,6 +80,38 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 17. Render que falha levava o PDF bom junto — ✅ resolvido
+
+**Protótipo** (1243–1245), na faixa vermelha da falha de compilação:
+
+> **O render falhou — o texto continua salvo.** O último PNG válido (14:20) continua na aba PNG; o
+> PDF sob demanda usa sempre a última compilação bem-sucedida.
+
+**Antes**: um selo `falhou` e a lista de diagnósticos. E o resultado que falhou **substituía** o
+anterior no estado do painel — a aba do PDF ficava vazia.
+
+É o pior momento possível para perder o PDF bom: quem acabou de ver uma parede de erro do TeX quer
+justamente comparar o que quebrou com o que funcionava dez segundos antes. Os artefatos do job
+antigo nunca saíram do servidor — são buscados por `jobId`, e nada os apaga. **O que faltava era o
+painel lembrar de qual era.**
+
+A frase é a mesma família do autosave (§12) e da espera do reconhecimento (§13): no instante da
+falha, dizer o que a pessoa **não** perdeu. Aqui ela é dupla e as duas metades são verdade — o
+texto nunca passou pelo render, e o PDF anterior continua lá.
+
+**O log é sempre o da compilação atual**, e não o do último sucesso: é ele que explica a falha, e
+mostrar o log bem-sucedido ao lado de uma falha esconderia a evidência. As abas PDF e PNG mostram o
+último bom; a aba Log mostra o que acabou de acontecer.
+
+**Trocar de questão zera a memória.** Exibir o PDF de outra questão como "o último que deu certo"
+desta seria a pior forma de errar — parece certo e é de outro documento.
+
+Detalhe de implementação que o lint deste projeto obrigou a acertar: a derivação é feita **durante o
+render**, e não num `useEffect`. `setState` em efeito dispara um segundo render em cascata, e o
+valor novo já é conhecido no primeiro.
 
 ---
 

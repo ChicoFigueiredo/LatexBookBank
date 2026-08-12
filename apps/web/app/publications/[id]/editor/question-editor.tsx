@@ -674,6 +674,8 @@ export function QuestionEditor({
                 <RenderPanel
                   status={renderStatus}
                   onRender={compile}
+                  // A memória do "último render bom" é por questão: trocar de nó precisa esquecê-la.
+                  questionKey={questionId}
                   // Só até a primeira compilação: dali em diante a aba Fonte mostra o corpo que o
                   // servidor realmente montou, com as alternativas dentro.
                   sourceLatex={draft.statementLatex}
