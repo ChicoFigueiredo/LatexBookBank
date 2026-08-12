@@ -78,6 +78,21 @@ const propostaFake = (texto: string) => ({
 
 test.describe("o caminho do agente", () => {
   test("propor, revisar e **aplicar** — o gesto humano no meio", async ({ page }) => {
+    /*
+     * Erro não tratado é falha, e não ruído de console.
+     *
+     * Este fluxo monta um `DiffEditor` do Monaco por mudança proposta e desmonta todos de uma vez
+     * ao aplicar. O `@monaco-editor/react` descarta os `TextModel` antes de tirar o modelo do
+     * widget de diff, e o que sobe é `TextModel got disposed before DiffEditorWidget model got
+     * reset` — uma exceção de verdade, no caminho mais crítico do agente.
+     *
+     * Aparecia no log do servidor e nenhum teste olhava. É a mesma lição do `hidratacao.spec.ts`:
+     * o que ninguém observa falha **de vez em quando**, que é o jeito mais caro de um bug se
+     * apresentar.
+     */
+    const naoTratados: string[] = [];
+    page.on("pageerror", (error) => naoTratados.push(String(error)));
+
     const publicationId = await primeiraPublicacao(page);
     await page.goto(`/publications/${publicationId}/editor`);
     await selecionarQuestao(page);
@@ -150,6 +165,10 @@ test.describe("o caminho do agente", () => {
       nodes: { question: { id: string; complementLatex: string } | null }[];
     };
     expect(limpos.find((n) => n.question?.id === questionId)?.question?.complementLatex).toBe("");
+
+    // No fim, e não no meio: o descarte do diff acontece ao aplicar, e a exceção sobe **depois**
+    // do texto de confirmação aparecer. Afirmar antes disso mediria o passo errado.
+    expect(naoTratados, naoTratados.join(" | ")).toEqual([]);
   });
 
   test("aprovar nada mantém o botão desligado — não existe 'aplicar tudo' por omissão", async ({

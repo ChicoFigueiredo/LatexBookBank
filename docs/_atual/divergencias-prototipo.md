@@ -80,6 +80,47 @@ o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linh
 
 ---
 
+## Achado fora da lista 7: o painel do agente levantava exceção ao aplicar o patch
+
+O caminho mais crítico do agente — aplicar a proposta na questão — levantava uma exceção não
+tratada, todas as vezes:
+
+> `Uncaught Error: TextModel got disposed before DiffEditorWidget model got reset`
+
+O painel monta um `DiffEditor` do Monaco por mudança proposta e desmonta todos de uma vez ao
+aplicar. O `@monaco-editor/react` chama `dispose()` nos dois `TextModel` **antes** de tirar o
+modelo do `DiffEditorWidget`, e o Monaco recusa.
+
+Estava no log do servidor a cada execução e **nenhum teste olhava para ele**. É a mesma lição do
+`hidratacao.spec.ts`, um ano depois e noutro lugar: o que ninguém observa falha de vez em quando, e
+o `agente.spec.ts` era um dos que falhavam de vez em quando nas corridas completas desta semana.
+
+A cura é `keepCurrentOriginalModel` e `keepCurrentModifiedModel`, que desligam o descarte
+automático. O custo é um `TextModel` por diff vivo enquanto o painel existe — eles morrem com a
+página, e o painel é pequeno e efêmero. Barato ao lado de uma exceção no gesto de aplicar patch.
+
+**Ordem seguida, e ela importa**: a vigilância de `pageerror` entrou **antes** da correção, o teste
+falhou de forma determinística com a mensagem literal, e só então o `keepCurrent*` entrou. Sem
+reproduzir primeiro, teria sido um palpite com aparência de conserto.
+
+---
+
+## Achado fora da lista 8 (do ferramental, não do produto): duas suítes num comando só
+
+Quatro vezes nesta série de rodadas o servidor de desenvolvimento morreu no meio de uma corrida
+completa, com dezenas de `ECONNREFUSED` que **pareciam** falhas de teste e não eram. Perdi tempo
+investigando três delas como se fossem defeito do app.
+
+A causa é o encadeamento: `npx playwright test && npx playwright test` no mesmo comando faz a
+segunda corrida subir o servidor enquanto a primeira ainda derruba o dela. Uma corrida por comando,
+e o problema some — verificado rodando a segunda isolada logo depois de uma que tinha "falhado".
+
+Fica registrado porque o sintoma imita defeito de produto com fidelidade suficiente para enganar
+duas vezes, e porque a lição é a mesma que este documento repete: **antes de acreditar num
+vermelho, confira se o instrumento estava de pé.**
+
+---
+
 ## 14. `Ctrl Q` — o único atalho do contrato que não existia — ✅ resolvido
 
 O bloco **Notas de produto (handoff)** do protótipo tem uma tabela de atalhos com onze linhas — o

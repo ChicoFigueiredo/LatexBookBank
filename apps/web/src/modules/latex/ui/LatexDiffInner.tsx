@@ -14,6 +14,24 @@ import { EditorLoading } from "./EditorLoading";
  * trechos que a mudança do agente costuma estar.
  *
  * Somente leitura nos dois lados: quem edita é o editor. Aqui só se decide aprovar ou não.
+ *
+ * ## Por que os modelos não são descartados aqui
+ *
+ * `keepCurrentOriginalModel` e `keepCurrentModifiedModel` desligam o descarte automático que o
+ * `@monaco-editor/react` faz ao desmontar — e é uma correção de defeito, não uma preferência.
+ *
+ * Com o descarte ligado, o wrapper chama `dispose()` nos dois `TextModel` **antes** de tirar o
+ * modelo do `DiffEditorWidget`, e o Monaco levanta:
+ *
+ *     Uncaught Error: TextModel got disposed before DiffEditorWidget model got reset
+ *
+ * O painel do agente monta um diff por mudança proposta e desmonta todos de uma vez ao aplicar,
+ * então a corrida acontece exatamente no gesto mais crítico do fluxo. A exceção aparecia no log
+ * do servidor e nenhum teste olhava para ela — o `agente.spec.ts` agora falha se ela voltar.
+ *
+ * O custo de manter os modelos é um `TextModel` por diff vivo enquanto o painel existe: eles
+ * morrem com a página, e o painel é pequeno e efêmero por natureza. É barato ao lado de uma
+ * exceção não tratada no caminho de aplicar patch.
  */
 
 export interface LatexDiffInnerProps {
@@ -39,6 +57,8 @@ export default function LatexDiffInner({
         language={LATEX_LANGUAGE_ID}
         theme={theme === "dark" ? "vs-dark" : "vs"}
         loading={<EditorLoading />}
+        keepCurrentOriginalModel
+        keepCurrentModifiedModel
         options={{
           readOnly: true,
           renderSideBySide: true,
