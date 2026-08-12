@@ -870,14 +870,19 @@ export function PublicationWorkbench({
       }
       actions={
         <>
+          {/*
+            "Lixeira do livro", e não "Lixeira": desde que a lixeira do acervo entrou no rail,
+            existem duas — e duas coisas diferentes com o mesmo nome na mesma tela é o convite
+            para clicar na errada. Esta filtra por publicação; a do rail mostra tudo.
+          */}
           <Button
             size="sm"
             variant="ghost"
             icon="archive"
             onClick={() => setTrashOpen(true)}
-            title="O que foi excluído desta publicação"
+            title="O que foi excluído deste livro. A lixeira do acervo inteiro fica no rail."
           >
-            Lixeira
+            Lixeira do livro
           </Button>
           <AddMenu
             disabled={editing.busy}

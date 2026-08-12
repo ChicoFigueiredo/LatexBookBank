@@ -63,7 +63,9 @@ test("excluir leva a questão junto, e restaurar traz os dois de volta", async (
   });
 
   await test.step("a lixeira mostra os dois, e diz qual pode voltar sozinho", async () => {
-    await page.getByRole("button", { name: "Lixeira" }).click();
+    // "do livro": desde que a lixeira do acervo entrou no rail, "Lixeira" sozinho é ambíguo — e
+    // a ambiguidade era do produto antes de ser do teste.
+    await page.getByRole("button", { name: "Lixeira do livro" }).click();
 
     const dialogo = page.getByRole("dialog");
     await expect(dialogo.getByText("Capítulo a excluir")).toBeVisible();

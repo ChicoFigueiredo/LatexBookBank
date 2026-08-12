@@ -157,6 +157,16 @@ a.lbb-shelf-row:focus-visible{outline:2px solid var(--focus-ring);outline-offset
 @media (max-width:60rem){
   .lbb-book-split{grid-template-columns:minmax(0,1fr)}
 }
+
+/* ── Lixeira: uma linha por ato de exclusão (protótipo, 1889–1921) ── */
+.lbb-trash{border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface);overflow:hidden}
+.lbb-trash-row{display:flex;align-items:center;gap:var(--space-3);padding:11px var(--space-4);border-bottom:1px solid var(--border-subtle);color:var(--text-muted)}
+.lbb-trash-title{font-size:var(--text-body-sm);font-weight:var(--weight-medium);color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbb-trash-meta{font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* O que a exclusão levou junto é aviso, não metadado — o protótipo o põe em danger por isso. */
+.lbb-trash-meta[data-tone="danger"]{color:var(--danger-text)}
+.lbb-trash-foot{display:flex;align-items:center;gap:var(--space-3);padding:11px var(--space-4);background:var(--surface-raised)}
+.lbb-trash-foot>.lbb-source-size{margin-right:auto}
 `;
 
 export function useAcervoStyles(): void {

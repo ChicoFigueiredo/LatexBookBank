@@ -21,9 +21,9 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 2 | Home · usuário recorrente | Alta | ✅ resolvido |
 | 3 | Biblioteca — tabela de livros | Alta | ✅ resolvido |
 | 4 | Livro · overview — tela inexistente | Alta | ✅ resolvido |
-| 5 | Rail — três destinos ausentes e nenhuma contagem | Média | 🟡 parcial (`Editor do livro` feito; faltam `Importar/exportar`, `Lixeira` e as contagens) |
+| 5 | Rail — três destinos ausentes e nenhuma contagem | Média | 🟡 parcial (`Editor do livro` e `Lixeira` feitos; falta `Importar/exportar` e as contagens) |
 | 6 | Adicionar livro — origens sem explicação | Média | 🟡 parcial (seletor feito; cadastro manual pendente) |
-| 7 | Lixeira global | Média | ⬜ aberto |
+| 7 | Lixeira global | Média | ✅ resolvido |
 | 8 | Importar/exportar — dry-run, conflitos, backup | Média | ⬜ aberto |
 | 9 | Statusbar — infraestrutura viva | Baixa | ⬜ aberto |
 | 10 | Busca global — rodapé de atalhos | Baixa | ⬜ aberto |
@@ -227,13 +227,37 @@ escrito na tela.
 
 ---
 
-## 7. Lixeira global
+## 7. Lixeira global — ✅ resolvido
 
 Protótipo (1889–1921): tela de sistema listando o que foi excluído em **todo** o acervo, com o que
 cada item levou junto (“levou 6 questões com ele”), `Restaurar (7 itens)`, contagem
 `2 itens · 8 objetos` e `Esvaziar lixeira`.
 
-App: diálogo de lixeira **por publicação**, sem visão global e sem esvaziar.
+**Antes**: diálogo de lixeira **por publicação**, sem visão global e sem esvaziar. Isso responde
+"o que apaguei neste livro" e não responde a pergunta que faz alguém procurar a lixeira: "apaguei
+alguma coisa e não lembro onde" — quem não lembra o livro precisaria abrir os vinte e quatro.
+
+**O que foi feito.** `/lixeira` no rail, com uma linha por **ato de exclusão** e não por linha do
+banco: excluir um grupo apaga sete nós e é uma decisão só. A conta que sustenta
+`Restaurar (7 itens)` é a mesma que o `restoreNode` executa, e é pura e testada — o botão é uma
+promessa numérica, e errá-la significa devolver menos do que se prometeu, com o usuário descobrindo
+isso ao olhar uma árvore incompleta em vez de uma mensagem de erro.
+
+**O defeito que a implementação da §7 obrigou a resolver: `Question` órfã.**
+`DocumentNode.questionId` aponta para `Question` e **não há cascade nesse sentido**. Um "esvaziar"
+ingênuo apagaria só o nó e deixaria a questão viva — invisível em toda tela e contando nos totais
+para sempre. O sintoma seria um número que não fecha, meses depois; a causa, uma linha ausente.
+`emptyGlobalTrash` apaga as duas numa transação e devolve as duas contagens, e é exatamente sobre
+essas contagens que `e2e/lixeira-global.spec.ts` assere.
+
+O `SourceAnchor` **fica**: não é conteúdo da questão, é a marca de onde no PDF ela foi recortada, e
+D29 trata a fonte como imutável e compartilhável — apagá-la destruiria a proveniência de questões
+que continuam vivas.
+
+**Ambiguidade que a tela nova criou, e foi corrigida no produto e não só no teste**: o workbench
+tinha um botão `Lixeira` (por publicação) e o rail passou a ter outro (global). Duas coisas
+diferentes com o mesmo nome na mesma tela é o convite para clicar na errada. A do livro agora se
+chama `Lixeira do livro`.
 
 ---
 

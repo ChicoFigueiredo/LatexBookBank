@@ -18,6 +18,7 @@ export const RAIL_MODULES: readonly WorkbenchModule[] = [
   { id: "editor", label: "Editor do livro", icon: "list-tree", group: "Acervo" },
   { id: "captura", label: "Captura", icon: "scan-text", group: "Produção" },
   { id: "avaliacoes", label: "Avaliações", icon: "clipboard-list", group: "Produção" },
+  { id: "lixeira", label: "Lixeira", icon: "archive", group: "Sistema" },
   { id: "diagnostico", label: "Diagnóstico", icon: "activity", group: "Sistema" },
 ];
 
@@ -46,6 +47,8 @@ export function railHref(id: string, publicationId?: string | null): string {
       return publicationId ? `/publications/${publicationId}/ingestao` : "/publicacoes";
     case "avaliacoes":
       return "/avaliacoes";
+    case "lixeira":
+      return "/lixeira";
     case "diagnostico":
       return "/diagnostico";
     default:
