@@ -17,7 +17,7 @@ import type { RuntimeWorkspace } from "./export-workspace";
 
 export interface ImportCollision {
   readonly kind: "publication" | "question";
-  readonly by: "legacyId" | "legacyUuid";
+  readonly by: "legacyId" | "legacyUuid" | "isbn";
   readonly value: string | number;
   readonly existingId: string;
 }
@@ -38,13 +38,41 @@ export interface ExistingIndex {
   /** `legacyId` de publicação → id no destino. */
   readonly publicationsByLegacyId: ReadonlyMap<number, string>;
   readonly publicationsByLegacyUuid: ReadonlyMap<string, string>;
+  /**
+   * ISBN normalizado → id no destino. A chave que funciona para livro nascido **no app**.
+   *
+   * `legacyId` e `legacyUuid` são identidade de origem, e só existem em quem veio do sistema
+   * legado. Um livro cadastrado aqui hoje, exportado e reimportado, não colidia por chave nenhuma
+   * — duplicava em silêncio, e a simulação dizia "0 conflitos" com toda a razão e nenhuma
+   * utilidade.
+   *
+   * O ISBN é o identificador que a própria pessoa digitou, e ele **significa** "é este livro" fora
+   * deste banco e fora deste produto. Usá-lo não muda o que um `.lbb` é: continua sendo um despejo
+   * sem identidade sintética — o que muda é que agora dá para reconhecer o livro pelo número que
+   * está na contracapa dele.
+   */
+  readonly publicationsByIsbn: ReadonlyMap<string, string>;
   readonly questionsByLegacyId: ReadonlyMap<number, string>;
 }
 
 export const EMPTY_INDEX: ExistingIndex = {
   publicationsByLegacyId: new Map(),
   publicationsByLegacyUuid: new Map(),
+  publicationsByIsbn: new Map(),
   questionsByLegacyId: new Map(),
+};
+
+/**
+ * O ISBN sem o que é enfeite de impressão.
+ *
+ * `978-85-357-0011-4` e `9788535700114` são o mesmo livro, e a ficha catalográfica escreve dos dois
+ * jeitos. Comparar sem normalizar deixaria passar a duplicata mais óbvia que existe.
+ */
+export const normalizeIsbn = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+
+  const limpo = value.replace(/[\s-]/g, "").toUpperCase();
+  return limpo === "" ? null : limpo;
 };
 
 /**
@@ -73,6 +101,14 @@ export function toRuntime(
         });
       }
     }
+    const isbn = normalizeIsbn(publication.isbn);
+    if (isbn !== null) {
+      const found = existing.publicationsByIsbn.get(isbn);
+      if (found !== undefined) {
+        collisions.push({ kind: "publication", by: "isbn", value: isbn, existingId: found });
+      }
+    }
+
     if (publication.legacyUuid !== null) {
       const found = existing.publicationsByLegacyUuid.get(publication.legacyUuid);
       if (found !== undefined) {

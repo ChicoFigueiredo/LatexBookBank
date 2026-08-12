@@ -1,7 +1,11 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import type { ExistingIndex, ImportCollision } from "@modules/portability/application/import-workspace";
+import {
+  normalizeIsbn,
+  type ExistingIndex,
+  type ImportCollision,
+} from "@modules/portability/application/import-workspace";
 import type { ConflitoDeImportacao } from "@modules/portability/domain/import-conflicts";
 import type { PortableWorkspace } from "@modules/portability/domain/portable-schema";
 
@@ -21,8 +25,12 @@ import type { PortableWorkspace } from "@modules/portability/domain/portable-sch
 export async function readExistingIndex(): Promise<ExistingIndex> {
   const [publicacoes, questoes] = await Promise.all([
     prisma.publication.findMany({
-      where: { OR: [{ legacyId: { not: null } }, { legacyUuid: { not: null } }] },
-      select: { id: true, legacyId: true, legacyUuid: true },
+      // `isbn` entra no OR: livro nascido no app não tem chave legada nenhuma, e era exatamente
+      // ele que não colidia com a própria cópia.
+      where: {
+        OR: [{ legacyId: { not: null } }, { legacyUuid: { not: null } }, { isbn: { not: null } }],
+      },
+      select: { id: true, legacyId: true, legacyUuid: true, isbn: true },
     }),
     prisma.question.findMany({
       where: { legacyId: { not: null } },
@@ -32,10 +40,14 @@ export async function readExistingIndex(): Promise<ExistingIndex> {
 
   const publicationsByLegacyId = new Map<number, string>();
   const publicationsByLegacyUuid = new Map<string, string>();
+  const publicationsByIsbn = new Map<string, string>();
 
   for (const row of publicacoes) {
     if (row.legacyId !== null) publicationsByLegacyId.set(row.legacyId, row.id);
     if (row.legacyUuid !== null) publicationsByLegacyUuid.set(row.legacyUuid, row.id);
+
+    const isbn = normalizeIsbn(row.isbn);
+    if (isbn !== null) publicationsByIsbn.set(isbn, row.id);
   }
 
   const questionsByLegacyId = new Map<number, string>();
@@ -43,7 +55,12 @@ export async function readExistingIndex(): Promise<ExistingIndex> {
     if (row.legacyId !== null) questionsByLegacyId.set(row.legacyId, row.id);
   }
 
-  return { publicationsByLegacyId, publicationsByLegacyUuid, questionsByLegacyId };
+  return {
+    publicationsByLegacyId,
+    publicationsByLegacyUuid,
+    publicationsByIsbn,
+    questionsByLegacyId,
+  };
 }
 
 /**
@@ -92,6 +109,9 @@ export async function describeConflicts(
     const quantas = publicacao.nodes.filter((node) => node.question !== null).length;
     if (publicacao.legacyId !== null) noArquivo.set(`id:${publicacao.legacyId}`, quantas);
     if (publicacao.legacyUuid !== null) noArquivo.set(`uuid:${publicacao.legacyUuid}`, quantas);
+
+    const isbn = normalizeIsbn(publicacao.isbn);
+    if (isbn !== null) noArquivo.set(`isbn:${isbn}`, quantas);
   }
 
   return colisoes.map((colisao): ConflitoDeImportacao => {
@@ -108,10 +128,14 @@ export async function describeConflicts(
     }
 
     const publicacao = porId.get(colisao.existingId);
+    // A chave da comparação é a **mesma** por onde a colisão foi detectada: um livro que casou por
+    // ISBN pode não ter chave legada nenhuma, e procurar por `uuid:` daria contagem vazia.
     const chave =
-      publicacao?.legacyId !== null && publicacao?.legacyId !== undefined
-        ? `id:${publicacao.legacyId}`
-        : `uuid:${publicacao?.legacyUuid ?? ""}`;
+      colisao.by === "isbn"
+        ? `isbn:${colisao.value}`
+        : publicacao?.legacyId !== null && publicacao?.legacyId !== undefined
+          ? `id:${publicacao.legacyId}`
+          : `uuid:${publicacao?.legacyUuid ?? ""}`;
 
     return {
       kind: "publication",

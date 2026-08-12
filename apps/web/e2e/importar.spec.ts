@@ -217,3 +217,72 @@ test("exportar e reimportar preserva a ficha catalográfica, autores inclusive",
     await expect(grade).toContainText("Fundamentos de Matemática Elementar");
   });
 });
+
+/**
+ * **O `.lbb` do próprio app agora reconhece a própria cópia.**
+ *
+ * Na §8 isto ficou registrado como aberto e escalado: a idempotência do import se apoiava em
+ * `legacyId` e `legacyUuid` — identidade de **origem**, que só existe em quem veio do legado. Um
+ * livro criado no app, exportado e reimportado, duplicava em silêncio, e a simulação respondia
+ * "0 conflitos" com toda a razão e nenhuma utilidade.
+ *
+ * O que destravou foi a rodada anterior: o ISBN não atravessava o arquivo. Agora atravessa, e ele
+ * é o identificador que a própria pessoa digitou — significa "é este livro" fora deste banco e
+ * fora deste produto. Não é identidade sintética: o `.lbb` continua sendo o que era, e o que muda
+ * é que dá para reconhecer o livro pelo número que está na contracapa dele.
+ */
+test("reimportar o próprio backup acusa o conflito, com nome e contagem", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const ISBN = "978-85-357-0011-4";
+
+  const biblioteca = await page.request.post("/api/libraries", {
+    data: { name: `Acervo isbn ${marca}` },
+  });
+  const { library } = (await biblioteca.json()) as { library: { id: string } };
+
+  const livro = await page.request.post(`/api/libraries/${library.id}/publications`, {
+    data: { title: `Livro com ISBN ${marca}`, nickname: `ISB ${marca}`, isbn: ISBN },
+  });
+  const { publication } = (await livro.json()) as { publication: { id: string } };
+
+  const capitulo = await page.request.post(`/api/publications/${publication.id}/nodes`, {
+    data: { kind: "CHAPTER", title: "Capítulo", placement: { kind: "lastChild", parentId: null } },
+  });
+  const { id: capituloId } = (await capitulo.json()) as { id: string };
+
+  for (let i = 0; i < 2; i += 1) {
+    await page.request.post(`/api/publications/${publication.id}/questions`, {
+      data: { type: "MULTIPLE_CHOICE", placement: { kind: "lastChild", parentId: capituloId } },
+    });
+  }
+
+  const exportado = await page.request.get(`/api/workspaces/export?workspaceId=${library.id}`);
+  const bytes = await exportado.body();
+
+  await page.goto("/importar");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: `backup-${marca}.lbb`,
+    mimeType: "application/zip",
+    buffer: bytes,
+  });
+
+  const painel = page.locator(".lbb-dryrun");
+  await expect(painel).toBeVisible();
+
+  // A célula que decide. Antes desta rodada ela dizia 0 para este cenário exato — o arquivo era a
+  // cópia do que já estava lá, e nada tinha como perceber.
+  await expect(painel.locator(".lbb-dryrun-cell").filter({ hasText: "conflitos" })).toContainText("1");
+
+  // E a linha diz **qual** livro e os dois números, que é o que permite decidir em vez de só saber
+  // que há um problema.
+  const conflito = painel.locator(".lbb-dryrun-conflict");
+  await expect(conflito).toContainText(`ISB ${marca}`);
+  await expect(conflito).toContainText("já existe com 2 questões");
+  await expect(conflito).toContainText("o arquivo traz 2");
+  await expect(conflito).toContainText("Nada será sobrescrito sem sua escolha");
+
+  // E o rótulo do botão passa a dizer a política, porque agora há conflito na tela.
+  await expect(
+    painel.getByRole("button", { name: "Importar (mantendo os dois)" }),
+  ).toBeVisible();
+});

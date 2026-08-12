@@ -152,9 +152,7 @@ mais um que prova que arquivo antigo continua importando) e um contra o banco, p
 vivia exatamente entre o `select` do exportador e o `create` do importador — os dois lugares que
 um teste de projeção não alcança.
 
-**A lacuna original — `Duplicata por ISBN` — continua aberta**, e agora é possível: o ISBN
-atravessa o arquivo. Ligar o ISBN às colisões do dry-run é a próxima fatia, e é ela que fecha de
-verdade o que ficou 🤚 na §8 (o `.lbb` do próprio app não tinha identidade nenhuma para colidir).
+**A lacuna original — `Duplicata por ISBN` — foi fechada na rodada seguinte**, ver abaixo.
 
 ---
 

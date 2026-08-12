@@ -302,6 +302,7 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
     const plan = toRuntime(toPortable(runtime()), {
       publicationsByLegacyId: new Map([[7, "id-existente"]]),
       publicationsByLegacyUuid: new Map(),
+      publicationsByIsbn: new Map(),
       questionsByLegacyId: new Map(),
     });
 
@@ -313,10 +314,58 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
     });
   });
 
+  it("**ISBN** também colide — a chave que funciona para livro nascido no app", () => {
+    /*
+     * `legacyId` e `legacyUuid` são identidade de **origem**: só existem em quem veio do sistema
+     * legado. Um livro cadastrado no app hoje, exportado e reimportado, não colidia por chave
+     * nenhuma — duplicava em silêncio, e a simulação dizia "0 conflitos" com toda a razão e
+     * nenhuma utilidade.
+     *
+     * O ISBN é o identificador que a pessoa digitou, e significa "é este livro" fora deste banco.
+     */
+    const plan = toRuntime(toPortable(runtime()), {
+      publicationsByLegacyId: new Map(),
+      publicationsByLegacyUuid: new Map(),
+      // Sem hífen no índice, com hífen no arquivo: é assim que a ficha catalográfica escreve, e
+      // comparar sem normalizar deixaria passar a duplicata mais óbvia que existe.
+      publicationsByIsbn: new Map([["9788535700114", "id-mesmo-livro"]]),
+      questionsByLegacyId: new Map(),
+    });
+
+    expect(plan.collisions).toContainEqual({
+      kind: "publication",
+      by: "isbn",
+      value: "9788535700114",
+      existingId: "id-mesmo-livro",
+    });
+  });
+
+  it("livro sem ISBN e sem chave legada não colide — e está certo", () => {
+    // Não há nada que diga que é o mesmo livro. Inventar uma colisão a partir do título faria o
+    // painel acusar conflito entre dois volumes diferentes da mesma coleção.
+    const semChaves = runtime();
+    const publicacao = semChaves.publications[0];
+    const plan = toRuntime(
+      toPortable({
+        ...semChaves,
+        publications: [{ ...publicacao!, legacyId: null, legacyUuid: null, isbn: null }],
+      }),
+      {
+        publicationsByLegacyId: new Map(),
+        publicationsByLegacyUuid: new Map(),
+        publicationsByIsbn: new Map([["9788535700114", "outro"]]),
+        questionsByLegacyId: new Map(),
+      },
+    );
+
+    expect(plan.collisions).toEqual([]);
+  });
+
   it("questão com o mesmo `legacyId` também é relatada", () => {
     const plan = toRuntime(toPortable(runtime()), {
       publicationsByLegacyId: new Map(),
       publicationsByLegacyUuid: new Map(),
+      publicationsByIsbn: new Map(),
       questionsByLegacyId: new Map([[101, "q-existente"]]),
     });
 
@@ -331,6 +380,7 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
     const plan = toRuntime(toPortable(runtime()), {
       publicationsByLegacyId: new Map([[7, "id-existente"]]),
       publicationsByLegacyUuid: new Map(),
+      publicationsByIsbn: new Map(),
       questionsByLegacyId: new Map(),
     });
 
