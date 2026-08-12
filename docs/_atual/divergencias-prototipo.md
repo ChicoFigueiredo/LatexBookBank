@@ -4,6 +4,9 @@
 > `e62474e6-3359-40ba-b6fb-0fd57640d89d` (3.681 linhas, navegável por estado).
 > **Brief:** `uploads/01_Claude_Design_Ajustes_Finais_LatexBookBank.md` no mesmo projeto.
 > **Levantado em:** 11/08/2026, contra `main`.
+> **Revarrido em:** 12/08/2026, depois de as dez fecharem — e a varredura achou a §11 na primeira
+> janela que ninguém tinha lido. Uma auditoria só não vê tudo, e o ledger não é prova de cobertura:
+> das 3.681 linhas do protótipo, a primeira passada leu cerca de 600.
 
 O protótipo é **contrato visual e comportamental** do Beta Editorial (brief §36). O que ele *não* é,
 por decisão explícita do próprio brief (§21 e §34): contrato de CSS, de largura exata, de HTML ou de
@@ -27,6 +30,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 8 | Importar/exportar — dry-run, conflitos, backup | Média | ✅ resolvido (`Comparar` fora — ver nota) |
 | 9 | Statusbar — infraestrutura viva | Baixa | ✅ resolvido |
 | 10 | Busca global — rodapé de atalhos | Baixa | ✅ resolvido |
+| 11 | Livro · vazio — estado inexistente | Alta | ✅ resolvido |
 
 ---
 
@@ -70,6 +74,35 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 11. Livro · vazio — ✅ resolvido
+
+**Protótipo** (601–642) — o resumo do livro tem **dois** estados, `isBookFull` e `isBookEmpty`, e a
+§4 implementou só o primeiro.
+
+Não é a mesma tela com menos coisa. Um livro cheio responde *"o que falta aqui?"*; um livro vazio
+responde *"por onde começo?"*. O app respondia à primeira pergunta com uma grade de estrutura vazia
+ao lado de uma caixa de fonte — silêncio com aparência de tela pronta, exatamente para quem acabou
+de criar o livro e é quem menos sabe o que fazer em seguida.
+
+Agora: eyebrow `Livro criado agora` em tom ok (só nos primeiros dez minutos — passado isso vira
+ruído e volta a ser o endereço do livro), o estado centralizado com o texto do protótipo, e as
+ações do começo. A faixa de "Precisa da sua atenção" **some** neste estado: ela diria "o livro ainda
+não tem questão nenhuma" a dois centímetros de uma tela inteira dedicada a dizer isso, e repetir o
+aviso é como se ensina a não ler avisos.
+
+**`Criar primeiro capítulo` cria o capítulo.** O caminho fácil seria mandar para o editor e deixar
+a pessoa achar o menu de adicionar — mas o botão promete um capítulo, e quem clica nele está no
+primeiro minuto do livro, que é exatamente quem ainda não sabe onde fica o menu. O capítulo nasce
+ali e o editor abre nele.
+
+**O que não entrou, e por quê**: a quarta ação do protótipo, `Importar estrutura`, e a linha "o
+sumário do PDF pode virar capítulos automaticamente". **Não há leitura de sumário neste app** — a
+varredura por `outline`/`sumário` só acha `outline` de CSS. A frase seria pior que o botão:
+prometeria trabalho automático justamente a quem está decidindo se faz o trabalho à mão.
+`e2e/livro-vazio.spec.ts` falha se alguém colar os dois de volta sem implementar a coisa.
 
 ---
 

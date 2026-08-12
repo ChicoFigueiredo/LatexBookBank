@@ -193,6 +193,16 @@ a.lbb-shelf-row:focus-visible{outline:2px solid var(--focus-ring);outline-offset
 .lbb-dryrun-conflict{display:flex;align-items:center;gap:9px;padding:11px var(--space-4);border-top:1px solid var(--warn-border);background:var(--warn-surface);color:var(--warn-text);font-size:var(--text-body-sm);text-wrap:pretty}
 .lbb-dryrun-foot{display:flex;align-items:center;gap:var(--space-2);padding:12px var(--space-4);border-top:1px solid var(--border-subtle)}
 .lbb-port-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:var(--space-4);margin-top:var(--space-6);align-items:start}
+
+/* ── Livro vazio: “por onde começo?” no centro, e não a estrutura vazia de lado ── */
+.lbb-book-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;margin-top:var(--space-8);padding:var(--space-10) var(--space-5) var(--space-12);border-top:1px solid var(--border-subtle)}
+.lbb-book-empty-icon{display:grid;place-items:center;width:44px;height:44px;margin-bottom:8px;border:1px dashed var(--border-strong);border-radius:var(--radius-md);color:var(--text-muted)}
+.lbb-book-empty h2{margin:0;font-family:var(--font-display);font-size:var(--text-section);font-weight:var(--weight-bold);color:var(--text-strong)}
+.lbb-book-empty p{margin:0;max-width:32rem;color:var(--text-secondary);font-size:var(--text-body-sm);text-wrap:pretty}
+.lbb-book-empty-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-2);margin-top:var(--space-4)}
+.lbb-book-empty-foot{margin-top:var(--space-5);font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
+/* O eyebrow do livro recém-criado: o reconhecimento do gesto, e só enquanto for verdade. */
+.lbb-greet[data-tone="ok"]{color:var(--ok-text)}
 `;
 
 export function useAcervoStyles(): void {

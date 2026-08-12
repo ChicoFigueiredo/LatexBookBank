@@ -57,7 +57,26 @@ export interface BookOverview {
   readonly source: FonteEditorial | null;
   readonly capture: ProgressoDeCaptura | null;
   readonly reviewedRange: string | null;
+  /**
+   * Livro sem capítulo e sem questão — o estado `LIVRO · vazio` do protótipo (601–642).
+   *
+   * É uma tela diferente, e não a mesma com menos coisa: um livro cheio responde "o que falta
+   * aqui?", e um livro vazio responde "por onde começo?". A grade de estrutura vazia ao lado da
+   * caixa de fonte responde à primeira pergunta com silêncio.
+   */
+  readonly isEmpty: boolean;
+  /**
+   * `Livro criado agora` — o eyebrow em tom ok, e só enquanto for verdade.
+   *
+   * Decidido **aqui** e não na tela: ler o relógio durante o render é impuro, o lint recusa, e a
+   * razão do lint é a mesma que derrubou a Home — servidor e cliente lendo horas diferentes na
+   * virada do minuto. Aqui o relógio é lido uma vez e o que atravessa é um booleano.
+   */
+  readonly justCreated: boolean;
 }
+
+/** Dez minutos. Passado isso, "criado agora" vira ruído e o eyebrow volta a ser o endereço. */
+const RECEM_CRIADO_MS = 10 * 60 * 1000;
 
 export async function readBookOverview(publicationId: string): Promise<BookOverview | null> {
   const publication = await prisma.publication.findUnique({
@@ -75,6 +94,7 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
       language: true,
       series: true,
       importedAt: true,
+      createdAt: true,
       sourcePdfAssetId: true,
       workspace: { select: { name: true, slug: true } },
       authors: {
@@ -173,6 +193,8 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
       : null,
     capture: resumirCaptura(capturados, naFila, ultimaPagina),
     reviewedRange: faixaRevisada(chapters),
+    isEmpty: chapters.length === 0 && questionCount === 0,
+    justCreated: Date.now() - publication.createdAt.getTime() < RECEM_CRIADO_MS,
   };
 }
 

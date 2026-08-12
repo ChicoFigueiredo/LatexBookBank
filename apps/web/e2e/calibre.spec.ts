@@ -143,10 +143,14 @@ test("do catálogo do Calibre a um livro do acervo", async ({ page }) => {
     await page.getByRole("link", { name: "Abrir o livro" }).click();
 
     // Depois de importado, é um livro normal do LatexBookBank — o Calibre é só a origem, e o
-    // destino é o resumo do livro, como o de qualquer outro. Um livro recém-importado está vazio,
-    // e o resumo diz isso **e** o que fazer com isso, que é mais do que a árvore vazia dizia.
+    // destino é o resumo do livro, como o de qualquer outro. Um livro recém-importado cai no
+    // estado `LIVRO · vazio`, que diz o que há **e** por onde começar — mais do que a árvore
+    // vazia dizia, e mais do que a faixa de pendências dizia antes dele existir.
     await expect(page.getByRole("heading", { name: TITULO_PDF })).toBeVisible();
-    await expect(page.getByText("O livro ainda não tem questão nenhuma")).toBeVisible();
+    await expect(page.getByText("Este livro ainda não tem capítulos nem questões")).toBeVisible();
+
+    // E a fonte veio junto do Calibre, então "Abrir PDF fonte" é uma das saídas oferecidas.
+    await expect(page.getByRole("link", { name: "Abrir PDF fonte" })).toBeVisible();
   });
 
   await test.step("reimportar o mesmo livro é recusado, com saída", async () => {

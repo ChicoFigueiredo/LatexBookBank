@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-import { Button, Icon, type IconName } from "@/design-system";
+import { Banner, Button, Icon, type IconName } from "@/design-system";
 
 import { useAcervoStyles } from "../../acervo-styles";
 import { AppShell } from "../../app-shell";
@@ -72,14 +74,57 @@ export interface BookOverviewScreenProps {
       readonly label: string;
     } | null;
     readonly reviewedRange: string | null;
+    readonly isEmpty: boolean;
+    /** "Livro criado agora" — só enquanto for verdade. Resolvido no servidor. */
+    readonly justCreated: boolean;
   };
 }
 
 export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
   useAcervoStyles();
+  const router = useRouter();
+
+  const [criando, setCriando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const editor = `/publications/${book.id}/editor`;
   const captura = `/publications/${book.id}/ingestao`;
+
+  /**
+   * "Criar primeiro capítulo" **cria** o capítulo.
+   *
+   * O caminho fácil seria mandar para o editor e deixar a pessoa achar o menu de adicionar. Mas o
+   * botão promete um capítulo, e quem clica nele está no primeiro minuto do livro — é exatamente
+   * quem ainda não sabe onde fica o menu. O capítulo nasce aqui e o editor abre nele.
+   */
+  const criarPrimeiroCapitulo = async () => {
+    setCriando(true);
+    setErro(null);
+
+    try {
+      const response = await fetch(`/api/publications/${book.id}/nodes`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "CHAPTER",
+          title: "Capítulo 1",
+          placement: { kind: "lastChild", parentId: null },
+        }),
+      });
+
+      const payload = (await response.json()) as { id?: string; message?: string };
+      if (!response.ok || !payload.id) {
+        setErro(payload.message ?? "Não deu para criar o capítulo.");
+        return;
+      }
+
+      router.push(`${editor}?node=${payload.id}`);
+    } catch {
+      setErro("Não deu para falar com o servidor.");
+    } finally {
+      setCriando(false);
+    }
+  };
 
   return (
     <AppShell
@@ -104,7 +149,12 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="lbb-greet">Publicação · {book.libraryName}</div>
+            {/* "Livro criado agora" em tom ok, e só enquanto for verdade (protótipo, 609). É o
+                reconhecimento do gesto que acabou de acontecer — passados alguns minutos vira
+                ruído, e volta a ser o endereço do livro. */}
+            <div className="lbb-greet" data-tone={book.justCreated ? "ok" : undefined}>
+              {book.justCreated ? "Livro criado agora" : `Publicação · ${book.libraryName}`}
+            </div>
             <h1 className="lbb-book-title">
               {book.title}
               {/*
@@ -129,26 +179,36 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
               </dl>
             )}
 
-            <div className="lbb-acervo-actions">
-              <Button variant="primary" icon="pencil" href={editor}>
-                Abrir no editor
-              </Button>
-              <Button variant="secondary" icon="scan-text" href={captura}>
-                Capturar questões
-              </Button>
-              {book.source && (
-                <Button variant="secondary" icon="file-text" href={captura}>
-                  Abrir fonte (PDF)
+            {/* No livro vazio a linha de ações some: as escolhas dele são outras, e ficam no
+                centro da tela em vez de repartidas entre dois lugares. */}
+            {!book.isEmpty && (
+              <div className="lbb-acervo-actions">
+                <Button variant="primary" icon="pencil" href={editor}>
+                  Abrir no editor
                 </Button>
-              )}
-              <Button variant="ghost" icon="settings-2" href={`${editor}?metadados=1`}>
-                Metadados
-              </Button>
-            </div>
+                <Button variant="secondary" icon="scan-text" href={captura}>
+                  Capturar questões
+                </Button>
+                {book.source && (
+                  <Button variant="secondary" icon="file-text" href={captura}>
+                    Abrir fonte (PDF)
+                  </Button>
+                )}
+                <Button variant="ghost" icon="settings-2" href={`${editor}?metadados=1`}>
+                  Metadados
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
-        {book.issues.length > 0 && (
+        {/*
+          No livro vazio a faixa some. Ela diria "o livro ainda não tem questão nenhuma" e "sem
+          fonte anexada" logo acima de uma tela inteira dedicada a dizer as duas coisas — repetir
+          o aviso a dois centímetros de si mesmo é como uma tela ensina a não ler avisos. O
+          protótipo também não a tem neste estado.
+        */}
+        {!book.isEmpty && book.issues.length > 0 && (
           <section className="lbb-attention" aria-labelledby="lbb-atencao">
             <div className="lbb-attention-head">
               <Icon name="triangle-alert" size={14} />
@@ -168,6 +228,66 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
           </section>
         )}
 
+        {erro && (
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <Banner tone="danger" title="Não deu" onDismiss={() => setErro(null)}>
+              {erro}
+            </Banner>
+          </div>
+        )}
+
+        {/*
+          `LIVRO · vazio` (protótipo, 601–642) — uma tela diferente, e não a mesma com menos coisa.
+          Um livro cheio responde "o que falta aqui?"; um livro vazio responde "por onde começo?",
+          e uma grade de estrutura vazia ao lado da caixa de fonte responde à primeira com silêncio.
+        */}
+        {book.isEmpty ? (
+          <div className="lbb-book-empty">
+            <div className="lbb-book-empty-icon" aria-hidden>
+              <Icon name="list-tree" size={20} />
+            </div>
+            <h2>Este livro ainda não tem capítulos nem questões</h2>
+            <p>
+              Você pode montar a estrutura primeiro ou já começar recortando questões do PDF — nesse
+              caso o recorte cria o capítulo que recebe a primeira.
+            </p>
+
+            <div className="lbb-book-empty-actions">
+              <Button variant="primary" icon="scan-text" href={captura}>
+                Capturar primeira questão
+              </Button>
+              {/*
+                Este cria o capítulo de verdade. Mandar para o editor e deixar a pessoa achar o
+                menu seria oferecer um botão que promete um capítulo e entrega uma tela.
+              */}
+              <Button
+                variant="secondary"
+                icon="plus"
+                loading={criando}
+                onClick={() => void criarPrimeiroCapitulo()}
+              >
+                Criar primeiro capítulo
+              </Button>
+              {book.source && (
+                <Button variant="secondary" icon="file-text" href={captura}>
+                  Abrir PDF fonte
+                </Button>
+              )}
+            </div>
+
+            {/*
+              O protótipo tem uma quarta ação — `Importar estrutura` — e a linha "o sumário do PDF
+              pode virar capítulos automaticamente". **Não existe leitura de sumário neste app.**
+              Um botão que abre um "em breve" é pior que botão ausente (§81), e a frase seria pior
+              ainda: prometeria trabalho automático a quem está decidindo se faz o trabalho à mão.
+            */}
+            <span className="lbb-book-empty-foot">
+              {book.source
+                ? "a captura por recorte já tem de onde partir — a fonte está anexada"
+                : "sem fonte anexada ainda: dá para montar a estrutura à mão e anexar depois"}
+            </span>
+          </div>
+        ) : (
         <div className="lbb-book-split">
           <section>
             <div className="lbb-section-head">
@@ -280,6 +400,7 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
             )}
           </section>
         </div>
+        )}
       </div>
     </AppShell>
   );
