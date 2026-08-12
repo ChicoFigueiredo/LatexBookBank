@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge, Banner, Button, Tabs } from "@/design-system";
+import { Badge, Banner, Button, Field, Select, Tabs } from "@/design-system";
 import {
   diffSnapshots,
   type RevisionChange,
@@ -104,6 +104,14 @@ export interface QuestionEditorProps {
   readonly questionId: string;
   /** O tipo da questão. Decide se o gabarito é exclusivo e se há aba de alternativas. */
   readonly questionType: QuestionType;
+  /**
+   * Trocar o tipo. Ausente quando quem monta o editor não sabe recarregar a árvore depois.
+   *
+   * A troca muda a **forma** da questão — some ou volta uma aba inteira —, e por isso não é um
+   * campo qualquer do autosave: quem chamou precisa recarregar para a árvore e o painel voltarem
+   * coerentes com o tipo novo.
+   */
+  readonly onTypeChange?: (type: QuestionType) => void;
   readonly initial: Readonly<Record<QuestionFieldId, string>>;
   readonly initialVersion: string;
   readonly options?: readonly QuestionEditorOption[];
@@ -128,6 +136,7 @@ export function QuestionEditor({
   workspaceId,
   questionId,
   questionType,
+  onTypeChange,
   initial,
   initialVersion,
   options = [],
@@ -573,7 +582,38 @@ export function QuestionEditor({
               <div style={{ padding: "var(--space-4)" }}>lendo os metadados…</div>
             ) : (
               <div style={{ padding: "var(--space-3)", overflow: "auto", height: "100%" }}>
-                <MetadataPanel metadata={metadata} onChange={handleMetadata} disabled={blocked} />
+                {/*
+                  O tipo, editável (protótipo, 2226: "o tipo pode mudar depois sem perder
+                  conteúdo").
+
+                  Era escolhido na criação e era para sempre, o que fazia o seletor de tipo uma
+                  decisão pesada num momento em que a pessoa muitas vezes ainda não leu a questão
+                  inteira: na dúvida entre "escolha simples" e "múltipla escolha", errar
+                  significava recriar e redigitar.
+
+                  Trocar não apaga nada, e não por generosidade — é o que o app já fazia: a
+                  discursiva **esconde** a aba de alternativas em vez de excluí-las, então voltar
+                  atrás devolve tudo. Aqui a frase só passou a ser verdade porque o `PATCH` passou
+                  a aceitar o campo.
+                */}
+                <Field
+                  label="Tipo da questão"
+                  hint="Trocar não apaga nada — as alternativas continuam guardadas, mesmo na discursiva."
+                >
+                  <Select
+                    value={questionType}
+                    disabled={blocked}
+                    onChange={(event) => onTypeChange?.(event.target.value as QuestionType)}
+                  >
+                    <option value="MULTIPLE_CHOICE">Escolha simples · uma correta</option>
+                    <option value="MULTIPLE_CORRECT">Múltipla escolha · uma ou mais corretas</option>
+                    <option value="DISCURSIVE">Discursiva · sem alternativas</option>
+                  </Select>
+                </Field>
+
+                <div style={{ marginTop: "var(--space-4)" }}>
+                  <MetadataPanel metadata={metadata} onChange={handleMetadata} disabled={blocked} />
+                </div>
               </div>
             )
           ) : (

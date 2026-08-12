@@ -1101,6 +1101,26 @@ function NodeDetail({
                 onDirtyChange={onDirtyChange}
                 questionId={node.question.id}
                 questionType={node.question.type}
+                /*
+                  A troca muda a **forma** da questão — some ou volta uma aba inteira —, então
+                  recarregar não é enfeite: sem isso a árvore e o painel continuam mostrando o
+                  tipo velho.
+
+                  `location.reload` e não `router.refresh`: a mesma escolha que o
+                  `restoreRevision` do editor já fez, e pelo mesmo motivo — a troca mexe em
+                  alternativas e abas que esta tela semeia no mount, e um estado meio atualizado é
+                  pior que um recarregado.
+                */
+                onTypeChange={(type) => {
+                  void fetch(`/api/publications/${publicationId}/questions/${node.question?.id}`, {
+                    method: "PATCH",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      expectedVersion: node.question?.version,
+                      type,
+                    }),
+                  }).then(() => window.location.reload());
+                }}
                 initialVersion={node.question.version}
                 initial={{
                   statementLatex: node.question.statementLatex,

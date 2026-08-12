@@ -1,3 +1,5 @@
+import type { QuestionType } from "@modules/questions/domain/question-type";
+
 /**
  * Porta do agregado `Question`.
  *
@@ -12,6 +14,15 @@ export interface QuestionEdit {
   readonly solutionLatex?: string;
   readonly complementLatex?: string;
   readonly nickname?: string | null;
+  /**
+   * O tipo, que pode mudar depois da criação.
+   *
+   * Trocar **não apaga nada**: a discursiva esconde a aba de alternativas em vez de excluí-las, e
+   * voltar atrás devolve tudo. Uma incoerência que a troca cria — três corretas numa questão de
+   * resposta única — vira erro de validação, e não recusa aqui: a pessoa vê o que ficou errado em
+   * vez de levar um "não" sem explicação.
+   */
+  readonly type?: QuestionType;
 
   /**
    * Os metadados entram **pelo mesmo caminho** que o texto.
@@ -34,6 +45,8 @@ export interface QuestionEdit {
 
 export interface QuestionSnapshot {
   readonly id: string;
+  /** No snapshot porque é contra ele que "mudou alguma coisa?" é respondido — a troca inclusive. */
+  readonly type: QuestionType;
   readonly statementLatex: string;
   readonly solutionLatex: string;
   readonly complementLatex: string;

@@ -40,6 +40,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 18 | Recorte sumido parecia questão corrompida | Média | ✅ resolvido |
 | 19 | Duas alternativas coladas num bloco só | Média | ✅ resolvido |
 | 20 | Busca global não dizia de que livro é o resultado | Alta | ✅ resolvido |
+| 21 | O tipo da questão era escolhido uma vez e para sempre | Alta | ✅ resolvido |
 
 ---
 
@@ -83,6 +84,41 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 21. O tipo da questão era para sempre — ✅ resolvido
+
+**Protótipo** (2226), no rodapé do seletor de tipo: *“Herda livro, capítulo e metadados da questão
+anterior. **O tipo pode mudar depois sem perder conteúdo.**”*
+
+**Antes**: `type` não era campo editável em lugar nenhum — nem no `PATCH`, nem no `QuestionEdit`,
+nem na tela. Escolhido na criação, e para sempre.
+
+Isso fazia o seletor de tipo uma decisão pesada num momento em que a pessoa muitas vezes ainda não
+leu a questão inteira. Na dúvida entre “escolha simples” e “múltipla escolha” — que é a dúvida
+normal ao capturar de um livro —, errar significava recriar a questão e redigitar tudo.
+
+**A parte boa é que a segunda metade da frase já era verdade.** A discursiva **esconde** a aba de
+alternativas (`panesFor`) em vez de excluí-las, e a validação já trata “três corretas numa questão
+de resposta única” como erro (`multiple_correct_options`). Faltava só deixar o campo mudar: trocar
+não apaga nada, e voltar atrás devolve tudo.
+
+E a incoerência que a troca pode criar **não é bloqueada na rota** — vira erro de validação, onde
+ela pertence. A pessoa vê o que ficou errado, em vez de levar uma recusa sem explicação.
+
+**Não entrou**: “herda livro, capítulo e metadados da questão anterior”. É produtividade de quem
+cadastra em série, e é uma decisão de produto de outro tamanho — herdar dificuldade e banca por
+omissão pode carimbar dez questões com o metadado da primeira sem ninguém perceber.
+
+### O teste que passou por sorte, e o que ele ensinou
+
+A primeira versão do e2e media o **sumiço da aba** “Alternativas”. Com o `PATCH` desligado de
+propósito, ele **continuava passando** — depois de um reload há mais de um motivo para uma aba não
+estar ali. Medir o efeito colateral em vez do fato é como um teste passa por sorte.
+
+Agora ele afere o `type` no banco, por `expect.poll`, e só depois confere a aba. Com a ligação
+desligada, cai.
 
 ---
 

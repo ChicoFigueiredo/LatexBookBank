@@ -314,4 +314,101 @@ test.describe("o caminho da questão", () => {
       await expect(page.getByText("Extra }", { exact: false }).first()).toBeVisible();
     });
   });
+
+  /**
+   * **O tipo pode mudar depois, sem perder conteúdo** (protótipo, 2226).
+   *
+   * Era escolhido na criação e era para sempre. Isso fazia o seletor de tipo uma decisão pesada num
+   * momento em que a pessoa muitas vezes ainda não leu a questão inteira: na dúvida entre "escolha
+   * simples" e "múltipla escolha", errar significava recriar e redigitar tudo.
+   *
+   * O que este teste prova é a segunda metade da frase, que é a que importa: virar discursiva e
+   * voltar devolve as alternativas. Elas nunca foram apagadas — a discursiva as **esconde** —, e
+   * é isso que torna a troca uma decisão barata em vez de um caminho sem volta.
+   */
+  test("trocar o tipo não perde as alternativas", async ({ page }) => {
+    const publicationId = await primeiraPublicacao(page);
+
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
+    await abrirPrimeiraQuestao(page);
+
+    await page.getByRole("tab", { name: "Metadados" }).click();
+
+    const seletor = page.getByLabel("Tipo da questão");
+    await expect(seletor).toBeVisible();
+    const original = await seletor.inputValue();
+
+    // Quantas alternativas existem antes — é o número que precisa voltar.
+    const antes = await page.request.get(`/api/publications/${publicationId}/tree`);
+    const { nodes: nodesAntes } = (await antes.json()) as {
+      nodes: { question: { id: string; options: unknown[] } | null }[];
+    };
+    const questao = nodesAntes.find((node) => node.question !== null)?.question;
+    const quantasAntes = questao?.options.length ?? 0;
+    expect(quantasAntes, "a questão de teste precisa ter alternativas").toBeGreaterThan(0);
+
+    await test.step("virar discursiva esconde a aba, e não apaga nada", async () => {
+      await seletor.selectOption("DISCURSIVE");
+
+      /*
+       * O tipo **no banco**, e não a aba na tela.
+       *
+       * A primeira versão media só o sumiço da aba "Alternativas", e o guarda não mordia: com o
+       * `PATCH` desligado de propósito o teste continuava passando, porque depois do reload há
+       * mais de um motivo para a aba não estar ali. Medir o efeito colateral em vez do fato é
+       * como um teste passa por sorte.
+       */
+      await expect
+        .poll(
+          async () => {
+            const resposta = await page.request.get(`/api/publications/${publicationId}/tree`);
+            const { nodes } = (await resposta.json()) as {
+              nodes: { question: { id: string; type: string } | null }[];
+            };
+            return nodes.find((node) => node.question?.id === questao?.id)?.question?.type;
+          },
+          { timeout: 20_000 },
+        )
+        .toBe("DISCURSIVE");
+
+      await expect(page.getByRole("tab", { name: "Alternativas" })).toHaveCount(0);
+
+      const durante = await page.request.get(`/api/publications/${publicationId}/tree`);
+      const { nodes } = (await durante.json()) as {
+        nodes: { question: { id: string; options: unknown[] } | null }[];
+      };
+      const agora = nodes.find((node) => node.question?.id === questao?.id)?.question;
+
+      // A prova: no banco elas continuam lá, escondidas e não excluídas.
+      expect(agora?.options).toHaveLength(quantasAntes);
+    });
+
+    await test.step("e voltar devolve a aba com as mesmas alternativas", async () => {
+      await page.getByRole("tab", { name: "Metadados" }).click();
+      await page.getByLabel("Tipo da questão").selectOption(original);
+
+      await expect
+        .poll(
+          async () => {
+            const resposta = await page.request.get(`/api/publications/${publicationId}/tree`);
+            const { nodes } = (await resposta.json()) as {
+              nodes: { question: { id: string; type: string } | null }[];
+            };
+            return nodes.find((node) => node.question?.id === questao?.id)?.question?.type;
+          },
+          { timeout: 20_000 },
+        )
+        .toBe(original);
+
+      await expect(page.getByRole("tab", { name: "Alternativas" })).toBeVisible();
+
+      const depois = await page.request.get(`/api/publications/${publicationId}/tree`);
+      const { nodes } = (await depois.json()) as {
+        nodes: { question: { id: string; options: unknown[] } | null }[];
+      };
+      expect(
+        nodes.find((node) => node.question?.id === questao?.id)?.question?.options,
+      ).toHaveLength(quantasAntes);
+    });
+  });
 });

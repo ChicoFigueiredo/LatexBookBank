@@ -13,6 +13,7 @@ import {
   normalizeMetadata,
   type MetadataInput,
 } from "@modules/questions/domain/question-metadata";
+import { isQuestionType } from "@modules/questions/domain/question-type";
 import { PrismaQuestionRepository } from "@modules/questions/infrastructure/prisma-question-repository";
 import { ConcurrencyConflictError } from "@/shared/ports/repository";
 
@@ -148,6 +149,24 @@ export async function PATCH(
       throw new BadRequestError("`expectedVersion` não é uma data ISO-8601 válida.");
     }
 
+    /**
+     * O tipo pode mudar depois — e **sem perder conteúdo** (protótipo, 2226).
+     *
+     * Antes ele era escolhido na criação e era para sempre. Isso fazia o seletor de tipo uma
+     * decisão pesada num momento em que a pessoa muitas vezes ainda não leu a questão inteira: na
+     * dúvida entre "escolha simples" e "múltipla escolha", errar significava recriar e redigitar.
+     *
+     * Nada é apagado na troca, e não por generosidade — é o que o app já fazia. A discursiva
+     * **esconde** a aba de alternativas em vez de excluí-las (`panesFor`), então voltar atrás
+     * devolve tudo. E `MULTIPLE_CORRECT` → `MULTIPLE_CHOICE` com três corretas não é bloqueado
+     * aqui: vira erro de validação (`multiple_correct_options`), que é onde a inconsistência
+     * pertence — a pessoa vê o que ficou errado em vez de levar uma recusa sem explicação.
+     */
+    const type = body["type"];
+    if (type !== undefined && (typeof type !== "string" || !isQuestionType(type))) {
+      throw new BadRequestError("`type` precisa ser um tipo de questão conhecido.");
+    }
+
     const nickname = body["nickname"];
     if (nickname !== undefined && nickname !== null && typeof nickname !== "string") {
       throw new BadRequestError("`nickname` precisa ser texto ou nulo.");
@@ -167,6 +186,7 @@ export async function PATCH(
           ? { complementLatex: parseLatex(body["complementLatex"], "complementLatex") as string }
           : {}),
         ...(nickname !== undefined ? { nickname: nickname as string | null } : {}),
+        ...(type !== undefined ? { type } : {}),
         // Os metadados vão pelo mesmo `PATCH` e pela mesma versão. Um segundo caminho de escrita
         // teria o próprio `updatedAt` a comparar — duas versões da mesma questão brigando.
         ...normalizeMetadata(metadataFrom(body)),
