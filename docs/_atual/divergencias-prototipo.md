@@ -41,6 +41,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 19 | Duas alternativas coladas num bloco só | Média | ✅ resolvido |
 | 20 | Busca global não dizia de que livro é o resultado | Alta | ✅ resolvido |
 | 21 | O tipo da questão era escolhido uma vez e para sempre | Alta | ✅ resolvido |
+| 22 | A captura era um beco: sem rail, sem volta, sem busca | Alta | ✅ resolvido |
 
 ---
 
@@ -84,6 +85,27 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 22. A captura era um beco — ✅ resolvido
+
+O handoff é explícito, na aba **Arquitetura da experiência**:
+
+> **Capture Studio**: fila + canvas + interpretação, **dentro do mesmo shell**.
+
+**Antes**: `/publications/[id]/ingestao` era um `<main>` nu. Sem rail, sem breadcrumb, sem
+`Ctrl+K`, sem barra de status. Quem chegava pelo destino `Captura` do rail caía numa tela cuja
+única saída era o botão de voltar do navegador.
+
+E o mais instrutivo: **é o mesmo defeito que o `AppShell` foi criado para resolver.** O comentário
+dele diz, em tempo passado: *“a Home não tinha rail nenhum e o usuário chegava numa tela sem
+saída”*. A cura existia, estava documentada, e uma tela ficou de fora — porque ninguém a reabriu
+depois de o `AppShell` nascer.
+
+Agora a captura tem os quatro: rail com `Captura` marcada, breadcrumb até a estante, busca global,
+e a barra de status com a fila (`fila 6 itens`), como no protótipo — numa tela cujo assunto **é** a
+fila, o número dela pertence ao lugar onde os números da tela moram.
 
 ---
 

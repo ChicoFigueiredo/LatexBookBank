@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getPublicationTree } from "@modules/document-tree/application/get-publication-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
+import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
 import { IngestionScreen } from "./ingestion-screen";
 
@@ -28,8 +29,13 @@ export default async function IngestionPage({ params }: { params: Promise<{ id: 
   // ver os capítulos e grupos que existem.
   const nodes = await getPublicationTree(new PrismaDocumentTreeRepository(), publication.id);
 
+  // A biblioteca vem para o breadcrumb: a captura entrou no shell do produto, e um breadcrumb que
+  // começa no livro deixa a estante fora do caminho de volta.
+  const library = await new PrismaLibraryRepository().findById(publication.workspaceId);
+
   return (
     <IngestionScreen
+      {...(library ? { library: { name: library.name, slug: library.slug } } : {})}
       publicationId={publication.id}
       workspaceId={publication.workspaceId}
       title={publication.title}

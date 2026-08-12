@@ -486,3 +486,47 @@ test("bloco com duas alternativas é sinalizado, e a divisão é um gesto — n�
     expect(criada?.options.map((o) => o.statementLatex.trim())).toContain("R\\$ 6.529,67");
   });
 });
+
+/**
+ * **A captura mora dentro do mesmo shell** — e não num beco.
+ *
+ * A tela era um `<main>` nu: sem rail, sem breadcrumb, sem `Ctrl+K`, sem barra de status. Quem
+ * chegava pelo destino `Captura` do rail caía numa tela cuja única saída era o botão de voltar do
+ * navegador.
+ *
+ * É o mesmo defeito que o comentário do `AppShell` descreve como resolvido — *"a Home não tinha
+ * rail nenhum e o usuário chegava numa tela sem saída"* — sobrevivendo numa tela que ninguém
+ * reabriu depois. E o handoff do protótipo é explícito: *"Capture Studio: fila + canvas +
+ * interpretação, dentro do mesmo shell"*.
+ */
+test("a captura tem rail, caminho de volta e busca — não é um beco", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+
+  await test.step("o rail existe, e marca Captura como o lugar onde se está", async () => {
+    const rail = page.getByRole("navigation", { name: "Módulos" });
+    await expect(rail).toBeVisible();
+    await expect(rail.getByRole("button", { name: /^Captura/ })).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+  });
+
+  await test.step("o breadcrumb volta ao livro, que é de onde se veio", async () => {
+    const volta = page.locator(`a[href="/publications/${publicationId}"]`);
+    await expect(volta).toHaveCount(1);
+
+    await volta.click();
+    await expect(page).toHaveURL(new RegExp(`/publications/${publicationId}$`));
+  });
+
+  await test.step("e a busca global abre daqui, como em qualquer outra tela", async () => {
+    await page.goto(`/publications/${publicationId}/ingestao`);
+    await page.keyboard.press("Control+k");
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+  });
+});

@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { Banner, Button, Callout, Field, Input, PageHeader, Select } from "@/design-system";
 import { isContainerKind } from "@modules/document-tree/domain/add-placement";
+import { AppShell } from "../../../app-shell";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import { CREATABLE_TYPES } from "@modules/questions/domain/question-blueprint";
 import type { QuestionType } from "@modules/questions/domain/question-type";
@@ -36,6 +37,8 @@ export interface IngestionNode {
 }
 
 export interface IngestionScreenProps {
+  /** A biblioteca dona, para o breadcrumb. Sem ela a tela sabe voltar só para o resumo do livro. */
+  readonly library?: { readonly name: string; readonly slug: string };
   readonly publicationId: string;
   readonly workspaceId: string;
   readonly title: string;
@@ -61,6 +64,7 @@ interface CreatedInfo {
 }
 
 export function IngestionScreen({
+  library,
   publicationId,
   workspaceId,
   title,
@@ -227,7 +231,12 @@ export function IngestionScreen({
 
   if (created) {
     return (
-      <main style={{ display: "grid", gap: "var(--space-3)" }}>
+      <Shell
+        {...(library ? { library } : {})}
+        publicationId={publicationId}
+        title={title}
+        fila={queue.length}
+      >
         <PageHeader eyebrow="CAPTURA" title={title} />
         <div style={{ padding: "0 var(--space-4)" }}>
           <Callout tone="ok" title="Questão criada">
@@ -257,12 +266,17 @@ export function IngestionScreen({
             </Button>
           </div>
         </div>
-      </main>
+      </Shell>
     );
   }
 
   return (
-    <main style={{ display: "grid", gap: "var(--space-3)" }}>
+    <Shell
+      {...(library ? { library } : {})}
+      publicationId={publicationId}
+      title={title}
+      fila={queue.length}
+    >
       <PageHeader
         eyebrow="CAPTURA"
         title={title}
@@ -384,6 +398,56 @@ export function IngestionScreen({
           </span>
         </div>
       )}
-    </main>
+    </Shell>
+  );
+}
+
+/**
+ * A captura **dentro do mesmo shell** — rail, breadcrumb, busca e barra de status.
+ *
+ * Esta tela era um `<main>` nu. Sem rail, sem breadcrumb, sem `Ctrl+K`, sem barra: quem chegava
+ * pelo destino `Captura` do rail caía num beco — a única saída era o botão de voltar do navegador.
+ *
+ * É exatamente o defeito que o comentário do `AppShell` descreve como já resolvido *("a Home não
+ * tinha rail nenhum e o usuário chegava numa tela sem saída")*, sobrevivendo numa tela que ninguém
+ * reabriu depois. E o handoff do protótipo é explícito: *"Capture Studio: fila + canvas +
+ * interpretação, **dentro do mesmo shell**"*.
+ *
+ * A barra de status ganha a fila, como no protótipo (`reconhecimento local · fila 6 itens`): numa
+ * tela cujo assunto **é** a fila, o número dela pertence ao lugar onde os números da tela moram.
+ */
+function Shell({
+  library,
+  publicationId,
+  title,
+  fila,
+  children,
+}: {
+  readonly library?: { readonly name: string; readonly slug: string };
+  readonly publicationId: string;
+  readonly title: string;
+  readonly fila: number;
+  readonly children: ReactNode;
+}) {
+  return (
+    <AppShell
+      activeModule="captura"
+      publicationId={publicationId}
+      breadcrumb={[
+        ...(library
+          ? [
+              { label: "Bibliotecas", href: "/bibliotecas" },
+              { label: library.name, href: `/bibliotecas/${library.slug}` },
+            ]
+          : [{ label: "Publicações", href: "/publicacoes" }]),
+        { label: title, href: `/publications/${publicationId}` },
+        { label: "Captura" },
+      ]}
+      statusLeft={
+        fila > 0 ? <span>fila {fila} {fila === 1 ? "item" : "itens"}</span> : undefined
+      }
+    >
+      <main style={{ display: "grid", gap: "var(--space-3)" }}>{children}</main>
+    </AppShell>
   );
 }
