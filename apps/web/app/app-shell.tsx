@@ -68,8 +68,24 @@ export function AppShell({
     id: hit.id,
     label: hit.title === "(sem apelido)" ? hit.excerpt.slice(0, 60) : hit.title,
     icon: "circle-help",
-    hint: [hit.board, hit.year].filter(Boolean).join(" · ") || hit.type,
-    group: "No acervo",
+    /**
+     * Onde a questão mora, e não a banca e o ano.
+     *
+     * O `hint` dizia `ENEM · 2019`. Com 1.247 questões em 24 livros, a pergunta de quem busca
+     * "juros" e recebe seis enunciados parecidos é **de qual livro é este**, e a banca não
+     * responde. O protótipo (2190) põe o caminho nessa linha, e tem razão.
+     *
+     * Banca e ano não somem: são filtros da busca avançada, e é lá que servem para escolher.
+     */
+    hint: hit.where ?? hit.type,
+    /**
+     * O grupo é o livro, e não o rótulo fixo "No acervo".
+     *
+     * A palete agrupa pelo valor que recebe. Com um rótulo constante, os cinquenta resultados
+     * caíam num monte só; pelo livro, a lista fica lida por onde a pessoa procura — e ver "FME 1"
+     * com quatro acertos e "FME 3" com um já é meia resposta.
+     */
+    group: hit.where?.split(" › ")[0] ?? "No acervo",
     // O mesmo destino nos dois caminhos: `⏎` navega no lugar, `⇧⏎` abre ao lado. Duas rotas
     // diferentes para a mesma linha seria a segunda envelhecer sozinha.
     href: `/questoes/${hit.id}`,

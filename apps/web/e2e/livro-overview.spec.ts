@@ -28,17 +28,27 @@ async function livroComEstrutura(page: Page) {
   const biblioteca = await page.request.post("/api/libraries", {
     data: { name: `Acervo resumo ${marca}` },
   });
+  expect(biblioteca.ok(), "não deu para criar a biblioteca").toBeTruthy();
   const { library } = (await biblioteca.json()) as { library: { id: string } };
 
   const livro = await page.request.post(`/api/libraries/${library.id}/publications`, {
     data: { title: `Livro do resumo ${marca}` },
   });
+  expect(livro.ok(), "não deu para criar o livro").toBeTruthy();
   const { publication } = (await livro.json()) as { publication: { id: string; title: string } };
 
-  // Com capítulo: é o que faz o resumo ser o estado **cheio**, que é o que este teste mede.
-  await page.request.post(`/api/publications/${publication.id}/nodes`, {
+  /*
+   * Com capítulo: é o que faz o resumo ser o estado **cheio**, que é o que este teste mede.
+   *
+   * E a resposta é conferida. Sem isto, um POST que falha sob carga deixa o livro vazio, a tela
+   * renderiza o estado `LIVRO · vazio` — que não tem faixa de pendências — e o teste falha lá na
+   * frente por um motivo que não tem nada a ver com o que ele afirma. Fixture que se monta pela
+   * metade em silêncio é uma das fontes de falha intermitente deste projeto.
+   */
+  const capitulo = await page.request.post(`/api/publications/${publication.id}/nodes`, {
     data: { kind: "CHAPTER", title: "Capítulo 1", placement: { kind: "lastChild", parentId: null } },
   });
+  expect(capitulo.ok(), "o capítulo é o que torna o resumo o estado cheio").toBeTruthy();
 
   return publication;
 }

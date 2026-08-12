@@ -39,6 +39,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 17 | Render que falha levava o PDF bom junto | Alta | ✅ resolvido |
 | 18 | Recorte sumido parecia questão corrompida | Média | ✅ resolvido |
 | 19 | Duas alternativas coladas num bloco só | Média | ✅ resolvido |
+| 20 | Busca global não dizia de que livro é o resultado | Alta | ✅ resolvido |
 
 ---
 
@@ -82,6 +83,31 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 20. Busca global não dizia de que livro é o resultado — ✅ resolvido
+
+**Protótipo** (2185–2195): cada linha da palete tem o título, **o caminho embaixo dele** e o trecho
+que casou.
+
+**Antes**: título e, na linha de baixo, `banca · ano`. `SearchHit` não tinha localização nenhuma.
+
+Com 1.247 questões em 24 livros — o tamanho declarado do acervo —, quem busca “juros” recebe seis
+enunciados parecidos, e a pergunta é **de qual livro é este**. A banca não responde. E banca e ano
+não somem: continuam existindo onde servem, que é como filtro da busca avançada.
+
+O grupo da palete também passou a ser o livro, em vez do rótulo fixo “No acervo”: a palete agrupa
+pelo valor que recebe, e ver “FME 1” com quatro acertos e “FME 3” com um já é meia resposta antes
+de qualquer clique.
+
+**Só o pai imediato, e não o caminho inteiro.** Subir a árvore por questão seriam cinquenta
+escaladas para uma linha que precisa caber numa palete. Livro e capítulo respondem “de onde é
+isto?”; o endereço completo quem dá é abrir.
+
+O apelido do livro vem antes do título da capa: numa lista com cinco volumes da mesma coleção,
+“Fundamentos de Matemática Elementar” repetido cinco vezes é ruído idêntico, e “FME 1” distingue —
+que é a razão de o apelido existir (achado 4).
 
 ---
 

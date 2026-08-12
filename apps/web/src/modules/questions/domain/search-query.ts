@@ -52,6 +52,17 @@ export interface SearchHit {
   readonly year: number | null;
   readonly difficulty: Difficulty;
   readonly tags: readonly string[];
+  /**
+   * Onde a questão mora — "FME 1 › Capítulo 2".
+   *
+   * O protótipo (2190) põe esta linha embaixo do título de cada resultado, e é o que torna a
+   * busca global utilizável: com 1.247 questões em 24 livros, uma lista de enunciados parecidos
+   * sem dizer de qual livro cada um é obriga a abrir os resultados um a um para descobrir.
+   *
+   * `null` para a questão que ainda não está na árvore de nenhum livro — existe, é rara, e um
+   * caminho inventado seria pior que a ausência dele.
+   */
+  readonly where: string | null;
 }
 
 export interface SearchResult {

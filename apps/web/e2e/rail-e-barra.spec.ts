@@ -73,3 +73,84 @@ test("o rodapé da busca mostra os atalhos e o escopo verdadeiro", async ({ page
   await expect(paleta).toContainText("busca no enunciado e no apelido");
   await expect(paleta).toContainText("tag, banca e ano são filtros");
 });
+
+/**
+ * **O resultado da busca diz de que livro é** (protótipo, 2190).
+ *
+ * A palete devolvia título e, na linha de baixo, banca e ano. Com 1.247 questões em 24 livros — o
+ * tamanho declarado do acervo —, quem busca "juros" recebe seis enunciados parecidos, e a pergunta
+ * é **de qual livro é este**. Banca não responde; e banca e ano continuam existindo onde servem,
+ * que é como filtro da busca avançada.
+ */
+test("o resultado da busca diz onde a questão mora", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const termo = `juroscomposto${marca}`;
+
+  const biblioteca = await page.request.post("/api/libraries", {
+    data: { name: `Acervo busca ${marca}` },
+  });
+  const { library } = (await biblioteca.json()) as { library: { id: string } };
+
+  const livro = await page.request.post(`/api/libraries/${library.id}/publications`, {
+    // Com apelido: é ele que aparece no caminho, porque é ele que distingue volumes da mesma
+    // coleção numa lista de resultados.
+    data: { title: `Fundamentos de Matemática ${marca}`, nickname: `FME ${marca}` },
+  });
+  const { publication } = (await livro.json()) as { publication: { id: string } };
+
+  const capitulo = await page.request.post(`/api/publications/${publication.id}/nodes`, {
+    data: {
+      kind: "CHAPTER",
+      title: "Exercícios propostos",
+      placement: { kind: "lastChild", parentId: null },
+    },
+  });
+  const { id: capituloId } = (await capitulo.json()) as { id: string };
+
+  const questao = await page.request.post(`/api/publications/${publication.id}/questions`, {
+    data: { type: "MULTIPLE_CHOICE", placement: { kind: "lastChild", parentId: capituloId } },
+  });
+  expect(questao.ok(), "não deu para criar a questão").toBeTruthy();
+
+  // O id e a versão vêm da **árvore**, e não da resposta do POST: a forma daquela resposta já
+  // enganou outros specs deste diretório, e a árvore é o contrato que a própria tela consome.
+  const arvore = await page.request.get(`/api/publications/${publication.id}/tree`);
+  const { nodes } = (await arvore.json()) as {
+    nodes: { question: { id: string; version: string } | null }[];
+  };
+  const alvo = nodes.find((node) => node.question !== null)?.question;
+  expect(alvo, "a questão precisa estar na árvore").toBeTruthy();
+
+  const questionId = alvo?.id ?? "";
+  const version = alvo?.version;
+
+  // O termo entra no enunciado, que é onde a busca livre olha. A resposta é conferida: um PATCH
+  // recusado em silêncio faria este teste falhar lá na frente, medindo a busca por um texto que
+  // nunca chegou ao banco.
+  const gravado = await page.request.patch(
+    `/api/publications/${publication.id}/questions/${questionId}`,
+    {
+      data: {
+        ...(version ? { expectedVersion: version } : {}),
+        statementLatex: `Calcule o montante em ${termo}.`,
+      },
+    },
+  );
+  expect(gravado.ok(), `PATCH recusado: ${await gravado.text()}`).toBeTruthy();
+
+  await page.goto("/");
+  await page.keyboard.press("Control+k");
+
+  const paleta = page.getByRole("dialog");
+  await expect(paleta).toBeVisible();
+
+  // `combobox`, e não `textbox`: o campo da palete declara `role="combobox"` com
+  // `aria-controls` para a lista — é o papel certo, e o seletor é que precisava respeitá-lo.
+  await paleta.getByRole("combobox").fill(termo);
+
+  const resultado = paleta.getByRole("option").first();
+  await expect(resultado).toBeVisible({ timeout: 15_000 });
+
+  // O caminho: livro (pelo apelido) e o pai imediato.
+  await expect(resultado).toContainText(`FME ${marca} › Exercícios propostos`);
+});
