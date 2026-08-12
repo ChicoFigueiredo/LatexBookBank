@@ -12,6 +12,7 @@ import {
 import { formatarTamanho } from "@modules/publications/domain/book-overview";
 
 import { useAcervoStyles } from "../acervo-styles";
+import { useInfraStatus } from "../infra-status";
 import { AppShell } from "../app-shell";
 
 /**
@@ -65,6 +66,7 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
   const [alvo, setAlvo] = useState(libraries[0]?.id ?? "");
 
   const escolhida = libraries.find((library) => library.id === alvo) ?? libraries[0];
+  const infra = useInfraStatus();
 
   const send = async (chosen: File, dryRun: boolean) => {
     setBusy(true);
@@ -275,18 +277,30 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
                   Backup
                 </div>
                 {/*
-                  O protótipo mostra "último backup automático há 1 h · 3 cópias mantidas" e um
-                  `Restaurar de um backup`. **Não há subsistema de backup neste app** — nem job,
-                  nem rotação, nem lugar onde as cópias morariam. Escrever a frase do protótipo
-                  aqui seria a tela afirmar que existe uma rede de segurança que não existe, e é
-                  exatamente o tipo de mentira que só se descobre no dia em que se precisa dela.
-                  O que se diz é o que é verdade, e qual é o caminho que funciona hoje.
+                  O estado real, e não uma frase fixa nem o desenho do protótipo.
+
+                  O backup **roda fora do app** — um serviço externo escreve `backup-status.json`
+                  no `BACKUP_DESTINATION`, e o `collectDiagnostics` já o lia; era o Diagnóstico o
+                  único lugar que sabia. Sem destino configurado a tela diz isso e diz o caminho
+                  que funciona hoje. Configurado, ela diz quando foi o último — que é a única
+                  informação que importa na hora em que alguém procura backup.
                 */}
                 <p className="lbb-book-sub" style={{ margin: "8px 0 12px" }}>
-                  Não há backup automático. O <code>.lbb</code> exportado é a cópia — guarde um por
-                  biblioteca, fora deste computador, e ele volta por esta mesma tela.
+                  {infra === null
+                    ? "Lendo o estado do backup…"
+                    : infra.backup.health === "unconfigured"
+                      ? "Backup automático não configurado. O .lbb exportado é a cópia — guarde um por biblioteca, fora deste computador, e ele volta por esta mesma tela."
+                      : infra.backup.summary}
                 </p>
-                <span className="lbb-source-size">backup automático · não implementado</span>
+                <span className="lbb-source-size">
+                  {infra === null
+                    ? "backup · verificando"
+                    : infra.backup.health === "ok"
+                      ? "backup automático · em dia"
+                      : infra.backup.health === "unconfigured"
+                        ? "backup automático · não configurado"
+                        : "backup automático · precisa de atenção"}
+                </span>
               </section>
             </div>
           </>

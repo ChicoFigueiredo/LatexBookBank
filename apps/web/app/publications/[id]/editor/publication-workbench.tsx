@@ -45,7 +45,9 @@ import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter"
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
 import { sameTag } from "@modules/questions/domain/tag";
 
-import { RAIL_MODULES, railHref } from "../../../rail";
+import { InfraStatusBar } from "../../../infra-status";
+import { useRailCounts } from "../../../rail-counts";
+import { railHref, railModules } from "../../../rail";
 import { AddMenu } from "./add-menu";
 import { TrashDialog } from "./trash-dialog";
 import { QuestionEditor } from "./question-editor";
@@ -229,6 +231,7 @@ export function PublicationWorkbench({
    */
   const [found, setFound] = useState<readonly { id: string; title: string; hint: string }[]>([]);
   const router = useRouter();
+  const counts = useRailCounts();
 
   /**
    * A proposta pendente — uma de cada vez.
@@ -692,7 +695,7 @@ export function PublicationWorkbench({
 
   return (
     <Workbench
-      modules={RAIL_MODULES}
+      modules={railModules(counts)}
       activeModule="editor"
       onModuleSelect={(id) => router.push(railHref(id, publicationId))}
       breadcrumb={breadcrumb}
@@ -924,10 +927,13 @@ export function PublicationWorkbench({
       }
       statusLeft={
         <>
-          <span>SQLite · local</span>
+          <span>local-first · SQLite</span>
           <span>
             {nodes.length} {nodes.length === 1 ? "nó" : "nós"}
           </span>
+          {/* No editor a infraestrutura importa mais que em qualquer outra tela: é daqui que se
+              manda renderizar, e é aqui que saber do worker antes de clicar poupa o timeout. */}
+          <InfraStatusBar />
         </>
       }
       /**

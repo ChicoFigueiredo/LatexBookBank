@@ -21,7 +21,9 @@ const CSS = `
 .lbb-pal-item-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lbb-pal-hint{margin-left:auto;font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
 .lbb-pal-empty{padding:28px 16px;text-align:center;color:var(--text-secondary);font-size:var(--text-body)}
-.lbb-pal-foot{display:flex;gap:14px;padding:8px 14px;border-top:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:var(--text-micro);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--text-muted)}
+.lbb-pal-foot{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 14px;border-top:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:var(--text-micro);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--text-muted)}
+/* O escopo é frase, não atalho: sem caixa alta e empurrado para a direita. */
+.lbb-pal-scope{margin-left:auto;text-transform:none;letter-spacing:0;font-family:var(--font-ui);font-size:var(--text-meta)}
 .lbb-kbd{font-family:var(--font-mono);font-size:var(--text-micro);border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface);padding:1px 5px;color:var(--text-muted);white-space:nowrap}
 `;
 
@@ -39,6 +41,14 @@ export interface Command {
   readonly hint?: string;
   readonly group?: string;
   readonly onSelect?: (command: Command) => void;
+  /**
+   * Onde o resultado mora, quando ele tem endereço próprio.
+   *
+   * É o que permite `⇧⏎ abrir em nova aba` funcionar de verdade: abrir ao lado exige uma URL, e
+   * `onSelect` é uma função — o navegador não tem o que fazer com ela. Comando sem `href` ignora
+   * o Shift e abre no lugar, que é o comportamento certo para "criar capítulo".
+   */
+  readonly href?: string;
 }
 
 export interface CommandPaletteProps {
@@ -55,6 +65,14 @@ export interface CommandPaletteProps {
    * oposto de uma busca.
    */
   readonly onQueryChange?: (query: string) => void;
+  /**
+   * O que esta busca olha — a frase do rodapé.
+   *
+   * Fica com quem monta a paleta porque só ele sabe o que está indexado: a mesma paleta lista
+   * comandos numa tela e questões do acervo em outra. Sem a frase, uma busca que não acha nada é
+   * indistinguível de um acervo que não tem nada, e as duas pedem coisas opostas de quem lê.
+   */
+  readonly scopeHint?: string;
 }
 
 /**
@@ -76,6 +94,7 @@ function PaletteDialog({
   placeholder = "Buscar publicações, nós e ações…",
   emptyMessage = (query) => `Nenhum resultado para "${query}".`,
   onQueryChange,
+  scopeHint,
 }: Omit<CommandPaletteProps, "open">) {
   injectCss("lbb-pal-css", CSS);
 
@@ -138,7 +157,17 @@ function PaletteDialog({
       case "Enter": {
         event.preventDefault();
         const command = filtered[selected];
-        if (command) run(command);
+        if (!command) break;
+
+        // `⇧⏎ abrir em nova aba`: o resultado da busca fica aberto **e** a paleta continua onde
+        // estava, que é o que se quer ao varrer um acervo — abrir três questões sem refazer a
+        // busca três vezes. Sem `href` não há para onde abrir, e o Shift não muda nada.
+        if (event.shiftKey && command.href) {
+          window.open(command.href, "_blank", "noopener");
+          break;
+        }
+
+        run(command);
         break;
       }
       case "Escape":
@@ -233,9 +262,18 @@ function PaletteDialog({
         </div>
 
         <div className="lbb-pal-foot">
-          <span>↑↓ Navegar</span>
-          <span>Enter Abrir</span>
-          <span>Esc Fechar</span>
+          <span>↑↓ navegar</span>
+          <span>⏎ abrir no lugar certo</span>
+          <span>⇧⏎ abrir em nova aba</span>
+          <span>esc fechar</span>
+          {/*
+            O escopo, e não só os atalhos (protótipo: “busca no enunciado, tags, banca e ano”).
+
+            Sem ele, uma busca que não acha nada é indistinguível de um acervo que não tem nada — e
+            as duas pedem coisas opostas de quem está na frente da tela. A frase é do consumidor
+            porque só ele sabe o que está indexado: esta paleta também lista comandos.
+          */}
+          {scopeHint && <span className="lbb-pal-scope">{scopeHint}</span>}
         </div>
       </div>
     </div>

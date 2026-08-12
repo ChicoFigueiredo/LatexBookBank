@@ -114,18 +114,24 @@ test("a exportação por biblioteca também mora aqui, e não só no cabeçalho 
 });
 
 /**
- * O backup do protótipo não existe, e a tela diz isso.
+ * O cartão de backup diz o **estado real**, e nunca uma frase fixa.
  *
- * "Último backup automático há 1 h · 3 cópias mantidas" é a única frase do protótipo que este app
- * não pode escrever sem mentir: não há job, não há rotação, não há onde as cópias morariam. Uma
- * tela que afirma existir uma rede de segurança inexistente é descoberta no dia em que se precisa
- * dela. Este teste guarda a honestidade, e falha se alguém colar a frase do protótipo.
+ * O backup roda fora do app: um serviço externo escreve `backup-status.json` no
+ * `BACKUP_DESTINATION`, e o `collectDiagnostics` já o lia — o Diagnóstico era o único lugar que
+ * sabia. A frase do protótipo ("Último backup automático há 1 h · 3 cópias mantidas") é fixa, e
+ * uma tela que afirma existir uma rede de segurança sem ter olhado é descoberta no dia em que se
+ * precisa dela. Este teste falha se alguém colar a frase de volta.
  */
-test("o cartão de backup diz o que é verdade, e não o que o protótipo desenha", async ({ page }) => {
+test("o cartão de backup diz o estado real, e nunca uma frase fixa", async ({ page }) => {
   await page.goto("/importar");
 
-  await expect(page.getByText("backup automático · não implementado")).toBeVisible();
-  await expect(page.getByText("Último backup automático")).toHaveCount(0);
+  // Um dos estados possíveis, e cada um é uma leitura — não um texto decorativo.
+  await expect(
+    page.getByText(/backup automático · (em dia|não configurado|precisa de atenção)/),
+  ).toBeVisible({ timeout: 15_000 });
+
+  await expect(page.getByText("Último backup automático há 1 h")).toHaveCount(0);
+  await expect(page.getByText("3 cópias mantidas")).toHaveCount(0);
 });
 
 async function contarBibliotecas(page: Page): Promise<number> {

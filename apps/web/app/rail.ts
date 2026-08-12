@@ -1,4 +1,5 @@
 import type { WorkbenchModule } from "@/design-system";
+import type { RailSummary } from "@modules/workspaces/domain/rail-summary";
 
 /**
  * O rail do produto, num lugar só.
@@ -10,6 +11,45 @@ import type { WorkbenchModule } from "@/design-system";
  * A ordem é a do design aprovado — Acervo primeiro, Produção depois, Sistema por último. É ordem
  * de trabalho, não alfabética.
  */
+
+/**
+ * O rail com as contagens do protótipo.
+ *
+ * Uma contagem só aparece quando é maior que zero: `Bibliotecas 0` é uma linha gastando tinta para
+ * dizer que não há nada, e o rail é a única coisa que aparece em **toda** tela — o custo de ruído
+ * aqui é pago o tempo todo.
+ *
+ * `Captura` é a única com tom de aviso, e é assim no protótipo: as outras duas são tamanho do
+ * acervo — informação —, e a fila de captura é trabalho parado esperando alguém. Um número em
+ * âmbar que não pede ação nenhuma ensina a ignorar o âmbar.
+ */
+export function railModules(counts?: RailSummary): readonly WorkbenchModule[] {
+  if (!counts) return RAIL_MODULES;
+
+  return RAIL_MODULES.map((entry) => {
+    switch (entry.id) {
+      case "bibliotecas":
+        return badge(entry, counts.libraries);
+      case "publicacoes":
+        return badge(entry, counts.publications);
+      case "captura":
+        return badge(entry, counts.captureQueue, "warn");
+      case "lixeira":
+        return badge(entry, counts.trash);
+      default:
+        return entry;
+    }
+  });
+}
+
+const badge = (
+  entry: WorkbenchModule,
+  valor: number,
+  tone?: "warn",
+): WorkbenchModule =>
+  valor > 0
+    ? { ...entry, badge: valor, ...(tone ? { badgeTone: tone } : {}) }
+    : entry;
 
 export const RAIL_MODULES: readonly WorkbenchModule[] = [
   { id: "inicio", label: "Início", icon: "house", group: "Acervo" },

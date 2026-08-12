@@ -155,13 +155,14 @@ export function HomeScreen({
           Criar biblioteca
         </Button>
       }
+      /*
+        Só o que é da Home. `local-first · SQLite` passou a ser do `AppShell`, que o põe em toda
+        tela — repeti-lo aqui pintava "local-first · SQLite   SQLite · local" na mesma barra.
+      */
       statusLeft={
-        <>
-          <span>SQLite · local</span>
-          <span>
-            {libraries.length} {libraries.length === 1 ? "biblioteca" : "bibliotecas"}
-          </span>
-        </>
+        <span>
+          {libraries.length} {libraries.length === 1 ? "biblioteca" : "bibliotecas"}
+        </span>
       }
     >
       <div className="lbb-acervo">

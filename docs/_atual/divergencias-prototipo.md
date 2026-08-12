@@ -21,12 +21,12 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 2 | Home · usuário recorrente | Alta | ✅ resolvido |
 | 3 | Biblioteca — tabela de livros | Alta | ✅ resolvido |
 | 4 | Livro · overview — tela inexistente | Alta | ✅ resolvido |
-| 5 | Rail — três destinos ausentes e nenhuma contagem | Média | 🟡 parcial (os três destinos entraram; faltam as contagens) |
+| 5 | Rail — três destinos ausentes e nenhuma contagem | Média | ✅ resolvido |
 | 6 | Adicionar livro — origens sem explicação | Média | ✅ resolvido (capa e tags fora — ver nota) |
 | 7 | Lixeira global | Média | ✅ resolvido |
-| 8 | Importar/exportar — dry-run, conflitos, backup | Média | 🟡 parcial (dry-run e conflitos feitos; backup não existe — ver nota) |
-| 9 | Statusbar — infraestrutura viva | Baixa | ⬜ aberto |
-| 10 | Busca global — rodapé de atalhos | Baixa | ⬜ aberto |
+| 8 | Importar/exportar — dry-run, conflitos, backup | Média | ✅ resolvido (`Comparar` fora — ver nota) |
+| 9 | Statusbar — infraestrutura viva | Baixa | ✅ resolvido |
+| 10 | Busca global — rodapé de atalhos | Baixa | ✅ resolvido |
 
 ---
 
@@ -261,9 +261,25 @@ outra fatia.
 
 | Protótipo | App |
 |---|---|
-| Acervo: Início · Bibliotecas `3` · Publicações `24` · **Editor do livro** | Início · Bibliotecas · Publicações · **Editor do livro** ✅ |
-| Produção: Captura `7` (badge warn) · Avaliações | Captura · Avaliações |
-| Sistema: **Importar / exportar** · **Lixeira** | Diagnóstico |
+| Acervo: Início · Bibliotecas `3` · Publicações `24` · **Editor do livro** | idem ✅ |
+| Produção: Captura `7` (badge warn) · Avaliações | idem ✅ |
+| Sistema: **Importar / exportar** · **Lixeira** | idem, mais Diagnóstico ✅ |
+
+**As contagens vêm de um resumo só** (`readRailSummary`), lido uma vez por requisição no layout raiz
+e distribuído por contexto. O rail é montado por **toda** tela: buscar a contagem onde ela é usada
+seriam oito consultas e oito chances de um número discordar do outro na mesma sessão.
+
+Por contexto e não por `fetch` no cliente, apesar de o segundo ser mais fácil: o número apareceria
+depois da montagem, com o rail pulando de largura no primeiro frame de cada navegação.
+
+Zero não vira badge — `Bibliotecas 0` gasta tinta para dizer que não há nada, e o rail paga esse
+ruído em toda tela. E `Captura` é a única em warn, como no protótipo: as outras são tamanho do
+acervo — informação —, e um número em âmbar que não pede ação nenhuma ensina a ignorar o âmbar.
+
+**Armadilha registrada**: `rail-counts.tsx` é Client Component e importava o `EMPTY_RAIL_SUMMARY`
+do módulo `server-only`. Importar um **valor** (não um tipo) de lá arrasta o Prisma para o bundle do
+cliente, e o Next recusa a página inteira com um 500. O contrato mudou para
+`domain/rail-summary.ts`, sem `server-only`; a consulta ficou na infraestrutura.
 
 `Editor do livro` entrou com a §4: até existir o resumo do livro, ele e `Publicações` apontavam
 para o mesmo lugar, e o destino não tinha o que ser. Como `Captura`, depende de um livro corrente —
@@ -378,16 +394,40 @@ escolha tem controle próprio. Virou um `Select` e um botão.
 
 ---
 
-## 9. Statusbar
+## 9. Statusbar — ✅ resolvido
 
 Protótipo: `local-first` · `worker de render: pronto` · `gemma3:12b carregado` · `backup há 1 h`.
 
-App: `SQLite · local` e uma contagem. A infraestrutura viva — render e modelo — não aparece, e é
-justamente o que o usuário precisa saber antes de mandar renderizar.
+**Antes**: `SQLite · local` e uma contagem. O `collectDiagnostics` já media worker, modelo e backup
+— e a página de Diagnóstico era o **único** lugar que via. O terceiro caso da rodada em que o
+produto sabia e não dizia.
+
+Agora a barra diz `local-first · SQLite · render: pronto · ia: qwen3-coder:30b · backup: …`, e o que
+não está `ok` sai em warn. `local-first` vem do servidor e está lá desde o primeiro byte; o resto
+chega por `/api/infra` depois da montagem, porque `probeRenderer` bate na rede com timeout e
+pendurar isso no layout faria **toda** navegação esperar antes do primeiro byte. Enquanto não
+chega, a barra diz `verificando…` — que é verdade, e é diferente de dizer `pronto` por otimismo.
+
+Correção de percurso: a primeira versão pôs `local-first · SQLite` no `AppShell` sem tirar das
+telas, e a barra saiu com “local-first · SQLite   SQLite · local”. O e2e conta quantas vezes
+`SQLite` aparece.
 
 ---
 
-## 10. Busca global
+## 10. Busca global — ✅ resolvido
 
 Protótipo: rodapé com `↑↓ navegar · ⏎ abrir no lugar certo · ⇧⏎ abrir ao lado` e a legenda “busca no
-enunciado, tags, banca e ano”. O app não mostra os atalhos nem o escopo da busca.
+enunciado, tags, banca e ano”.
+
+Os atalhos entraram, e `⇧⏎` **funciona** — não era só rótulo: `Command` ganhou `href`, porque abrir
+ao lado exige uma URL e `onSelect` é uma função, com a qual o navegador não tem o que fazer. Diz
+`abrir em nova aba` e não `abrir ao lado` porque é isso que ele faz: não há painel lateral neste
+app, e prometer um seria inventar a tela.
+
+**A legenda diz o que a busca faz, e não o que o protótipo desenha.** A busca livre olha
+`statementLatex` e `nickname`; tag, banca e ano são **filtros estruturados**, não texto livre.
+Prometer “busca em tags, banca e ano” manda procurar defeito na busca quando o resultado vazio é o
+correto. A frase é `busca no enunciado e no apelido · tag, banca e ano são filtros`.
+
+Sem a legenda, uma busca que não acha nada é indistinguível de um acervo que não tem nada — e as
+duas pedem coisas opostas de quem está na frente da tela.

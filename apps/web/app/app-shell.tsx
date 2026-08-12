@@ -6,7 +6,9 @@ import { useCallback, useState, type ReactNode } from "react";
 import { Workbench, type BreadcrumbItem, type Command } from "@/design-system";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 
-import { RAIL_MODULES, railHref } from "./rail";
+import { InfraStatusBar } from "./infra-status";
+import { useRailCounts } from "./rail-counts";
+import { railHref, railModules } from "./rail";
 
 /**
  * O shell das telas de acervo — Home, biblioteca, cadastro de livro.
@@ -40,6 +42,7 @@ export function AppShell({
   publicationId,
 }: AppShellProps) {
   const router = useRouter();
+  const counts = useRailCounts();
   const [found, setFound] = useState<readonly SearchHit[]>([]);
 
   /**
@@ -67,20 +70,39 @@ export function AppShell({
     icon: "circle-help",
     hint: [hit.board, hit.year].filter(Boolean).join(" · ") || hit.type,
     group: "No acervo",
+    // O mesmo destino nos dois caminhos: `⏎` navega no lugar, `⇧⏎` abre ao lado. Duas rotas
+    // diferentes para a mesma linha seria a segunda envelhecer sozinha.
+    href: `/questoes/${hit.id}`,
     onSelect: () => router.push(`/questoes/${hit.id}`),
   }));
 
   return (
     <Workbench
-      modules={RAIL_MODULES}
+      modules={railModules(counts)}
       activeModule={activeModule}
       onModuleSelect={(id) => router.push(railHref(id, publicationId))}
       breadcrumb={breadcrumb}
       commands={commands}
       onCommandQueryChange={search}
       searchLabel="Buscar no acervo…"
+      // O que é verdade, e não o que o protótipo desenha: a busca livre olha enunciado e apelido;
+      // tag, banca e ano são **filtros**, não texto livre. Prometer o que ela não faz manda
+      // procurar o defeito na busca quando o resultado vazio é o correto.
+      searchScopeHint="busca no enunciado e no apelido · tag, banca e ano são filtros"
       {...(actions ? { actions } : {})}
-      statusLeft={statusLeft ?? <span>SQLite · local</span>}
+      /**
+       * `local-first` primeiro, e a infraestrutura viva depois (protótipo).
+       *
+       * A tela pode acrescentar o que é dela — a Home conta bibliotecas, o editor conta nós —, e o
+       * que vale para o produto inteiro fica sempre aqui, no mesmo lugar de toda tela.
+       */
+      statusLeft={
+        <>
+          <span>local-first · SQLite</span>
+          {statusLeft}
+          <InfraStatusBar />
+        </>
+      }
     >
       {children}
     </Workbench>
