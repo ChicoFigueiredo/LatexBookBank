@@ -39,6 +39,8 @@ export interface IngestionNode {
 export interface IngestionScreenProps {
   /** A biblioteca dona, para o breadcrumb. Sem ela a tela sabe voltar só para o resumo do livro. */
   readonly library?: { readonly name: string; readonly slug: string };
+  /** Onde o reconhecimento acontece, em uma frase. Resolvido no servidor. */
+  readonly aviso?: string;
   readonly publicationId: string;
   readonly workspaceId: string;
   readonly title: string;
@@ -65,6 +67,7 @@ interface CreatedInfo {
 
 export function IngestionScreen({
   library,
+  aviso,
   publicationId,
   workspaceId,
   title,
@@ -295,6 +298,7 @@ export function IngestionScreen({
         }}
       >
         <IngestionPanel
+          {...(aviso ? { aviso } : {})}
           workspaceId={workspaceId}
           publicationId={publicationId}
           onAccept={setAccepted}

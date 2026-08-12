@@ -43,6 +43,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 21 | O tipo da questão era escolhido uma vez e para sempre | Alta | ✅ resolvido |
 | 22 | A captura era um beco: sem rail, sem volta, sem busca | Alta | ✅ resolvido |
 | 23 | Rótulo da alternativa trocava em silêncio ao gravar | Média | ✅ resolvido |
+| 24 | A captura não dizia se o recorte sai do computador | Alta | ✅ resolvido |
 
 ---
 
@@ -86,6 +87,40 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 24. A captura não dizia se o recorte sai do computador — ✅ resolvido
+
+**Protótipo** (1477), embaixo da dropzone: *“O reconhecimento roda no seu computador. **Nada é
+enviado para fora.**”*
+
+**Antes**: nada. A tela pedia o arquivo e não dizia para onde ele ia.
+
+É a pergunta que alguém prestes a subir a página de um livro protegido tem na cabeça, e o único
+momento em que a resposta muda o que a pessoa faz. Depois de subir, saber não serve para nada.
+
+**A verdade está no host, e não no rótulo do provider.** “Ollama local” é o nome de um perfil de
+configuração, não uma garantia: nada impede apontar `AI_BASE_URL` para um Ollama noutra máquina, e
+aí o recorte sai. O contrário também vale — um “Endpoint compatível” em `localhost` é tão local
+quanto. Perguntar ao perfil daria a resposta errada nos dois casos, e a resposta errada aqui é a
+que este caminho existe para evitar.
+
+Três frases, e cada uma é uma leitura da configuração:
+
+| Estado | O que a tela diz |
+|---|---|
+| host loopback | “roda no seu computador. Nada é enviado para fora.” |
+| host remoto | “é feito por <provider> — o recorte sai do seu computador.” |
+| sem `AI_BASE_URL` | “nenhum modelo de visão configurado — dá para recortar e transcrever à mão.” |
+
+**A de “remota” não é alarme em vermelho.** Mandar o recorte para um serviço é escolha legítima de
+configuração, e pintar de perigo o que o próprio dono configurou seria alarme falso. É informação,
+no momento certo. E ela nomeia o destino: “sai do seu computador” sem dizer para onde é um aviso
+sobre o qual não dá para agir.
+
+**URL que não parseia cai em “remota”.** Entre calar sobre uma garantia e prometer uma que não se
+pode conferir, cala-se.
 
 ---
 
@@ -229,6 +264,15 @@ Não há painel lateral neste app. O atalho **funciona**, e o rótulo diz o que 
 ### `busca no enunciado, tags, banca e ano` → `busca no enunciado e no apelido · tag, banca e ano são filtros`
 
 A busca livre olha `statementLatex` e `nickname`; o resto é filtro estruturado. Ver §10.
+
+### `duplo clique abre direto no editor` (estante) → o menu `⋯` da linha
+
+O protótipo promete duplo clique na estante para pular o resumo e ir ao editor. Detectar duplo
+clique exige **atrasar o clique simples** em ~200 ms para esperar o segundo — quer dizer, piorar a
+ação comum (abrir o resumo) para servir a rara.
+
+O atalho existe sem esse custo: o menu `⋯` de cada linha tem `Abrir no editor`. Dois cliques, zero
+latência no caminho de todo dia.
 
 ### `Último backup automático há 1 h · 3 cópias mantidas` → o estado real, lido
 

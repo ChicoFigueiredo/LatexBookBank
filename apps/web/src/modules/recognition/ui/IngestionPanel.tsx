@@ -86,6 +86,13 @@ export interface AcceptedRecognition {
 }
 
 export interface IngestionPanelProps {
+  /**
+   * Onde o reconhecimento acontece — e a frase que a tela mostra por causa disso.
+   *
+   * Resolvida no servidor: a `AI_BASE_URL` não atravessa para o cliente, e não deveria. O que
+   * atravessa é a conclusão.
+   */
+  readonly aviso?: string;
   readonly workspaceId: string;
   readonly publicationId: string;
   readonly questionId?: string | null;
@@ -140,6 +147,7 @@ interface SourceState {
 }
 
 export function IngestionPanel({
+  aviso,
   workspaceId,
   publicationId,
   questionId = null,
@@ -367,12 +375,30 @@ export function IngestionPanel({
       )}
 
       {source === null ? (
-        <AssetDropzone
-          onFile={(file) => void upload(file)}
-          disabled={busy !== null}
-          listenToPaste
-          label="Arraste um PDF ou imagem, clique para escolher, ou cole com Ctrl+V"
-        />
+        <>
+          <AssetDropzone
+            onFile={(file) => void upload(file)}
+            disabled={busy !== null}
+            listenToPaste
+            label="Arraste um PDF ou imagem, clique para escolher, ou cole com Ctrl+V"
+          />
+          {/*
+            Onde o recorte vai ser lido, **no momento de escolher o arquivo**.
+
+            O protótipo (1477) escreve "o reconhecimento roda no seu computador; nada é enviado
+            para fora", e a tela não dizia nada. É a pergunta que alguém prestes a subir a página
+            de um livro protegido tem na cabeça, e é o único momento em que a resposta muda o que
+            a pessoa faz.
+
+            A frase é derivada do host da `AI_BASE_URL`, e não do nome do provider: "Ollama local"
+            é um perfil de configuração, não uma garantia.
+          */}
+          {aviso && (
+            <span className="lbb-ing-meta" style={{ textAlign: "center", display: "block" }}>
+              {aviso}
+            </span>
+          )}
+        </>
       ) : (
         <>
           <div className="lbb-ing-actions">

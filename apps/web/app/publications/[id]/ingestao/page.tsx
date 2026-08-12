@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
 
+import { env } from "@/shared/config/env";
+
+import { describeAiSetup } from "@modules/agents/application/describe-ai-setup";
+import { fraseDaLocalidade, localidadeDaIa } from "@modules/agents/domain/ai-locality";
 import { getPublicationTree } from "@modules/document-tree/application/get-publication-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
@@ -33,8 +37,18 @@ export default async function IngestionPage({ params }: { params: Promise<{ id: 
   // começa no livro deixa a estante fora do caminho de volta.
   const library = await new PrismaLibraryRepository().findById(publication.workspaceId);
 
+  /**
+   * Onde o reconhecimento acontece — resolvido aqui, no servidor.
+   *
+   * A `AI_BASE_URL` não atravessa para o cliente, e não deveria: o que ele precisa é da conclusão,
+   * não do endereço. Mesma regra do `describeAiSetup`, que já manda rótulos e nunca a chave.
+   */
+  const ai = describeAiSetup();
+  const aviso = fraseDaLocalidade(localidadeDaIa(env().aiBaseUrl), ai?.providerLabel ?? null);
+
   return (
     <IngestionScreen
+      aviso={aviso}
       {...(library ? { library: { name: library.name, slug: library.slug } } : {})}
       publicationId={publication.id}
       workspaceId={publication.workspaceId}

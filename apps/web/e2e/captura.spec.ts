@@ -592,3 +592,40 @@ test("rótulo do livro que difere do derivado aparece com a troca à vista", asy
   await expect(split.locator(".lbb-ing-alt-derivada").first()).toContainText("a");
   await expect(split.locator(".lbb-ing-alt-derivada")).toHaveCount(3);
 });
+
+/**
+ * **Onde o recorte vai ser lido, no momento de escolher o arquivo.**
+ *
+ * O protótipo (1477) escreve, embaixo da dropzone: *"O reconhecimento roda no seu computador. Nada
+ * é enviado para fora."* A tela não dizia nada — e é a pergunta que alguém prestes a subir a
+ * página de um livro protegido tem na cabeça, no único momento em que a resposta muda o que a
+ * pessoa faz.
+ *
+ * A frase sai do **host** da `AI_BASE_URL`, e não do nome do provider: "Ollama local" é o nome de
+ * um perfil de configuração, não uma garantia — nada impede apontá-lo para outra máquina.
+ */
+test("a captura diz onde o reconhecimento acontece antes de subir o arquivo", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+
+  // Uma das três frases possíveis, e cada uma é uma leitura da configuração — não um texto fixo.
+  await expect(
+    page.getByText(
+      /roda no seu computador|sai do seu computador|Nenhum modelo de visão configurado/,
+    ),
+  ).toBeVisible();
+
+  /*
+   * E a garantia forte só aparece quando é verdade. Este ambiente aponta a IA para um host que
+   * **não** é loopback, então a promessa de que nada sai daqui não pode estar na tela — se
+   * estivesse, seria exatamente a mentira que este caminho existe para evitar.
+   */
+  const infra = await page.request.get("/api/infra");
+  const { ai } = (await infra.json()) as { ai: { health: string } };
+
+  if (ai.health !== "ok") {
+    await expect(page.getByText("Nada é enviado para fora")).toHaveCount(0);
+  }
+});
