@@ -124,6 +124,9 @@ export function IngestionScreen({
       anchorId: item.anchorId,
       cropAssetId: item.cropAssetId ?? "",
       statementLatex: item.recognizedText ?? "",
+      // A fila entrega o texto como veio; separar aqui gravaria alternativas que ninguém viu. Só
+      // o caminho da revisão, onde a separação é mostrada, preenche isto.
+      options: [],
       run: {
         providerId: "fila",
         model: item.model ?? "desconhecido",
@@ -183,6 +186,7 @@ export function IngestionScreen({
           anchorId: accepted.anchorId,
           cropAssetId: accepted.cropAssetId,
           statementLatex: accepted.statementLatex,
+          ...(accepted.options.length > 0 ? { options: accepted.options } : {}),
           originalLabel: originalLabel.trim() === "" ? null : originalLabel,
           run: accepted.run,
         }),

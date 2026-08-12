@@ -34,6 +34,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 12 | Autosave falho — sem insistência e sem garantia | Alta | ✅ resolvido |
 | 13 | Reconhecimento — a espera não prestava contas | Média | ✅ resolvido |
 | 14 | `Ctrl Q` — o atalho que faltava do contrato | Baixa | ✅ resolvido |
+| 15 | Reconhecimento — faltava “Questão completa” | Alta | ✅ resolvido |
 
 ---
 
@@ -77,6 +78,43 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 15. Reconhecimento — faltava “Questão completa” — ✅ resolvido
+
+O handoff do protótipo tem uma aba **“Auditoria UX”** com a lista do próprio designer do que
+faltava. Seis itens. Cinco já estavam fechados; o quarto não:
+
+> *“Reconhecimento tinha 3 modos técnicos (display/mixed/text); faltava **Questão completa**.”*
+
+E a lacuna era mais funda que a frase. `RecognitionCandidate` tem `options`,
+`createQuestionFromRecognition` sabe gravá-las, a rota `from-recognition` já as aceitava — e
+**nada no app jamais as preencheu**. A ponta receptora estava construída inteira e ninguém
+alimentava.
+
+**O sintoma exato, medido ao desligar a ligação de propósito**: capturar uma questão de múltipla
+escolha criava a questão com **cinco alternativas vazias**. O modelo tinha lido `a) b) c) d) e)` do
+recorte, o app jogava fora, e devolvia cinco caixas em branco para a pessoa redigitar — do mesmo
+recorte que estava na tela ao lado.
+
+Os três modos antigos são **técnicos**: descrevem o formato do recorte. Quem recorta uma questão de
+prova não está pensando em “texto com fórmula”, está pensando em “esta questão”.
+
+**A separação é nossa, não do modelo.** `Questão completa` lê com o mesmo prompt do `mixed`; a
+diferença está no que se faz com o que ele devolveu. É um problema de texto, e
+`separar-alternativas.ts` o resolve com regra explícita e treze testes — em vez de um prompt que às
+vezes obedece. A regra recusa mais do que aceita, de propósito: rótulo no meio da linha, sequência
+fora de ordem (`a) … c)`) e rótulo solto **não** viram alternativa. Errar para mais é pior — uma
+alternativa inventada a partir de prosa entra no acervo com cara de revisada e só aparece na prova
+impressa.
+
+**Nada nasce marcado como correto.** O modelo não sabe o gabarito, e adivinhar entregaria uma
+questão errada com cara de conferida. A tela diz isso, com essas palavras.
+
+**A separação é mostrada antes de gravar**, e é o que torna a fatia honesta: é o princípio do
+próprio módulo — *nenhum caminho leva de “o modelo leu” a “está no acervo” sem um humano ver*.
+Preencher `options` em silêncio criaria cinco alternativas que ninguém conferiu.
 
 ---
 

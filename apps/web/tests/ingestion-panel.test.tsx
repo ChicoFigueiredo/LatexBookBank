@@ -169,6 +169,10 @@ describe("o caminho inteiro", () => {
       anchorId: "a1",
       cropAssetId: "crop-1",
       statementLatex: "x^{2} + 1",
+      // Vazio, e não ausente: este recorte é uma fórmula no modo `display`, e separar alternativas
+      // de uma fórmula seria inventar estrutura. Só o modo `Questão completa` preenche isto, e só
+      // depois de mostrar a separação na tela.
+      options: [],
       run: {
         providerId: "ollama",
         model: "gemma3:12b",

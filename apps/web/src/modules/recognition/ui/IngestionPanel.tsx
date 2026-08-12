@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge, Banner, Button, Icon, injectCss, Segmented } from "@/design-system";
 import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
+import { separarAlternativas } from "@modules/recognition/domain/separar-alternativas";
 import {
   accept,
   candidateFrom,
@@ -35,6 +36,9 @@ const CSS = `
 .lbb-ing-latex{width:100%;min-height:8rem;padding:8px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-raised);color:var(--text-primary);font-family:var(--font-mono);font-size:var(--text-body-sm)}
 .lbb-ing-latex:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-1px}
 .lbb-ing-meta{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-secondary)}
+.lbb-ing-split{display:flex;flex-direction:column;gap:5px;padding:var(--space-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
+.lbb-ing-alt{display:flex;align-items:baseline;gap:9px;font-size:var(--text-body-sm);color:var(--text-primary)}
+.lbb-ing-alt-label{flex-shrink:0;width:1.4rem;font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
 .lbb-ing-progress{display:flex;flex-direction:column;gap:6px;padding:var(--space-3) var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
 .lbb-ing-step{display:flex;align-items:center;gap:8px;font-size:var(--text-body-sm);color:var(--text-primary)}
 /* O que já aconteceu fica verde; o que está acontecendo fica em texto normal. */
@@ -53,6 +57,14 @@ export interface AcceptedRecognition {
   readonly anchorId: string;
   readonly cropAssetId: string;
   readonly statementLatex: string;
+  /**
+   * As alternativas separadas do enunciado, quando o recorte era uma questão inteira.
+   *
+   * `RecognitionCandidate` tem `options` e `createQuestionFromRecognition` sabe gravá-las desde
+   * sempre — **nada no app jamais as preencheu**. A ponta receptora estava pronta e ninguém
+   * alimentava, e é o que o handoff do protótipo listou como "faltava Questão completa".
+   */
+  readonly options: readonly { readonly label: string; readonly statementLatex: string }[];
   readonly run: {
     readonly providerId: string;
     readonly model: string;
@@ -73,13 +85,26 @@ export interface IngestionPanelProps {
 }
 
 /** Os quatro do contrato de reconhecimento, com o rótulo que a tela usa. */
-type RecognitionMode = "display" | "inline" | "mixed" | "text";
+type RecognitionMode = "questao" | "display" | "inline" | "mixed" | "text";
 
+/**
+ * O que se pede ao modelo — e o quarto é o que faltava.
+ *
+ * Os três primeiros são **técnicos**: descrevem o formato do recorte. O handoff do protótipo os
+ * chama assim, e aponta a lacuna: quem recorta uma questão de prova não está pensando em "texto
+ * com fórmula", está pensando em "esta questão". `Questão completa` lê o recorte como os outros e
+ * **separa enunciado de alternativas** — a diferença não está no modelo, está no que se faz com o
+ * que ele devolveu.
+ */
 const MODES: readonly { readonly id: RecognitionMode; readonly label: string }[] = [
+  { id: "questao", label: "Questão completa" },
   { id: "display", label: "Fórmula" },
   { id: "mixed", label: "Texto com fórmula" },
   { id: "text", label: "Só texto" },
 ];
+
+/** `questao` não existe no provider: ele lê como `mixed`, e a separação é nossa, aqui. */
+const MODO_DO_PROVIDER = (modo: RecognitionMode): string => (modo === "questao" ? "mixed" : modo);
 
 interface SourceState {
   readonly assetId: string;
@@ -223,7 +248,7 @@ export function IngestionPanel({
       const form = new FormData();
       form.set("image", png, "crop.png");
       form.set("cropAssetId", assetId);
-      form.set("mode", modo);
+      form.set("mode", MODO_DO_PROVIDER(modo));
       // A âncora vai junto para o servidor **guardar** o que o modelo leu. É o que faz reconhecer
       // dez recortes e fechar a aba não perder as dez transcrições (§26).
       if (anchor !== null) form.set("anchorId", anchor);
@@ -247,6 +272,18 @@ export function IngestionPanel({
       setProgresso([]);
     }
   };
+
+  /**
+   * A separação é derivada do texto **revisado**, e recalculada a cada tecla.
+   *
+   * Não guardada em estado: corrigir o LaTeX e ver as alternativas continuarem as antigas seria a
+   * tela mostrando uma coisa e gravando outra. Só vale no modo `Questão completa` — nos outros o
+   * recorte não é uma questão inteira, e separar seria inventar estrutura em cima de uma fórmula.
+   */
+  const separado =
+    candidate !== null && mode === "questao"
+      ? separarAlternativas(currentLatex(candidate))
+      : null;
 
   return (
     <div className="lbb-ing">
@@ -351,6 +388,38 @@ export function IngestionPanel({
               {candidate.result.model} · {candidate.result.durationMs} ms · {candidate.state}
             </span>
 
+            {/*
+              O que vai ser gravado, **antes** de gravar.
+
+              É o princípio deste módulo aplicado a um passo novo: nenhum caminho leva de "o modelo
+              leu" a "está no acervo" sem um humano ver. Preencher `options` em silêncio criaria
+              cinco alternativas que ninguém conferiu, e a diferença entre quatro e cinco só
+              apareceria na prova impressa.
+            */}
+            {separado !== null && (
+              <div className="lbb-ing-split" role="status">
+                {separado.options.length === 0 ? (
+                  <span className="lbb-ing-meta">
+                    Nenhum bloco de alternativas reconhecido — isto entra como enunciado inteiro.
+                    Um rótulo solto ou fora de ordem não vira alternativa de propósito.
+                  </span>
+                ) : (
+                  <>
+                    <span className="lbb-ing-meta">
+                      {separado.options.length} alternativas separadas do enunciado · nenhuma nasce
+                      marcada como correta — o gabarito é seu, no editor
+                    </span>
+                    {separado.options.map((opcao) => (
+                      <div key={opcao.label} className="lbb-ing-alt">
+                        <span className="lbb-ing-alt-label">{opcao.label}</span>
+                        <span>{opcao.statementLatex}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="lbb-ing-actions">
               <Button
                 size="sm"
@@ -367,10 +436,19 @@ export function IngestionPanel({
                     return;
                   }
 
+                  const partido =
+                    mode === "questao" ? separarAlternativas(currentLatex(reviewed)) : null;
+
                   onAccept({
                     anchorId,
                     cropAssetId: reviewed.cropAssetId,
-                    statementLatex: currentLatex(reviewed),
+                    // O enunciado **sem** as alternativas quando elas foram separadas: deixá-las
+                    // nos dois lugares criaria a questão com o bloco de opções repetido dentro do
+                    // próprio enunciado.
+                    statementLatex: partido?.options.length
+                      ? partido.statementLatex
+                      : currentLatex(reviewed),
+                    options: partido?.options ?? [],
                     run: {
                       providerId: reviewed.result.providerId,
                       model: reviewed.result.model,

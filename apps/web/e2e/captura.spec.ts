@@ -268,3 +268,99 @@ test("enquanto o modelo lê, a tela diz o que já está garantido", async ({ pag
   await expect(page.getByLabel("LaTeX reconhecido")).toHaveValue(CANDIDATO.result.latex);
   await expect(espera).toHaveCount(0);
 });
+
+/**
+ * **Questão completa** — o modo que o handoff listou como faltando.
+ *
+ * *"Reconhecimento tinha 3 modos técnicos (display/mixed/text); faltava Questão completa."* E a
+ * lacuna era mais funda que a frase: `RecognitionCandidate` tem `options`,
+ * `createQuestionFromRecognition` sabe gravá-las, a rota `from-recognition` já as aceitava — e
+ * **nada no app jamais as preencheu**. A ponta receptora estava pronta e ninguém alimentava.
+ *
+ * O que faltava entre "o modelo leu a página" e "a questão existe com cinco alternativas" não era
+ * modelo: era a separação, que é problema de texto e agora tem regra explícita e testada.
+ *
+ * A separação é **mostrada antes de gravar**, e este teste guarda isso: é o princípio do módulo —
+ * nenhum caminho leva de "o modelo leu" a "está no acervo" sem um humano ver. Cinco alternativas
+ * criadas em silêncio só apareceriam na prova impressa.
+ */
+test("“Questão completa” separa as alternativas, mostra a separação, e grava as duas partes", async ({
+  page,
+}) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  const LIDO = [
+    `Um capital de R\\$ 5.000,00 rende a 2\\% ao mês. Qual o montante? ${marca}`,
+    "a) R\\$ 5.612,25",
+    "b) R\\$ 6.341,21",
+    "c) R\\$ 6.529,67",
+  ].join("\n");
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    // O modo que chega ao provider é `mixed`: `questao` é nosso, e a diferença está no que se faz
+    // com o que ele devolveu — não no que se pede a ele.
+    expect(corpo).toContain("mixed");
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        cropAssetId: id,
+        editedLatex: null,
+        state: "candidate",
+        result: {
+          latex: LIDO,
+          confidence: 0.91,
+          alternatives: [],
+          providerId: "fake",
+          model: "fake-vision",
+          durationMs: 10,
+        },
+      }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await page.getByRole("button", { name: "Questão completa" }).click();
+  await recortar(page);
+
+  await test.step("a separação aparece antes de qualquer gravação", async () => {
+    const split = page.locator(".lbb-ing-split");
+    await expect(split).toBeVisible();
+    await expect(split).toContainText("3 alternativas separadas do enunciado");
+
+    // E a tela diz o que **não** faz: adivinhar o gabarito. Uma correta marcada por engano passa
+    // por revisada, que é o erro caro.
+    await expect(split).toContainText("nenhuma nasce marcada como correta");
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(3);
+  });
+
+  await test.step("aceitar grava enunciado e alternativas, sem repetir o bloco", async () => {
+    await page.getByRole("button", { name: "Conferi — usar este LaTeX" }).click();
+    await page.getByRole("button", { name: /Criar questão/ }).click();
+
+    await expect(page.getByText(/Questão criada/i)).toBeVisible({ timeout: 20_000 });
+
+    const tree = await page.request.get(`/api/publications/${publicationId}/tree`);
+    const { nodes } = (await tree.json()) as {
+      nodes: {
+        question: { statementLatex: string; options: { statementLatex: string }[] } | null;
+      }[];
+    };
+
+    const criada = nodes.find((node) => node.question !== null)?.question;
+    expect(criada?.options).toHaveLength(3);
+
+    // O enunciado ficou **sem** as alternativas: deixá-las nos dois lugares imprimiria o bloco de
+    // opções duas vezes na mesma questão.
+    expect(criada?.statementLatex).toContain(marca);
+    expect(criada?.statementLatex).not.toContain("5.612,25");
+  });
+});
