@@ -1,5 +1,10 @@
 import type { DocumentTreeRepository } from "@modules/document-tree/domain/document-tree-repository";
 import { resolvePlacement, type Placement } from "@modules/document-tree/domain/tree-mutations";
+import {
+  metadadosHerdados,
+  questaoAnterior,
+  type MetadadosHerdados,
+} from "@modules/questions/domain/herdar-metadados";
 import { planQuestion, type QuestionBlueprint } from "@modules/questions/domain/question-blueprint";
 
 /**
@@ -36,12 +41,20 @@ export interface NewQuestionNode {
   readonly solutionLatex?: string;
   /** Texto e gabarito de cada alternativa, quando vêm de um candidato aprovado. */
   readonly options?: readonly { readonly statementLatex: string; readonly isCorrect: boolean }[];
+  /** Banca e ano da questão anterior, quando há uma antes desta posição. Ver `herdar-metadados`. */
+  readonly board?: string | null;
+  readonly year?: number | null;
 }
 
 export interface CreatedQuestion {
   readonly questionId: string;
   readonly nodeId: string;
   readonly publicationId: string;
+  /**
+   * O que veio da anterior, quando veio. Sobe até a rota para a tela poder **dizer** — herdar em
+   * silêncio é o defeito, não a feature.
+   */
+  readonly inherited?: MetadadosHerdados | null;
 }
 
 /** Porta de escrita atômica. Um método, porque a operação é uma só. */
@@ -87,18 +100,45 @@ export async function createQuestion(
 
   const { parentId, sortKey } = resolvePlacement(records, command.placement);
 
-  return deps.creator.createQuestionWithNode({
+  /*
+   * A herança sai da árvore que já está em memória — `board`, `year` e `difficulty` vêm em
+   * `TreeQuestionRecord`, então não custa consulta nenhuma.
+   *
+   * O que veio explícito no comando **ganha** do herdado: quem mandou a banca sabe qual quer, e o
+   * caminho da captura (`create-question-from-recognition`) manda o que leu do PDF. Herança é o
+   * valor de quando ninguém disse nada.
+   */
+  const herdado = metadadosHerdados(questaoAnterior(records, { parentId, sortKey }));
+
+  /*
+   * A dificuldade herdada exige replanejar, e o replanejo é de graça: `planQuestion` é puro. Vale a
+   * chamada a mais para manter a validação do tipo **antes** da consulta — recusar `type: "XYZ"`
+   * sem ter ido ao banco é a razão de o primeiro `planQuestion` estar lá em cima.
+   */
+  const plano =
+    herdado === null || command.difficulty !== undefined
+      ? blueprint
+      : planQuestion({
+          type: command.type,
+          difficulty: herdado.difficulty,
+          optionCount: command.options ? command.options.length : command.optionCount,
+        });
+
+  const created = await deps.creator.createQuestionWithNode({
     publicationId: command.publicationId,
     parentId,
     sortKey,
     title: command.title ?? null,
     originalLabel: command.originalLabel ?? null,
-    blueprint,
+    blueprint: plano,
+    ...(herdado ? { board: herdado.board, year: herdado.year } : {}),
     ...(command.sourceAnchorId !== undefined ? { sourceAnchorId: command.sourceAnchorId } : {}),
     ...(command.statementLatex !== undefined ? { statementLatex: command.statementLatex } : {}),
     ...(command.solutionLatex !== undefined ? { solutionLatex: command.solutionLatex } : {}),
     ...(command.options !== undefined ? { options: command.options } : {}),
   });
+
+  return { ...created, inherited: herdado };
 }
 
 function assertDestinationBelongs(

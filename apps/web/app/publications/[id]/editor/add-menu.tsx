@@ -26,6 +26,7 @@ const CSS = `
 .lbb-addmenu-item:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-2px}
 .lbb-addmenu-item:disabled{opacity:var(--disabled-opacity);cursor:not-allowed}
 .lbb-addmenu-sep{height:1px;margin:4px 6px;background:var(--border-subtle)}
+.lbb-addmenu-foot{display:flex;align-items:center;gap:6px;margin:4px -4px -4px;padding:7px 10px;border-top:1px solid var(--border-subtle);background:var(--surface-raised);font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-muted)}
 `;
 
 const STRUCTURE: readonly { kind: NodeKind; label: string; icon: IconName }[] = [
@@ -62,6 +63,12 @@ export interface AddMenuProps {
    */
   readonly open?: boolean;
   readonly onOpenChange?: (open: boolean) => void;
+  /**
+   * Banca e ano que a questão nova vai herdar — `"FUVEST · 2019"`, ou `null` quando não há.
+   *
+   * Só vale para as questões: capítulo e seção não têm banca. Ver `herdar-metadados`.
+   */
+  readonly inheritSource?: string | null;
 }
 
 export function AddMenu({
@@ -71,6 +78,7 @@ export function AddMenu({
   destinationLabel,
   open: openProp,
   onOpenChange,
+  inheritSource = null,
 }: AddMenuProps) {
   injectCss("lbb-addmenu-css", CSS);
   const [openInterno, setOpenInterno] = useState(false);
@@ -143,6 +151,22 @@ export function AddMenu({
             </span>
           </button>
         ))}
+
+        {/*
+          O rodapé do protótipo (2229): “Herda livro, capítulo e metadados da questão anterior.”
+
+          Com os valores dentro, e não só a regra. “Herda metadados” manda fechar o menu e ir olhar
+          qual é a anterior; “herda FUVEST · 2019” é a mesma frase respondida.
+        */}
+        {inheritSource !== null && (
+          <div
+            className="lbb-addmenu-foot"
+            title="Banca e ano vêm preenchidos. Dá para trocar depois, na questão."
+          >
+            <Icon name="arrow-right" />
+            <span>herda {inheritSource} da anterior</span>
+          </div>
+        )}
       </div>
     </Popover>
   );

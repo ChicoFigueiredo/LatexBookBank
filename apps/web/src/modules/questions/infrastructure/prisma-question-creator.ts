@@ -28,6 +28,10 @@ export class PrismaQuestionCreator implements QuestionCreator {
           difficulty: input.blueprint.difficulty,
           statementLatex: input.statementLatex ?? "",
           solutionLatex: input.solutionLatex ?? "",
+          // Banca e ano herdados da questão anterior, quando havia uma. `??` e não spread
+          // condicional: `null` é o valor certo para "a anterior também não tinha".
+          board: input.board ?? null,
+          year: input.year ?? null,
           ...(input.sourceAnchorId ? { sourceAnchorId: input.sourceAnchorId } : {}),
           options: {
             create: input.blueprint.optionSortKeys.map((sortKey, index) => ({

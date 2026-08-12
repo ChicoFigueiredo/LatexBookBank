@@ -40,6 +40,7 @@ import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 import { isContainerKind, placementForAdd } from "@modules/document-tree/domain/add-placement";
+import { fonteDaAnterior } from "@modules/questions/domain/herdar-metadados";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
@@ -623,6 +624,18 @@ export function PublicationWorkbench({
    */
   const addPlacement = placementForAdd(selected ? { id: selected.id, kind: selected.kind } : null);
 
+  /*
+   * De quem a próxima questão herda banca e ano.
+   *
+   * `nodes` já vem em ordem de exibição e com `depth` — é tudo de que `fonteDaAnterior` precisa. O
+   * valor é previsão: quem grava é o servidor, que resolve a mesma pergunta sobre a árvore de
+   * verdade em `createQuestion`.
+   */
+  const inheritSource = fonteDaAnterior(
+    nodes,
+    selected ? nodes.findIndex((node) => node.id === selected.id) : null,
+  );
+
   const destinationLabel = selected
     ? isContainerKind(selected.kind)
       ? selected.title
@@ -918,6 +931,7 @@ export function PublicationWorkbench({
           <AddMenu
             disabled={editing.busy}
             destinationLabel={destinationLabel}
+            inheritSource={inheritSource}
             open={addOpen}
             onOpenChange={setAddOpen}
             onCreateStructure={(kind) => void editing.create(addPlacement, kind)}

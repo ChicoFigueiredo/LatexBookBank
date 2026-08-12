@@ -32,8 +32,77 @@ test("a estante compara livros por coluna, e o filtro estreita", async ({ page }
   await page.getByLabel("Filtrar os livros").fill("zzzz-nao-existe");
   await expect(page.getByText("O filtro olha título, apelido, subtítulo, autor e edição.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Limpar filtro" }).click();
+  await page.getByRole("button", { name: "Limpar filtros" }).click();
   await expect(tabela.getByRole("row")).toHaveCount(antes);
+});
+
+/**
+ * **O recorte da estante** — `Todos · Com pendências · Sem estrutura` (protótipo, 457–482).
+ *
+ * A busca por texto responde “onde está o livro X”. O recorte responde a outra pergunta, e é a
+ * razão de a estante existir: **quais precisam de mim**. A pílula de estado responde isso por
+ * linha; varrer 24 linhas para montar a lista mentalmente é o trabalho que o recorte faz de uma
+ * vez.
+ *
+ * Correção de percurso registrada: a §3 foi marcada como resolvida com a tabela, a busca e a
+ * contagem — e o protótipo pedia “filtros segmentados” na mesma frase. Estava resolvida pela
+ * metade.
+ */
+test("o recorte separa quem precisa de atenção de quem está pronto", async ({ page }) => {
+  const marca = `${Date.now()}`;
+
+  const biblioteca = await page.request.post("/api/libraries", {
+    data: { name: `Acervo recorte ${marca}` },
+  });
+  expect(biblioteca.ok()).toBeTruthy();
+  const { library } = (await biblioteca.json()) as { library: { id: string; slug: string } };
+
+  // Um livro vazio (sem estrutura) e um com questão (pronto): os dois recortes que o protótipo
+  // nomeia precisam de um livro cada para existirem.
+  const vazio = await page.request.post(`/api/libraries/${library.id}/publications`, {
+    data: { title: `Livro vazio ${marca}` },
+  });
+  expect(vazio.ok()).toBeTruthy();
+
+  const cheio = await page.request.post(`/api/libraries/${library.id}/publications`, {
+    data: { title: `Livro cheio ${marca}` },
+  });
+  const { publication } = (await cheio.json()) as { publication: { id: string } };
+
+  const capitulo = await page.request.post(`/api/publications/${publication.id}/nodes`, {
+    data: { kind: "CHAPTER", title: "Capítulo", placement: { kind: "lastChild", parentId: null } },
+  });
+  expect(capitulo.ok()).toBeTruthy();
+  const { id: capituloId } = (await capitulo.json()) as { id: string };
+
+  const questao = await page.request.post(`/api/publications/${publication.id}/questions`, {
+    data: { type: "MULTIPLE_CHOICE", placement: { kind: "lastChild", parentId: capituloId } },
+  });
+  expect(questao.ok()).toBeTruthy();
+
+  await page.goto(`/bibliotecas/${library.slug}`);
+
+  const linhas = page.locator(".lbb-shelf-row:not(.lbb-shelf-head)");
+  await expect(linhas).toHaveCount(2);
+
+  await test.step("“Sem estrutura” deixa só o livro vazio", async () => {
+    await page.getByRole("button", { name: "Sem estrutura", exact: true }).click();
+
+    await expect(linhas).toHaveCount(1);
+    await expect(linhas.first()).toContainText(`Livro vazio ${marca}`);
+  });
+
+  await test.step("e o recorte se compõe com a busca, em vez de brigar com ela", async () => {
+    // Um termo que só casa com o livro **cheio**, dentro do recorte dos vazios: some tudo, e a
+    // tela precisa dizer que foram os dois filtros juntos.
+    await page.getByLabel("Filtrar os livros").fill("cheio");
+
+    await expect(linhas).toHaveCount(0);
+    await expect(page.getByText("Nenhum livro do recorte casa com a busca")).toBeVisible();
+
+    await page.getByRole("button", { name: "Limpar filtros" }).click();
+    await expect(linhas).toHaveCount(2);
+  });
 });
 
 /**

@@ -22,7 +22,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 |---|------|-----------|----------|
 | 1 | Criar biblioteca — descrição, duplicata, próximo passo | Alta | ✅ resolvido |
 | 2 | Home · usuário recorrente | Alta | ✅ resolvido |
-| 3 | Biblioteca — tabela de livros | Alta | ✅ resolvido |
+| 3 | Biblioteca — tabela de livros | Alta | ✅ resolvido (**estava pela metade** — ver correção) |
 | 4 | Livro · overview — tela inexistente | Alta | ✅ resolvido |
 | 5 | Rail — três destinos ausentes e nenhuma contagem | Média | ✅ resolvido |
 | 6 | Adicionar livro — origens sem explicação | Média | ✅ resolvido (capa e tags fora — ver nota) |
@@ -45,7 +45,61 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 23 | Rótulo da alternativa trocava em silêncio ao gravar | Média | ✅ resolvido |
 | 24 | A captura não dizia se o recorte sai do computador | Alta | ✅ resolvido |
 | 25 | A captura ignorava o PDF que o livro já tinha | Alta | ✅ resolvido |
+| 27 | A questão nova não herdava banca nem ano da anterior | Alta | ✅ resolvido |
 | 26 | Não havia como excluir um livro | Alta | ✅ resolvido (`Renomear`/`Duplicar`/`Exportar` fora — ver nota) |
+
+---
+
+## 27. A questão nova não herdava nada da anterior — ✅ resolvido
+
+**Protótipo** (2229), no rodapé do seletor de tipo:
+
+> “Herda livro, capítulo e metadados da questão anterior. O tipo pode mudar depois sem perder
+> conteúdo.”
+
+A segunda frase virou a §21. A primeira nunca foi lida como item — parecia descrever o óbvio.
+
+**Livro e capítulo o app já herdava**: são o destino escolhido na árvore. **Metadados, não.** Cada
+questão nascia com `board` e `year` vazios.
+
+O custo não aparece na primeira questão; aparece na quadragésima. Cadastrar uma prova é cadastrar
+quarenta questões da **mesma** banca e do **mesmo** ano — e o app pedia os dois campos quarenta
+vezes, com a resposta na linha de cima da tela.
+
+**Agora**: `createQuestion` acha a questão anterior *na ordem de leitura do livro* e leva banca, ano
+e dificuldade. Três decisões de forma:
+
+- **Por posição, não por recência.** Quem volta ao Capítulo 2 para inserir uma questão esquecida
+  quer a banca do Capítulo 2, não a da que acabou de digitar no Capítulo 9.
+- **Só herda quando há o que herdar.** Sem banca e sem ano não há herança — e aí a dificuldade
+  também não vem junto. Puxar `difficulty` sozinha mudaria um campo que ninguém pediu, sem nada na
+  tela explicando de onde veio: seria repetir o defeito que este dossiê encontra em toda página, e
+  não corrigi-lo.
+- **O menu diz antes do clique.** `herda FUVEST · 2019 da anterior`, no rodapé do `+ Adicionar`.
+  Preencher em silêncio faria quem visse `2019` errado procurar o erro no lugar errado.
+
+Custo zero de consulta: `board`, `year` e `difficulty` já vinham em `TreeQuestionRecord`, e a
+árvore já estava em memória para resolver o destino.
+
+O caso que decidiu o desenho está no quarto teste de `herdar-metadados.test.ts`: **inserir no fim de
+um capítulo**, onde a anterior está *dentro* do irmão de cima e não é o irmão de cima. Comparar
+`sortKey` entre irmãos acertaria todos os outros casos e erraria justamente esse — que é o gesto
+mais comum de quem cadastra uma prova inteira. Por isso a busca monta a árvore com um nó fantasma
+na posição pedida e caminha até ele, reaproveitando `buildTree`/`walkTree`.
+
+Verificado por reintrodução, nas duas metades:
+
+- sem a escrita de `board`/`year`, o e2e falha em `Expected "FUVEST · 2019" / Received null` — e
+  falha na **conferência contra o banco**, porque a resposta da rota continuava dizendo
+  `inherited: FUVEST · 2019` sobre uma escrita que não aconteceu. Era exatamente para isso que a
+  releitura da árvore estava lá;
+- sem `inheritSource` no menu, falha em `element(s) not found`.
+
+### O byte NUL que o `tests/hardening.test.ts` pegou
+
+O marcador do nó fantasma nasceu como `"\0posicao-nova"` — um NUL invisível no meio de um literal,
+que compila, passa no lint e roda. `nenhum .ts/.tsx carrega byte NUL` reprovou o arquivo pelo nome.
+Um teste que nunca tinha reclamado de nada em 1.460 irmãos, e que numa hora paga o preço todo.
 
 ---
 
@@ -185,6 +239,34 @@ sobre o qual não dá para agir.
 
 **URL que não parseia cai em “remota”.** Entre calar sobre uma garantia e prometer uma que não se
 pode conferir, cala-se.
+
+---
+
+## O que ainda não foi lido do protótipo
+
+O **markup** acabou: 2.658 linhas, varridas até o fim. As ~1.000 restantes são o `<script>` do
+protótipo — a lógica: validações, transições de estado, o que cada botão faz.
+
+É outra leitura, e provavelmente mais densa que a das telas. O markup diz o que aparece; o script
+diz **quando** e **por quê**. `setLibName` já mostra a forma: nome com menos de 3 caracteres é
+`"curto"`, e nome igual a um existente é `"dupe"` — duas regras que a §1 pegou pela mensagem de
+erro na tela, mas que poderiam ter sido lidas direto da fonte.
+
+Duas pistas anotadas na passagem, para virarem item:
+
+- **Passo 3 do Calibre** (2635–2645): a tela de conclusão do protótipo **itemiza** o que aconteceu —
+  `metadados mapeados (7 campos)` · `capa copiada` · `ITA-vol2.pdf copiado (38,2 MB)` · e, em
+  cinza, `nenhum capítulo — a estrutura é sua próxima decisão`. O app diz a garantia em prosa
+  (“o PDF e a capa foram copiados… mesmo que a pasta do Calibre mude de lugar”) e não lista nada.
+  A última linha é a que falta mais: ela nomeia o que **não** aconteceu.
+- **Rodapé do cadastro manual** (2409): “Só o título é obrigatório — o resto você completa quando
+  tiver.” A afirmar contra o formulário.
+- **`pdfStale`** (2900–2915), a mais afiada das três: no protótipo, **trocar o modo de saída**
+  (`Aluno` ↔ `Professor`) ou mandar renderizar de novo marca o PDF já gerado como desatualizado —
+  a aba `PDF` ganha um ponto. Se o app não faz isso, dá para gerar um PDF no modo aluno, trocar
+  para professor e **baixar o arquivo antigo** achando que tem o gabarito dentro. É diferente de
+  todos os itens anteriores: não é informação que falta na tela, é um arquivo errado saindo pela
+  porta. Primeiro item da próxima rodada.
 
 ---
 
@@ -337,6 +419,17 @@ ação comum (abrir o resumo) para servir a rara.
 
 O atalho existe sem esse custo: o menu `⋯` de cada linha tem `Abrir no editor`. Dois cliques, zero
 latência no caminho de todo dia.
+
+### `Passo 1 de 3 · catálogo` (Calibre) → uma tela só, que se abre conforme você escolhe
+
+O protótipo faz do Calibre um assistente modal de três passos — catálogo, metadados, resultado. O
+app faz numa página: a lista filtra, e escolher um livro **abre embaixo** o que vai entrar no
+acervo, com o botão de importar ao lado. Nada é copiado antes desse clique, que é a garantia que o
+rodapé do passo 1 promete.
+
+Assistente numerado promete que os três passos são obrigatórios e em ordem. Aqui o segundo passo é
+só uma conferência, e trancá-la num modal tira da tela justamente a lista de onde a escolha saiu —
+quem errou o livro precisa voltar um passo para descobrir isso.
 
 ### `Último backup automático há 1 h · 3 cópias mantidas` → o estado real, lido
 
@@ -579,6 +672,29 @@ reproduzir primeiro, teria sido um palpite com aparência de conserto.
 ---
 
 ## Achado fora da lista 10: a instabilidade da suíte era o servidor de dev envelhecido
+
+### Adendo (12/08, 18h): o servidor novo também falha — o que envelhece é a **rodada**
+
+A regra da iteração 25 era “reinicie o servidor antes de tratar uma rodada cheia como veredito”.
+Nesta rodada o servidor **subiu junto com a suíte** e ainda assim 7 dos 60 testes falharam —
+`atalhos`, `beta-editorial`, `layout`, `lixeira`, `lixeira-global` e dois de `questao`. Todos
+**passam isolados**, rodados logo em seguida.
+
+Então a idade do servidor não era a causa; era a variável mais visível. O que 13 minutos de suíte e
+5 horas de uso têm em comum é o **acúmulo dentro do processo**, e não o relógio. A regra continua
+valendo na prática (servidor novo falha menos), mas a explicação estava errada, e uma explicação
+errada é pior que nenhuma: ela faz parar de procurar.
+
+**Medido nesta rodada**, com amostragem de RSS a cada minuto: o servidor sobe em **157 MB** e chega
+a **1.831 MB em cinco minutos** de suíte — mais de 1,6 GB em ~14 testes. Não é vazamento de horas
+de uso; é de minutos de exercício. As 5 h da iteração 25 só somavam rodadas.
+
+Não foi ligado `retries`. A configuração proíbe, e a razão continua boa: “um teste que passa na
+segunda tentativa é um teste que não diz nada”.
+
+O que isto abre, e fica anotado para uma rodada dedicada: reiniciar o servidor **entre arquivos**
+(`playwright.config` não tem esse gancho, mas um `globalSetup` por projeto teria) trocaria 60
+segundos de subida por um veredito que se pode ler.
 
 Durante várias rodadas, corridas completas falharam em **testes diferentes a cada execução** —
 `layout`, `calibre`, `captura`, `questao`, `agente`, `livro-vazio` —, todos passando isolados. Ficou
@@ -917,7 +1033,32 @@ nome e páginas do PDF fonte, e a tipagem das pendências em grupos.
 
 ---
 
-## 3. Biblioteca
+## 3. Biblioteca — ✅ resolvido, na segunda vez
+
+### Correção de percurso: esta linha estava marcada como pronta, e não estava
+
+A §3 virou ✅ quando a tabela, a busca por texto e a contagem ficaram de pé. A mesma frase do
+protótipo que pediu a busca pedia mais uma coisa na mesma respiração — **“filtros segmentados”** —
+e ela passou batido por ter sido lida como enfeite da barra, não como item.
+
+O que a falta custava não é cosmético. A busca por texto responde *onde está o livro X*: é a
+pergunta de quem já sabe o que quer. O recorte responde a outra, e é a razão de a estante existir
+em vez de uma lista alfabética: **quais livros precisam de mim**. A pílula de estado responde isso
+por linha; com 24 linhas, montar a lista era varrer a coluna com o dedo na tela e guardar de
+cabeça. O recorte faz de uma vez o que a pílula fazia 24 vezes.
+
+Agora: `Todos · Com pendências · Sem estrutura`, e cada opção **só aparece quando há livro naquele
+estado** — um recorte que sempre devolve vazio é uma promessa que a estante não pode cumprir. Os
+dois filtros se compõem, e o vazio diz qual dos dois esvaziou: “nenhum livro do recorte casa com a
+busca” é diferente de “nenhum livro casa com «grafos»”, e a diferença decide se a pessoa reescreve
+o termo ou olha para cima. `Limpar filtros`, no plural, limpa os dois.
+
+A lição que fica para o resto do dossiê: **uma linha do protótipo pode conter mais de um item.**
+Marcar ✅ por reconhecer o parágrafo é diferente de marcar ✅ por ter conferido cada oração dele.
+
+Guardado por `e2e/estante.spec.ts` — “o recorte separa quem precisa de atenção de quem está
+pronto”. Verificado por reintrodução: com o predicado do recorte devolvendo sempre `true` (o botão
+muda, a lista não), o teste falha em `Expected: 1 / Received: 2`.
 
 **Protótipo** (423–491)
 
@@ -928,8 +1069,8 @@ nome e páginas do PDF fonte, e a tipagem das pendências em grupos.
   ícone) | Última edição | menu `⋯`.
 - Rodapé: “Clique num livro para ver o resumo; duplo clique abre direto no editor.”
 
-**Implementado**: grade de cards com `editora · N nós`. Além da estrutura, `nós` é vocabulário
-interno vazando para a interface — o produto fala em questões.
+**Implementado antes**: grade de cards com `editora · N nós`. Além da estrutura, `nós` era
+vocabulário interno vazando para a interface — o produto fala em questões.
 
 ---
 

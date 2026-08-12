@@ -4,7 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button, EmptyState, Icon, IconButton, MenuButton, Modal, type IconName } from "@/design-system";
+import {
+  Button,
+  EmptyState,
+  Icon,
+  IconButton,
+  MenuButton,
+  Modal,
+  Segmented,
+  type IconName,
+} from "@/design-system";
 
 import { DeleteBookDialog } from "../../delete-book-dialog";
 import { useAcervoStyles } from "../../acervo-styles";
@@ -73,6 +82,17 @@ export function LibraryScreen({
   const [adding, setAdding] = useState(addOnMount);
   const [filtro, setFiltro] = useState("");
   /**
+   * O recorte da estante — `Todos · Com pendências · Sem estrutura` (protótipo, 457–482).
+   *
+   * A busca por texto responde "onde está o livro X". Esta responde a outra pergunta, que é a
+   * razão de a estante existir: **quais precisam de mim**. Numa biblioteca de 24 livros, a pílula
+   * de estado responde isso por linha, e varrer 24 linhas para montar a lista mentalmente é o
+   * trabalho que o filtro faz de uma vez.
+   *
+   * Do lado do cliente, sobre o `state` que o read model já calcula: nada disto é consulta nova.
+   */
+  const [recorte, setRecorte] = useState("todos");
+  /**
    * O livro cuja exclusão está sendo confirmada.
    *
    * Antes desta rodada **não havia como excluir um livro** — dava para apagar a biblioteca inteira
@@ -82,13 +102,23 @@ export function LibraryScreen({
   const [excluindo, setExcluindo] = useState<ShelfBook | null>(null);
 
   const alvo = filtro.trim().toLowerCase();
-  const visiveis = alvo
-    ? books.filter((book) =>
+
+  const noRecorte = (book: ShelfBook) => {
+    if (recorte === "pendencias") return book.state === "a-revisar" || book.state === "em-captura";
+    if (recorte === "sem-estrutura") return book.state === "sem-questoes";
+
+    return true;
+  };
+  // Os dois filtros se compõem: recortar por estado e depois procurar dentro do recorte é como a
+  // pessoa pensa — "entre os que precisam de mim, onde está o de Iezzi?".
+  const visiveis = books.filter(
+    (book) =>
+      noRecorte(book) &&
+      (alvo === "" ||
         [book.title, book.nickname, book.subtitle, book.authors, book.edition]
           .filter((campo): campo is string => campo !== null)
-          .some((campo) => campo.toLowerCase().includes(alvo)),
-      )
-    : books;
+          .some((campo) => campo.toLowerCase().includes(alvo))),
+  );
 
   return (
     <AppShell
@@ -164,6 +194,26 @@ export function LibraryScreen({
                   onChange={(event) => setFiltro(event.target.value)}
                 />
               </div>
+              {/*
+                Os recortes do protótipo. Cada um só aparece quando há livro nele: um "Sem
+                estrutura" desabilitado numa biblioteca sem livros vazios é um controle ensinando
+                a pessoa a ignorar controles — a mesma regra dos filtros do catálogo do Calibre.
+              */}
+              <Segmented
+                aria-label="Recorte da estante"
+                value={recorte}
+                onChange={setRecorte}
+                options={[
+                  { id: "todos", label: "Todos" },
+                  ...(books.some((b) => b.state === "a-revisar" || b.state === "em-captura")
+                    ? [{ id: "pendencias", label: "Com pendências" }]
+                    : []),
+                  ...(books.some((b) => b.state === "sem-questoes")
+                    ? [{ id: "sem-estrutura", label: "Sem estrutura" }]
+                    : []),
+                ]}
+              />
+
               <span className="lbb-section-spacer" />
               <span className="lbb-section-count">
                 {visiveis.length === books.length
@@ -174,13 +224,36 @@ export function LibraryScreen({
 
             {visiveis.length === 0 ? (
               <div style={{ marginTop: "var(--space-5)" }}>
+                {/*
+                  O vazio precisa dizer **qual** filtro esvaziou.
+                  
+                  Com dois filtros compostos, "o filtro olha título, apelido…" manda procurar erro
+                  na busca quando quem recortou foi o segmento — e a pessoa reescreve o termo três
+                  vezes antes de olhar para cima.
+                */}
                 <EmptyState
                   icon="search"
-                  title={`Nenhum livro casa com “${filtro.trim()}”`}
-                  description="O filtro olha título, apelido, subtítulo, autor e edição."
+                  title={
+                    alvo === ""
+                      ? "Nenhum livro neste recorte"
+                      : `Nenhum livro casa com “${filtro.trim()}”`
+                  }
+                  description={
+                    recorte !== "todos" && alvo !== ""
+                      ? "Nenhum livro do recorte casa com a busca — o filtro olha título, apelido, subtítulo, autor e edição."
+                      : recorte !== "todos"
+                        ? "O recorte olha o estado editorial de cada livro."
+                        : "O filtro olha título, apelido, subtítulo, autor e edição."
+                  }
                   action={
-                    <Button variant="secondary" onClick={() => setFiltro("")}>
-                      Limpar filtro
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setFiltro("");
+                        setRecorte("todos");
+                      }}
+                    >
+                      Limpar filtros
                     </Button>
                   }
                 />

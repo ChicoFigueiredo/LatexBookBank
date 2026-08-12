@@ -54,7 +54,7 @@ test("o apelido vai do cadastro à estante e ao resumo, e o filtro acha por ele"
   });
 
   await test.step("o resumo do livro mostra o apelido junto do título", async () => {
-    await page.getByRole("button", { name: "Limpar filtro" }).click();
+    await page.getByRole("button", { name: "Limpar filtros" }).click();
     await page.locator(".lbb-shelf-row:not(.lbb-shelf-head)").first().click();
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText(APELIDO);
