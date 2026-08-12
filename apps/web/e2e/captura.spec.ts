@@ -530,3 +530,65 @@ test("a captura tem rail, caminho de volta e busca — não é um beco", async (
     await page.keyboard.press("Escape");
   });
 });
+
+/**
+ * **A troca de rótulo é visível, e não silenciosa.**
+ *
+ * O app deriva a letra da **posição** em todo lugar (`optionLabelAt`), e é a decisão certa: é o que
+ * faz o gabarito acompanhar a alternativa quando ela é movida, em vez de seguir a letra. O handoff
+ * lista isso entre o que já está maduro, e a conferência confirmou.
+ *
+ * A consequência aparece com a §15: um livro que escreve `A) B)` ou `i) ii)` é lido com esses
+ * rótulos, mostrado com esses rótulos na revisão, e **gravado com `a) b)`**. Mostrar só o do livro
+ * faria a pessoa conferir uma coisa e receber outra, sem nunca ver a troca.
+ */
+test("rótulo do livro que difere do derivado aparece com a troca à vista", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  // Maiúsculas, como muito livro escreve — e como o app **não** grava.
+  const LIDO = [
+    `Qual o valor de x? ${marca}`,
+    "A) dois",
+    "B) três",
+    "C) quatro",
+  ].join("\n");
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        cropAssetId: id,
+        editedLatex: null,
+        state: "candidate",
+        result: {
+          latex: LIDO,
+          confidence: 0.9,
+          alternatives: [],
+          providerId: "fake",
+          model: "fake-vision",
+          durationMs: 10,
+        },
+      }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await page.getByRole("button", { name: "Questão completa" }).click();
+  await recortar(page);
+
+  const split = page.locator(".lbb-ing-split");
+  await expect(split).toBeVisible();
+
+  // O do livro **e** o que vai ser gravado, lado a lado.
+  await expect(split.locator(".lbb-ing-alt").first()).toContainText("A");
+  await expect(split.locator(".lbb-ing-alt-derivada").first()).toContainText("a");
+  await expect(split.locator(".lbb-ing-alt-derivada")).toHaveCount(3);
+});

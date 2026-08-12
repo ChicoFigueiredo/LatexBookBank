@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge, Banner, Button, Icon, injectCss, Segmented } from "@/design-system";
 import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
+import { optionLabelAt } from "@modules/questions/domain/question-type";
 import {
   detectarBlocoUnido,
   separarAlternativas,
@@ -44,7 +45,9 @@ const CSS = `
 .lbb-ing-alt{display:flex;align-items:center;gap:9px;font-size:var(--text-body-sm);color:var(--text-primary)}
 /* O bloco unido é aviso, não erro: o texto está todo lá, só precisa de um corte. */
 .lbb-ing-alt[data-tone="warn"]{padding:6px 8px;border:1px solid var(--warn-border);border-radius:var(--radius-sm);background:var(--warn-surface)}
-.lbb-ing-alt-label{flex-shrink:0;width:1.4rem;font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
+.lbb-ing-alt-label{flex-shrink:0;font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted);white-space:nowrap}
+/* O rótulo derivado, quando difere do livro: a mudança fica à vista em vez de acontecer calada. */
+.lbb-ing-alt-derivada{color:var(--warn-text)}
 .lbb-ing-progress{display:flex;flex-direction:column;gap:6px;padding:var(--space-3) var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
 .lbb-ing-step{display:flex;align-items:center;gap:8px;font-size:var(--text-body-sm);color:var(--text-primary)}
 /* O que já aconteceu fica verde; o que está acontecendo fica em texto normal. */
@@ -467,7 +470,28 @@ export function IngestionPanel({
                           className="lbb-ing-alt"
                           data-tone={unido ? "warn" : undefined}
                         >
-                          <span className="lbb-ing-alt-label">{opcao.label}</span>
+                          {/*
+                            O rótulo do livro e, quando difere, o que vai ser gravado.
+
+                            O app deriva a letra da **posição** em todo lugar (`optionLabelAt`), e
+                            é a decisão certa: é o que faz o gabarito acompanhar a alternativa
+                            quando ela é movida, em vez de seguir a letra. Mas um livro que escreve
+                            `A) B)` ou `i) ii)` vira `a) b)` ao gravar — e mostrar só o rótulo do
+                            livro aqui faria a pessoa conferir uma coisa e receber outra, sem nunca
+                            ver a troca acontecer.
+
+                            Os dois lado a lado transformam a mudança silenciosa numa mudança
+                            visível. Iguais, o segundo não aparece.
+                          */}
+                          <span className="lbb-ing-alt-label">
+                            {opcao.label}
+                            {opcao.label !== optionLabelAt(indice) && (
+                              <span className="lbb-ing-alt-derivada">
+                                {" → "}
+                                {optionLabelAt(indice)}
+                              </span>
+                            )}
+                          </span>
                           <span style={{ flex: 1 }}>{opcao.statementLatex}</span>
 
                           {/*

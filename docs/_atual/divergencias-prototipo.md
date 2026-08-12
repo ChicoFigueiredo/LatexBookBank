@@ -42,6 +42,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 20 | Busca global não dizia de que livro é o resultado | Alta | ✅ resolvido |
 | 21 | O tipo da questão era escolhido uma vez e para sempre | Alta | ✅ resolvido |
 | 22 | A captura era um beco: sem rail, sem volta, sem busca | Alta | ✅ resolvido |
+| 23 | Rótulo da alternativa trocava em silêncio ao gravar | Média | ✅ resolvido |
 
 ---
 
@@ -85,6 +86,42 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## Conferindo o que o handoff diz estar **maduro**
+
+A aba “Auditoria UX” tem seis afirmações do designer sobre o que já está certo. Elas nunca tinham
+sido verificadas — e uma afirmação de maturidade é tão checável quanto uma de lacuna.
+
+A que mais pesa se for falsa: *“Letra da alternativa derivada da posição — o gabarito acompanha a
+alternativa.”* **Confirmada.** `isCorrect` mora na alternativa, `sortKey` é fractional index, e
+`optionLabelAt` deriva a letra do índice. O comentário de `shuffledForDisplay` explica por que:
+*“o legado embaralhava gravando, e era isso que fazia o gabarito seguir a letra em vez da
+alternativa”*. Está certo, e não havia o que fazer.
+
+Conferir e não achar nada é resultado. O que a conferência **rendeu** foi a §23 abaixo, que é
+consequência dela.
+
+---
+
+## 23. O rótulo da alternativa trocava em silêncio — ✅ resolvido
+
+A letra ser derivada da posição é a decisão certa (acima). A consequência aparece com a §15: um
+livro que escreve `A) B) C)` ou `i) ii) iii)` é lido com esses rótulos, **mostrado com esses
+rótulos na revisão**, e gravado como `a) b) c)`.
+
+`CandidateOption` tem `statementLatex` e `isCorrect`, e nada mais — o rótulo do livro é dado de
+trabalho da revisão, não dado guardado. Está coerente: é ele que faz `detectarBlocoUnido` funcionar
+(§19), e some quando o trabalho acaba.
+
+O problema não era o descarte: era a pessoa conferir `A) B)` e receber `a) b)` **sem nunca ver a
+troca**. Agora os dois aparecem lado a lado quando diferem — `A → a` —, e a mudança silenciosa vira
+mudança visível. Iguais, o segundo não aparece.
+
+**Declarado e não feito**: guardar o rótulo do livro na alternativa (`originalLabel` em
+`QuestionOption`, como já existe em `DocumentNode`). Exigiria migração, e o ganho é de citação —
+“a alternativa B do exercício 27” bate com o livro. Vale a discussão, não vale a pressa.
 
 ---
 
