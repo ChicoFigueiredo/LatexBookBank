@@ -37,6 +37,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 15 | Reconhecimento — faltava “Questão completa” | Alta | ✅ resolvido |
 | 16 | Catálogo do Calibre — sem filtros e sem a série | Média | ✅ resolvido |
 | 17 | Render que falha levava o PDF bom junto | Alta | ✅ resolvido |
+| 18 | Recorte sumido parecia questão corrompida | Média | ✅ resolvido |
 
 ---
 
@@ -80,6 +81,37 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 18. Recorte sumido parecia questão corrompida — ✅ resolvido
+
+**Protótipo** (1315–1319), na aba Origem:
+
+> O arquivo do recorte não foi encontrado no acervo. **A questão continua íntegra; só a evidência
+> sumiu.**
+
+**Antes**: o `<img>` do recorte não tinha `onError`. Sumindo o arquivo do storage, o navegador
+desenhava o ícone de imagem rasgada — e quem abre a aba **Origem** de uma questão e vê aquilo
+conclui a coisa errada: que a questão está corrompida.
+
+Não está. O LaTeX, as alternativas e as tags nunca dependeram daquele arquivo. O que se perde é a
+**evidência** — cara, porque é ela que responde "de onde veio isto?" seis meses depois, e é o que a
+D29 protege — mas é uma perda diferente, e confundir as duas faz alguém reescrever uma questão que
+está inteira.
+
+O caso é banal e real: `STORAGE_ROOT` mudou de lugar, um restore de backup trouxe o banco e não os
+arquivos, alguém limpou a pasta. Nos três, a primeira coisa a conferir é para onde o armazenamento
+aponta — e é isso que o Diagnóstico responde, que é para onde o aviso leva.
+
+O botão `Localizar` do protótipo **não** entrou: não existe fluxo de reapontar arquivo neste app, e
+um botão que abre um "em breve" é pior que botão ausente (§81). A saída oferecida é a que existe e
+resolve.
+
+Dois detalhes: o estado é guardado **por id do recorte**, e não como booleano — um `true` herdado
+marcaria como sumido o recorte da questão seguinte, que talvez esteja lá. E é `onError`, e não uma
+checagem prévia: perguntar ao servidor se o arquivo existe seria uma requisição a mais para
+descobrir o que a própria imagem descobre ao carregar.
 
 ---
 

@@ -54,6 +54,13 @@ export function OriginPanel({ questionId, onAction }: OriginPanelProps) {
   // Abertos **por âncora**, e não como booleano: trocar de questão fecharia o visualizador de
   // graça, e um `true` herdado abriria a fonte de outra questão sem ninguém ter pedido.
   const [sourceOpenFor, setSourceOpenFor] = useState<string | null>(null);
+  /**
+   * Qual recorte não abriu — por id, e não como booleano.
+   *
+   * Mesma razão do `sourceOpenFor` logo acima: um `true` herdado marcaria como sumido o recorte da
+   * questão seguinte, que talvez esteja lá. O id amarra o estado ao arquivo que de fato falhou.
+   */
+  const [recorteAusente, setRecorteAusente] = useState<string | null>(null);
   const [copiedFrom, setCopiedFrom] = useState<string | null>(null);
 
   useEffect(() => {
@@ -137,16 +144,44 @@ export function OriginPanel({ questionId, onAction }: OriginPanelProps) {
         })}
       </p>
 
-      {provenance.cropAssetId !== null && (
-        <div className="lbb-origin-crop">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/api/assets/${provenance.cropAssetId}/content`}
-            alt="Recorte de origem"
-            style={{ maxWidth: "100%" }}
-          />
-        </div>
-      )}
+      {provenance.cropAssetId !== null &&
+        (recorteAusente === provenance.cropAssetId ? (
+          /*
+           * O recorte não abriu (protótipo, 1315–1319).
+           *
+           * Sem isto o navegador desenhava o ícone de imagem quebrada, e quem olha a aba **Origem**
+           * de uma questão e vê um retângulo rasgado conclui a coisa errada: que a questão está
+           * corrompida. Não está — o LaTeX, as alternativas e as tags nunca dependeram deste
+           * arquivo. O que sumiu é a **evidência**, e dizer exatamente isso é a diferença entre um
+           * susto e um recado.
+           *
+           * O caso é real e tem causas banais: `STORAGE_ROOT` mudou de lugar, um restore de backup
+           * trouxe o banco e não os arquivos, alguém limpou a pasta. Nos três, a primeira coisa a
+           * conferir é onde o armazenamento está apontando — que é o que o Diagnóstico responde.
+           */
+          <Banner tone="danger" title="O recorte não foi encontrado no acervo">
+            A questão continua íntegra — enunciado, alternativas e tags nunca dependeram deste
+            arquivo. Só a evidência sumiu.
+            <div style={{ marginTop: "var(--space-2)" }}>
+              <Button size="sm" variant="secondary" href="/diagnostico">
+                Ver o armazenamento no diagnóstico
+              </Button>
+            </div>
+          </Banner>
+        ) : (
+          <div className="lbb-origin-crop">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/assets/${provenance.cropAssetId}/content`}
+              alt="Recorte de origem"
+              style={{ maxWidth: "100%" }}
+              // `onError` e não uma checagem prévia: perguntar ao servidor se o arquivo existe
+              // seria uma requisição a mais para descobrir o que a própria imagem descobre ao
+              // carregar. O erro é a resposta.
+              onError={() => setRecorteAusente(provenance.cropAssetId)}
+            />
+          </div>
+        ))}
 
       {provenance.extractionModel !== null && (
         <span className="lbb-origin-chain">
