@@ -5,6 +5,7 @@ import type {
   PublicationRepository,
   PublicationSummary,
   PublicationWrite,
+  PublicationContents,
 } from "@modules/publications/domain/publication-repository";
 import { prisma } from "@infrastructure/database/sqlite/client";
 
@@ -104,6 +105,65 @@ export class PrismaPublicationRepository implements PublicationRepository {
     ]);
 
     return toDetail(row, await countQuestions(id));
+  }
+
+  /**
+   * O que a exclusão levaria junto.
+   *
+   * Quatro contagens numa transação de leitura: o diálogo precisa de números de verdade, e “um
+   * livro” ao lado de 148 questões perdidas é um aviso que mente por omissão. Os recortes contam
+   * separado porque são a **evidência** — D29 os trata como fonte, e perdê-los é diferente de
+   * perder texto que dá para redigitar.
+   */
+  async contentsOf(id: string): Promise<PublicationContents | null> {
+    const existe = await prisma.publication.findUnique({ where: { id }, select: { id: true } });
+    if (existe === null) return null;
+
+    const [questionCount, nodeCount, assetCount, anchorCount] = await Promise.all([
+      prisma.documentNode.count({ where: { publicationId: id, questionId: { not: null } } }),
+      prisma.documentNode.count({ where: { publicationId: id } }),
+      prisma.asset.count({ where: { publicationId: id } }),
+      prisma.sourceAnchor.count({ where: { publicationId: id } }),
+    ]);
+
+    return { questionCount, nodeCount, assetCount, anchorCount };
+  }
+
+  async listAssetKeys(id: string): Promise<readonly string[]> {
+    const assets = await prisma.asset.findMany({
+      where: { publicationId: id },
+      select: { storageKey: true },
+    });
+
+    return assets.map((asset) => asset.storageKey);
+  }
+
+  /**
+   * Apaga o livro e o que é dele.
+   *
+   * As questões saem **explicitamente**: `DocumentNode` cascateia da publicação, mas `Question`
+   * não — é a mesma armadilha que a lixeira global encontrou (achado 7), e deixá-la aqui
+   * significaria 148 questões vivas e invisíveis a cada livro excluído.
+   *
+   * Ordem: nós primeiro (eles referenciam a questão), questões depois.
+   */
+  async delete(id: string): Promise<boolean> {
+    const questionIds = (
+      await prisma.documentNode.findMany({
+        where: { publicationId: id, questionId: { not: null } },
+        select: { questionId: true },
+      })
+    )
+      .map((node) => node.questionId)
+      .filter((questionId): questionId is string => questionId !== null);
+
+    return prisma.$transaction(async (tx) => {
+      const removida = await tx.publication.deleteMany({ where: { id } });
+      if (removida.count === 0) return false;
+
+      await tx.question.deleteMany({ where: { id: { in: questionIds } } });
+      return true;
+    });
   }
 }
 

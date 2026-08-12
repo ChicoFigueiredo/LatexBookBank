@@ -29,6 +29,14 @@ export interface PublicationSummary {
  * não precisa de nada disto, e carregar autores e notas para desenhar uma lista seria pagar por
  * dado que a tela descarta.
  */
+export interface PublicationContents {
+  readonly questionCount: number;
+  readonly nodeCount: number;
+  readonly assetCount: number;
+  /** Recortes de origem. Contam separado porque são a **evidência**, e D29 os trata como tal. */
+  readonly anchorCount: number;
+}
+
 export interface PublicationDetail extends PublicationSummary {
   readonly subtitle: string | null;
   readonly authors: readonly string[];
@@ -68,4 +76,18 @@ export interface PublicationRepository {
   findDetailById(id: string): Promise<PublicationDetail | null>;
   create(workspaceId: string, write: PublicationWrite): Promise<PublicationDetail>;
   update(id: string, write: PublicationWrite): Promise<PublicationDetail | null>;
+
+  /**
+   * O que a exclusão levaria junto — buscado **antes** de excluir.
+   *
+   * A mesma decisão do `LibraryRepository`: o diálogo precisa dizer números de verdade, e “1 livro”
+   * ao lado de 148 questões perdidas é um aviso que mente por omissão.
+   */
+  contentsOf(id: string): Promise<PublicationContents | null>;
+
+  /** As chaves de storage dos arquivos do livro, para apagá-los depois do banco. */
+  listAssetKeys(id: string): Promise<readonly string[]>;
+
+  /** `false` quando o livro já não existe. */
+  delete(id: string): Promise<boolean>;
 }

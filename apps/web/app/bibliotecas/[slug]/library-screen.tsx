@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Button, EmptyState, Icon, IconButton, MenuButton, Modal, type IconName } from "@/design-system";
 
+import { DeleteBookDialog } from "../../delete-book-dialog";
 import { useAcervoStyles } from "../../acervo-styles";
 import { AppShell } from "../../app-shell";
 
@@ -71,6 +72,14 @@ export function LibraryScreen({
   useAcervoStyles();
   const [adding, setAdding] = useState(addOnMount);
   const [filtro, setFiltro] = useState("");
+  /**
+   * O livro cuja exclusão está sendo confirmada.
+   *
+   * Antes desta rodada **não havia como excluir um livro** — dava para apagar a biblioteca inteira
+   * e dava para mandar nó e questão para a lixeira, e um livro importado por engano ficava no
+   * acervo para sempre.
+   */
+  const [excluindo, setExcluindo] = useState<ShelfBook | null>(null);
 
   const alvo = filtro.trim().toLowerCase();
   const visiveis = alvo
@@ -197,7 +206,7 @@ export function LibraryScreen({
                   </div>
 
                   {visiveis.map((book) => (
-                    <ShelfRow key={book.id} book={book} />
+                    <ShelfRow key={book.id} book={book} onDelete={setExcluindo} />
                   ))}
                 </div>
 
@@ -257,11 +266,25 @@ export function LibraryScreen({
           />
         </div>
       </Modal>
+
+      <DeleteBookDialog
+        target={excluindo ? { id: excluindo.id, title: excluindo.title } : null}
+        onClose={() => setExcluindo(null)}
+        // A estante é Server Component acima: sem o refresh, a linha excluída continuaria na tela
+        // até alguém recarregar — e o `router.refresh` do próprio diálogo já cuida disso.
+        onDeleted={() => setExcluindo(null)}
+      />
     </AppShell>
   );
 }
 
-function ShelfRow({ book }: { readonly book: ShelfBook }) {
+function ShelfRow({
+  book,
+  onDelete,
+}: {
+  readonly book: ShelfBook;
+  readonly onDelete: (book: ShelfBook) => void;
+}) {
   const router = useRouter();
   const look = STATE_LOOK[book.state];
 
@@ -325,6 +348,17 @@ function ShelfRow({ book }: { readonly book: ShelfBook }) {
                 label: "Capturar questões",
                 icon: "scan-text",
                 onSelect: () => router.push(`/publications/${book.id}/ingestao`),
+              },
+            ],
+            [
+              {
+                id: "excluir",
+                label: "Excluir livro",
+                icon: "x",
+                tone: "danger",
+                // Em grupo separado, e por último: o menu do protótipo termina em `Excluir`, e
+                // separar é o que impede o clique de inércia depois de "Capturar questões".
+                onSelect: () => onDelete(book),
               },
             ],
           ]}

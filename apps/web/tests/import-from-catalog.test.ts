@@ -103,6 +103,18 @@ const libraries: LibraryRepository = {
 };
 
 class FakePublications implements PublicationRepository {
+  // A importação do Calibre não exclui nada — o dublê declara os três e recusa, para que um
+  // caminho que passe a chamá-los apareça no teste em vez de passar batido com um `noop`.
+  contentsOf(): never {
+    throw new Error("não usado neste caminho");
+  }
+  listAssetKeys(): never {
+    throw new Error("não usado neste caminho");
+  }
+  delete(): never {
+    throw new Error("não usado neste caminho");
+  }
+
   written: PublicationWrite[] = [];
 
   listByWorkspaceSlug = async (): Promise<readonly PublicationSummary[]> => [];

@@ -45,6 +45,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 23 | Rótulo da alternativa trocava em silêncio ao gravar | Média | ✅ resolvido |
 | 24 | A captura não dizia se o recorte sai do computador | Alta | ✅ resolvido |
 | 25 | A captura ignorava o PDF que o livro já tinha | Alta | ✅ resolvido |
+| 26 | Não havia como excluir um livro | Alta | ✅ resolvido (`Renomear`/`Duplicar`/`Exportar` fora — ver nota) |
 
 ---
 
@@ -88,6 +89,43 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 26. Não havia como excluir um livro — ✅ resolvido
+
+O protótipo define o menu `⋯` de cada linha da estante: **`Renomear · Duplicar · Exportar ·
+Excluir`**. O app tinha `Abrir no editor` e `Capturar questões` — navegação, e nenhuma gestão.
+
+E o buraco era maior que um item de menu: **`DELETE` não existia na rota nem no repositório.** Dava
+para apagar a **biblioteca** inteira, com confirmação por nome digitado, e dava para mandar nó e
+questão para a lixeira. Um livro importado por engano — a entrada errada do Calibre, a duplicata que
+só aparece depois — ficava no acervo para sempre, e a única saída era apagar a biblioteca em volta
+dele.
+
+**Segue a cerimônia da biblioteca, e não a da lixeira.** A lixeira é de `DocumentNode` — tem
+`deletedAt` na tabela dos nós e nada equivalente na publicação; fingir uma lixeira de livros
+exigiria coluna nova. E dois gestos igualmente definitivos com cerimônias diferentes ensinariam que
+a cerimônia é decorativa.
+
+O aviso conta **recortes de origem separado das questões**: são a evidência de onde cada questão
+veio (D29), e é o que menos se refaz — texto dá para redigitar, a página recortada do livro não.
+
+As questões saem **explicitamente** no `delete`: `DocumentNode` cascateia da publicação, `Question`
+não. É a mesma armadilha do achado 7, e deixá-la aqui significaria 148 questões vivas e invisíveis
+a cada livro excluído.
+
+### O teste que passava por sorte, de novo
+
+O e2e exercitava o **botão**, e o botão já estava desabilitado — desligando a confirmação no
+domínio, ele continuava verde. Quem manda um `DELETE` por script passa por baixo da tela, e é por
+isso que a confirmação é regra de domínio e não validação de formulário. O teste passou a afirmar
+que a **rota** recusa (400 `confirmation_mismatch`) **e** que nada foi apagado. Com a regra
+desligada, cai.
+
+**Fora, e declarado**: `Renomear`, `Duplicar` e `Exportar` por livro. O `PATCH` da publicação já
+aceita título — falta só a tela; `duplicateSubtree` existe para nó e não para publicação; e a
+exportação existe por biblioteca. São três fatias, e cada uma merece a sua.
 
 ---
 
