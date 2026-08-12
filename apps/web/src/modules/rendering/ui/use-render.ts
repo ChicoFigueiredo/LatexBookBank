@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { createCoalescer } from "@modules/rendering/domain/coalescer";
+import { incluiResolucao, type SaidaDoRender } from "@modules/rendering/domain/saida-do-render";
 
 import type { RenderStatus } from "./RenderPanel";
 
@@ -18,10 +19,15 @@ export interface UseRenderOptions {
   readonly publicationId: string;
   readonly questionId: string;
   readonly profileId?: string;
+  /**
+   * O que entra no documento. `aluno` por padrão — é o que o app fazia antes de existir a escolha,
+   * e é a saída que não pode vazar gabarito por engano.
+   */
+  readonly saida?: SaidaDoRender;
 }
 
 /** Traduz a resposta HTTP no estado que o painel entende. */
-async function toStatus(response: Response): Promise<RenderStatus> {
+async function toStatus(response: Response, saida: SaidaDoRender): Promise<RenderStatus> {
   const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
   if (response.status === 503) {
@@ -38,10 +44,22 @@ async function toStatus(response: Response): Promise<RenderStatus> {
       message: String(payload["message"] ?? `Falha ao compilar (HTTP ${response.status}).`),
     };
   }
-  return { kind: "done", outcome: payload as never };
+  /*
+   * A saída viaja **junto do resultado**, e não é lida do estado atual na hora de exibir.
+   *
+   * Quem troca a pílula depois de compilar precisa ver que o que está na tela é de antes — e isso
+   * só é possível se o resultado souber de onde veio. Comparar com o estado atual daria sempre
+   * igual, que é a forma mais convincente de mentir.
+   */
+  return { kind: "done", outcome: payload as never, saida };
 }
 
-export function useRender({ publicationId, questionId, profileId }: UseRenderOptions): {
+export function useRender({
+  publicationId,
+  questionId,
+  profileId,
+  saida = "aluno",
+}: UseRenderOptions): {
   readonly status: RenderStatus;
   readonly render: () => void;
 } {
@@ -62,13 +80,16 @@ export function useRender({ publicationId, questionId, profileId }: UseRenderOpt
             {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify(profileId === undefined ? {} : { profileId }),
+              body: JSON.stringify({
+                ...(profileId === undefined ? {} : { profileId }),
+                ...(incluiResolucao(saida) ? { includeSolution: true } : {}),
+              }),
               // Abortar aqui **chega ao worker**: a rota escuta `request.signal` e manda o
               // `DELETE` do job. Sem isso, desistir seria só parar de olhar.
               signal,
             },
           );
-          return toStatus(response);
+          return toStatus(response, saida);
         },
         // Só o resultado que sobreviveu ao coalescing chega aqui — o intermediário nem é
         // entregue, então não existe filtro a esquecer depois.
@@ -81,7 +102,9 @@ export function useRender({ publicationId, questionId, profileId }: UseRenderOpt
               "o PDF sai quando a conexão voltar.",
           }),
       }),
-    [publicationId, questionId, profileId],
+    // `saida` entra nas dependências: trocar de saída precisa produzir um coalescer novo, senão um
+    // pedido pendente da saída anterior comita por cima do que foi pedido agora.
+    [publicationId, questionId, profileId, saida],
   );
 
   const render = useCallback(() => void coalescer.request(), [coalescer]);

@@ -45,8 +45,63 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 23 | Rótulo da alternativa trocava em silêncio ao gravar | Média | ✅ resolvido |
 | 24 | A captura não dizia se o recorte sai do computador | Alta | ✅ resolvido |
 | 25 | A captura ignorava o PDF que o livro já tinha | Alta | ✅ resolvido |
+| 28 | O PDF nunca saía com gabarito e resolução, e a saída não existia | **Crítica** | ✅ resolvido |
 | 27 | A questão nova não herdava banca nem ano da anterior | Alta | ✅ resolvido |
 | 26 | Não havia como excluir um livro | Alta | ✅ resolvido (`Renomear`/`Duplicar`/`Exportar` fora — ver nota) |
+
+---
+
+## 28. O render não tinha saída — e o PDF nunca levava a resolução — ✅ resolvido
+
+**Protótipo** (1064–1091 e 1168–1172): duas pílulas no cabeçalho do painel, `Aluno` e `Professor`,
+com um resumo em mono do que entra e a frase *“a saída vale para o PNG, para o PDF e para a
+exportação do capítulo — **mudar aqui invalida o PDF já gerado**.”*
+
+Este é diferente de todos os anteriores, e por isso é o primeiro **crítico** da lista.
+
+**O app sabia compilar as duas.** `includeSolution` atravessa a rota, o bundle e todos os plugins
+de tipo; `multiple-choice.ts` monta `\textbf{Gabarito:}` e `\textbf{Resolução.}` a partir dele, e
+uma sonda no domínio confirma que as duas saídas diferem. O editor **nunca pedia**: `useRender`
+mandava `{}` no corpo, então o valor era `false` em toda compilação que o produto já fez.
+
+O efeito é o pior silêncio deste dossiê. Quem escreve a resolução na aba `Resposta` e compila
+recebe um PDF sem ela — e nada na tela diz que existe outra saída. A conclusão razoável de quem usa
+é que o produto não sabe imprimir resolução. O produto sabia desde a Fase 6.
+
+E a segunda metade é de segurança, não de informação: sem marcar de qual saída veio o resultado
+exibido, trocar para `Professor` e baixar o PDF que já estava aberto entrega o **arquivo de aluno**
+para quem tem certeza de estar levando o com gabarito. É o único item da lista em que o defeito não
+é uma tela calada: é um arquivo errado saindo pela porta.
+
+**Agora**: as duas pílulas em linha própria no cabeçalho do render; `Professor` manda
+`includeSolution`; o resultado carrega **sob qual saída foi compilado**, e quando as duas divergem
+o painel diz “Este resultado foi compilado na saída Aluno, e a escolhida agora é Professor. Compile
+de novo antes de baixar.”
+
+Três decisões de forma:
+
+- **A saída viaja com o resultado**, e não é lida do estado atual na hora de exibir. Comparar com o
+  estado atual daria sempre igual — a forma mais convincente de mentir.
+- **Estado de tela, não preferência gravada.** Uma preferência lembrada faria alguém baixar o PDF
+  com gabarito semanas depois sem lembrar de ter escolhido isso.
+- **`Aluno` é o padrão**, porque é o que o app já fazia e é a saída que não vaza gabarito por
+  engano.
+
+### Duas lições de percurso, as duas caras
+
+**A primeira versão do controle ficou invisível.** As pílulas e o resumo entraram ao lado das abas,
+e com `Compilar`, `Tela cheia` e o selo de estado na mesma faixa o resumo em mono era espremido a
+largura zero: presente no DOM, ausente da tela. O e2e reprovou com `Received: hidden`, e o
+protótipo já dizia a resposta — ele empilha duas linhas, e agora o app também.
+
+**A primeira versão do teste teria passado por coincidência.** Ela reaproveitava “a primeira
+questão do acervo”, que era resto de outra rodada: **sem gabarito e sem resolução**. As duas saídas
+produziam o mesmo documento, o mesmo hash de cache — e o log mostrava `cache_hit` com o mesmo hash
+nas duas compilações, que foi o fio que puxou a investigação. Um teste verde não diria nada. O
+fixture agora é próprio: questão criada, resolução escrita, alternativa marcada como correta.
+
+Verificado por reintrodução, nas duas metades: sem `includeSolution` no corpo, a aba `Fonte` não
+tem `Gabarito`; sem o aviso, o e2e não acha “Este resultado é de outra saída”.
 
 ---
 
@@ -261,12 +316,28 @@ Duas pistas anotadas na passagem, para virarem item:
   A última linha é a que falta mais: ela nomeia o que **não** aconteceu.
 - **Rodapé do cadastro manual** (2409): “Só o título é obrigatório — o resto você completa quando
   tiver.” A afirmar contra o formulário.
-- **`pdfStale`** (2900–2915), a mais afiada das três: no protótipo, **trocar o modo de saída**
-  (`Aluno` ↔ `Professor`) ou mandar renderizar de novo marca o PDF já gerado como desatualizado —
-  a aba `PDF` ganha um ponto. Se o app não faz isso, dá para gerar um PDF no modo aluno, trocar
-  para professor e **baixar o arquivo antigo** achando que tem o gabarito dentro. É diferente de
-  todos os itens anteriores: não é informação que falta na tela, é um arquivo errado saindo pela
-  porta. Primeiro item da próxima rodada.
+- **O menu `+ Adicionar` tem três grupos no protótipo** (3106–3125), e o app tem dois. Falta
+  **Conteúdo** — `Texto`, `Figura`, `Nota` — e falta `Capturar questão aqui · Ctrl V` no grupo das
+  questões. O primeiro é o padrão desta lista outra vez: `CONTENT`, `FIGURE` e `NOTE` **estão** em
+  `NODE_KINDS`, a árvore os desenha, o import legado os traz — e não existe gesto nenhum para
+  criar um. O segundo é sobre destino: capturar a partir da árvore levaria o recorte para o lugar
+  **selecionado**, que é o `addPlacement` que o menu já calcula; hoje a captura entra pelo livro e
+  decide sozinha onde pousar.
+- **A paleta (`Ctrl K`) só navega; a do protótipo também age** (3327–3332). Lá os resultados vêm em
+  quatro grupos — `Questões`, `Publicações`, `Tags` e **`Comandos`** (`Nova questão… Ctrl Q`,
+  `Capturar questão Ctrl+V`). Aqui são dois: `Ir para` e `No acervo`. A paleta é a porta que todo
+  mundo abre primeiro, e ela não faz as duas coisas que mais se quer fazer.
+- **`Hist. de reconhecimento`** (3427–3434): o protótipo dá à questão uma terceira aba de origem
+  com uma linha por passagem do OCR — quando, qual modelo, quanto tempo, que confiança, que modo, e
+  o desfecho (`aceito com 2 correções` · `descartado por você`). O app tem `Origem` e `Histórico`,
+  e **não tem tabela para isso**: nenhum `model` do schema guarda a execução do reconhecimento. É o
+  primeiro item da lista que precisa de migração, e o único que não é “o produto sabia e não
+  disse” — aqui o produto **não sabe**. Vale como decisão de negócio: guardar a proveniência de IA
+  por questão é auditoria, e auditoria é o tipo de coisa que só se pode começar a ter a partir de
+  hoje, nunca retroativamente.
+- ~~**`pdfStale`** (2900–2915)~~ — virou a **§28**, e era pior do que a pista sugeria: não havia
+  PDF de professor a ficar velho, porque não havia saída de professor. O que faltava não era o
+  aviso; era a escolha inteira.
 
 ---
 
@@ -691,6 +762,24 @@ de uso; é de minutos de exercício. As 5 h da iteração 25 só somavam rodadas
 
 Não foi ligado `retries`. A configuração proíbe, e a razão continua boa: “um teste que passa na
 segunda tentativa é um teste que não diz nada”.
+
+### Adendo 2 (12/08, 20h): não é lentidão, é **travamento com a porta viva**
+
+A rodada seguinte falhou nos **62 testes**, todos em 1 minuto cravado, e sem uma única linha de
+`[WebServer]` no log. O que estava na porta 28080 era um servidor zumbi: `ss` mostrava `LISTEN`, e
+um `curl` ficava 20 segundos sem receber um byte. O Playwright, com `reuseExistingServer: true`,
+adotou aquilo como se fosse o servidor.
+
+É a peça que faltava nas duas explicações anteriores. O processo não fica só **lento** com o uso —
+ele chega a um estado em que **aceita conexão e nunca responde**, e a porta continua de pé. Daí a
+assinatura das rodadas ruins: um bloco de testes falhando em timeout, todos passando isolados
+depois, e nenhum erro no servidor para investigar. Não havia erro; havia silêncio.
+
+Duas consequências práticas:
+
+1. `reuseExistingServer: true` é uma armadilha aqui. Ele confia na porta, e a porta mente.
+2. Matar `next dev` com `SIGTERM` nem sempre resolve — foi preciso `-9`. Um servidor pendurado não
+   processa o sinal, que é a mesma razão de ele não processar a requisição.
 
 O que isto abre, e fica anotado para uma rodada dedicada: reiniciar o servidor **entre arquivos**
 (`playwright.config` não tem esse gancho, mas um `globalSetup` por projeto teria) trocaria 60

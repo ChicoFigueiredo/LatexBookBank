@@ -32,6 +32,7 @@ import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
+import type { SaidaDoRender } from "@modules/rendering/domain/saida-do-render";
 import { useRender } from "@modules/rendering/ui/use-render";
 
 /**
@@ -360,7 +361,15 @@ export function QuestionEditor({
 
   const blocked = state === "conflict";
 
-  const { status: renderStatus, render } = useRender({ publicationId, questionId });
+  /*
+   * A saída do render — `Aluno` por padrão.
+   *
+   * Padrão de estado da tela, e não preferência gravada: a escolha vale para a compilação que vem,
+   * e uma preferência lembrada faria alguém baixar o PDF com gabarito semanas depois sem lembrar
+   * de ter escolhido isso. Ver `saida-do-render`.
+   */
+  const [saida, setSaida] = useState<SaidaDoRender>("aluno");
+  const { status: renderStatus, render } = useRender({ publicationId, questionId, saida });
 
   // Compilar troca para a aba do resultado: quem aperta `Ctrl+Enter` quer ver o PDF, e deixar a
   // pessoa na aba do preview rápido faria a compilação parecer que não aconteceu.
@@ -720,6 +729,8 @@ export function QuestionEditor({
                   // servidor realmente montou, com as alternativas dentro.
                   sourceLatex={draft.statementLatex}
                   onGoToDiagnostic={goToDiagnostic}
+                  saida={saida}
+                  onSaidaChange={setSaida}
                 />
               )}
             </div>
