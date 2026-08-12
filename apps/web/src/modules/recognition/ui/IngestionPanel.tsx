@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Badge, Banner, Button, injectCss, Segmented } from "@/design-system";
+import { Badge, Banner, Button, Icon, injectCss, Segmented } from "@/design-system";
 import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
 import {
@@ -35,6 +35,10 @@ const CSS = `
 .lbb-ing-latex{width:100%;min-height:8rem;padding:8px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-raised);color:var(--text-primary);font-family:var(--font-mono);font-size:var(--text-body-sm)}
 .lbb-ing-latex:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-1px}
 .lbb-ing-meta{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-secondary)}
+.lbb-ing-progress{display:flex;flex-direction:column;gap:6px;padding:var(--space-3) var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
+.lbb-ing-step{display:flex;align-items:center;gap:8px;font-size:var(--text-body-sm);color:var(--text-primary)}
+/* O que já aconteceu fica verde; o que está acontecendo fica em texto normal. */
+.lbb-ing-step[data-done="true"]{color:var(--ok-text)}
 .lbb-ing-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 `;
 
@@ -109,6 +113,18 @@ export function IngestionPanel({
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<RecognitionCandidate | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * O que já aconteceu enquanto o modelo lê (protótipo, 1590–1614).
+   *
+   * A tela dizia `reconhecendo…` — uma palavra num canto — durante a única espera do produto em
+   * que o usuário tem uma pergunta concreta: *"se isto falhar, perco meu recorte?"*. A resposta é
+   * **não**, está no código (`cropAssetId` é criado antes de o modelo ser chamado) e até no
+   * comentário do `catch` — e nunca chegava a quem esperava.
+   *
+   * Nenhum dos passos é decorativo: os dois primeiros são fatos já consumados no momento em que
+   * aparecem, e é o que os torna uma garantia em vez de uma barra de progresso fingida.
+   */
+  const [progresso, setProgresso] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const upload = async (file: File) => {
@@ -184,6 +200,9 @@ export function IngestionPanel({
       //
       // A âncora vai **explícita**: `setAnchorId` acabou de ser chamado e o estado ainda não
       // chegou nesta closure. Ler o estado aqui mandaria `null` e o servidor não guardaria nada.
+      // O recorte já está guardado neste ponto — e é isso que a lista vai dizer, no momento em
+      // que passa a ser verdade e não antes.
+      setProgresso(["recorte guardado como evidência"]);
       await recognize(crop.png, payload.cropAssetId, mode, payload.anchorId);
     } catch {
       setError("Não deu para falar com o servidor.");
@@ -199,6 +218,7 @@ export function IngestionPanel({
     anchor: string | null = anchorId,
   ) => {
     setBusy("reconhecendo");
+    setProgresso((atual) => [...atual, "lendo texto e matemática"]);
     try {
       const form = new FormData();
       form.set("image", png, "crop.png");
@@ -223,6 +243,8 @@ export function IngestionPanel({
       setCandidate(payload as RecognitionCandidate);
     } catch {
       setError("Não deu para falar com o servidor.");
+    } finally {
+      setProgresso([]);
     }
   };
 
@@ -232,6 +254,27 @@ export function IngestionPanel({
         <Banner tone="danger" title="Não deu certo">
           {error}
         </Banner>
+      )}
+
+      {busy !== null && progresso.length > 0 && (
+        <div className="lbb-ing-progress" role="status">
+          {progresso.map((passo, indice) => (
+            <div key={passo} className="lbb-ing-step" data-done={indice < progresso.length - 1}>
+              <Icon name={indice < progresso.length - 1 ? "check" : "scan-text"} size={13} />
+              {passo}
+              {indice === progresso.length - 1 && "…"}
+            </div>
+          ))}
+          {/*
+            A frase que responde a pergunta de quem espera, e é literalmente verdade: o
+            `cropAssetId` nasce antes da chamada ao modelo, e o `catch` devolve um candidato vazio
+            justamente para a transcrição à mão continuar possível. Dizer isso durante a espera é
+            mais barato que descobrir depois — e é a diferença entre esperar e torcer.
+          */}
+          <span className="lbb-ing-meta">
+            se o reconhecimento falhar, o recorte fica — dá para transcrever à mão
+          </span>
+        </div>
       )}
 
       {source === null ? (

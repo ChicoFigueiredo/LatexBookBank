@@ -32,6 +32,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 10 | Busca global — rodapé de atalhos | Baixa | ✅ resolvido |
 | 11 | Livro · vazio — estado inexistente | Alta | ✅ resolvido |
 | 12 | Autosave falho — sem insistência e sem garantia | Alta | ✅ resolvido |
+| 13 | Reconhecimento — a espera não prestava contas | Média | ✅ resolvido |
 
 ---
 
@@ -75,6 +76,32 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 13. Reconhecimento — a espera não prestava contas — ✅ resolvido
+
+**Protótipo** (1590–1614): enquanto o modelo lê o recorte, uma lista mostra o que já aconteceu —
+`✓ modelo local carregado`, `✓ recorte salvo como asset (evidência preservada)` — e o que está
+acontecendo agora, com a linha `o editor continua liberado`.
+
+**Antes**: a palavra `reconhecendo…`, em mono, num canto da barra de ações.
+
+É a única espera do produto em que o usuário tem uma pergunta concreta na cabeça: *"se isto falhar,
+perco meu recorte?"*. A resposta é **não**, e sempre foi — o `cropAssetId` nasce antes de o modelo
+ser chamado, e o `catch` devolve um candidato vazio justamente para a transcrição à mão continuar
+possível. A garantia estava no código, estava escrita no comentário do `catch`, e **não chegava a
+quem esperava**. Durante a espera é exatamente quando ela vale.
+
+Os passos aparecem quando passam a ser verdade, e não antes: o primeiro é um fato já consumado no
+momento em que é exibido, e é isso que o separa de uma barra de progresso fingida. `capBusy` do
+protótipo também mostra o nome do modelo e um tempo decorrido; ficaram de fora porque o painel não
+recebe a descrição da IA e o tempo exigiria cronometrar no cliente — a frase que faltava era a da
+garantia, e é ela que entrou.
+
+`e2e/captura.spec.ts` segura a resposta do reconhecedor para que a espera exista tempo bastante de
+ser olhada — um estado transitório só é testável se alguém o segurar. Verificado escondendo o
+bloco de propósito.
 
 ---
 

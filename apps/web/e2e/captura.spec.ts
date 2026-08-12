@@ -205,3 +205,64 @@ test("da imagem colada à questão com origem", async ({ page }) => {
     expect(provenance.extractionModel).toBe("dublê-de-visão");
   });
 });
+
+/**
+ * **A espera do reconhecimento presta contas** (protótipo, 1590–1614).
+ *
+ * A tela dizia `reconhecendo…` — uma palavra num canto — durante a única espera do produto em que
+ * o usuário tem uma pergunta concreta na cabeça: *"se isto falhar, perco meu recorte?"*.
+ *
+ * A resposta é **não**, e sempre foi: o `cropAssetId` nasce antes de o modelo ser chamado, e o
+ * `catch` devolve um candidato vazio justamente para a transcrição à mão continuar possível. A
+ * garantia estava no código e até no comentário — e nunca chegava a quem esperava.
+ *
+ * O teste segura a resposta do reconhecedor para que a espera exista o tempo suficiente de ser
+ * olhada. Sem isso, o bloco existiria por dois frames e nenhum teste o veria.
+ */
+test("enquanto o modelo lê, a tela diz o que já está garantido", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  let liberar: (() => void) | null = null;
+  const presa = new Promise<void>((resolve) => {
+    liberar = resolve;
+  });
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    // Segura até o teste ter conferido a espera. É o que torna um estado transitório observável.
+    await presa;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ...CANDIDATO, cropAssetId: id }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await recortar(page);
+
+  const espera = page.locator(".lbb-ing-progress");
+  await expect(espera).toBeVisible();
+
+  // O passo já consumado, e o que está acontecendo agora. O primeiro é um fato no momento em que
+  // aparece — não uma barra de progresso fingida.
+  await expect(espera).toContainText("recorte guardado como evidência");
+  await expect(espera).toContainText("lendo texto e matemática");
+
+  // E a frase que responde a pergunta de quem espera, durante a espera.
+  await expect(espera).toContainText(
+    "se o reconhecimento falhar, o recorte fica — dá para transcrever à mão",
+  );
+
+  liberar?.();
+
+  // Terminada a leitura, a prestação de contas sai: ela é da espera, e a espera acabou.
+  await expect(page.getByLabel("LaTeX reconhecido")).toHaveValue(CANDIDATO.result.latex);
+  await expect(espera).toHaveCount(0);
+});
