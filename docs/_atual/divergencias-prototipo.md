@@ -102,6 +102,13 @@ sobrescreve. Insistir num 409 seria o autosave brigando pela versão de quem est
 contra quem já gravou — e vencendo por repetição, que é a pior forma de decidir de quem é o texto.
 `e2e/autosave-insiste.spec.ts` derruba a rota de gravação de propósito e guarda as duas metades.
 
+**Nota de teste, aprendida duas vezes**: a primeira versão do spec digitava um carimbo de tempo de
+dezenove caracteres no Monaco, e o editor derrubou um dígito no meio de uma corrida completa —
+chegou `178544027726` ao banco. Cada caractere é uma chance de perder, e a unicidade não era
+necessária: o teste cria a própria questão. Dezenove viraram três. É a mesma lição que
+`questao.spec.ts` já tinha registrado sobre `delay`, num degrau acima: além de digitar devagar,
+digitar **pouco**.
+
 ---
 
 ## Achado fora da lista 6: o editor descartava a árvore ao ser aberto por navegação

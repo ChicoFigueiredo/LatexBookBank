@@ -49,7 +49,6 @@ async function questaoAberta(page: Page): Promise<{ publicationId: string; nodeI
 test("quando o salvamento falha, a tela diz que o texto não se perdeu — e insiste", async ({
   page,
 }) => {
-  const marca = `${Date.now()}`;
   const { publicationId, nodeId } = await questaoAberta(page);
 
   // A rota de gravação cai. É o blip de rede, reproduzido de propósito: sem derrubá-la, este
@@ -70,10 +69,16 @@ test("quando o salvamento falha, a tela diz que o texto não se perdeu — e ins
   const editor = page.getByRole("group", { name: /Editor LaTeX/ });
   await expect(editor).toBeVisible();
   await editor.locator(".monaco-editor .view-lines").click();
-  // Um marcador curto, como em `questao.spec.ts`: mesmo com `delay`, uma frase inteira dá ao
-  // Monaco trinta chances de perder um caractere, e o teste passaria a falhar pela digitação em
-  // vez de pelo que ele mede.
-  await page.keyboard.type(` %auto-${marca}`, { delay: 80 });
+  /*
+   * Um marcador **curto**, e não um carimbo de tempo.
+   *
+   * A primeira versão digitava `%auto-1786544027726` — dezenove caracteres — e o Monaco derrubou
+   * um dígito no meio de uma corrida completa: chegou `178544027726` ao banco. Cada caractere é
+   * uma chance de perder, e a unicidade não era necessária: o teste cria a própria questão, então
+   * ninguém mais escreve nela. Trocar dezenove por três tira a única fonte de frouxidão que este
+   * teste tinha.
+   */
+  await page.keyboard.type(" %ok", { delay: 80 });
 
   await test.step("a frase responde “perdi meu texto?” antes de a pessoa perguntar", async () => {
     await expect(page.getByText("O salvamento automático falhou")).toBeVisible({ timeout: 15_000 });
@@ -101,7 +106,7 @@ test("quando o salvamento falha, a tela diz que o texto não se perdeu — e ins
     };
 
     const questao = nodes.find((node) => node.question !== null)?.question;
-    expect(questao?.statementLatex).toContain(`%auto-${marca}`);
+    expect(questao?.statementLatex).toContain("%ok");
   });
 });
 
