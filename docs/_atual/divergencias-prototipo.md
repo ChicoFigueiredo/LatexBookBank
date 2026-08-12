@@ -21,10 +21,10 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 2 | Home · usuário recorrente | Alta | ✅ resolvido |
 | 3 | Biblioteca — tabela de livros | Alta | ✅ resolvido |
 | 4 | Livro · overview — tela inexistente | Alta | ✅ resolvido |
-| 5 | Rail — três destinos ausentes e nenhuma contagem | Média | 🟡 parcial (`Editor do livro` e `Lixeira` feitos; falta `Importar/exportar` e as contagens) |
+| 5 | Rail — três destinos ausentes e nenhuma contagem | Média | 🟡 parcial (os três destinos entraram; faltam as contagens) |
 | 6 | Adicionar livro — origens sem explicação | Média | ✅ resolvido (capa e tags fora — ver nota) |
 | 7 | Lixeira global | Média | ✅ resolvido |
-| 8 | Importar/exportar — dry-run, conflitos, backup | Média | ⬜ aberto |
+| 8 | Importar/exportar — dry-run, conflitos, backup | Média | 🟡 parcial (dry-run e conflitos feitos; backup não existe — ver nota) |
 | 9 | Statusbar — infraestrutura viva | Baixa | ⬜ aberto |
 | 10 | Busca global — rodapé de atalhos | Baixa | ⬜ aberto |
 
@@ -70,6 +70,50 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## Achado fora da lista 5: a simulação da importação nunca olhou para o destino
+
+`toRuntime(portable, existing, newId)` detecta colisão contra o acervo desde a issue #115, tem
+teste, e está correta. A rota de import a chamava assim:
+
+```ts
+const plan = toRuntime(workspace);   // ← `existing` cai no EMPTY_INDEX
+```
+
+Resultado: **a simulação respondia zero conflitos em qualquer cenário**, e a tela dizia isso com
+todas as letras. É o pior formato de defeito — o que soa como boa notícia. Quem importasse um
+`.lbb` sobre um acervo que já tem os mesmos livros veria “nenhum conflito” e ficaria com tudo
+duplicado, sem aviso, na hora exata em que o aviso importava.
+
+Nada disso era bug de domínio: a regra estava escrita, testada e certa. Faltava alguém perguntar ao
+banco o que já existe — `readExistingIndex()`.
+
+Duas coisas apareceram junto:
+
+- **Uma colisão por chave, não por item.** Um livro que casa por `legacyId` **e** por `legacyUuid`
+  produzia duas colisões. Correto para o domínio, mentira na tela: “2 conflitos” para um livro só
+  faz procurar o segundo livro que não existe. `deduplicarColisoes` agrupa por item.
+- **A frase não dizia nada.** “2 item(ns) já existem no acervo” não tem nome, não tem números e tem
+  o plural de quem desistiu. A do protótipo tem três fatos e uma garantia, e cada um faz trabalho:
+  o nome identifica, os dois números provam que não é o mesmo livro parado no tempo, e a garantia
+  é o que permite clicar em “Importar” sem medo.
+
+### E o que continua em aberto, que é maior: o `.lbb` do próprio app não tem identidade de origem
+
+A idempotência do import se apoia em `legacyId` e `legacyUuid` — **identidade de origem**, vinda do
+sistema legado. Nenhum fluxo do app carimba os dois: nem o cadastro manual, nem a importação do
+Calibre. Só o `prisma-workspace-sink` os preserva, quando já vêm no arquivo.
+
+Consequência: um livro criado no app hoje, exportado e reimportado, **duplica em silêncio** — e não
+há chave por onde detectar. A detecção de conflito, que acaba de passar a funcionar, só enxerga o
+acervo herdado do legado. Para o caso de uso que a tela anuncia (backup e restauração), isso é
+metade da promessa.
+
+O conserto não é técnico, é uma decisão: carimbar identidade estável na publicação nascida no app
+muda o que um `.lbb` significa — de “um despejo” para “uma cópia identificável desta biblioteca”.
+Fica para o CEO. 🤚
 
 ---
 
@@ -300,7 +344,7 @@ chama `Lixeira do livro`.
 
 ---
 
-## 8. Importar / exportar
+## 8. Importar / exportar — 🟡 parcial
 
 Protótipo (1829–1888): uma tela só, com **simulação da importação (dry-run)** — tamanho do arquivo,
 quantas bibliotecas/publicações/questões, **conflitos detectados** (“‘FME 1’ já existe com 148
@@ -308,7 +352,29 @@ questões — o arquivo traz 152. Nada será sobrescrito sem sua escolha.”), a
 `Importar (mantendo os dois)`, `Abortar`, exportação por biblioteca e **backup** (“Último backup
 automático há 1 h · 3 cópias mantidas”, `Restaurar de um backup`).
 
-App: `/importar` sem dry-run, sem resolução de conflito e sem backup.
+**Feito**: a tela entrou no rail como “Importar / exportar” — o último destino que faltava (§5). O
+painel do dry-run tem o cabeçalho com nome e tamanho do arquivo, a grade de quatro células com
+`conflitos` em warn, as linhas de conflito com a frase inteira, `Importar (mantendo os dois)` e
+`Abortar`. A exportação por biblioteca passou a morar aqui também — quem chega em “importar e
+exportar” veio pensando em portabilidade, não numa biblioteca específica.
+
+**O defeito que estava por baixo do painel: a simulação nunca olhou o destino.** Ver o achado 5.
+
+**`Comparar` não entrou.** Comparar duas versões de um livro — 148 questões aqui, 152 no arquivo —
+é uma tela de diff que não existe e que não é um botão: é a mesma máquina do `patch-diff` do
+agente apontada para outro alvo. Um botão que abre um “em breve” é pior que botão ausente (§81).
+
+**Backup não existe, e a tela diz isso.** Não há job, não há rotação, não há onde as cópias
+morariam. “Último backup automático há 1 h · 3 cópias mantidas” é a única frase do protótipo que
+este app não pode escrever sem mentir — e uma tela que afirma existir uma rede de segurança
+inexistente é descoberta no dia em que se precisa dela. O cartão diz o que é verdade (`backup
+automático · não implementado`) e qual é o caminho que funciona hoje: exportar `.lbb` e guardar
+fora do computador. `e2e/importar.spec.ts` **falha se alguém colar a frase do protótipo**.
+
+**Correção de percurso da própria rodada**: a primeira versão do cartão de exportar empilhava um
+botão por biblioteca. Com as 72 do banco real, virou uma coluna de setenta e dois botões idênticos
+que empurrou o cartão de backup para fora da tela. Lista longa não é menu de ações — é escolha, e
+escolha tem controle próprio. Virou um `Select` e um botão.
 
 ---
 

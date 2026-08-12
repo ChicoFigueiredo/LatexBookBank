@@ -173,6 +173,26 @@ a.lbb-shelf-row:focus-visible{outline:2px solid var(--focus-ring);outline-offset
 .lbb-trash-meta[data-tone="danger"]{color:var(--danger-text)}
 .lbb-trash-foot{display:flex;align-items:center;gap:var(--space-3);padding:11px var(--space-4);background:var(--surface-raised)}
 .lbb-trash-foot>.lbb-source-size{margin-right:auto}
+
+/* ── Importar e exportar: a simulação antes de gravar (protótipo, 1829–1888) ── */
+.lbb-port-origins{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:var(--space-4);margin-top:var(--space-5)}
+.lbb-port-origin{display:flex;flex-direction:column;gap:3px;padding:var(--space-4);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface);color:inherit;font:inherit;text-align:left;text-decoration:none;cursor:pointer}
+.lbb-port-origin:hover{border-color:var(--border-strong);text-decoration:none}
+.lbb-port-origin:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.lbb-port-title{margin-top:6px;font-weight:var(--weight-bold);color:var(--text-strong)}
+.lbb-dryrun{margin-top:var(--space-5);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface);overflow:hidden}
+.lbb-dryrun-head{display:flex;align-items:center;gap:var(--space-2);padding:10px var(--space-4);border-bottom:1px solid var(--border-subtle);background:var(--surface-raised);color:var(--info)}
+.lbb-dryrun-head>strong{color:var(--text-strong);font-size:var(--text-body-sm)}
+.lbb-dryrun-head>.lbb-source-size{margin-left:auto}
+/* Grade de 1px: o fundo é a borda, e cada célula é uma ilha de superfície. */
+.lbb-dryrun-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:1px;background:var(--border-subtle)}
+.lbb-dryrun-cell{padding:12px var(--space-4);background:var(--surface)}
+.lbb-dryrun-n{font-family:var(--font-mono);font-size:18px;font-weight:var(--weight-bold);color:var(--text-strong);line-height:1.1}
+.lbb-dryrun-n[data-tone="warn"]{color:var(--warn-text)}
+.lbb-dryrun-label{font-size:var(--text-body-sm);color:var(--text-secondary)}
+.lbb-dryrun-conflict{display:flex;align-items:center;gap:9px;padding:11px var(--space-4);border-top:1px solid var(--warn-border);background:var(--warn-surface);color:var(--warn-text);font-size:var(--text-body-sm);text-wrap:pretty}
+.lbb-dryrun-foot{display:flex;align-items:center;gap:var(--space-2);padding:12px var(--space-4);border-top:1px solid var(--border-subtle)}
+.lbb-port-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:var(--space-4);margin-top:var(--space-6);align-items:start}
 `;
 
 export function useAcervoStyles(): void {
