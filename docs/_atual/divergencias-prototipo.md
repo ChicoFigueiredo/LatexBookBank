@@ -35,6 +35,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 13 | Reconhecimento — a espera não prestava contas | Média | ✅ resolvido |
 | 14 | `Ctrl Q` — o atalho que faltava do contrato | Baixa | ✅ resolvido |
 | 15 | Reconhecimento — faltava “Questão completa” | Alta | ✅ resolvido |
+| 16 | Catálogo do Calibre — sem filtros e sem a série | Média | ✅ resolvido |
 
 ---
 
@@ -78,6 +79,34 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 16. Catálogo do Calibre — sem filtros e sem a série — ✅ resolvido
+
+**Protótipo** (2500–2537): a barra do catálogo tem busca, **filtro de formato** (`Todos · PDF ·
+EPUB`), **filtro de série** e a contagem de resultados. Cada linha mostra autor **e série**.
+
+**Antes**: busca e nada mais. E `series`/`seriesIndex` vinham do Calibre desde sempre e **não
+apareciam em lugar nenhum** — o padrão desta semana, em escala pequena.
+
+O filtro de formato responde de uma vez o que a lista responde linha a linha. A tela já diz, em
+cada livro, que sem PDF a captura por recorte não funciona; numa biblioteca de 64 livros — o
+tamanho da do usuário, medido na spike — descobrir quais servem exigia varrer as 64.
+
+A série importa por outro motivo: uma coleção como “Fundamentos de Matemática Elementar” tem dez
+volumes, e é por coleção que se procura quando se está trazendo uma delas para o acervo.
+
+**Os dois filtros são derivados do que veio**, e não de uma lista fixa: catálogo sem EPUB não
+mostra o botão EPUB, catálogo sem coleção não mostra o seletor de série. Filtro com uma resposta só
+ensina a pessoa a ignorar controles.
+
+Isso rendeu uma correção de percurso instrutiva: a primeira versão do e2e tentou usar o seletor de
+série numa fixture cujos livros não têm coleção, e ficou pendurada. **A tela estava certa e o teste,
+errado** — o teste passou a afirmar a ausência do seletor, que é a regra de verdade.
+
+Do lado do cliente, sobre o que já foi carregado: a busca por texto é do servidor porque o catálogo
+pode ter milhares de linhas; estreitar o que já está na tela não vale outra viagem.
 
 ---
 

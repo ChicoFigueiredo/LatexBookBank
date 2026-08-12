@@ -7,9 +7,12 @@ import {
   Banner,
   Button,
   Callout,
+  EmptyState,
   Field,
   Input,
   PageHeader,
+  Segmented,
+  Select,
   useStoredState,
 } from "@/design-system";
 
@@ -70,6 +73,45 @@ export function CalibreScreen({
   const [summary, setSummary] = useState<Summary | null>(null);
   const [entries, setEntries] = useState<readonly CatalogEntry[] | null>(null);
   const [selected, setSelected] = useState<CatalogEntry | null>(null);
+  /**
+   * Filtros do protótipo (2500–2515), e os dois respondem a perguntas que a lista não responde.
+   *
+   * **Formato**: a tela já diz, linha a linha, que sem PDF a captura por recorte não funciona.
+   * Numa biblioteca de 64 livros — o tamanho da do usuário, medido na spike — descobrir quais
+   * servem exige varrer as 64. O filtro responde de uma vez.
+   *
+   * **Série**: `series` e `seriesIndex` vêm do Calibre desde sempre e **nunca apareceram na
+   * tela**. Uma coleção como "Fundamentos de Matemática Elementar" tem dez volumes, e é por
+   * coleção que se procura quando se está trazendo uma delas para o acervo.
+   *
+   * Do lado do cliente, sobre o que já foi carregado: a busca por texto é do servidor porque o
+   * catálogo pode ter milhares de linhas; estreitar o que já está na tela não vale outra viagem.
+   */
+  const [formato, setFormato] = useState("todos");
+  const [serie, setSerie] = useState("todas");
+
+  // Derivados do que veio, e não de uma lista fixa: catálogo sem EPUB não mostra o botão EPUB, e
+  // catálogo sem coleção nenhuma não mostra o seletor de série. Filtro que só tem uma resposta é
+  // um controle ensinando a pessoa a ignorar controles.
+  const formatosDisponiveis = [
+    ...new Set((entries ?? []).flatMap((entry) => entry.files.map((file) => file.format))),
+  ].sort();
+
+  const series = [
+    ...new Set(
+      (entries ?? [])
+        .map((entry) => entry.series?.trim())
+        .filter((nome): nome is string => !!nome),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  const visiveis = (entries ?? []).filter((entry) => {
+    const temFormato =
+      formato === "todos" || entry.files.some((file) => file.format === formato);
+    const daSerie = serie === "todas" || entry.series?.trim() === serie;
+
+    return temFormato && daSerie;
+  });
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -254,21 +296,76 @@ export function CalibreScreen({
 
         {entries && (
           <>
-            <div style={{ maxWidth: "26rem", marginTop: "var(--space-5)" }}>
-              <Input
-                size="sm"
-                placeholder="Pesquisar por título ou autor…"
-                aria-label="Pesquisar no catálogo"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") void abrir(query);
-                }}
-              />
+            <div className="lbb-filterbar" style={{ flexWrap: "wrap" }}>
+              <div style={{ maxWidth: "22rem", flex: "1 1 16rem" }}>
+                <Input
+                  size="sm"
+                  placeholder="Pesquisar por título ou autor…"
+                  aria-label="Pesquisar no catálogo"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void abrir(query);
+                  }}
+                />
+              </div>
+
+              {formatosDisponiveis.length > 1 && (
+                <Segmented
+                  aria-label="Filtrar por formato"
+                  value={formato}
+                  onChange={setFormato}
+                  options={[
+                    { id: "todos", label: "Todos" },
+                    ...formatosDisponiveis.map((f) => ({ id: f, label: f })),
+                  ]}
+                />
+              )}
+
+              {series.length > 0 && (
+                <Select
+                  size="sm"
+                  aria-label="Filtrar por série"
+                  value={serie}
+                  onChange={(event) => setSerie(event.target.value)}
+                >
+                  <option value="todas">Todas as séries</option>
+                  {series.map((nome) => (
+                    <option key={nome} value={nome}>
+                      {nome}
+                    </option>
+                  ))}
+                </Select>
+              )}
+
+              <span className="lbb-section-count" style={{ marginLeft: "auto" }}>
+                {visiveis.length} {visiveis.length === 1 ? "resultado" : "resultados"}
+              </span>
             </div>
 
+            {visiveis.length === 0 ? (
+              <div style={{ marginTop: "var(--space-5)" }}>
+                <EmptyState
+                  icon="circle-help"
+                  title="Nenhum livro com estes filtros"
+                  description="O filtro olha o formato e a série do catálogo, sobre o resultado da busca."
+                  action={
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setFormato("todos");
+                        setSerie("todas");
+                      }}
+                    >
+                      Limpar filtros
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
             <div className="lbb-acervo-grid" style={{ marginTop: "var(--space-4)" }}>
-              {entries.map((entry) => {
+              {visiveis.map((entry) => {
                 const pdf = entry.files.find((file) => file.format === "PDF");
                 const escolhido = selected?.externalId === entry.externalId;
 
@@ -291,7 +388,18 @@ export function CalibreScreen({
                   >
                     <span className="lbb-card-title">{entry.title}</span>
                     <span className="lbb-card-meta">
-                      {[entry.authors.join("; "), entry.publisher, entry.year]
+                      {/*
+                        A série entra aqui: vinha do Calibre desde sempre e não aparecia em lugar
+                        nenhum. Numa coleção de dez volumes é ela que diz qual é qual.
+                      */}
+                      {[
+                        entry.authors.join("; "),
+                        entry.series
+                          ? `${entry.series}${entry.seriesIndex ? ` ${entry.seriesIndex}` : ""}`
+                          : null,
+                        entry.publisher,
+                        entry.year,
+                      ]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
@@ -317,6 +425,7 @@ export function CalibreScreen({
                 );
               })}
             </div>
+            )}
 
             {entries.length === 0 && (
               <p style={{ color: "var(--text-secondary)", marginTop: "var(--space-4)" }}>

@@ -117,6 +117,32 @@ test("do catálogo do Calibre a um livro do acervo", async ({ page }) => {
     await expect(page.getByText("1 PDF")).toBeVisible();
   });
 
+  await test.step("o filtro por formato responde de uma vez o que a lista responde linha a linha", async () => {
+    /*
+     * A tela já diz, em cada linha, que sem PDF a captura por recorte não funciona. Numa
+     * biblioteca de 64 livros — o tamanho da do usuário, medido na spike — descobrir quais servem
+     * exigia varrer as 64. O protótipo (2505) põe `Todos · PDF · EPUB` na barra, e é isso.
+     */
+    await expect(page.getByText("2 resultados")).toBeVisible();
+
+    await page.getByRole("button", { name: "PDF", exact: true }).click();
+    await expect(page.getByText("1 resultado", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(TITULO_SEM_PDF) })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "EPUB", exact: true }).click();
+    await expect(page.getByRole("button", { name: new RegExp(TITULO_PDF) })).toHaveCount(0);
+
+    /*
+     * O seletor de série **não** aparece nesta fixture, e é o certo: nenhum dos dois livros tem
+     * coleção, e um filtro com uma resposta só ensina a pessoa a ignorar controles. A primeira
+     * versão deste teste tentou usá-lo e ficou pendurada — a tela estava certa e o teste, errado.
+     */
+    await expect(page.getByLabel("Filtrar por série")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Todos", exact: true }).click();
+    await expect(page.getByText("2 resultados")).toBeVisible();
+  });
+
   await test.step("o livro sem PDF avisa antes do clique", async () => {
     // Sem PDF a captura por recorte não funciona, e dizer isso na lista poupa a importação
     // inteira.
