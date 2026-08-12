@@ -90,6 +90,18 @@ export function toRuntime(
       title: publication.title,
       subtitle: publication.subtitle,
       publisher: publication.publisher,
+      // A ficha catalográfica atravessa inteira: era ela que sumia no ida-e-volta do backup.
+      // `?? null` porque arquivo gravado antes destes campos não os traz, e ausente é `null`.
+      nickname: publication.nickname ?? null,
+      isbn: publication.isbn ?? null,
+      otherIdentifier: publication.otherIdentifier ?? null,
+      edition: publication.edition ?? null,
+      editionYear: publication.editionYear ?? null,
+      language: publication.language ?? null,
+      series: publication.series ?? null,
+      volume: publication.volume ?? null,
+      notes: publication.notes ?? null,
+      authors: publication.authors ?? [],
       legacyId: publication.legacyId,
       legacyUuid: publication.legacyUuid,
       metadataJson: publication.metadataJson,

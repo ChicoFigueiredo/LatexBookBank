@@ -118,6 +118,46 @@ Preencher `options` em silêncio criaria cinco alternativas que ninguém conferi
 
 ---
 
+## Achado fora da lista 9: o backup perdia a ficha catalográfica inteira
+
+O `.lbb` é o backup declarado do produto — a tela de importar diz, com estas palavras, *"o `.lbb`
+exportado é a cópia — guarde um por biblioteca, fora deste computador"*.
+
+Ele carregava do livro: **título, subtítulo e editora.** Só.
+
+Ficavam para trás: `nickname`, `isbn`, `otherIdentifier`, `edition`, `editionYear`, `language`,
+`series`, `volume`, `notes` — **e os autores**. Quem exportasse uma biblioteca e a restaurasse
+recuperava o texto de todas as questões e perdia a catalogação inteira, que é o trabalho mais lento
+de todos e o único que não se refaz de memória.
+
+Achado indo atrás de outra coisa: a lacuna `Duplicata por ISBN` (P2) da aba de lacunas do handoff.
+Ao procurar onde encaixar o ISBN como chave de conflito, o ISBN não estava no formato. Nem ele nem
+mais nove campos.
+
+Provado antes de consertar: cadastrei um livro com a ficha completa, exportei, reimportei, e o
+apelido `FME 1` não estava na estante restaurada.
+
+**A correção é aditiva e `formatVersion` fica em 1, de propósito.** Subir para 2 faria um backup
+novo ser **recusado** por qualquer build anterior — e recusar o backup de alguém para ganhar um
+número é o oposto do que um formato de portabilidade existe para fazer. Os campos são opcionais no
+tipo de leitura, e não só na prática: um `.lbb` de ontem realmente não os tem, e declará-los
+obrigatórios seria o tipo mentindo sobre arquivos antigos.
+
+Os autores renascem **por nome**: `Author` é compartilhado com `name` único, e é o `upsert` por
+nome que faz "Gelson Iezzi" vindo de dois arquivos continuar sendo uma pessoa só — que é a razão de
+aquela tabela existir separada.
+
+Dois guardas, verificados quebrando a ligação de propósito: um de projeção pura (round-trip, e
+mais um que prova que arquivo antigo continua importando) e um contra o banco, porque o defeito
+vivia exatamente entre o `select` do exportador e o `create` do importador — os dois lugares que
+um teste de projeção não alcança.
+
+**A lacuna original — `Duplicata por ISBN` — continua aberta**, e agora é possível: o ISBN
+atravessa o arquivo. Ligar o ISBN às colisões do dry-run é a próxima fatia, e é ela que fecha de
+verdade o que ficou 🤚 na §8 (o `.lbb` do próprio app não tinha identidade nenhuma para colidir).
+
+---
+
 ## Achado fora da lista 7: o painel do agente levantava exceção ao aplicar o patch
 
 O caminho mais crítico do agente — aplicar a proposta na questão — levantava uma exceção não

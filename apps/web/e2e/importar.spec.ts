@@ -140,3 +140,80 @@ async function contarBibliotecas(page: Page): Promise<number> {
 
   return libraries.length;
 }
+
+/**
+ * **O backup preserva o livro, e não só as questões dele.**
+ *
+ * O `.lbb` levava título, subtítulo e editora. Apelido, ISBN, edição, ano, idioma, série, volume,
+ * notas e **os autores** ficavam para trás — e este é o arquivo que a tela ao lado chama de "a
+ * cópia" e manda guardar fora do computador.
+ *
+ * Quem exportasse uma biblioteca e a restaurasse recuperava o texto das questões e perdia a
+ * catalogação inteira, que é o trabalho mais lento de todos e o que não se refaz de memória.
+ *
+ * O teste faz o ciclo contra o banco de verdade, porque o defeito vivia exatamente entre o
+ * `select` do exportador e o `create` do importador — os dois lugares que um teste de projeção
+ * pura não alcança.
+ */
+test("exportar e reimportar preserva a ficha catalográfica, autores inclusive", async ({ page }) => {
+  const marca = `${Date.now()}`;
+
+  const biblioteca = await page.request.post("/api/libraries", {
+    data: { name: `Acervo ficha ${marca}` },
+  });
+  const { library } = (await biblioteca.json()) as { library: { id: string } };
+
+  const ficha = {
+    title: `Fundamentos ${marca}`,
+    nickname: "FME 1",
+    subtitle: "Conjuntos e Funções",
+    isbn: "9788535700114",
+    edition: "9ª",
+    editionYear: 2013,
+    language: "pt-BR",
+    series: "Fundamentos de Matemática Elementar",
+    volume: "1",
+    publisher: "Atual",
+    authors: "Iezzi, Gelson; Murakami, Carlos",
+  };
+
+  const criada = await page.request.post(`/api/libraries/${library.id}/publications`, {
+    data: ficha,
+  });
+  expect(criada.ok(), "não deu para cadastrar o livro").toBeTruthy();
+
+  const exportado = await page.request.get(`/api/workspaces/export?workspaceId=${library.id}`);
+  expect(exportado.ok()).toBeTruthy();
+
+  const importado = await page.request.post("/api/workspaces/import", {
+    headers: { "content-type": "application/zip" },
+    data: await exportado.body(),
+  });
+  expect(importado.ok(), "não deu para reimportar").toBeTruthy();
+
+  // A biblioteca restaurada é a **última** com este nome: o import cria uma nova ao lado, e nunca
+  // sobrescreve — é a política que o painel de conflitos anuncia.
+  const listadas = await page.request.get("/api/libraries");
+  const { libraries } = (await listadas.json()) as { libraries: { id: string; slug: string; name: string }[] };
+  const restaurada = libraries.filter((l) => l.name.includes(`Acervo ficha ${marca}`)).pop();
+  expect(restaurada, "a biblioteca restaurada precisa existir").toBeTruthy();
+
+  await test.step("a estante restaurada mostra apelido, edição e autores", async () => {
+    await page.goto(`/bibliotecas/${restaurada?.slug}`);
+
+    const linha = page.locator(".lbb-shelf-row:not(.lbb-shelf-head)").first();
+    await expect(linha.locator(".lbb-shelf-nick")).toHaveText("FME 1");
+    await expect(linha).toContainText("9ª, 2013");
+    // Sobrenomes, que é como a estante os escreve — e prova que os autores atravessaram.
+    await expect(linha).toContainText("Iezzi e Murakami");
+  });
+
+  await test.step("e o resumo do livro restaurado mostra ISBN, idioma, série e volume", async () => {
+    await page.locator(".lbb-shelf-row:not(.lbb-shelf-head)").first().click();
+
+    const grade = page.locator(".lbb-book-meta");
+    await expect(grade).toContainText("9788535700114");
+    await expect(grade).toContainText("pt-BR");
+    await expect(grade).toContainText("Fundamentos de Matemática Elementar");
+  });
+});

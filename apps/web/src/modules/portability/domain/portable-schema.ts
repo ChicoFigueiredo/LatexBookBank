@@ -71,6 +71,37 @@ export interface PortablePublication {
   readonly legacyUuid: string | null;
   readonly metadataJson: string | null;
   readonly coverAsset: string | null;
+
+  /**
+   * A identidade bibliográfica do livro.
+   *
+   * **Não estava aqui, e o `.lbb` é o backup declarado do produto.** Exportar e reimportar uma
+   * biblioteca devolvia os livros com título, subtítulo e editora — e sem apelido, ISBN, edição,
+   * ano, idioma, série, volume, notas **nem autores**. A ficha catalográfica inteira, que é o
+   * trabalho de quem cataloga, sumia no caminho de ida e volta que a tela de importar chama de
+   * "a cópia".
+   *
+   * Opcionais **no tipo**, e não só na prática: um `.lbb` gravado antes desta mudança realmente não
+ * os tem, e declará-los obrigatórios seria o tipo afirmando sobre arquivos antigos uma coisa que
+ * não é verdade. Quem escreve preenche todos; quem lê trata a ausência como `null`.
+ *
+ * Todos aditivos: arquivo antigo continua importando (ausente vira `null`), e
+   * `formatVersion` fica em 1 de propósito. Subir para 2 faria um backup novo ser **recusado** por
+   * qualquer build anterior — e recusar o backup de alguém para ganhar um número é o oposto do que
+   * um formato de portabilidade existe para fazer.
+   */
+  readonly nickname?: string | null;
+  readonly isbn?: string | null;
+  readonly otherIdentifier?: string | null;
+  readonly edition?: string | null;
+  readonly editionYear?: number | null;
+  readonly language?: string | null;
+  readonly series?: string | null;
+  readonly volume?: string | null;
+  readonly notes?: string | null;
+  /** Nomes, na ordem em que assinam. O `Author` é compartilhado e renasce por nome no destino. */
+  readonly authors?: readonly string[];
+
   readonly nodes: readonly PortableNode[];
 }
 

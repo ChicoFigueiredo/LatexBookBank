@@ -28,6 +28,19 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
       title: "Juros e Descontos",
       subtitle: "3ª edição",
       publisher: "Cesgranrio",
+      // A ficha catalográfica inteira. Ela **não atravessava**: o `.lbb` levava título, subtítulo
+      // e editora, e o backup devolvia o livro sem ISBN, edição, volume, série nem autores — o
+      // trabalho de quem cataloga, perdido no caminho de ida e volta que a tela chama de "a cópia".
+      nickname: "JD 3",
+      isbn: "978-85-357-0011-4",
+      otherIdentifier: "CDD 332.8",
+      edition: "3ª",
+      editionYear: 2019,
+      language: "pt-BR",
+      series: "Concursos",
+      volume: "2",
+      notes: "exemplar anotado",
+      authors: ["Iezzi, Gelson", "Murakami, Carlos"],
       legacyId: 7,
       legacyUuid: "legacy-uuid-1",
       metadataJson: '{"series":"concursos"}',
@@ -146,6 +159,62 @@ describe("runtime → portable", () => {
 });
 
 describe("round-trip das projeções", () => {
+  /**
+   * A ficha catalográfica sobrevive ao backup.
+   *
+   * Este era o buraco: `toPortable` carregava título, subtítulo e editora, e o `.lbb` — que a tela
+   * de importar chama de "a cópia" — devolvia o livro sem apelido, ISBN, edição, ano, idioma,
+   * série, volume, notas nem autores. Quem exportasse uma biblioteca e a restaurasse recuperava os
+   * textos das questões e perdia a catalogação inteira, que é o trabalho mais lento de todos.
+   */
+  it("preserva a ficha catalográfica inteira, autores inclusive", () => {
+    const [livro] = roundTrip(runtime()).publications;
+
+    expect(livro).toMatchObject({
+      nickname: "JD 3",
+      isbn: "978-85-357-0011-4",
+      otherIdentifier: "CDD 332.8",
+      edition: "3ª",
+      editionYear: 2019,
+      language: "pt-BR",
+      series: "Concursos",
+      volume: "2",
+      notes: "exemplar anotado",
+    });
+
+    // Na ordem em que assinam: quem assina primeiro assina primeiro, e é dela que a estante tira
+    // "Iezzi e outros".
+    expect(livro?.authors).toEqual(["Iezzi, Gelson", "Murakami, Carlos"]);
+  });
+
+  it("arquivo gravado antes destes campos continua importando", () => {
+    // O `.lbb` de ontem não tem a ficha. Ausente vira `null`, e o import não recusa — recusar o
+    // backup de alguém por ele ser antigo é o oposto do que um formato de portabilidade faz.
+    const portable = toPortable(runtime());
+    const antigo = {
+      ...portable,
+      // A ficha é removida do arquivo para simular o `.lbb` de ontem. `Omit` em vez de
+      // desestruturação porque o lint recusa dez variáveis declaradas e não usadas — e ele está
+      // certo: o que interessa aqui é o que **fica**, não o que sai.
+      publications: portable.publications.map((publicacao) => {
+        const copia: Record<string, unknown> = { ...publicacao };
+        for (const campo of [
+          "nickname", "isbn", "otherIdentifier", "edition", "editionYear",
+          "language", "series", "volume", "notes", "authors",
+        ]) {
+          delete copia[campo];
+        }
+        return copia as unknown as (typeof portable.publications)[number];
+      }),
+    };
+
+    const [livro] = toRuntime(antigo).workspace.publications;
+
+    expect(livro?.title).toBe("Juros e Descontos");
+    expect(livro?.isbn).toBeNull();
+    expect(livro?.authors).toEqual([]);
+  });
+
   it("**projetar o resultado de novo dá o mesmo arquivo**", () => {
     // A identidade que importa não é entre os dois runtimes: os ids mudam de propósito, e a
     // projeção ordena tags e assets. É entre os dois **portables** — se a ida e a volta não

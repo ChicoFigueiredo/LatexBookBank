@@ -11,35 +11,40 @@ import { expect, test, type Page } from "@playwright/test";
  * vai nem volta seria pior que o salto que ela substituiu.
  */
 
-async function primeiroLivro(page: Page) {
-  const resposta = await page.request.get("/api/publications?limit=1");
-  if (resposta.ok()) {
-    const payload = (await resposta.json()) as { publications?: { id: string; title: string }[] };
-    const encontrado = payload.publications?.[0];
-    if (encontrado) return encontrado;
-  }
+/**
+ * O livro deste teste é **criado por ele**, e não achado no banco.
+ *
+ * A primeira versão pegava "o primeiro livro que existir". Passou por meses e quebrou no dia em
+ * que o estado vazio do resumo entrou (§11): o primeiro livro do banco passou a ser um dos vazios
+ * que outro teste tinha acabado de criar, e a asserção sobre "Estrutura" media a tela errada.
+ *
+ * Teste que depende do estado ambiente do banco falha **de vez em quando** e por motivo alheio ao
+ * que ele afirma — é o formato de flakiness que este projeto já pagou caro em outras três frentes.
+ * Criar o próprio livro custa três requisições e remove a categoria inteira de problema.
+ */
+async function livroComEstrutura(page: Page) {
+  const marca = `${Date.now()}`;
 
-  // Sem endpoint de listagem, o caminho é o do usuário: a estante da primeira biblioteca.
-  const libs = await page.request.get("/api/libraries");
-  const { libraries } = (await libs.json()) as { libraries: { slug: string }[] };
+  const biblioteca = await page.request.post("/api/libraries", {
+    data: { name: `Acervo resumo ${marca}` },
+  });
+  const { library } = (await biblioteca.json()) as { library: { id: string } };
 
-  for (const library of libraries) {
-    await page.goto(`/bibliotecas/${library.slug}`);
-    const link = page.locator('a[href^="/publications/"]').first();
-    if ((await link.count()) === 0) continue;
+  const livro = await page.request.post(`/api/libraries/${library.id}/publications`, {
+    data: { title: `Livro do resumo ${marca}` },
+  });
+  const { publication } = (await livro.json()) as { publication: { id: string; title: string } };
 
-    const href = await link.getAttribute("href");
-    const id = href?.split("/")[2];
-    if (id) return { id, title: (await link.innerText()).split("\n")[0] ?? "" };
-  }
+  // Com capítulo: é o que faz o resumo ser o estado **cheio**, que é o que este teste mede.
+  await page.request.post(`/api/publications/${publication.id}/nodes`, {
+    data: { kind: "CHAPTER", title: "Capítulo 1", placement: { kind: "lastChild", parentId: null } },
+  });
 
-  return null;
+  return publication;
 }
 
 test("o resumo do livro é a parada antes do editor, e leva a ele", async ({ page }) => {
-  const livro = await primeiroLivro(page);
-  test.skip(livro === null, "nenhum livro no banco");
-  if (!livro) return;
+  const livro = await livroComEstrutura(page);
 
   await page.goto(`/publications/${livro.id}`);
 
@@ -70,14 +75,14 @@ test("o resumo do livro é a parada antes do editor, e leva a ele", async ({ pag
 });
 
 test("as pendências do livro levam onde se resolve", async ({ page }) => {
-  const livro = await primeiroLivro(page);
-  test.skip(livro === null, "nenhum livro no banco");
-  if (!livro) return;
+  const livro = await livroComEstrutura(page);
 
   await page.goto(`/publications/${livro.id}`);
 
+  // Sem `skip`: o livro deste teste tem capítulo e nenhuma questão, então a pendência "o livro
+  // ainda não tem questão nenhuma" é **garantida**. Um `skip` condicional aqui seria um teste que
+  // se cala justamente quando o cenário que ele mede não aconteceu.
   const atencao = page.getByRole("region", { name: "Precisa da sua atenção" });
-  test.skip((await atencao.count()) === 0, "o livro de teste não tem pendência");
 
   // Toda linha da faixa warn é um link — pendência que não leva a lugar nenhum é só um aviso.
   const linhas = atencao.getByRole("link");

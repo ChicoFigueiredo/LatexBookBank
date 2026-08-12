@@ -68,6 +68,15 @@ export async function writeImportedWorkspace(
           title: publication.title,
           subtitle: publication.subtitle,
           publisher: publication.publisher,
+          nickname: publication.nickname,
+          isbn: publication.isbn,
+          otherIdentifier: publication.otherIdentifier,
+          edition: publication.edition,
+          editionYear: publication.editionYear,
+          language: publication.language,
+          series: publication.series,
+          volume: publication.volume,
+          notes: publication.notes,
           legacyId: publication.legacyId,
           legacyUuid: publication.legacyUuid,
           metadataJson: publication.metadataJson,
@@ -75,6 +84,30 @@ export async function writeImportedWorkspace(
         },
         select: { id: true },
       });
+
+      /**
+       * Os autores renascem **por nome**, e não por id.
+       *
+       * `Author` é compartilhado por todo o acervo e tem `name` único: o id do banco de origem não
+       * significa nada aqui, e trazê-lo colidiria com um autor homônimo já existente. `upsert` por
+       * nome é o que faz "Gelson Iezzi" importado de dois arquivos diferentes continuar sendo uma
+       * pessoa só — que é a razão de a tabela existir separada.
+       *
+       * A ordem é preservada em `position`: quem assina primeiro assina primeiro, e a estante
+       * mostra "Iezzi e outros" a partir dela.
+       */
+      for (const [posicao, nome] of publication.authors.entries()) {
+        const autor = await client.author.upsert({
+          where: { name: nome },
+          create: { name: nome },
+          update: {},
+          select: { id: true },
+        });
+
+        await client.publicationAuthor.create({
+          data: { publicationId: createdPublication.id, authorId: autor.id, position: posicao },
+        });
+      }
 
       // Duas passadas: os nós são criados sem pai, e o `parentId` é ligado depois. Uma passada só
       // exigiria que o pai viesse antes do filho no arquivo — o que é verdade hoje e seria uma

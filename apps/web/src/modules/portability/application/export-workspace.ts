@@ -37,6 +37,17 @@ export interface RuntimePublication {
   readonly legacyUuid: string | null;
   readonly metadataJson: string | null;
   readonly coverAssetSha256: string | null;
+  /** A ficha catalográfica — ver `PortablePublication` para o porquê de ela ter faltado. */
+  readonly nickname: string | null;
+  readonly isbn: string | null;
+  readonly otherIdentifier: string | null;
+  readonly edition: string | null;
+  readonly editionYear: number | null;
+  readonly language: string | null;
+  readonly series: string | null;
+  readonly volume: string | null;
+  readonly notes: string | null;
+  readonly authors: readonly string[];
   readonly nodes: readonly RuntimeNode[];
 }
 
@@ -127,6 +138,16 @@ function toPublication(publication: RuntimePublication, mint: RefMinter): Portab
     title: publication.title,
     subtitle: publication.subtitle,
     publisher: publication.publisher,
+    nickname: publication.nickname,
+    isbn: publication.isbn,
+    otherIdentifier: publication.otherIdentifier,
+    edition: publication.edition,
+    editionYear: publication.editionYear,
+    language: publication.language,
+    series: publication.series,
+    volume: publication.volume,
+    notes: publication.notes,
+    authors: publication.authors,
     legacyId: publication.legacyId,
     legacyUuid: publication.legacyUuid,
     metadataJson: publication.metadataJson,
