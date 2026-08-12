@@ -179,6 +179,25 @@ test("do catálogo do Calibre a um livro do acervo", async ({ page }) => {
     await expect(page.getByRole("link", { name: "Abrir PDF fonte" })).toBeVisible();
   });
 
+  await test.step("e a captura oferece o PDF que veio junto, em vez de mandar procurar no disco", async () => {
+    /*
+     * O protótipo (1487) põe "Usar FME1.pdf (fonte do livro)" ao lado de colar e escolher arquivo.
+     *
+     * É o caminho mais comum de todos, e o mais absurdo de não ter: a importação do Calibre existe
+     * para trazer o PDF **para dentro do acervo**, e a tela de captura mandava procurá-lo no
+     * computador de novo. O arquivo estava a um clique e a tela pedia um explorador de arquivos.
+     */
+    await page.getByRole("link", { name: "Abrir PDF fonte" }).click();
+
+    const usar = page.getByRole("button", { name: /Usar .*\.pdf \(fonte do livro\)/ });
+    await expect(usar).toBeVisible();
+
+    await usar.click();
+
+    // Sem passar por upload nenhum: o visualizador abre direto no arquivo que já estava lá.
+    await expect(page.locator(".lbb-pdf-holder")).toBeVisible({ timeout: 20_000 });
+  });
+
   await test.step("reimportar o mesmo livro é recusado, com saída", async () => {
     await page.goto(`/bibliotecas/${slug}/livros/calibre`);
     await page.getByRole("button", { name: "Abrir catálogo" }).click();

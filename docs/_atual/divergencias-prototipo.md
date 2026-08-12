@@ -44,6 +44,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 22 | A captura era um beco: sem rail, sem volta, sem busca | Alta | ✅ resolvido |
 | 23 | Rótulo da alternativa trocava em silêncio ao gravar | Média | ✅ resolvido |
 | 24 | A captura não dizia se o recorte sai do computador | Alta | ✅ resolvido |
+| 25 | A captura ignorava o PDF que o livro já tinha | Alta | ✅ resolvido |
 
 ---
 
@@ -87,6 +88,31 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 25. A captura ignorava o PDF que o livro já tinha — ✅ resolvido
+
+**Protótipo** (1487): ao lado de “colar captura” e “escolher arquivo”, um terceiro botão —
+**“Usar FME1.pdf (fonte do livro)”**.
+
+**Antes**: a dropzone e nada mais. Para recortar do livro cujo PDF **está no acervo**, a tela
+mandava procurá-lo no computador de novo.
+
+É o caminho mais comum de todos, e o mais absurdo de faltar: a importação do Calibre existe para
+trazer o arquivo **para dentro** do acervo — copia o PDF, guarda no storage, liga à publicação — e
+a tela seguinte abria um explorador de arquivos.
+
+Sem `createObjectURL` aqui, ao contrário do upload: este arquivo não passou pelo navegador, e vem
+da rota do próprio acervo.
+
+**Duas regras do projeto pegaram a primeira versão disto, e as duas estavam certas:**
+
+- O lint recusa `import` do cliente Prisma em componente React (*“Componente React não acessa a
+  camada de banco”*). A consulta virou um read model — a página não deve saber que existe uma
+  tabela `Asset`.
+- `findById` devolve `PublicationSummary`, que não tem `sourcePdfAssetId`. O detalhe tem, e é uma
+  chamada separada de propósito: nem toda tela precisa carregar o livro inteiro.
 
 ---
 
@@ -511,6 +537,29 @@ página, e o painel é pequeno e efêmero. Barato ao lado de uma exceção no ge
 **Ordem seguida, e ela importa**: a vigilância de `pageerror` entrou **antes** da correção, o teste
 falhou de forma determinística com a mensagem literal, e só então o `keepCurrent*` entrou. Sem
 reproduzir primeiro, teria sido um palpite com aparência de conserto.
+
+---
+
+## Achado fora da lista 10: a suíte de E2E ficou instável, e não sei por quê
+
+**O que é medido, sem interpretação:** a suíte saiu de 21 testes e ~2,6 min (início desta série)
+para 58 testes e ~10 min. Nas últimas rodadas, corridas completas falham em **testes diferentes a
+cada execução** — `layout`, `calibre`, `captura`, `questao`, `agente`, `livro-vazio` já apareceram
+—, e **todos passam isolados**, inclusive rodando o arquivo inteiro.
+
+**O que não é conclusão**: a hipótese mais provável é contenção com o servidor de desenvolvimento,
+que compila rota sob demanda e acumula memória ao longo de dez minutos — quatro vezes nesta série
+ele morreu sozinho no meio de uma corrida. Mas é hipótese: não capturei a mensagem de falha das
+últimas ocorrências, e sem ela não dá para afirmar.
+
+**O que não foi feito, de propósito**: ligar `retries`. O `playwright.config.ts` diz por quê —
+*“um teste que passa na segunda tentativa é um teste que não diz nada”* — e a regra é boa. Um
+verde comprado com repetição esconderia exatamente o que precisa ser investigado.
+
+**O que decidiria**: rodar contra um build de produção (`next build && next start`) em vez do
+servidor de dev, que tira a compilação sob demanda da equação; e preservar o output completo da
+corrida que falha, para saber em que passo o tempo acabou. É trabalho de uma rodada inteira, e não
+de um resto de rodada — está aqui para não virar folclore.
 
 ---
 

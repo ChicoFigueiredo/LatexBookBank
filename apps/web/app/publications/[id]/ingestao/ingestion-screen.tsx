@@ -41,6 +41,12 @@ export interface IngestionScreenProps {
   readonly library?: { readonly name: string; readonly slug: string };
   /** Onde o reconhecimento acontece, em uma frase. Resolvido no servidor. */
   readonly aviso?: string;
+  /** O PDF que o livro já tem anexado — o caminho mais curto para começar a recortar. */
+  readonly bookSource?: {
+    readonly assetId: string;
+    readonly filename: string;
+    readonly mimeType: string;
+  };
   readonly publicationId: string;
   readonly workspaceId: string;
   readonly title: string;
@@ -68,6 +74,7 @@ interface CreatedInfo {
 export function IngestionScreen({
   library,
   aviso,
+  bookSource,
   publicationId,
   workspaceId,
   title,
@@ -299,6 +306,7 @@ export function IngestionScreen({
       >
         <IngestionPanel
           {...(aviso ? { aviso } : {})}
+          {...(bookSource ? { bookSource } : {})}
           workspaceId={workspaceId}
           publicationId={publicationId}
           onAccept={setAccepted}

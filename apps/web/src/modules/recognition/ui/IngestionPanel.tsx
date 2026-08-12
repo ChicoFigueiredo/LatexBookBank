@@ -93,6 +93,19 @@ export interface IngestionPanelProps {
    * atravessa é a conclusão.
    */
   readonly aviso?: string;
+  /**
+   * O PDF que o livro já tem — a fonte editorial anexada.
+   *
+   * O protótipo (1487) oferece “Usar FME1.pdf (fonte do livro)” ao lado de colar e escolher
+   * arquivo, e é o caminho mais comum de todos: quem importou do Calibre trouxe o PDF **para
+   * dentro do acervo** justamente para não precisar dele no disco de novo. Sem este botão, a tela
+   * mandava procurar no computador o arquivo que estava a um clique.
+   */
+  readonly bookSource?: {
+    readonly assetId: string;
+    readonly filename: string;
+    readonly mimeType: string;
+  };
   readonly workspaceId: string;
   readonly publicationId: string;
   readonly questionId?: string | null;
@@ -148,6 +161,7 @@ interface SourceState {
 
 export function IngestionPanel({
   aviso,
+  bookSource,
   workspaceId,
   publicationId,
   questionId = null,
@@ -393,6 +407,29 @@ export function IngestionPanel({
             A frase é derivada do host da `AI_BASE_URL`, e não do nome do provider: "Ollama local"
             é um perfil de configuração, não uma garantia.
           */}
+          {bookSource && (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="file-text"
+                disabled={busy !== null}
+                onClick={() =>
+                  setSource({
+                    assetId: bookSource.assetId,
+                    // A rota do servidor, e não `createObjectURL`: este arquivo não passou pelo
+                    // navegador — ele já está no acervo, e é de lá que ele vem.
+                    url: `/api/assets/${bookSource.assetId}/content`,
+                    filename: bookSource.filename,
+                    mimeType: bookSource.mimeType,
+                  })
+                }
+              >
+                Usar {bookSource.filename} (fonte do livro)
+              </Button>
+            </div>
+          )}
+
           {aviso && (
             <span className="lbb-ing-meta" style={{ textAlign: "center", display: "block" }}>
               {aviso}
