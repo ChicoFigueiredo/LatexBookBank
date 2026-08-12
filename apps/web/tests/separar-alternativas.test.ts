@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { separarAlternativas } from "@modules/recognition/domain/separar-alternativas";
+import {
+  detectarBlocoUnido,
+  separarAlternativas,
+} from "@modules/recognition/domain/separar-alternativas";
 
 /**
  * A separação que decide se uma questão nasce inteira ou pela metade.
@@ -121,5 +124,76 @@ describe("separarAlternativas", () => {
 
   it("texto vazio não estoura", () => {
     expect(separarAlternativas("")).toEqual({ statementLatex: "", options: [] });
+  });
+});
+
+/**
+ * O caso `ocrMerged` do protótipo: duas alternativas coladas na mesma linha.
+ *
+ * Acontece de verdade em página de duas colunas, e a regra que protege o enunciado (âncora no
+ * início da linha) é justamente a que produz o bloco unido. A resposta não é dividir sozinho — é
+ * sinalizar e oferecer o gesto. Estes testes guardam o que **não** vira sinal, que é a metade
+ * cara: um alarme falso ensina a ignorar alarmes.
+ */
+describe("detectarBlocoUnido", () => {
+  it("acha `b)` carregando o `c)` que o OCR colou junto", () => {
+    const unidos = detectarBlocoUnido([
+      { label: "a", statementLatex: "R\\$ 5.612,25" },
+      { label: "b", statementLatex: "R\\$ 6.341,21 c) R\\$ 6.529,67" },
+      { label: "d", statementLatex: "R\\$ 6.712,10" },
+    ]);
+
+    expect(unidos).toHaveLength(1);
+    expect(unidos[0]?.indice).toBe(1);
+    expect(unidos[0]?.partes).toEqual([
+      { label: "b", statementLatex: "R\\$ 6.341,21" },
+      { label: "c", statementLatex: "R\\$ 6.529,67" },
+    ]);
+  });
+
+  it("só o rótulo que **deveria vir a seguir** — `b)` citando `a)` fica quieto", () => {
+    const unidos = detectarBlocoUnido([
+      { label: "a", statementLatex: "o dobro" },
+      { label: "b", statementLatex: "o mesmo que a) mas ao quadrado" },
+    ]);
+
+    expect(unidos).toEqual([]);
+  });
+
+  it("se o próximo já é alternativa própria, não há bloco unido", () => {
+    // Dividir aqui criaria um `c)` duplicado — dois com o mesmo rótulo, e o gabarito sem saber
+    // qual é qual.
+    const unidos = detectarBlocoUnido([
+      { label: "b", statementLatex: "vale c) para todo x" },
+      { label: "c", statementLatex: "6.529,67" },
+    ]);
+
+    expect(unidos).toEqual([]);
+  });
+
+  it("rótulo no começo do próprio texto não conta", () => {
+    // Seria a alternativa inteira virando a segunda metade, com a primeira vazia.
+    expect(
+      detectarBlocoUnido([{ label: "b", statementLatex: "c) R\\$ 6.529,67" }]),
+    ).toEqual([]);
+  });
+
+  it("romanos também: `ii)` carregando `iii)`", () => {
+    const unidos = detectarBlocoUnido([
+      { label: "i", statementLatex: "primeira" },
+      { label: "ii", statementLatex: "segunda iii) terceira" },
+    ]);
+
+    expect(unidos[0]?.partes.map((p) => p.label)).toEqual(["ii", "iii"]);
+  });
+
+  it("lista limpa não gera sinal nenhum", () => {
+    const unidos = detectarBlocoUnido([
+      { label: "a", statementLatex: "um" },
+      { label: "b", statementLatex: "dois" },
+      { label: "c", statementLatex: "três" },
+    ]);
+
+    expect(unidos).toEqual([]);
   });
 });

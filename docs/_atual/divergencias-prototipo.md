@@ -38,6 +38,7 @@ Este documento lista o que diverge em **conteúdo, estrutura e comportamento** �
 | 16 | Catálogo do Calibre — sem filtros e sem a série | Média | ✅ resolvido |
 | 17 | Render que falha levava o PDF bom junto | Alta | ✅ resolvido |
 | 18 | Recorte sumido parecia questão corrompida | Média | ✅ resolvido |
+| 19 | Duas alternativas coladas num bloco só | Média | ✅ resolvido |
 
 ---
 
@@ -81,6 +82,47 @@ tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo
 Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
 o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
 `textarea` do montador de avaliação.
+
+---
+
+## 19. Duas alternativas coladas num bloco só — ✅ resolvido
+
+**Protótipo** (1702–1712): quando o OCR devolve `b) R$ 6.341,21 c) R$ 6.529,67` na mesma linha, a
+revisão marca o bloco em warn, escreve *“duas alternativas em um bloco”* e oferece **`Dividir em
+duas`**.
+
+É o complemento direto da §15. O separador ancora no **início da linha** — regra que existe para
+proteger o enunciado, porque `seja a) o coeficiente` não pode abrir alternativa. Página de prova em
+duas colunas cola as alternativas com frequência, e aí a mesma regra que protege produz um bloco
+com duas dentro.
+
+**A resposta não é dividir sozinho**, e é a mesma razão pela qual o separador recusa mais do que
+aceita: um `c)` no meio de uma alternativa pode ser parte do texto. Perguntar custa um clique;
+errar custa uma prova impressa com a alternativa errada.
+
+A detecção é precisa, e não “qualquer rótulo dentro”: procura **o rótulo que deveria vir a
+seguir**. `b)` contendo `c)` é bloco unido; `b)` contendo `a)` é citação e fica quieto; e se `c)` já
+existe como alternativa própria, não há bloco — dividir criaria dois `c)`.
+
+**A divisão cascateia, e isso é do desenho.** O bloco unido quebra a sequência consecutiva, então o
+`d)` seguinte cai dentro dele. Cortar `b` revela o `d` dentro do `c` novo, que é sinalizado de
+novo: a pessoa desfaz o estrago do OCR um corte por vez, **vendo cada um**.
+
+### Dois defeitos meus que o e2e pegou, e valem mais que a feature
+
+1. **As divisões eram aplicadas uma vez só.** A segunda nunca casava, porque o texto que ela
+   dividia não existia na lista original — o clique não fazia nada e não dizia por quê. Agora
+   aplica até estabilizar, com teto.
+2. **O aceite recomputava do zero.** A tela mostrava quatro alternativas e o banco recebia duas: as
+   divisões eram exibidas e descartadas. É exatamente o “mostra uma coisa e grava outra” que o
+   comentário do próprio código alertava duas telas acima — cometido na linha seguinte.
+
+### O que não entrou: o gabarito adivinhado
+
+O protótipo também prevê `ocrNoAnswer`: *“Possível resposta correta: b) — a marca no material pode
+ser resposta de aluno, não gabarito.”* Fica de fora porque o provider de visão não devolve marcas,
+e porque a regra desta parte do produto já está escrita: **nenhuma alternativa nasce marcada como
+correta**. Sugerir uma sem ter lido marca nenhuma seria adivinhar duas vezes.
 
 ---
 

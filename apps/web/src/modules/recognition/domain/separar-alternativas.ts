@@ -126,3 +126,73 @@ function sucede(anterior: string, proximo: string): boolean {
 
   return b.charCodeAt(0) - a.charCodeAt(0) === 1;
 }
+
+/**
+ * Duas alternativas coladas num bloco só — o caso `ocrMerged` do protótipo (1702–1712).
+ *
+ * O separador ancora no **início da linha**, e é assim que tem de ser: `seja a) o coeficiente` no
+ * meio de um enunciado não abre alternativa nenhuma. Mas o OCR de uma página de duas colunas cola
+ * `b) R$ 6.341,21 c) R$ 6.529,67` na mesma linha com frequência — e aí a regra que protege o
+ * enunciado produz uma alternativa com duas dentro.
+ *
+ * A resposta do protótipo não é dividir sozinho: é **sinalizar e oferecer o gesto**. E está certa,
+ * pela mesma razão que o separador recusa mais do que aceita — dividir por conta própria criaria
+ * uma alternativa a partir de um `c)` que talvez seja parte do texto. Perguntar custa um clique;
+ * errar custa uma prova impressa com a alternativa errada.
+ *
+ * O que se procura é preciso, e não "qualquer rótulo dentro": é **o rótulo que deveria vir a
+ * seguir**. `b)` contendo `c)` é bloco unido; `b)` contendo `a)` é citação, e fica quieto.
+ */
+export interface BlocoUnido {
+  /** Índice da alternativa que carrega as duas. */
+  readonly indice: number;
+  /** As duas, já separadas — o que o botão "Dividir em duas" grava. */
+  readonly partes: readonly AlternativaLida[];
+}
+
+export function detectarBlocoUnido(
+  options: readonly AlternativaLida[],
+): readonly BlocoUnido[] {
+  const unidos: BlocoUnido[] = [];
+
+  for (const [indice, opcao] of options.entries()) {
+    const esperado = proximoRotulo(opcao.label);
+    if (esperado === null) continue;
+
+    // Já existe como alternativa própria? Então não há bloco unido — o `c)` de dentro é outra
+    // coisa, e dividir criaria uma alternativa duplicada.
+    if (options.some((outra) => outra.label.toLowerCase() === esperado)) continue;
+
+    const corte = new RegExp(`(?:^|\\s)\\(?(${esperado})\\)?\\s*[).\\-–]?\\s+`, "i").exec(
+      opcao.statementLatex,
+    );
+    if (!corte || corte.index === 0) continue;
+
+    const antes = opcao.statementLatex.slice(0, corte.index).trim();
+    const depois = opcao.statementLatex.slice(corte.index + corte[0].length).trim();
+    if (antes === "" || depois === "") continue;
+
+    unidos.push({
+      indice,
+      partes: [
+        { label: opcao.label, statementLatex: antes },
+        // O rótulo sai do texto **como estava escrito**, e não normalizado: é o rótulo do livro.
+        { label: corte[1] ?? esperado, statementLatex: depois },
+      ],
+    });
+  }
+
+  return unidos;
+}
+
+/** `b` → `c`; `ii` → `iii`. `null` quando não há próximo previsível. */
+function proximoRotulo(label: string): string | null {
+  const atual = label.toLowerCase();
+
+  const romano = ROMANOS.indexOf(atual);
+  if (romano >= 0) return ROMANOS[romano + 1] ?? null;
+
+  if (atual.length !== 1 || atual < "a" || atual > "y") return null;
+
+  return String.fromCharCode(atual.charCodeAt(0) + 1);
+}

@@ -5,7 +5,11 @@ import { useState } from "react";
 import { Badge, Banner, Button, Icon, injectCss, Segmented } from "@/design-system";
 import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
-import { separarAlternativas } from "@modules/recognition/domain/separar-alternativas";
+import {
+  detectarBlocoUnido,
+  separarAlternativas,
+  type AlternativaLida,
+} from "@modules/recognition/domain/separar-alternativas";
 import {
   accept,
   candidateFrom,
@@ -37,7 +41,9 @@ const CSS = `
 .lbb-ing-latex:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-1px}
 .lbb-ing-meta{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-secondary)}
 .lbb-ing-split{display:flex;flex-direction:column;gap:5px;padding:var(--space-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
-.lbb-ing-alt{display:flex;align-items:baseline;gap:9px;font-size:var(--text-body-sm);color:var(--text-primary)}
+.lbb-ing-alt{display:flex;align-items:center;gap:9px;font-size:var(--text-body-sm);color:var(--text-primary)}
+/* O bloco unido é aviso, não erro: o texto está todo lá, só precisa de um corte. */
+.lbb-ing-alt[data-tone="warn"]{padding:6px 8px;border:1px solid var(--warn-border);border-radius:var(--radius-sm);background:var(--warn-surface)}
 .lbb-ing-alt-label{flex-shrink:0;width:1.4rem;font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
 .lbb-ing-progress{display:flex;flex-direction:column;gap:6px;padding:var(--space-3) var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
 .lbb-ing-step{display:flex;align-items:center;gap:8px;font-size:var(--text-body-sm);color:var(--text-primary)}
@@ -82,6 +88,22 @@ export interface IngestionPanelProps {
   readonly questionId?: string | null;
   /** Chamado quando o usuário confere e aceita o candidato. */
   readonly onAccept: (accepted: AcceptedRecognition) => void;
+}
+
+/** Aplica as divisões aceitas até nenhuma mais casar. Ver o comentário no consumidor. */
+function aplicarDivisoes(
+  options: readonly AlternativaLida[],
+  divididos: ReadonlyMap<string, readonly AlternativaLida[]>,
+): readonly AlternativaLida[] {
+  let atual = options;
+
+  for (let passada = 0; passada < 5; passada += 1) {
+    const proxima = atual.flatMap((opcao) => divididos.get(opcao.statementLatex) ?? [opcao]);
+    if (proxima.length === atual.length) return proxima;
+    atual = proxima;
+  }
+
+  return atual;
 }
 
 /** Os quatro do contrato de reconhecimento, com o rótulo que a tela usa. */
@@ -150,6 +172,15 @@ export function IngestionPanel({
    * aparecem, e é o que os torna uma garantia em vez de uma barra de progresso fingida.
    */
   const [progresso, setProgresso] = useState<readonly string[]>([]);
+  /**
+   * As divisões que a pessoa aceitou — por texto do bloco, não por índice.
+   *
+   * O índice muda quando uma divisão acontece antes dele na lista; o texto do bloco é o que
+   * identifica *aquele* bloco. Guardar por índice faria a segunda divisão apagar a primeira.
+   */
+  const [divididos, setDivididos] = useState<ReadonlyMap<string, readonly AlternativaLida[]>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const upload = async (file: File) => {
@@ -270,6 +301,9 @@ export function IngestionPanel({
       setError("Não deu para falar com o servidor.");
     } finally {
       setProgresso([]);
+      // Recorte novo, divisões novas: uma divisão aceita para o bloco anterior não vale para este,
+      // e o mapa por texto casaria por acaso se dois recortes tivessem a mesma alternativa.
+      setDivididos(new Map());
     }
   };
 
@@ -280,10 +314,25 @@ export function IngestionPanel({
    * tela mostrando uma coisa e gravando outra. Só vale no modo `Questão completa` — nos outros o
    * recorte não é uma questão inteira, e separar seria inventar estrutura em cima de uma fórmula.
    */
-  const separado =
+  const bruto =
     candidate !== null && mode === "questao"
       ? separarAlternativas(currentLatex(candidate))
       : null;
+
+  /**
+   * As alternativas com as divisões já aceitas — e aplicadas **até estabilizar**.
+   *
+   * Uma passada só não basta, e o e2e pegou: cortar `b)` em `b` + `c` deixa o `d)` dentro do novo
+   * `c`, e a divisão seguinte é sobre um texto que **não existia** na lista original. Aplicar uma
+   * vez casava só o primeiro corte; do segundo em diante o clique não fazia nada.
+   *
+   * O teto existe porque o mapa é dado de entrada da própria função: uma divisão cujo resultado
+   * contivesse a chave dela mesma laçaria para sempre. Cinco é folgado — uma questão tem cinco
+   * alternativas, e cada corte resolve uma.
+   */
+  const separado = bruto ? { ...bruto, options: aplicarDivisoes(bruto.options, divididos) } : null;
+
+  const unidos = separado ? detectarBlocoUnido(separado.options) : [];
 
   return (
     <div className="lbb-ing">
@@ -409,12 +458,50 @@ export function IngestionPanel({
                       {separado.options.length} alternativas separadas do enunciado · nenhuma nasce
                       marcada como correta — o gabarito é seu, no editor
                     </span>
-                    {separado.options.map((opcao) => (
-                      <div key={opcao.label} className="lbb-ing-alt">
-                        <span className="lbb-ing-alt-label">{opcao.label}</span>
-                        <span>{opcao.statementLatex}</span>
-                      </div>
-                    ))}
+                    {separado.options.map((opcao, indice) => {
+                      const unido = unidos.find((bloco) => bloco.indice === indice);
+
+                      return (
+                        <div
+                          key={`${opcao.label}-${indice}`}
+                          className="lbb-ing-alt"
+                          data-tone={unido ? "warn" : undefined}
+                        >
+                          <span className="lbb-ing-alt-label">{opcao.label}</span>
+                          <span style={{ flex: 1 }}>{opcao.statementLatex}</span>
+
+                          {/*
+                            O bloco unido é **sinalizado**, e não dividido sozinho (protótipo,
+                            1702–1712). O OCR de página em duas colunas cola `b) … c) …` na mesma
+                            linha com frequência, e a regra que protege o enunciado — âncora no
+                            início da linha — é justamente a que produz o bloco. Dividir por conta
+                            própria criaria uma alternativa a partir de um `c)` que talvez seja
+                            parte do texto: perguntar custa um clique, errar custa uma prova
+                            impressa com a alternativa errada.
+                          */}
+                          {unido && (
+                            <>
+                              <span className="lbb-ing-meta" style={{ color: "var(--warn-text)" }}>
+                                duas alternativas em um bloco
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  setDivididos((atual) => {
+                                    const proximo = new Map(atual);
+                                    proximo.set(opcao.statementLatex, unido.partes);
+                                    return proximo;
+                                  })
+                                }
+                              >
+                                Dividir em duas
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </>
                 )}
               </div>
@@ -436,8 +523,15 @@ export function IngestionPanel({
                     return;
                   }
 
-                  const partido =
-                    mode === "questao" ? separarAlternativas(currentLatex(reviewed)) : null;
+                  /*
+                    O que está **na tela**, e não um recálculo.
+
+                    A primeira versão chamava `separarAlternativas` de novo aqui, e o resultado
+                    ignorava as divisões que a pessoa tinha acabado de aceitar: a tela mostrava
+                    quatro alternativas e o banco recebia duas. É o defeito que o comentário do
+                    `separado` alerta duas telas acima, cometido na linha seguinte.
+                  */
+                  const partido = separado;
 
                   onAccept({
                     anchorId,

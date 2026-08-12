@@ -364,3 +364,105 @@ test("“Questão completa” separa as alternativas, mostra a separação, e gr
     expect(criada?.statementLatex).not.toContain("5.612,25");
   });
 });
+
+/**
+ * **Duas alternativas coladas num bloco** — o caso `ocrMerged` do protótipo (1702–1712).
+ *
+ * Acontece de verdade: página em duas colunas, e o OCR devolve `b) … c) …` na mesma linha. A regra
+ * que protege o enunciado — âncora no início da linha — é justamente a que produz o bloco unido.
+ *
+ * A resposta não é dividir sozinho. Um `c)` no meio de uma alternativa pode ser parte do texto, e
+ * dividir por conta própria criaria uma alternativa inventada com cara de revisada. Perguntar custa
+ * um clique; errar custa uma prova impressa com a alternativa errada.
+ */
+test("bloco com duas alternativas é sinalizado, e a divisão é um gesto — não um palpite", async ({
+  page,
+}) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  // O `c)` colado no fim do `b)`, que é exatamente o que a página de duas colunas produz.
+  const LIDO = [
+    `Quanto rende o capital? ${marca}`,
+    "a) R\\$ 5.612,25",
+    "b) R\\$ 6.341,21 c) R\\$ 6.529,67",
+    "d) R\\$ 6.712,10",
+  ].join("\n");
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        cropAssetId: id,
+        editedLatex: null,
+        state: "candidate",
+        result: {
+          latex: LIDO,
+          confidence: 0.88,
+          alternatives: [],
+          providerId: "fake",
+          model: "fake-vision",
+          durationMs: 10,
+        },
+      }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await page.getByRole("button", { name: "Questão completa" }).click();
+  await recortar(page);
+
+  const split = page.locator(".lbb-ing-split");
+  await expect(split).toBeVisible();
+
+  await test.step("o bloco unido aparece em aviso, e nada foi dividido sozinho", async () => {
+    /*
+     * **Duas** alternativas, e não quatro. O bloco unido quebra a sequência: com o `c)` colado
+     * dentro do `b)`, o que a lista tem é `a` e `b` — e o `d)` seguinte, que não sucede `b`, cai
+     * dentro do `b` junto com o resto.
+     *
+     * É consequência direta da regra de sequência consecutiva, e é o comportamento certo: o
+     * separador não inventa uma sequência que o texto não tem. O que ele faz é **mostrar** o
+     * problema onde ele está.
+     */
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(2);
+    await expect(split.getByText("duas alternativas em um bloco")).toBeVisible();
+    await expect(split.locator('.lbb-ing-alt[data-tone="warn"]')).toHaveCount(1);
+  });
+
+  await test.step("a divisão cascateia: cada corte revela o próximo", async () => {
+    // Cortar `b` em `b` + `c` deixa o `d)` dentro do `c` — e o aviso reaparece ali. A pessoa
+    // desfaz o estrago do OCR um corte por vez, vendo cada um.
+    await split.getByRole("button", { name: "Dividir em duas" }).click();
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(3);
+    await expect(split.getByText("duas alternativas em um bloco")).toBeVisible();
+
+    await split.getByRole("button", { name: "Dividir em duas" }).click();
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(4);
+    await expect(split.getByText("duas alternativas em um bloco")).toHaveCount(0);
+    await expect(split).toContainText("4 alternativas separadas do enunciado");
+  });
+
+  await test.step("e o resultado é o que vai para o banco", async () => {
+
+    await page.getByRole("button", { name: "Conferi — usar este LaTeX" }).click();
+    await page.getByRole("button", { name: /Criar questão/ }).click();
+    await expect(page.getByText(/Questão criada/i)).toBeVisible({ timeout: 20_000 });
+
+    const tree = await page.request.get(`/api/publications/${publicationId}/tree`);
+    const { nodes } = (await tree.json()) as {
+      nodes: { question: { options: { label: string; statementLatex: string }[] } | null }[];
+    };
+
+    const criada = nodes.find((node) => node.question !== null)?.question;
+    expect(criada?.options).toHaveLength(4);
+    expect(criada?.options.map((o) => o.statementLatex.trim())).toContain("R\\$ 6.529,67");
+  });
+});
