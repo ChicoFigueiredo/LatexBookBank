@@ -22,10 +22,17 @@ export type SchemaGeneration = (typeof SCHEMA_GENERATIONS)[number];
 
 export interface LegacyCapabilities {
   readonly generation: SchemaGeneration;
-  /** `Questao.LatexComplemento` — o terceiro campo de texto da questão. */
+  /** `Questao.latexComplemento` — o terceiro campo de texto da questão. */
   readonly hasComplemento: boolean;
   /** Tabela `TagConhecimento`, ausente na geração intermediária. */
   readonly hasTagConhecimento: boolean;
+  /**
+   * `Questao.Banca` (e `Instituição`/`Cargo`/`Nivel_Cargo` junto). Presente nas bibliotecas de
+   * banca de concurso (Cesgranrio, Análise Elon), ausente nas de livro-texto (Cálculo, ProfMat) —
+   * **não** é a mesma coisa que geração: o ProfMat real tem a migração mais recente sem ter banca.
+   * Ver levantamento de 2026-08-31 contra as 11 bibliotecas reais.
+   */
+  readonly hasBanca: boolean;
   /** `__EFMigrationsHistory`, ausente nas duas bibliotecas mais antigas. */
   readonly hasMigrationsTable: boolean;
 }
@@ -56,10 +63,14 @@ export function detectCapabilities(probe: SchemaProbe): LegacyCapabilities {
 
   // A coluna manda. A migração só decide quando as colunas não desempatam.
   const hasComplemento =
-    probe.questionColumns.includes("LatexComplemento") ||
+    probe.questionColumns.includes("latexComplemento") ||
     (probe.questionColumns.length === 0 && migrations.includes(LATEX_COMPLEMENTO));
 
   const hasTagConhecimento = probe.tables.includes("TagConhecimento");
+
+  // Independente da geração: o ProfMat real prova que dá para ter a migração mais recente sem ter
+  // banca de concurso (é biblioteca de livro-texto). Só a coluna decide.
+  const hasBanca = probe.questionColumns.includes("Banca");
 
   const generation: SchemaGeneration = !hasMigrationsTable
     ? "pre_migrations"
@@ -71,7 +82,7 @@ export function detectCapabilities(probe: SchemaProbe): LegacyCapabilities {
           // quebrar — ler menos campos nunca corrompe, ler campos que não existem sim.
           "pre_migrations";
 
-  return { generation, hasComplemento, hasTagConhecimento, hasMigrationsTable };
+  return { generation, hasComplemento, hasTagConhecimento, hasBanca, hasMigrationsTable };
 }
 
 /**
@@ -86,17 +97,18 @@ export function questionColumnsFor(capabilities: LegacyCapabilities): readonly s
     "IdQuestao",
     "IdQuestao_Pai",
     "TipoQuestao",
-    "Titulo",
-    "LatexEnunciado",
-    "LatexResposta",
-    ...(capabilities.hasComplemento ? ["LatexComplemento"] : []),
+    // Não existe `Titulo` no schema real — `Apelido` é o campo com o rótulo (confirmado contra as
+    // 11 bibliotecas em 2026-08-31; um `SELECT Titulo` teria falhado na primeira execução real).
+    "Apelido",
+    "latexQuestao",
+    "latexResposta",
+    ...(capabilities.hasComplemento ? ["latexComplemento"] : []),
     "Dificuldade",
     "Numeracao",
     "Numeracao_Original",
-    "Banca",
-    "Instituicao",
-    "Cargo",
-    "NivelCargo",
+    // `Instituição` (com acento) e `Nivel_Cargo` (com underscore) — não `Instituicao`/`NivelCargo`.
+    // Só entram quando a biblioteca é de banca de concurso; livro-texto não tem essas colunas.
+    ...(capabilities.hasBanca ? ["Banca", "Instituição", "Cargo", "Nivel_Cargo"] : []),
     "Ano",
     // `Ordem` **não** entra: ela vale 0 em praticamente todas as linhas, e um `SELECT` que a traz
     // convida alguém a ordenar por ela um dia. A ordem vem de `IdQuestao` (planejamento §2.4).
@@ -104,6 +116,29 @@ export function questionColumnsFor(capabilities: LegacyCapabilities): readonly s
     // `IsExpanded`, `IsSelected` e `IdQuestao_Original` são estado de UI e coluna morta.
   ];
 }
+
+/**
+ * Colunas reais de `Questao`, achadas no levantamento de 2026-08-31 contra as 11 bibliotecas, que
+ * **ainda não têm decisão de mapeamento** — diferente de `DELIBERATELY_IGNORED_COLUMNS`, que é
+ * "decidiu descartar". Aqui é "não decidiu nada ainda": entram no relatório do próximo leitor real
+ * como pendência, não como perda silenciosa.
+ *
+ * `Nivel`, `idPublication`, `Publicacao`, `Editora`: aparecem nas bibliotecas de livro-texto
+ * (Cálculo, ProfMat) e parecem ligar a questão a uma publicação/capítulo de livro — não têm
+ * equivalente óbvio no domínio novo ainda.
+ * `Path`, `VideoLink`: sem uso conhecido no produto novo.
+ * `latexOrigin`: existe em `Questao` **e** em `Questao_Itens` — pode ser o precursor do
+ * `SourceAnchor` de hoje, mas isso é hipótese, não decisão.
+ */
+export const FIELDS_PENDING_MAPPING_DECISION: readonly string[] = [
+  "Nivel",
+  "idPublication",
+  "Publicacao",
+  "Editora",
+  "Path",
+  "VideoLink",
+  "latexOrigin",
+];
 
 /** As colunas que existem no legado e que o import **descarta de propósito**, para o relatório. */
 export const DELIBERATELY_IGNORED_COLUMNS: Readonly<Record<string, string>> = {

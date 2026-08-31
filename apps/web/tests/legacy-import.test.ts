@@ -26,11 +26,11 @@ import {
  */
 
 describe("as três gerações de schema", () => {
-  it("dez bibliotecas têm `LatexComplemento`", () => {
+  it("dez bibliotecas têm `latexComplemento`", () => {
     const capabilities = detectCapabilities({
       migrations: ["20240317152417_add_LatexComplemento"],
       tables: ["Questao", "TagConhecimento"],
-      questionColumns: ["IdQuestao", "LatexComplemento"],
+      questionColumns: ["IdQuestao", "latexComplemento"],
     });
 
     expect(capabilities.generation).toBe("latex_complemento");
@@ -65,11 +65,11 @@ describe("as três gerações de schema", () => {
     const capabilities = detectCapabilities({
       migrations: ["20240317152417_add_LatexComplemento"],
       tables: ["Questao"],
-      questionColumns: ["IdQuestao", "LatexEnunciado"],
+      questionColumns: ["IdQuestao", "latexQuestao"],
     });
 
     expect(capabilities.hasComplemento).toBe(false);
-    expect(questionColumnsFor(capabilities)).not.toContain("LatexComplemento");
+    expect(questionColumnsFor(capabilities)).not.toContain("latexComplemento");
   });
 
   it("migração desconhecida degrada para a geração mais antiga", () => {
@@ -98,6 +98,60 @@ describe("as três gerações de schema", () => {
     // Para o relatório poder dizer o que ignorou e por quê, em vez de omitir.
     expect(Object.keys(DELIBERATELY_IGNORED_COLUMNS)).toContain("Ordem");
     expect(DELIBERATELY_IGNORED_COLUMNS["Ordem"]).toMatch(/IdQuestao/);
+  });
+
+  describe("os nomes reais (levantamento de 2026-08-31 contra as 11 bibliotecas)", () => {
+    // Nenhuma biblioteca real tem `Titulo`, `LatexEnunciado`, `Instituicao` ou `NivelCargo` — um
+    // `SELECT` com esses nomes falharia na primeira execução contra o acervo de verdade. O rótulo
+    // vive em `Apelido`; o enunciado, em `latexQuestao`.
+    it("pede `Apelido` e `latexQuestao`, nunca `Titulo` nem `LatexEnunciado`", () => {
+      const columns = questionColumnsFor(
+        detectCapabilities({ migrations: null, tables: [], questionColumns: [] }),
+      );
+
+      expect(columns).toContain("Apelido");
+      expect(columns).toContain("latexQuestao");
+      expect(columns).not.toContain("Titulo");
+      expect(columns).not.toContain("LatexEnunciado");
+    });
+
+    it("banca de concurso pede `Instituição` (com acento) e `Nivel_Cargo` (com underscore)", () => {
+      // Cesgranrio CAIXA e Análise Elon têm essas colunas; Cálculo e ProfMat não têm nenhuma.
+      const columns = questionColumnsFor(
+        detectCapabilities({
+          migrations: null,
+          tables: [],
+          questionColumns: ["IdQuestao", "Banca"],
+        }),
+      );
+
+      expect(columns).toContain("Instituição");
+      expect(columns).toContain("Nivel_Cargo");
+      expect(columns).not.toContain("Instituicao");
+      expect(columns).not.toContain("NivelCargo");
+    });
+
+    it("livro-texto sem `Banca` não pede as colunas de concurso", () => {
+      const columns = questionColumnsFor(
+        detectCapabilities({ migrations: null, tables: [], questionColumns: ["IdQuestao"] }),
+      );
+
+      expect(columns).not.toContain("Banca");
+      expect(columns).not.toContain("Instituição");
+      expect(columns).not.toContain("Cargo");
+      expect(columns).not.toContain("Nivel_Cargo");
+    });
+
+    it("`hasBanca` é independente de geração — o ProfMat real tem a migração mais nova sem banca", () => {
+      const capabilities = detectCapabilities({
+        migrations: ["20240317152417_add_LatexComplemento"],
+        tables: ["Questao"],
+        questionColumns: ["IdQuestao", "latexComplemento"],
+      });
+
+      expect(capabilities.generation).toBe("latex_complemento");
+      expect(capabilities.hasBanca).toBe(false);
+    });
   });
 });
 

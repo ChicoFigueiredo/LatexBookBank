@@ -1207,6 +1207,15 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Geração `Questao_Imagens_Completa` suportada (2 bibliotecas)
 - ✅ Bibliotecas sem `__EFMigrationsHistory` suportadas (2)
 - ✅ Campos ausentes degradam sem quebrar *(a **coluna** manda sobre o registro de migração)*
+- ✅ **Correção de 2026-08-31 — os nomes de coluna documentados não batiam com o schema real.**
+  Levantamento contra as 11 bibliotecas achou `Apelido` (não `Titulo`), `latexQuestao` (não
+  `LatexEnunciado`), `Instituição` com acento (não `Instituicao`), `Nivel_Cargo` com underscore
+  (não `NivelCargo`) — um `SELECT` com os nomes antigos teria falhado na primeira execução real.
+  Achou também uma terceira migração real (`Tags_on_Questions`, no ProfMat) e provou que "tem
+  banca de concurso" é independente de geração — o ProfMat tem a migração mais nova sem ter banca.
+  `legacy-schema.ts` corrigido, nova capacidade `hasBanca`, 4 testes novos fixando os nomes reais;
+  `FIELDS_PENDING_MAPPING_DECISION` documenta o que foi achado e ainda não tem mapeamento decidido
+  (`Nivel`, `idPublication`, `Publicacao`, `Editora`, `Path`, `VideoLink`, `latexOrigin`)
 
 **Scanner**
 - ✅ Detecta bibliotecas a partir de `padrao.knowchicoconfig` *(mesma prova do bloco acima)*
