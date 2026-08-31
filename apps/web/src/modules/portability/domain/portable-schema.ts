@@ -150,6 +150,13 @@ export interface PortableOption {
   readonly isCorrect: boolean;
   readonly weight: number | null;
   readonly legacyId: number | null;
+  /**
+   * Aditivos, como `nickname`/`isbn` da publicação — um `.lbb` gravado antes desta mudança não os
+   * tem, e ausência vira `null`, nunca erro.
+   */
+  readonly originalLatex?: string | null;
+  /** A letra `a`–`e` do legado, só para auditoria do import (issue #111). */
+  readonly legacyMarcacao?: string | null;
 }
 
 /* ─────────────────────────────── versionamento ─────────────────────────────── */

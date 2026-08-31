@@ -92,9 +92,12 @@ export interface RuntimeOption {
   readonly sortKey: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly originalLatex: string | null;
   readonly isCorrect: boolean;
   readonly weight: number | null;
   readonly legacyId: number | null;
+  /** A letra `a`–`e` do legado. Só para auditoria do import — nunca identidade nem renderização. */
+  readonly legacyMarcacao: string | null;
 }
 
 /**
@@ -203,8 +206,10 @@ function toOption(option: RuntimeOption, mint: RefMinter): PortableOption {
     sortKey: option.sortKey,
     statementLatex: option.statementLatex,
     solutionLatex: option.solutionLatex,
+    originalLatex: option.originalLatex,
     isCorrect: option.isCorrect,
     weight: option.weight,
     legacyId: option.legacyId,
+    legacyMarcacao: option.legacyMarcacao,
   };
 }

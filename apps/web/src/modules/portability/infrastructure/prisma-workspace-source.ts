@@ -102,9 +102,11 @@ export async function readWorkspaceForExport(
                       sortKey: true,
                       statementLatex: true,
                       solutionLatex: true,
+                      originalLatex: true,
                       isCorrect: true,
                       weight: true,
                       legacyId: true,
+                      legacyMarcacao: true,
                     },
                   },
                   assets: {

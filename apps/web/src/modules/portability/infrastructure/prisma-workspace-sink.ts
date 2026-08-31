@@ -153,9 +153,11 @@ export async function writeImportedWorkspace(
                 sortKey: option.sortKey,
                 statementLatex: option.statementLatex,
                 solutionLatex: option.solutionLatex,
+                originalLatex: option.originalLatex,
                 isCorrect: option.isCorrect,
                 weight: option.weight,
                 legacyId: option.legacyId,
+                legacyMarcacao: option.legacyMarcacao,
               },
             });
             options += 1;

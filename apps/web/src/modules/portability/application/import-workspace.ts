@@ -195,9 +195,11 @@ export function toRuntime(
                     sortKey: option.sortKey,
                     statementLatex: option.statementLatex,
                     solutionLatex: option.solutionLatex,
+                    originalLatex: option.originalLatex ?? null,
                     isCorrect: option.isCorrect,
                     weight: option.weight,
                     legacyId: option.legacyId,
+                    legacyMarcacao: option.legacyMarcacao ?? null,
                   })),
                 },
         };
