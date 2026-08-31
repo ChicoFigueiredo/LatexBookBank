@@ -1219,10 +1219,18 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **Scanner**
 - ✅ Detecta bibliotecas a partir de `padrao.knowchicoconfig` *(mesma prova do bloco acima)*
-- [ ] Conta tabelas e linhas
-- [ ] Relatório de integridade: questões órfãs
-- [ ] Relatório: pais ausentes
-- [ ] Relatório: alternativas inválidas
+- ✅ Conta tabelas e linhas *(2026-08-31 — `audit-legacy-library.ts`, rodado contra as 11
+  bibliotecas: 288 questões, 1212 alternativas no total. `Livros de Matemática`, `Provas ENEM`,
+  `Ingles` e `Pré-Cálculo` estão com 0 questões — registradas, com metadata presente, mas vazias;
+  o conteúdo correspondente pode estar só nas cópias antigas de `_Antigos/`, não investigado)*
+- ✅ Relatório de integridade: questões órfãs *(checado nas 11 — zero violações)*
+- ✅ Relatório: pais ausentes *(checado nas 11 — zero violações)*
+- ⛔ Relatório: alternativas inválidas *(achado real, não hipotético: **7 questões em 3
+  bibliotecas** — ProfMat (2), Cesgranrio CAIXA (2), Mat-Financeira (3) — são múltipla escolha
+  sem nenhuma alternativa marcada correta. Contradiz `import-invariants.ts`, que afirma "gabarito
+  perfeito, 230 para 230, nenhuma sem gabarito" — essa afirmação não se sustentou contra o dado
+  real. Falta decidir: o import recusa a biblioteca inteira, ou importa o resto e reporta essas 7
+  como `inconsistentes` — decisão do Chico, não escolha unilateral)*
 - [ ] Relatório: assets ausentes
 
 **Mapeamento**
