@@ -123,33 +123,27 @@ export function questionColumnsFor(capabilities: LegacyCapabilities): readonly s
 }
 
 /**
- * Colunas reais de `Questao`, achadas no levantamento de 2026-08-31 contra as 11 bibliotecas, que
- * **ainda não têm decisão de mapeamento** — diferente de `DELIBERATELY_IGNORED_COLUMNS`, que é
- * "decidiu descartar". Aqui é "não decidiu nada ainda": entram no relatório do próximo leitor real
- * como pendência, não como perda silenciosa.
+ * Colunas reais de `Questao` sem decisão de mapeamento — diferente de
+ * `DELIBERATELY_IGNORED_COLUMNS`, que é "decidiu descartar". Lista vazia por enquanto: o
+ * levantamento de 2026-08-31 contra as 11 bibliotecas reais checou `Nivel`, `Publicacao`, `Path`,
+ * `VideoLink` e `Editora` (as cinco candidatas que sobravam) e não achou **nenhum** dado real —
+ * `Editora` e `Publicacao` vazias em toda biblioteca checada, `Path`/`VideoLink` idem, e `Nivel`
+ * bate exatamente com a profundidade da árvore (230 de 230 na Cesgranrio CAIXA) — redundante,
+ * mesma razão de `Ordem` abaixo. As cinco entraram em `DELIBERATELY_IGNORED_COLUMNS`.
  *
- * `idPublication` e `latexOrigin` **saíram** desta lista em 2026-08-31: o primeiro é o elo com a
- * tabela `Publication` (o livro de verdade, com ISBN e capa — ver `map-legacy-library.ts`); o
- * segundo mapeia limpo para `PortableQuestion.originalLatex`, que já existe no formato portável.
- *
- * `Nivel`, `Publicacao`, `Editora`: aparecem nas bibliotecas de livro-texto (Cálculo, ProfMat) e
- * não têm equivalente óbvio no domínio novo ainda — `Editora` é candidata a `Question.publisher`,
- * mas isso não foi confirmado contra valor real, só suposto.
- * `Path`, `VideoLink`: `VideoLink` é candidato a `Question.videoUrl` (mesmo conceito), também não
- * confirmado; `Path` sem uso conhecido no produto novo.
+ * Deixado como array (não removido) para o próximo leitor real ter onde registrar uma pendência
+ * genuína, se aparecer.
  */
-export const FIELDS_PENDING_MAPPING_DECISION: readonly string[] = [
-  "Nivel",
-  "Publicacao",
-  "Editora",
-  "Path",
-  "VideoLink",
-  "latexOrigin",
-];
+export const FIELDS_PENDING_MAPPING_DECISION: readonly string[] = [];
 
 /** As colunas que existem no legado e que o import **descarta de propósito**, para o relatório. */
 export const DELIBERATELY_IGNORED_COLUMNS: Readonly<Record<string, string>> = {
   Ordem: "vale 0 em praticamente todas as linhas; a ordem real é a de IdQuestao",
+  Nivel: "bate exatamente com a profundidade da árvore (230 de 230 checadas) — redundante",
+  Publicacao: "vazia em toda biblioteca checada (2026-08-31)",
+  Path: "vazia em toda biblioteca checada (2026-08-31)",
+  VideoLink: "vazia em toda biblioteca checada (2026-08-31)",
+  Editora: "vazia em toda biblioteca checada (2026-08-31) — não é a editora da Publication",
   Correta: "vestigial no nível da questão — o gabarito está em Questao_Itens.Correta",
   IsExpanded: "estado de UI; no produto novo vive em localStorage",
   IsSelected: "estado de UI; no produto novo vive em localStorage",

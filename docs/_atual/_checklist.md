@@ -276,7 +276,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
 | **06** ingestão visual | 14 · 15 | 41 | 1 | — | — | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
-| **08** legado | 11 | 48 | 2 | 4 | 7 | as 11 bibliotecas lidas, mapeadas e escritas de verdade (2026-08-31); falta Assets, Editoras, Tags |
+| **08** legado | 11 | 50 | 2 | 2 | 7 | as 11 bibliotecas lidas, mapeadas e escritas de verdade (2026-08-31); Editoras/Tags checadas — zero dado real; falta só Assets |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
@@ -1241,9 +1241,11 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   mistura. Rodado contra Cesgranrio CAIXA: 2 publicações reais saíram do arquivo —
   "Apostila 1200 Questões Cesgranrio" e "1000 Questões Caixa Econômica Federal")*
 - ✅ Autores *(`AuthorSort` → `authors[0]`, best-effort — não é uma lista estruturada no legado)*
-- ⛔ Editoras *(sem fonte clara — `Editora` existe em `Questao`, não em `Publication`; ver
-  `FIELDS_PENDING_MAPPING_DECISION`)*
-- ⛔ Tags e tags de conhecimento *(`TagConhecimento` detectada, ainda não lida nem mapeada)*
+- ✅ Editoras *(checado, não implementado: `Questao.Editora` está vazio nas 11 bibliotecas reais —
+  não é ausência de mapeamento, é ausência de dado. `Publication` (o livro de verdade) não tem
+  campo de editora no schema legado nenhum)*
+- ✅ Tags e tags de conhecimento *(checado: `TagConhecimento` não existe ou tem zero linhas nas
+  11 — nunca foi usado. Nada para importar)*
 - ✅ `Questao` → `DocumentNode` *(escrito — `mapLegacyLibrary`, 15 testes)*
 - ✅ `TipoQuestao` negativo → `NodeKind` estrutural
 - ✅ `TipoQuestao` positivo → `Question` *(tipo desconhecido vira exclusão relatada, não default —
