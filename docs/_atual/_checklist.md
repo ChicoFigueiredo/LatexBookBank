@@ -21,12 +21,11 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 867 ✅ · 5 ◐ · 14 ⛔ · 116 `[ ]` — e **104 dos 120 abertos estão em quatro blocos que
-não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (35 — a
-premissa de que o acervo não está nesta máquina **caiu em 2026-08-31**: `/mnt/t/KnowChico` está
-acessível e o scanner de bibliotecas já roda contra ele; o que falta agora é ler questão, não acesso),
-o §33 "Legado" (8, mesmo levantamento) e a conferência visual (20, que é do Chico). **Não sobra
-item de código sem decisão sua ou sem o resto do import.**
+**Progresso (2026-08-31):** 919 ✅ · 8 ◐ · 17 ⛔ · 74 `[ ]`. A Fase 11 (legado) deixou de ser o
+maior bloco aberto: as 11 bibliotecas reais foram lidas, mapeadas e escritas no banco de
+desenvolvimento — o que resta ali é Assets, Editoras e Tags, não acesso nem execução. Os blocos
+que ainda dependem só do Chico: a Fase 6.5 (42, decisão de storage) e a conferência visual (20,
+"é do Chico"). **Não sobra item de código de import sem decisão sua.**
 **Última atualização:** 2026-08-11 — **o que do checklist visual é medida** (#197): transbordo
 horizontal é fato, não gosto. A aritmética que o checklist trazia desde a Fase 1 foi conferida numa
 tela — 217 + 281 + 432 —, e a leitura dos seis estados vazios achou um dizendo "na Fase 3" para
@@ -259,7 +258,7 @@ esse é o pior lugar possível para uma mudança se esconder.
 | — prova arquitetural | **◐6.5** | schema PostgreSQL provado; storage parado na decisão |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
-| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem o scanner de bibliotecas provado contra o acervo real; falta ler questão; a 13 só não mostra progresso |
+| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas escritas de verdade no banco de dev; falta Assets/Editoras/Tags; a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
 
@@ -277,7 +276,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
 | **06** ingestão visual | 14 · 15 | 41 | 1 | — | — | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
-| **08** legado | 11 | 23 | — | — | 35 | scanner de bibliotecas provado contra o acervo real (2026-08-31); falta ler questão |
+| **08** legado | 11 | 48 | 2 | 4 | 7 | as 11 bibliotecas lidas, mapeadas e escritas de verdade (2026-08-31); falta Assets, Editoras, Tags |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
@@ -1277,25 +1276,61 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Nenhum arquivo descartado silenciosamente
 
 **Execução**
-- ✅ Dry-run sem nenhuma escrita *(2026-08-31 — `dry-run-legacy-import.ts`, rodado contra Cesgranrio
-  CAIXA: mapeia, confere colisão contra o banco real via `toRuntime` + índice do destino, nenhuma
-  escrita. Reaproveita o pipeline do `.lbb` — nenhum caminho de escrita novo foi inventado)*
-- ◐ Import idempotente por `legacyId` + `workspaceId` *(a detecção de colisão já existe e foi
-  provada no dry-run — "nenhuma colisão, importaria tudo como novo"; falta rodar a escrita de
-  verdade duas vezes para provar a idempotência ponta a ponta)*
-- [ ] `ImportReport`: importados, atualizados, ignorados, inconsistentes, órfãos, assets ausentes
-- [ ] `legacyId` preservado após o import *(depende da escrita real, ainda não executada)*
+- ✅ Dry-run sem nenhuma escrita *(`dry-run-legacy-import.ts`)*
+- ✅ Import idempotente por `legacyId` + `workspaceId` *(correção de desenho em 2026-08-31: a
+  idempotência real é no **workspace**, por `IdBiblio` — `Workspace.legacyId`, já `@@unique` no
+  schema, comentado como "IdBiblio de padrao.knowchicoconfig" desde antes desta fase existir.
+  A primeira tentativa reaproveitou o índice de colisão do `.lbb` (`Question`/`Publication`
+  globais, sem escopo de workspace) e produziu colisão falsa entre bibliotecas diferentes — cada
+  uma reinicia sua própria numeração `IdQuestao` em 1. Corrigido: `PrismaLegacyImportWriter`
+  confere `Workspace.legacyId` **antes** de qualquer leitura; workspace novo não tem com o que
+  colidir por dentro. Provado rodando a Cesgranrio CAIXA duas vezes: a segunda diz "já importada,
+  nada feito")*
+- ◐ `ImportReport`: importados, atualizados, ignorados, inconsistentes, órfãos, assets ausentes
+  *(o relatório do script cobre importados e inconsistentes — as questões excluídas por invariante,
+  com o motivo. Faltam "atualizados" (não há caso de uso ainda — o import de hoje só cria) e
+  "assets ausentes" (Fase 11 ainda não importa asset nenhum))*
+- ✅ `legacyId` preservado após o import *(`Workspace.legacyId`, `Publication.legacyId/legacyUuid`,
+  `DocumentNode.legacyId`, `Question.legacyId`, `QuestionOption.legacyId/legacyMarcacao` — todos
+  gravados e conferidos direto no banco depois da escrita real)*
+
+**As 11 bibliotecas, escritas de verdade em 2026-08-31** *(`write-legacy-import.ts`, contra
+`/mnt/t/KnowChico`, banco de desenvolvimento — não é mais simulação)*:
+- ✅ 11 workspaces, 8 publicações reais (títulos extraídos da tabela `Publication` do legado —
+  ex. "Apostila 1200 Questões Cesgranrio", "Curso de Analise Vol. 1"), 225 questões, 1110
+  alternativas
+- ✅ 7 questões excluídas por invariante (gabarito ausente), reportadas com o legacyId e o motivo —
+  nenhuma derrubou a biblioteca inteira
+- ○ 3 bibliotecas (`Livros de Matemática`, `Provas ENEM`, `Ingles`, `Pré-Cálculo` — 4, não 3) têm
+  `Questao` só estrutural, zero questão de fato: registradas como estão, sem inventar conteúdo
+- ○ Achado incidental: `Análise Elon` tinha 5 linhas de `Questao_Itens` presas a um nó de
+  **capítulo** (não uma questão) — lixo de template do app antigo. Corretamente não importado; o
+  mapeador só lê alternativas de nó classificado como questão
 
 **Invariantes afirmadas** *(falham ruidosamente se violadas)*
-- [ ] Toda questão de múltipla escolha tem exatamente uma alternativa correta
-- [ ] Todo `IdQuestao_Pai` não nulo aponta para nó existente na mesma biblioteca
-- [ ] Nenhum ciclo na árvore
-- [ ] Rodar o import duas vezes não cria nada novo
+- ✅ Toda questão de múltipla escolha tem exatamente uma alternativa correta *("afirmada" não é
+  "nunca violada" — é "violação nunca passa batido". As 7 reais foram achadas, excluídas e
+  reportadas, não silenciadas; nenhuma foi importada com gabarito errado ou ausente)*
+- ✅ Todo `IdQuestao_Pai` não nulo aponta para nó existente na mesma biblioteca *(checado nas 11
+  reais — zero violações)*
+- ✅ Nenhum ciclo na árvore *(checado nas 11 reais — zero violações)*
+- ✅ Rodar o import duas vezes não cria nada novo *(provado de verdade, não só desenhado: a
+  Cesgranrio CAIXA rodou duas vezes — a segunda respondeu "já importada, nada feito", sem duplicar)*
 
 **Aceite da fase**
-- [ ] As 13 bibliotecas importam
-- [ ] Contagens batem com o levantamento (64 pubs, 297 nós, 1.247 alternativas) ou cada divergência está explicada no relatório
-- [ ] §33 "Legado" completo (§10 deste documento)
+- ✅ **As 11 bibliotecas registradas importam** *(não 13 — correção de 2026-08-31: as "13" da
+  auditoria original contavam arquivos `.knowchico` no disco, incluindo 2 cópias desatualizadas em
+  `_Antigos/` que `padrao.knowchicoconfig` não referencia — ver §2.10/§2.6. 11 é o número real de
+  bibliotecas ativas, e as 11 foram escritas no banco de desenvolvimento)*
+- ⛔ Contagens batem com o levantamento (64 pubs, 297 nós, 1.247 alternativas) *(não batem, e a
+  causa parece ser um erro de documentação, não do import: o real é **8 publicações**, 281 nós,
+  1100 alternativas — nós e alternativas próximos do esperado, mas "64 pubs" está muito longe de 8.
+  O número "64" coincide com o catálogo de 64 livros do **spike do Calibre** — auditoria
+  anterior, contexto totalmente diferente —, o que sugere que o "64" desta linha foi copiado do
+  lugar errado ao escrever o checklist original. Fica como pendência de verificação, não como
+  bug do código)*
+- ◐ §33 "Legado" completo (§10 deste documento) *(a Fase 11 do §10 ainda aponta os itens de
+  Assets/Editoras/Tags como pendentes — ver acima)*
 
 ---
 
@@ -1802,16 +1837,20 @@ Verificar sempre que uma nova dependência de infraestrutura entrar.
   A linha equivalente da Fase 14 foi fechada lá e esta ficou para trás — é a mesma inconsistência
   que a auditoria da #162 encontrou nas seções cruzadas)*
 
-### Legado — ⛔ *o bloco inteiro depende do acervo, que **não está nesta máquina**. O domínio do
-importador existe e é testado (Fase 11); rodar o import é que não dá.*
-- [ ] Dry-run
-- [ ] Import Publication
-- [ ] Import árvore
-- [ ] Import questões
-- [ ] Import alternativas e correta
-- [ ] Import metadata
-- [ ] Import snippets LaTeX
-- [ ] Relatório
+### Legado — ✅ *correção de 2026-08-31: o acervo está acessível desde sempre — a premissa de
+"não está nesta máquina" estava errada (ver §2.10). As 11 bibliotecas foram lidas, mapeadas e
+escritas de verdade no banco de desenvolvimento.*
+- ✅ Dry-run *(`dry-run-legacy-import.ts`)*
+- ✅ Import Publication *(8 publicações reais, com título/ISBN/UUID do próprio arquivo legado)*
+- ✅ Import árvore *(281 nós — capítulo/seção/questão, com `sortKey` fracionário e numeração)*
+- ✅ Import questões *(225 questões)*
+- ✅ Import alternativas e correta *(1100 alternativas, gabarito preservado)*
+- ◐ Import metadata *(banca/instituição/cargo/ano entram quando existem; editora e tags de
+  conhecimento ainda não têm mapeamento decidido)*
+- ✅ Import snippets LaTeX *(enunciado, resposta, complemento e origem — `latexQuestao`,
+  `latexResposta`, `latexComplemento`, `latexOrigin`)*
+- ✅ Relatório *(console do script: publicações, exclusões por invariante com motivo e legacyId,
+  contagem final — falta só o formato `ImportReport` estruturado, hoje é texto)*
 
 ### Portabilidade *(novo, D18/D32)*
 - ✅ Exporta workspace em `.lbb`
