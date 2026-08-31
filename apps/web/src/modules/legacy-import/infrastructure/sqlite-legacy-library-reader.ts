@@ -6,6 +6,7 @@ import type {
   LegacyLibraryContents,
   LegacyLibraryReader,
   RawLegacyOptionRow,
+  RawLegacyPublicationRow,
   RawLegacyQuestionRow,
 } from "../domain/legacy-library-reader";
 
@@ -19,6 +20,17 @@ import type {
 
 const READONLY_IMMUTABLE = constants.SQLITE_OPEN_READONLY | constants.SQLITE_OPEN_URI;
 const immutableUri = (filePath: string): string => `${pathToFileURL(filePath).href}?immutable=1`;
+
+const PUBLICATION_COLUMNS = [
+  "idPublication",
+  "PublicationName",
+  "UUID",
+  "ISBN",
+  "AuthorSort",
+  "PublicationNick",
+  "PublicationSeries",
+  "Notes",
+] as const;
 
 const OPTION_COLUMNS = [
   "IdQuestao_Itens",
@@ -69,7 +81,12 @@ export class SqliteLegacyLibraryReader implements LegacyLibraryReader {
         .query(`SELECT ${optionSelect} FROM Questao_Itens ORDER BY IdQuestao, Ordem`)
         .all() as RawLegacyOptionRow[];
 
-      return { capabilities, questions, options };
+      const publicationSelect = PUBLICATION_COLUMNS.map((column) => `"${column}"`).join(", ");
+      const publications = db
+        .query(`SELECT ${publicationSelect} FROM Publication ORDER BY idPublication`)
+        .all() as RawLegacyPublicationRow[];
+
+      return { capabilities, publications, questions, options };
     } finally {
       db.close();
     }

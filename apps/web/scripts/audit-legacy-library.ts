@@ -18,7 +18,9 @@ async function main(): Promise<void> {
 
   const audit = await auditLegacyLibrary(new SqliteLegacyLibraryReader(libraryPath));
 
-  console.log(`${audit.counts.questions} questão(ões), ${audit.counts.options} alternativa(s).`);
+  // "questions" aqui é toda linha de `Questao` — capítulo, seção e questão de fato, misturados.
+  // `map-legacy-library.ts` é quem separa: só nó com TipoQuestao positivo vira `PortableQuestion`.
+  console.log(`${audit.counts.questions} linha(s) de Questao (nós + questões), ${audit.counts.options} alternativa(s).`);
 
   if (audit.violations.length === 0) {
     console.log("Nenhuma invariante violada.");

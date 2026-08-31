@@ -8,9 +8,12 @@ export interface RawLegacyQuestionRow {
   readonly IdQuestao: number;
   readonly IdQuestao_Pai: number | null;
   readonly TipoQuestao: number;
+  /** Elo com `Publication` — o livro de verdade dentro da biblioteca. */
+  readonly idPublication: number;
   readonly Apelido: string | null;
   readonly latexQuestao: string | null;
   readonly latexResposta: string | null;
+  readonly latexOrigin: string | null;
   readonly latexComplemento?: string | null;
   readonly Dificuldade: number | null;
   readonly Numeracao: number | null;
@@ -34,8 +37,25 @@ export interface RawLegacyOptionRow {
   readonly latexResposta: string | null;
 }
 
+/**
+ * Uma linha de `Publication` — o livro de verdade (com ISBN, capa, UUID) dentro da biblioteca.
+ * Colunas confirmadas idênticas em três bibliotecas de formas diferentes (2026-08-31); nenhuma
+ * variação por capacidade observada, diferente de `Questao`.
+ */
+export interface RawLegacyPublicationRow {
+  readonly idPublication: number;
+  readonly PublicationName: string | null;
+  readonly UUID: string | null;
+  readonly ISBN: string | null;
+  readonly AuthorSort: string | null;
+  readonly PublicationNick: string | null;
+  readonly PublicationSeries: string | null;
+  readonly Notes: string | null;
+}
+
 export interface LegacyLibraryContents {
   readonly capabilities: LegacyCapabilities;
+  readonly publications: readonly RawLegacyPublicationRow[];
   readonly questions: readonly RawLegacyQuestionRow[];
   readonly options: readonly RawLegacyOptionRow[];
 }

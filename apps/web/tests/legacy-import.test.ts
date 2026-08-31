@@ -10,6 +10,7 @@ import {
   classifyNode,
   mapDifficulty,
   mapNumbering,
+  optionOrder,
   siblingOrder,
   UnknownTipoQuestaoError,
 } from "@modules/legacy-import/domain/legacy-mapping";
@@ -218,6 +219,40 @@ describe("a ordem vem de `IdQuestao`, nunca de `Ordem`", () => {
     const groups = siblingOrder(rows);
     expect(groups.get(null)).toHaveLength(1);
     expect(groups.get(1)).toHaveLength(2);
+  });
+});
+
+describe("a ordem das alternativas vem de `Ordem`, agrupada por questão", () => {
+  // Diferente do nó: aqui `Ordem` é real (a=1, b=2, ...), não vestigial em zero.
+  it("alternativas saem na ordem de `Ordem`, não na de inserção", () => {
+    const rows = [
+      { IdQuestao: 1, Ordem: 3 },
+      { IdQuestao: 1, Ordem: 1 },
+      { IdQuestao: 1, Ordem: 2 },
+    ];
+
+    const ordered = optionOrder(rows).get(1) ?? [];
+    expect(ordered.map((entry) => entry.row.Ordem)).toEqual([1, 2, 3]);
+  });
+
+  it("cada questão tem a própria sequência de alternativas", () => {
+    const rows = [
+      { IdQuestao: 1, Ordem: 1 },
+      { IdQuestao: 1, Ordem: 2 },
+      { IdQuestao: 2, Ordem: 1 },
+    ];
+
+    const groups = optionOrder(rows);
+    expect(groups.get(1)).toHaveLength(2);
+    expect(groups.get(2)).toHaveLength(1);
+  });
+
+  it("as `sortKey` saem crescentes e únicas dentro do grupo", () => {
+    const rows = Array.from({ length: 5 }, (_, i) => ({ IdQuestao: 1, Ordem: i }));
+    const keys = (optionOrder(rows).get(1) ?? []).map((entry) => entry.sortKey);
+
+    expect([...keys].sort()).toEqual(keys);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
 

@@ -97,11 +97,16 @@ export function questionColumnsFor(capabilities: LegacyCapabilities): readonly s
     "IdQuestao",
     "IdQuestao_Pai",
     "TipoQuestao",
+    // O elo com a tabela `Publication` — o livro de verdade dentro da biblioteca. Uma subárvore
+    // inteira (raiz e todos os descendentes) pertence a um único `idPublication`, confirmado por
+    // consulta recursiva nas bibliotecas reais em 2026-08-31.
+    "idPublication",
     // Não existe `Titulo` no schema real — `Apelido` é o campo com o rótulo (confirmado contra as
     // 11 bibliotecas em 2026-08-31; um `SELECT Titulo` teria falhado na primeira execução real).
     "Apelido",
     "latexQuestao",
     "latexResposta",
+    "latexOrigin",
     ...(capabilities.hasComplemento ? ["latexComplemento"] : []),
     "Dificuldade",
     "Numeracao",
@@ -123,16 +128,18 @@ export function questionColumnsFor(capabilities: LegacyCapabilities): readonly s
  * "decidiu descartar". Aqui é "não decidiu nada ainda": entram no relatório do próximo leitor real
  * como pendência, não como perda silenciosa.
  *
- * `Nivel`, `idPublication`, `Publicacao`, `Editora`: aparecem nas bibliotecas de livro-texto
- * (Cálculo, ProfMat) e parecem ligar a questão a uma publicação/capítulo de livro — não têm
- * equivalente óbvio no domínio novo ainda.
- * `Path`, `VideoLink`: sem uso conhecido no produto novo.
- * `latexOrigin`: existe em `Questao` **e** em `Questao_Itens` — pode ser o precursor do
- * `SourceAnchor` de hoje, mas isso é hipótese, não decisão.
+ * `idPublication` e `latexOrigin` **saíram** desta lista em 2026-08-31: o primeiro é o elo com a
+ * tabela `Publication` (o livro de verdade, com ISBN e capa — ver `map-legacy-library.ts`); o
+ * segundo mapeia limpo para `PortableQuestion.originalLatex`, que já existe no formato portável.
+ *
+ * `Nivel`, `Publicacao`, `Editora`: aparecem nas bibliotecas de livro-texto (Cálculo, ProfMat) e
+ * não têm equivalente óbvio no domínio novo ainda — `Editora` é candidata a `Question.publisher`,
+ * mas isso não foi confirmado contra valor real, só suposto.
+ * `Path`, `VideoLink`: `VideoLink` é candidato a `Question.videoUrl` (mesmo conceito), também não
+ * confirmado; `Path` sem uso conhecido no produto novo.
  */
 export const FIELDS_PENDING_MAPPING_DECISION: readonly string[] = [
   "Nivel",
-  "idPublication",
   "Publicacao",
   "Editora",
   "Path",

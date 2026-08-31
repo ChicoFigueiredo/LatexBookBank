@@ -12,9 +12,11 @@ const question = (over: Partial<RawLegacyQuestionRow> = {}): RawLegacyQuestionRo
   IdQuestao: 1,
   IdQuestao_Pai: null,
   TipoQuestao: -10,
+  idPublication: 1,
   Apelido: "Capítulo 1",
   latexQuestao: null,
   latexResposta: null,
+  latexOrigin: null,
   Dificuldade: 5,
   Numeracao: 0,
   Numeracao_Original: 0,
@@ -34,7 +36,10 @@ const option = (over: Partial<RawLegacyOptionRow> = {}): RawLegacyOptionRow => (
   ...over,
 });
 
-const fakeReader = (contents: Omit<LegacyLibraryContents, "capabilities">): LegacyLibraryReader => ({
+const fakeReader = (
+  contents: Partial<Omit<LegacyLibraryContents, "capabilities">> &
+    Pick<LegacyLibraryContents, "questions" | "options">,
+): LegacyLibraryReader => ({
   read: async () => ({
     capabilities: {
       generation: "latex_complemento",
@@ -43,6 +48,7 @@ const fakeReader = (contents: Omit<LegacyLibraryContents, "capabilities">): Lega
       hasBanca: true,
       hasMigrationsTable: true,
     },
+    publications: [],
     ...contents,
   }),
 });

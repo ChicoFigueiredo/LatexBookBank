@@ -1234,26 +1234,36 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - [ ] Relatório: assets ausentes
 
 **Mapeamento**
-- [ ] Biblioteca → `Workspace` (D11)
-- [ ] `Publication` com `legacyId` e `legacyUuid`
-- [ ] Autores
-- [ ] Editoras
-- [ ] Tags e tags de conhecimento
-- [ ] `Questao` → `DocumentNode` *(classificação pronta; falta a escrita)*
+- ✅ Biblioteca → `Workspace` (D11) *(2026-08-31 — `map-legacy-library.ts` + `MapLegacyLibraryOptions`)*
+- ✅ `Publication` com `legacyId` e `legacyUuid` *(achado maior do turno: uma biblioteca **não é**
+  um livro — é uma coleção. A tabela `Publication` real (UUID, ISBN, capa, `AuthorSort`) é o livro
+  de verdade; `Questao.idPublication` liga cada questão a um deles. Confirmado por consulta
+  recursiva contra o acervo real: uma subárvore inteira pertence a um único `idPublication`, nunca
+  mistura. Rodado contra Cesgranrio CAIXA: 2 publicações reais saíram do arquivo —
+  "Apostila 1200 Questões Cesgranrio" e "1000 Questões Caixa Econômica Federal")*
+- ✅ Autores *(`AuthorSort` → `authors[0]`, best-effort — não é uma lista estruturada no legado)*
+- ⛔ Editoras *(sem fonte clara — `Editora` existe em `Questao`, não em `Publication`; ver
+  `FIELDS_PENDING_MAPPING_DECISION`)*
+- ⛔ Tags e tags de conhecimento *(`TagConhecimento` detectada, ainda não lida nem mapeada)*
+- ✅ `Questao` → `DocumentNode` *(escrito — `mapLegacyLibrary`, 15 testes)*
 - ✅ `TipoQuestao` negativo → `NodeKind` estrutural
-- ✅ `TipoQuestao` positivo → `Question` *(tipo desconhecido **para** o import, não vira default)*
+- ✅ `TipoQuestao` positivo → `Question` *(tipo desconhecido vira exclusão relatada, não default —
+  decisão de 2026-08-31: não derruba a biblioteca inteira)*
 - ✅ **`Ordem` ignorada; ordem derivada de `IdQuestao`** — nem no `SELECT` ela entra
 - ✅ `sortKey` fracionário gerado
 - ✅ `Numeracao` → `numberingStyle`
 - ✅ `Numeracao_Original` → `originalLabel`
-- [ ] `Questao_Itens` → `QuestionOption`
-- [ ] `Marcacao` → `legacyMarcacao`, nunca como identidade
-- [ ] `Questao_Itens.Correta` → `isCorrect`
-- [ ] `Questao.Correta` ignorado
-- [ ] `IsExpanded`, `IsSelected`, `IdQuestao_Original` ignorados
+- ✅ `Questao_Itens` → `QuestionOption`
+- ✅ `Marcacao` → `legacyMarcacao`, nunca como identidade *(campo novo em `PortableOption`/
+  `RuntimeOption` — o schema Prisma já tinha `legacyMarcacao`, só a projeção portable/runtime não
+  carregava; ver commit `3a63dcc`)*
+- ✅ `Questao_Itens.Correta` → `isCorrect`
+- ✅ `Questao.Correta` ignorado
+- ✅ `IsExpanded`, `IsSelected`, `IdQuestao_Original` ignorados
 - ✅ Dificuldade na escala 0/2/5/7/10 *(fora da escala vira o meio e **avisa** que coagiu)*
-- [ ] Metadados de concurso (banca, instituição, cargo, nível, ano)
-- [ ] LaTeX: enunciado, resposta, complemento, origem
+- ✅ Metadados de concurso (banca, instituição, cargo, nível, ano) *(condicional — só bibliotecas
+  com `hasBanca`; livro-texto não tem essas colunas)*
+- ✅ LaTeX: enunciado, resposta, complemento, origem
 
 **Assets**
 - [ ] Gravados via `LocalFileStorageProvider`
@@ -1267,10 +1277,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Nenhum arquivo descartado silenciosamente
 
 **Execução**
-- [ ] Dry-run sem nenhuma escrita
-- [ ] Import idempotente por `legacyId` + `workspaceId`
+- ✅ Dry-run sem nenhuma escrita *(2026-08-31 — `dry-run-legacy-import.ts`, rodado contra Cesgranrio
+  CAIXA: mapeia, confere colisão contra o banco real via `toRuntime` + índice do destino, nenhuma
+  escrita. Reaproveita o pipeline do `.lbb` — nenhum caminho de escrita novo foi inventado)*
+- ◐ Import idempotente por `legacyId` + `workspaceId` *(a detecção de colisão já existe e foi
+  provada no dry-run — "nenhuma colisão, importaria tudo como novo"; falta rodar a escrita de
+  verdade duas vezes para provar a idempotência ponta a ponta)*
 - [ ] `ImportReport`: importados, atualizados, ignorados, inconsistentes, órfãos, assets ausentes
-- [ ] `legacyId` preservado após o import
+- [ ] `legacyId` preservado após o import *(depende da escrita real, ainda não executada)*
 
 **Invariantes afirmadas** *(falham ruidosamente se violadas)*
 - [ ] Toda questão de múltipla escolha tem exatamente uma alternativa correta
