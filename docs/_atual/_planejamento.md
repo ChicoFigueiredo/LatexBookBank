@@ -220,6 +220,10 @@ As branches do repositório `ChicoFigueiredo/e-matematica-Banco-Questoes` narram
 confirmam decisões deste plano:
 
 ```
+001-Fazendo-API                        ← só no GitLab
+002-Experimento-outras-interfaces      ← só no GitLab
+003-Matando-Aplicação-Anterior         ← só no GitLab
+004-publicacoes                        ← só no GitLab
 005-atualizando-CSharp-Net      → modernização da plataforma
 006-expandindo-quadro-questoes
 007-refatorando-texteditex      → editor LaTeX
@@ -238,9 +242,13 @@ Dois pontos relevantes:
 - O render legado (`LatexRender5`) usa exatamente `pdflatex` + `pdftocairo`, com uma fila
   (`Queue/LatexJob.cs`, `MonitorLoop.cs`) — a "coalescência embrionária" que a spec §2 menciona.
 
-> O repositório GitLab `bqcf/bqcf.windows` exige autenticação e não pôde ser lido. Se ele contiver
-> branches que não estão no GitHub, é preciso um token ou um clone local para incorporá-lo ao
-> estudo. Não bloqueia nenhuma fase.
+> **Correção de 2026-08-31**: a premissa abaixo estava errada. O repositório GitLab
+> `bqcf/bqcf.windows` **não** exige autenticação — há um clone local funcional em
+> `/mnt/p/e-Matematica/banco-questoes.windows`, com `remote gitlab` apontando exatamente para
+> `git@gitlab.com:bqcf/bqcf.windows.git` e todo o histórico já baixado (`refs/remotes/gitlab/*`).
+> As quatro branches `001`–`004` acima só existem lá, não no GitHub. Inspeção linha a linha do
+> conteúdo (o app WPF precursor, `BancoQuestoes.sln`) fica fora de escopo por decisão do Chico —
+> é a origem documentada do desejo do produto, não trabalho pendente. Não bloqueia nenhuma fase.
 
 ### 2.7 Design system
 
@@ -1524,7 +1532,7 @@ repositório; nenhuma configuração de infraestrutura hard-coded.
 | **Backup recorrente falhar em silêncio** | Média | D32: backup usa o mesmo escritor da exportação e é coberto pelo teste de round-trip; falha de backup aparece na página de diagnóstico |
 | Árvore grande trava a UI | Baixa | Virtualização na Fase 2, antes de existir volume |
 | ~~Custo de storage em nuvem~~ | **Eliminado** | §2.10: o acervo tem 109 MB |
-| GitLab inacessível esconde trabalho relevante | Baixa | Não bloqueia nenhuma fase; resolver com token se necessário |
+| ~~GitLab inacessível esconde trabalho relevante~~ | **Eliminado** | §2.6: era premissa errada — clone local acessível desde sempre, sem token |
 
 ---
 

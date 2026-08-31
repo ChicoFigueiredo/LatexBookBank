@@ -21,10 +21,12 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso:** 861 ✅ · 5 ◐ · 14 ⛔ · 122 `[ ]` — e **110 dos 126 abertos estão em quatro blocos que
-não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (41, parada
-no acervo que não está nesta máquina), o §33 "Legado" (8, o mesmo motivo) e a conferência visual
-(20, que é do Chico). **Não sobra item de código sem decisão sua ou sem o acervo.**
+**Progresso:** 867 ✅ · 5 ◐ · 14 ⛔ · 116 `[ ]` — e **104 dos 120 abertos estão em quatro blocos que
+não são trabalho de código**: a Fase 6.5 (42, parada na decisão de storage), a Fase 11 (35 — a
+premissa de que o acervo não está nesta máquina **caiu em 2026-08-31**: `/mnt/t/KnowChico` está
+acessível e o scanner de bibliotecas já roda contra ele; o que falta agora é ler questão, não acesso),
+o §33 "Legado" (8, mesmo levantamento) e a conferência visual (20, que é do Chico). **Não sobra
+item de código sem decisão sua ou sem o resto do import.**
 **Última atualização:** 2026-08-11 — **o que do checklist visual é medida** (#197): transbordo
 horizontal é fato, não gosto. A aritmética que o checklist trazia desde a Fase 1 foi conferida numa
 tela — 217 + 281 + 432 —, e a leitura dos seis estados vazios achou um dizendo "na Fase 3" para
@@ -257,7 +259,7 @@ esse é o pior lugar possível para uma mudança se esconder.
 | — prova arquitetural | **◐6.5** | schema PostgreSQL provado; storage parado na decisão |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
-| D — acervo legado e portabilidade | **⛔11** · ✅12 · **◐13** | a 11 depende do acervo; a 13 só não mostra progresso |
+| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem o scanner de bibliotecas provado contra o acervo real; falta ler questão; a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
 
@@ -275,7 +277,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
 | **06** ingestão visual | 14 · 15 | 41 | 1 | — | — | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
-| **08** legado | 11 | 17 | — | — | 41 | ⛔ de fato: **o acervo não está nesta máquina** |
+| **08** legado | 11 | 23 | — | — | 35 | scanner de bibliotecas provado contra o acervo real (2026-08-31); falta ler questão |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
@@ -312,7 +314,11 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Contrato do renderer definido como storage-agnostic: `RenderBundle` → `RenderResult` (D35)
 - ✅ Backup separado do processo do renderer (D36)
 - ✅ `.lbb` definido com Portable Schema versionado (D37)
-- ⛔ Repositório GitLab `bqcf/bqcf.windows` inspecionado *(exige autenticação; não bloqueia nenhuma fase)*
+- ✅ Repositório GitLab `bqcf/bqcf.windows` acessível *(correção de 2026-08-31: a premissa de que exige
+  autenticação estava errada — há um clone local em `/mnt/p/e-Matematica/banco-questoes.windows` com
+  o histórico completo, incluindo 4 branches que nunca foram para o GitHub. Inspeção linha a linha
+  fica fora de escopo por decisão do Chico; é material histórico do desejo original do produto, não
+  trabalho pendente)*
 - [ ] Parecer específico sobre D33/D34 *(suspensas; o parecer não as menciona)*
 - [ ] Destino cloud dos assets escolhido quando for a hora: Vercel Blob × DO Spaces
 
@@ -1180,11 +1186,18 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 ### Fase 11 — Importação do legado *(roda localmente — auditoria §43)*
 
 **Escopo do scanner** *(§2.10)*
-- [ ] Detecta bibliotecas a partir de `padrao.knowchicoconfig`
-- [ ] `ITA/Material` (3,2 GB) explicitamente ignorado
-- [ ] `Listas/` (327 MB, repos git de terceiros) explicitamente ignorado
-- [ ] O relatório declara o que foi ignorado e por quê
-- [ ] Importador tem acesso direto ao filesystem — nenhum upload exigido para começar
+- ✅ Detecta bibliotecas a partir de `padrao.knowchicoconfig` *(2026-08-31 —
+  `scan-legacy-acervo.ts`; rodado contra o acervo real: as 11 bibliotecas registradas, todas com
+  metadata presente)*
+- ✅ `ITA/Material` (3,2 GB) explicitamente ignorado *(não está registrado no config; o scanner
+  reporta `ITA` como pasta ignorada, com motivo — sem caso especial no código)*
+- ✅ `Listas/` (327 MB, repos git de terceiros) explicitamente ignorado *(mesmo mecanismo — não
+  registrado, reportado como ignorado)*
+- ✅ O relatório declara o que foi ignorado e por quê *(achado extra rodando contra o acervo real:
+  `_Antigos/` também aparece — cópias desatualizadas de duas bibliotecas que já têm versão
+  corrente registrada; o próprio mecanismo pegou um caso que a auditoria original não previu)*
+- ✅ Importador tem acesso direto ao filesystem — nenhum upload exigido para começar *(lê
+  `/mnt/t/KnowChico` diretamente via `LEGACY_ACERVO_ROOT`)*
 
 **Leitura segura**
 - [ ] Banco legado aberto estritamente read-only *(padrão já provado na Fase 4 com `immutable=1`)*
@@ -1196,7 +1209,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Campos ausentes degradam sem quebrar *(a **coluna** manda sobre o registro de migração)*
 
 **Scanner**
-- [ ] Detecta bibliotecas a partir de `padrao.knowchicoconfig`
+- ✅ Detecta bibliotecas a partir de `padrao.knowchicoconfig` *(mesma prova do bloco acima)*
 - [ ] Conta tabelas e linhas
 - [ ] Relatório de integridade: questões órfãs
 - [ ] Relatório: pais ausentes
