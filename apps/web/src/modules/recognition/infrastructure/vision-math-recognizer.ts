@@ -32,16 +32,30 @@ export interface VisionRecognizerConfig {
 /** Dois minutos: um modelo local de visão frio demora, e cortar antes desperdiça a carga. */
 const DEFAULT_TIMEOUT_MS = 120_000;
 
+/**
+ * O aviso sobre repetição e corte é comum aos três modos matemáticos — é onde
+ * `docs/_atual/recognition-benchmark.md` achou erro de verdade contra o `gemma3:12b`: dígito
+ * truncado e sinal trocado sempre numa soma ou fração repetida com "...", e conteúdo inventado
+ * quando o recorte vem cortado antes do fim. O modelo nunca vai dizer sozinho "isto está
+ * incompleto" — só o prompt pode pedir isso.
+ */
+const AVISO_REPETICAO_E_CORTE =
+  "Se a fórmula tiver termos repetidos com reticências (somas ou frações do tipo " +
+  "\"a + b + ... + z\"), confira cada dígito e cada sinal antes de responder — é onde erros " +
+  "acontecem. Se a imagem parecer cortada ou incompleta, transcreva só o que está visível: nunca " +
+  "complete o padrão com conteúdo que não está na imagem.";
+
 const PROMPTS: Readonly<Record<MathRecognitionRequest["mode"], string>> = {
   display:
     "Transcreva a fórmula matemática desta imagem em LaTeX. Responda **apenas** com o LaTeX da " +
-    "fórmula, sem `$`, sem `\\[`, sem explicação e sem cercas de código.",
+    `fórmula, sem \`$\`, sem \`\\[\`, sem explicação e sem cercas de código. ${AVISO_REPETICAO_E_CORTE}`,
   inline:
     "Transcreva a expressão matemática desta imagem em LaTeX, para uso em linha. Responda " +
-    "**apenas** com o LaTeX, sem `$` e sem explicação.",
+    `**apenas** com o LaTeX, sem \`$\` e sem explicação. ${AVISO_REPETICAO_E_CORTE}`,
   mixed:
     "Transcreva o conteúdo desta imagem em LaTeX, preservando o texto em português e escrevendo " +
-    "as fórmulas entre `$`. Responda **apenas** com a transcrição, sem explicação e sem cercas.",
+    "as fórmulas entre `$`. Responda **apenas** com a transcrição, sem explicação e sem cercas. " +
+    AVISO_REPETICAO_E_CORTE,
   // O prompt pede texto **puro**, e não LaTeX: pedir LaTeX aqui faria o modelo inventar marcação
   // onde não há. A tradução para LaTeX acontece no escape, que é determinístico — e determinismo é
   // o que se quer para os dez caracteres que mudam o significado do documento.
