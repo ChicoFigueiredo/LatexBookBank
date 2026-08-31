@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { PrismaLibSql } from "@prisma/adapter-libsql";
@@ -12,9 +12,10 @@ import { LocalFileStorageProvider } from "../src/infrastructure/storage/local/lo
  * tabelas do `.knowchico`), nunca tocou o filesystem da biblioteca.
  *
  * `<Título>.detail.json` está **vazio em toda publicação checada** (2026-08-31) — não há
- * metadata para trazer. `cover.jpg` é real (60 KB–600 KB, JPEG de verdade); só ele é gravado aqui.
+ * metadata para trazer. `cover.jpg`/`cover.png` são reais; um PDF fonte solto na pasta (achado
+ * numa das 8, `Prof-Mat/pub0000000008`) também é — os dois são gravados aqui.
  *
- *     bun run scripts/backfill-legacy-covers.ts
+ *     bun run scripts/backfill-legacy-assets.ts
  */
 async function main(): Promise<void> {
   const url = process.env["DATABASE_URL"];
@@ -32,7 +33,9 @@ async function main(): Promise<void> {
         id: true,
         name: true,
         legacySourcePath: true,
-        publications: { select: { id: true, legacyId: true, coverAssetId: true } },
+        publications: {
+          select: { id: true, legacyId: true, coverAssetId: true, sourcePdfAssetId: true },
+        },
       },
     });
 
@@ -87,6 +90,56 @@ async function main(): Promise<void> {
         });
 
         console.log(`✅ ${workspace.name} / pub${publication.legacyId}: capa gravada (${stored.sizeBytes} bytes)`);
+      }
+
+      // PDF fonte: um arquivo `.pdf` solto direto na pasta `pub<N>` (não dentro de `idQuestionM/`,
+      // que é conteúdo por questão, não da publicação). Achado numa só das 8 reais — a maioria
+      // não tem PDF fonte no filesystem, só o registro de Publication.
+      for (const publication of workspace.publications) {
+        if (publication.sourcePdfAssetId !== null || publication.legacyId === null) continue;
+
+        const folder = `pub${String(publication.legacyId).padStart(10, "0")}`;
+        const pubDir = path.join(libraryDir, folder);
+
+        let pdfFilename: string | null = null;
+        try {
+          const entries = await readdir(pubDir, { withFileTypes: true });
+          pdfFilename =
+            entries.find((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".pdf"))
+              ?.name ?? null;
+        } catch {
+          continue;
+        }
+        if (pdfFilename === null) continue;
+
+        const bytes = new Uint8Array(await readFile(path.join(pubDir, pdfFilename)));
+        const stored = await storage.put({
+          workspaceId: workspace.id,
+          content: bytes,
+          mimeType: "application/pdf",
+        });
+
+        const asset = await prisma.asset.create({
+          data: {
+            workspaceId: workspace.id,
+            publicationId: publication.id,
+            kind: "SOURCE_PDF",
+            storageKey: stored.storageKey,
+            mimeType: "application/pdf",
+            sha256: stored.sha256,
+            sizeBytes: stored.sizeBytes,
+          },
+          select: { id: true },
+        });
+
+        await prisma.publication.update({
+          where: { id: publication.id },
+          data: { sourcePdfAssetId: asset.id },
+        });
+
+        console.log(
+          `✅ ${workspace.name} / pub${publication.legacyId}: PDF fonte gravado (${pdfFilename}, ${stored.sizeBytes} bytes)`,
+        );
       }
     }
   } finally {

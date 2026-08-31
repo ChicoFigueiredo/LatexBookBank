@@ -21,12 +21,13 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso (2026-08-31, fim do dia):** 923 ✅ · 9 ◐ · 15 ⛔ · 71 `[ ]`. A Fase 11 (legado) fechou
-quase inteira: as 11 bibliotecas escritas, as 8 publicações reais com capa, Editoras/Tags/metadata
-checadas e confirmadas como ausência real de dado (não pendência). Falta só o PDF fonte de pelo
-menos uma publicação (achado, não importado) e o relatório formal de assets. Os blocos que ainda
-dependem só do Chico: a Fase 6.5 (42, decisão de storage) e a conferência visual (20, "é do
-Chico"). **Não sobra item de código de import sem decisão sua.**
+**Progresso (2026-08-31, fim do dia):** 928 ✅ · 7 ◐ · 15 ⛔ · 68 `[ ]`. A Fase 11 (legado) fecha
+praticamente inteira nesta sessão: as 11 bibliotecas lidas, mapeadas e escritas de verdade no banco
+de desenvolvimento; as 8 publicações reais com capa e o único PDF fonte que existia no filesystem;
+Editoras, Tags e metadata checadas e confirmadas como ausência real de dado, não pendência de
+mapeamento. Sobra uma linha (relatório formal de assets ausentes). Os blocos que ainda dependem só
+do Chico: a Fase 6.5 (42, decisão de storage) e a conferência visual (20, "é do Chico"). **Não
+sobra item de código de import sem decisão sua.**
 **Última atualização:** 2026-08-11 — **o que do checklist visual é medida** (#197): transbordo
 horizontal é fato, não gosto. A aritmética que o checklist trazia desde a Fase 1 foi conferida numa
 tela — 217 + 281 + 432 —, e a leitura dos seis estados vazios achou um dizendo "na Fase 3" para
@@ -277,7 +278,7 @@ estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 conti
 | **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
 | **06** ingestão visual | 14 · 15 | 41 | 1 | — | — | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
-| **08** legado | 11 | 52 | 3 | 2 | 4 | as 11 bibliotecas escritas, as 8 publicações reais com capa; falta só PDF fonte e relatório de asset |
+| **08** legado | 11 | 56 | 2 | 2 | 1 | fechada: 11 bibliotecas, 8 publicações com capa e PDF fonte quando existe; só falta relatório formal de assets ausentes |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
@@ -1200,8 +1201,9 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   `/mnt/t/KnowChico` diretamente via `LEGACY_ACERVO_ROOT`)*
 
 **Leitura segura**
-- [ ] Banco legado aberto estritamente read-only *(padrão já provado na Fase 4 com `immutable=1`)*
-- [ ] Originais nunca modificados
+- ✅ Banco legado aberto estritamente read-only *(mesmo padrão da Fase 4, `immutable=1` +
+  `SQLITE_OPEN_READONLY`, nos três leitores: config, biblioteca e opção)*
+- ✅ Originais nunca modificados *(read-only por construção; os 11 `.knowchico` seguem intactos)*
 - ✅ Detecção da geração de schema por biblioteca
 - ✅ Geração `add_LatexComplemento` suportada (10 bibliotecas)
 - ✅ Geração `Questao_Imagens_Completa` suportada (2 bibliotecas)
@@ -1281,11 +1283,12 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   arquivo)*
 - ✅ `preview.png` **não** importado (é cache de render)
 - ✅ Fontes de figura classificadas por tipo: gnuplot, pgf, asymptote, geogebra, tpx, tex, table, svg, eps
-- ◐ PDFs → `Asset(SOURCE_PDF)` *(a classificação pura existe e é testada; a **escrita** ainda não
-  aconteceu — achei pelo menos um PDF fonte real (`Prof-Mat/pub0000000008/…Prova-com-solucoes.pdf`)
-  rodando o backfill de capas, não foi importado ainda)*
-- [ ] Relatório do que caiu em `ATTACHMENT` por falta de classificação *(a função existe e é
-  testada; nenhum script real gerou esse relatório contra o acervo ainda)*
+- ✅ PDFs → `Asset(SOURCE_PDF)` *(escrito — `backfill-legacy-assets.ts` achou e gravou o único PDF
+  fonte real do acervo, em `Prof-Mat/pub0000000008`; as outras 7 publicações reais não têm PDF
+  solto no filesystem, só o registro de `Publication`)*
+- ✅ Relatório do que caiu em `ATTACHMENT` por falta de classificação *(a função existe e é
+  testada; checado que não há caso real para ela nas 8 publicações reais — nenhum arquivo fora de
+  capa/PDF/`.detail.json` apareceu no filesystem de nenhuma)*
 - ✅ Nenhum arquivo descartado silenciosamente
 
 **Execução**
@@ -1858,8 +1861,8 @@ escritas de verdade no banco de desenvolvimento.*
 - ✅ Import árvore *(281 nós — capítulo/seção/questão, com `sortKey` fracionário e numeração)*
 - ✅ Import questões *(225 questões)*
 - ✅ Import alternativas e correta *(1100 alternativas, gabarito preservado)*
-- ◐ Import metadata *(banca/instituição/cargo/ano entram quando existem; editora e tags de
-  conhecimento ainda não têm mapeamento decidido)*
+- ✅ Import metadata *(banca/instituição/cargo/ano entram quando existem; editora e tags de
+  conhecimento checadas e confirmadas vazias em todo o acervo — nada para mapear)*
 - ✅ Import snippets LaTeX *(enunciado, resposta, complemento e origem — `latexQuestao`,
   `latexResposta`, `latexComplemento`, `latexOrigin`)*
 - ✅ Relatório *(console do script: publicações, exclusões por invariante com motivo e legacyId,
