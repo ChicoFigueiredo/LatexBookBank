@@ -214,6 +214,71 @@ export async function importFromCatalog(
   };
 }
 
+/**
+ * Importar vários livros do catálogo de uma vez (§ "o Calibre ainda não faz" — beta-editorial.md).
+ *
+ * Não é `Promise.all`: os livros entram **um de cada vez**, de propósito. `deps.existing` consulta
+ * o banco de novo a cada chamada de `importFromCatalog`, e é isso que faz o terceiro livro do lote
+ * enxergar o primeiro como duplicata se os dois forem o mesmo título — em paralelo, os três
+ * consultariam o banco **antes** de qualquer um ter sido escrito, e nenhum veria os outros.
+ *
+ * Um livro que falha não derruba o lote: a pessoa que importa dez livros de um catálogo não quer
+ * perder os nove bons porque o décimo tinha ISBN estranho ou já existe — quer saber qual foi e
+ * seguir com o resto.
+ */
+export interface ImportManyFromCatalogCommand {
+  readonly libraryId: string;
+  readonly externalIds: readonly string[];
+  readonly formats?: readonly string[];
+  readonly force?: boolean;
+  readonly maxYear: number;
+  readonly now: Date;
+}
+
+export type ImportManyOutcome =
+  | { readonly kind: "imported"; readonly result: ImportFromCatalogResult }
+  | { readonly kind: "failed"; readonly message: string };
+
+export interface ImportManyResult {
+  readonly externalId: string;
+  readonly outcome: ImportManyOutcome;
+}
+
+export interface ImportManyFromCatalogReport {
+  readonly results: readonly ImportManyResult[];
+}
+
+export async function importManyFromCatalog(
+  deps: Deps,
+  command: ImportManyFromCatalogCommand,
+): Promise<ImportManyFromCatalogReport> {
+  const results: ImportManyResult[] = [];
+
+  for (const externalId of command.externalIds) {
+    try {
+      const result = await importFromCatalog(deps, {
+        libraryId: command.libraryId,
+        externalId,
+        ...(command.formats !== undefined ? { formats: command.formats } : {}),
+        force: command.force ?? false,
+        maxYear: command.maxYear,
+        now: command.now,
+      });
+      results.push({ externalId, outcome: { kind: "imported", result } });
+    } catch (error) {
+      results.push({
+        externalId,
+        outcome: {
+          kind: "failed",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
+  return { results };
+}
+
 /** O que a tela do catálogo mostra antes de importar. */
 export async function browseCatalog(
   catalog: LibraryCatalogProvider,

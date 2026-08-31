@@ -151,7 +151,12 @@ A verificação **não** destruiu o banco de desenvolvimento: ela subiu a aplica
 
 - Só o **PDF** é copiado como fonte. EPUB e MOBI aparecem na lista e ficam no Calibre — o contrato
   aceita outros formatos (`formats` no comando), e falta a tela oferecer a escolha.
-- Não há **importação em lote**. Um livro por vez, que é o ritmo de quem revisa metadados.
+- ◐ **Importação em lote** — o backend fechou em 2026-08-31 (`importManyFromCatalog`, rota
+  `POST /api/catalog/import-batch`): livros entram um de cada vez **de propósito** (não
+  `Promise.all` — é o que faz o segundo livro do lote enxergar o primeiro como duplicata), e um
+  livro ruim não derruba o lote, só aparece como `failed` no relatório com o motivo. **A tela
+  ainda só deixa escolher um livro por vez** — expor seleção múltipla em `import-screen.tsx` é
+  decisão de UX que não foi tomada aqui, fica para quem desenhar a tela.
 
 ### P2 — evolução
 
