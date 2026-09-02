@@ -35,7 +35,12 @@ import type { MathRecognitionResult } from "@/shared/ports";
 
 const CSS = `
 .lbb-ing{display:grid;gap:var(--space-4);padding:var(--space-4);min-height:0}
-.lbb-ing-viewer{height:32rem;border:1px solid var(--border-default);border-radius:var(--radius-md);overflow:hidden}
+/* A altura acompanha a janela, e não um número fixo: recortar exige **ver** a questão inteira, e
+   32rem cravados desperdiçavam meia tela num monitor grande — a página ficava cortada no meio da
+   questão seguinte com espaço em branco sobrando embaixo (dogfooding da prova ProfMat, 2026-09-02).
+   Enquanto se recorta, nada disputa espaço: a área de revisão só nasce depois do recorte. O piso de
+   24rem protege a janela baixa, e o teto de 60rem evita a página virar um monólito em 4K. */
+.lbb-ing-viewer{height:clamp(24rem,calc(100vh - 16rem),60rem);border:1px solid var(--border-default);border-radius:var(--radius-md);overflow:hidden}
 .lbb-ing-review{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);align-items:start}
 .lbb-ing-crop{border:1px solid var(--border-default);border-radius:var(--radius-md);padding:var(--space-2);background:var(--surface-paper);display:grid;place-items:center;min-height:8rem}
 .lbb-ing-latex{width:100%;min-height:8rem;padding:8px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-raised);color:var(--text-primary);font-family:var(--font-mono);font-size:var(--text-body-sm)}
