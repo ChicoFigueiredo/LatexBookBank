@@ -21,13 +21,14 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso (2026-08-31, fim do dia):** 928 ✅ · 7 ◐ · 15 ⛔ · 68 `[ ]`. A Fase 11 (legado) fecha
-praticamente inteira nesta sessão: as 11 bibliotecas lidas, mapeadas e escritas de verdade no banco
-de desenvolvimento; as 8 publicações reais com capa e o único PDF fonte que existia no filesystem;
-Editoras, Tags e metadata checadas e confirmadas como ausência real de dado, não pendência de
-mapeamento. Sobra uma linha (relatório formal de assets ausentes). Os blocos que ainda dependem só
-do Chico: a Fase 6.5 (42, decisão de storage) e a conferência visual (20, "é do Chico"). **Não
-sobra item de código de import sem decisão sua.**
+**Progresso (2026-09-02):** 930 ✅ · 7 ◐ · 13 ⛔ · 68 `[ ]`. Rodada de decisões do Chico fechou
+quatro pendências que esperavam por ele: as 7 questões sem gabarito importam como inconsistentes
+(ratificando o que o código já fazia); as 12 órfãs de seed foram apagadas com relatório
+(`delete-orphan-questions.ts`); o benchmark da Fase 12 fechou como resolvido (o corpus sintético
+670× maior já era decisivo); e a decisão de storage cloud foi **adiada formalmente** — sai da
+lista de "esperando o Chico" sem fingir resolução. Segmentação automática de página: adiada de
+novo, com critério de retorno registrado na Fase 15. Próximo movimento combinado: UI de
+importação em lote do Calibre e dogfooding de captura com a prova ProfMat.
 **Última atualização:** 2026-08-11 — **o que do checklist visual é medida** (#197): transbordo
 horizontal é fato, não gosto. A aritmética que o checklist trazia desde a Fase 1 foi conferida numa
 tela — 217 + 281 + 432 —, e a leitura dos seis estados vazios achou um dizendo "na Fase 3" para
@@ -321,7 +322,10 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   fica fora de escopo por decisão do Chico; é material histórico do desejo original do produto, não
   trabalho pendente)*
 - [ ] Parecer específico sobre D33/D34 *(suspensas; o parecer não as menciona)*
-- [ ] Destino cloud dos assets escolhido quando for a hora: Vercel Blob × DO Spaces
+- [ ] Destino cloud dos assets escolhido quando for a hora: Vercel Blob × DO Spaces *(**adiada
+  formalmente em 2026-09-02**, por decisão do Chico: o projeto é local-first sem meta de venda, e
+  escolher provedor hoje seria decidir no vácuo, sem requisito de custo nem de volume. Deixa de
+  contar como "esperando o Chico" — volta à mesa quando existir necessidade cloud real)*
 
 ---
 
@@ -900,14 +904,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 **Ambiente experimental (efêmero)** *(#77)*
 - ⛔ Neon PostgreSQL provisionado — *exige conta; o spike usou PostgreSQL 16.14 em Docker, mesmo motor e mesma família de colação, outro provedor*
-- ⛔ Vercel Blob provisionado — *exige credencial **e** a decisão sobre o destino dos assets na nuvem (Vercel Blob × DO Spaces), que continua sendo do Chico*
+- ⛔ Vercel Blob provisionado — *exige credencial **e** a decisão sobre o destino dos assets na nuvem (Vercel Blob × DO Spaces), **adiada formalmente em 2026-09-02** até existir necessidade cloud real — ver §0 Pré-requisitos*
 - ✅ PostgreSQL em Docker `28432`
 - ✅ Ambiente principal permaneceu local e intocado
 - ✅ Tudo derrubado ao fim, mantendo só o relatório
 
 **Os dois pares**
 - ◐ `SQLite ↕ PostgreSQL` — *schema traduzido e o D38 provado na tabela real; falta a suíte de integração (ver bloqueio do `db push` abaixo)*
-- ⛔ `LocalFileStorage ↕ Vercel Blob` — *bloqueado pela decisão e pela credencial*
+- ⛔ `LocalFileStorage ↕ Vercel Blob` — *bloqueado pela decisão e pela credencial; a decisão foi **adiada formalmente em 2026-09-02** (ver §0 Pré-requisitos), então este par espera a necessidade cloud, não o Chico*
 
 **O achado da fase** *(#77)*
 - ✅ **D38 provado empiricamente, na tabela `document_nodes` real** *(`ANTES: a0 a1 a2 a3 a4 Zv Zw Zx Zy ZyG ZyV Zz` — invertido; `DEPOIS: Zv Zw … a0 a1 …` — igual ao SQLite, com a **mesma consulta**, mudando só a colação da coluna)*
@@ -1224,15 +1228,17 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Conta tabelas e linhas *(2026-08-31 — `audit-legacy-library.ts`, rodado contra as 11
   bibliotecas: 288 questões, 1212 alternativas no total. `Livros de Matemática`, `Provas ENEM`,
   `Ingles` e `Pré-Cálculo` estão com 0 questões — registradas, com metadata presente, mas vazias;
-  o conteúdo correspondente pode estar só nas cópias antigas de `_Antigos/`, não investigado)*
+  o conteúdo correspondente pode estar só nas cópias antigas de `_Antigos/` — **investigado em
+  2026-09-02**: `_Antigos/Livros/Matematica` tem 4 questões e `_Antigos/Provas/ENEM` tem 5, resíduo
+  de teste antigo, não tesouro; Ingles e Pré-Cálculo nem cópia antiga têm. Nada a resgatar)*
 - ✅ Relatório de integridade: questões órfãs *(checado nas 11 — zero violações)*
 - ✅ Relatório: pais ausentes *(checado nas 11 — zero violações)*
-- ⛔ Relatório: alternativas inválidas *(achado real, não hipotético: **7 questões em 3
+- ✅ Relatório: alternativas inválidas *(achado real, não hipotético: **7 questões em 3
   bibliotecas** — ProfMat (2), Cesgranrio CAIXA (2), Mat-Financeira (3) — são múltipla escolha
-  sem nenhuma alternativa marcada correta. Contradiz `import-invariants.ts`, que afirma "gabarito
-  perfeito, 230 para 230, nenhuma sem gabarito" — essa afirmação não se sustentou contra o dado
-  real. Falta decidir: o import recusa a biblioteca inteira, ou importa o resto e reporta essas 7
-  como `inconsistentes` — decisão do Chico, não escolha unilateral)*
+  sem nenhuma alternativa marcada correta. **Decisão do Chico em 2026-09-02: importar o resto e
+  reportar as 7 como inconsistentes** — que é o que `map-legacy-library.ts` já fazia (excluir +
+  rastrear razão por `legacyId`), agora com ratificação em vez de escolha unilateral. As 11
+  bibliotecas no banco de dev foram escritas exatamente assim)*
 - [ ] Relatório: assets ausentes
 
 **Mapeamento**
@@ -1367,12 +1373,17 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   questão de nó **excluído** (a árvore a esconde por `deletedAt`) e questão **órfã**, sem nó
   nenhum. A órfã é o caso grave: `Question` só alcança workspace pelo nó, então sem nó ela não tem
   dono — não é exportada, não é escopada pelo guarda da #175, não aparece em tela alguma. Na
-  paleta, a mesma questão aparecia seis vezes. O que fazer com o conteúdo órfão continua sendo
-  decisão do Chico; aqui se decidiu só o que a busca mostra)*
+  paleta, a mesma questão aparecia seis vezes. **Decisão de 2026-09-02: apagar** — as 12 órfãs
+  eram resíduo de seed de 2026-08-10/11, sem `legacyId`, sem apelido, sem asset/render/revisão;
+  `delete-orphan-questions.ts` listou, apagou (12 questões, 29 alternativas) e a segunda rodada
+  confirmou zero. O script fica: dry-run por padrão, `CONFIRM=yes` para apagar, e aborta sozinho
+  se uma órfã tiver histórico — essa não é lixo, é trabalho perdido a investigar)*
 - ✅ Avaliação do FTS5 do SQLite
-- ⛔ Benchmark sobre o **acervo importado** — o acervo não está nesta máquina. Rodou sobre corpus
-  sintético de 20 mil e 200 mil questões (670× o acervo real), que é o que responde a pergunta
-  "qual motor"
+- ✅ Benchmark sobre o **acervo importado** *(fechado por decisão de 2026-09-02: o ⛔ dizia "o
+  acervo não está nesta máquina", e desde a Fase 11 está — 8 publicações, 225 questões. Re-rodar
+  contra 225 questões reais não mudaria a resposta que o benchmark existe para dar ("qual motor"):
+  o corpus sintético de 20 mil e 200 mil questões é 670× maior que o real e já foi decisivo.
+  Resolvido sem re-execução, com o motivo registrado)*
 - ✅ Decisão documentada com números → `docs/_atual/search-benchmark.md`
 - ✅ `QuestionSearchService` permanece agnóstico — sem SQL cru, sem `MATCH`
 
@@ -1528,6 +1539,14 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 ---
 
 ### Fase 15 — Reconhecimento matemático
+
+> **Segmentação automática de página — adiada de novo, agora com data e critério (2026-09-02).**
+> A especificação (§21 do prompt Beta Editorial) já fixava o P0 como "crop manual + reconhecimento
+> automático" e mandava não bloquear o Beta por ela. A decisão do Chico reafirma: não fazer agora.
+> O critério de retorno também ficou definido: ela volta à mesa **quando o dogfooding de captura
+> (prova ProfMat, decidido na mesma conversa) mostrar com dado real que o gargalo é o recorte
+> manual** — e não antes, porque com 225 questões na base o ganho de automatizar recorte é
+> especulativo e o custo de visão computacional de layout é o mais incerto da fila.
 
 - ✅ `MathRecognitionProvider` definido
 - ✅ Resultado com latex, confidence, alternatives, provider, model e duração
