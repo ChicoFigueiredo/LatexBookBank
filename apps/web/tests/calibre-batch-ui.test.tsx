@@ -189,7 +189,14 @@ describe("seleção múltipla", () => {
   });
 
   it("marcar de novo desmarca, e Selecionar visíveis pega o que os filtros deixaram", async () => {
-    const livros = [entrada(1), entrada(2), entrada(3)];
+    // O terceiro livro só tem EPUB de propósito: com o filtro PDF ativo ele some da lista, e é
+    // isso que o teste prova — "visíveis" é o que o filtro deixou, não o catálogo inteiro. Sem um
+    // livro filtrável, o teste passaria mesmo se a seleção em massa ignorasse o filtro.
+    const livros = [
+      entrada(1),
+      entrada(2),
+      entrada(3, { files: [{ format: "EPUB", sizeBytes: 1024 * 1024 }] }),
+    ];
     stubFetch(CATALOGO(livros));
 
     render(<CalibreScreen library={LIBRARY} />);
@@ -200,8 +207,9 @@ describe("seleção múltipla", () => {
     fireEvent.click(screen.getByText("Livro 1"));
     expect(screen.queryByText(/na seleção/)).toBeNull();
 
+    fireEvent.click(screen.getByRole("button", { name: "PDF" }));
     fireEvent.click(screen.getByRole("button", { name: "Selecionar visíveis" }));
-    expect(screen.getByText(/3 na seleção/)).toBeTruthy();
+    expect(screen.getByText(/2 na seleção/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Limpar seleção" }));
     expect(screen.queryByText(/na seleção/)).toBeNull();
