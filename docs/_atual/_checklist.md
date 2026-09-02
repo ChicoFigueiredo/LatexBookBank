@@ -21,14 +21,18 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso (2026-09-02):** 930 ✅ · 7 ◐ · 13 ⛔ · 68 `[ ]`. Rodada de decisões do Chico fechou
-quatro pendências que esperavam por ele: as 7 questões sem gabarito importam como inconsistentes
-(ratificando o que o código já fazia); as 12 órfãs de seed foram apagadas com relatório
-(`delete-orphan-questions.ts`); o benchmark da Fase 12 fechou como resolvido (o corpus sintético
-670× maior já era decisivo); e a decisão de storage cloud foi **adiada formalmente** — sai da
-lista de "esperando o Chico" sem fingir resolução. Segmentação automática de página: adiada de
-novo, com critério de retorno registrado na Fase 15. Próximo movimento combinado: UI de
-importação em lote do Calibre e dogfooding de captura com a prova ProfMat.
+**Progresso (2026-09-02, fim do dia):** 932 ✅ · 7 ◐ · 12 ⛔ · 68 `[ ]`. Duas rodadas no mesmo
+dia. **Manhã** (decisões do Chico): 7 sem gabarito importam como inconsistentes; 12 órfãs de seed
+apagadas; benchmark da Fase 12 fechado; storage cloud adiado formalmente; segmentação adiada com
+critério de retorno (Fase 15); UI de lote do Calibre entregue; dogfooding da prova ProfMat
+verificado ponta a ponta (página 200, PDF de 16 páginas íntegro, `gemma3:12b` de pé em
+`localhost:28080`). **Tarde** (orquestração autorizada): banco de dev limpo de **1.311
+bibliotecas de resíduo E2E** (`delete-test-workspaces.ts`, pela rota real — sobram 13: o legado,
+a demo e o Acervo de Teste); relatório de assets ausentes entregue (acervo 100% íntegro, 11
+figuras conferidas 1:1) e ele **achou pendência nova** — as 11 figuras de questão não entram no
+import (`assets: []`), linha nova na Fase 11; escolha de formatos no Calibre entregue; e o "64
+pubs" reconciliado **exato** (64 = 60 ativas + 4 `_Antigos`; 297 = 288 + 9; 1.247 = 1.212 + 35 —
+o levantamento estava certo, contava os 13 arquivos e linhas cruas).
 **Última atualização:** 2026-08-11 — **o que do checklist visual é medida** (#197): transbordo
 horizontal é fato, não gosto. A aritmética que o checklist trazia desde a Fase 1 foi conferida numa
 tela — 217 + 281 + 432 —, e a leitura dos seis estados vazios achou um dizendo "na Fase 3" para
@@ -1239,7 +1243,19 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   reportar as 7 como inconsistentes** — que é o que `map-legacy-library.ts` já fazia (excluir +
   rastrear razão por `legacyId`), agora com ratificação em vez de escolha unilateral. As 11
   bibliotecas no banco de dev foram escritas exatamente assim)*
-- [ ] Relatório: assets ausentes
+- ✅ Relatório: assets ausentes *(2026-09-02 — `report-missing-legacy-assets.ts` (domain puro +
+  caso de uso + CLI, 20 testes). Achado real: o acervo usa **um** formato só de referência,
+  `\includegraphics{images/clipboard_<ts>.png}` do colar-do-clipboard do app legado — **11
+  referências em 4 bibliotecas, todas com arquivo no disco**, batendo 1:1 com o `find` (nem asset
+  órfão, nem referência órfã). Alternativa também cita figura (`Questao_Itens.latexResposta`,
+  Fundamentos itens 6–7) e a figura mora na pasta da questão dona. O caminho de falha foi
+  exercitado contra biblioteca sintética: três razões distintas — `arquivo-ausente`,
+  `caminho-escapa-da-pasta`, `questao-dona-desconhecida`)*
+- [ ] Figuras de questão → `Asset` *(pendência **nova**, achada pelo relatório acima em
+  2026-09-02: as 11 figuras existem no disco e o LaTeX importado as cita, mas
+  `map-legacy-library.ts` monta `assets: []` e o backfill só traz capa e PDF da publicação — o
+  renderizador do produto novo não tem esses arquivos. São exatamente 11, nomeadas no relatório;
+  trabalho pequeno e bem delimitado)*
 
 **Mapeamento**
 - ✅ Biblioteca → `Workspace` (D11) *(2026-08-31 — `map-legacy-library.ts` + `MapLegacyLibraryOptions`)*
@@ -1344,13 +1360,15 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   auditoria original contavam arquivos `.knowchico` no disco, incluindo 2 cópias desatualizadas em
   `_Antigos/` que `padrao.knowchicoconfig` não referencia — ver §2.10/§2.6. 11 é o número real de
   bibliotecas ativas, e as 11 foram escritas no banco de desenvolvimento)*
-- ⛔ Contagens batem com o levantamento (64 pubs, 297 nós, 1.247 alternativas) *(não batem, e a
-  causa parece ser um erro de documentação, não do import: o real é **8 publicações**, 281 nós,
-  1100 alternativas — nós e alternativas próximos do esperado, mas "64 pubs" está muito longe de 8.
-  O número "64" coincide com o catálogo de 64 livros do **spike do Calibre** — auditoria
-  anterior, contexto totalmente diferente —, o que sugere que o "64" desta linha foi copiado do
-  lugar errado ao escrever o checklist original. Fica como pendência de verificação, não como
-  bug do código)*
+- ✅ Contagens batem com o levantamento (64 pubs, 297 nós, 1.247 alternativas) *(**reconciliado
+  exatamente em 2026-09-02** — a suspeita de 2026-08-31 de que "64 veio do Calibre" estava errada;
+  o levantamento original estava certo, só contava outra coisa: os **13 arquivos** `.knowchico`
+  (11 ativos + 2 cópias velhas de `_Antigos/`) e **linhas cruas**, não entidades importáveis.
+  64 pubs = 60 linhas de `Publication` nas ativas + 4 em `_Antigos`; 297 "nós" = 288 linhas de
+  `Questao` nas ativas + 9 em `_Antigos`; 1.247 alternativas = 1.212 + 35. E o importado fecha a
+  conta na outra ponta: 288 − 7 sem gabarito = **281 nós** criados (225 com questão + 56
+  estruturais); 8 publicações porque só linha de `Publication` **com questão digitalizada** vira
+  publicação no produto — as outras 52 são registro de livro sem conteúdo)*
 - ◐ §33 "Legado" completo (§10 deste documento) *(a Fase 11 do §10 ainda aponta os itens de
   Assets/Editoras/Tags como pendentes — ver acima)*
 

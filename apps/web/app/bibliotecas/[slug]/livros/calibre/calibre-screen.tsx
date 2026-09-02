@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Badge,
   Banner,
   Button,
   Callout,
+  Checkbox,
   EmptyState,
   Field,
   Input,
@@ -83,6 +84,61 @@ export function CalibreScreen({
    */
   const [selecionados, setSelecionados] = useState<readonly CatalogEntry[]>([]);
   const selected = selecionados.length === 1 ? (selecionados[0] ?? null) : null;
+
+  /**
+   * Formatos a copiar (P1 do beta-editorial.md, "só o PDF é copiado como fonte").
+   *
+   * `null` é "ninguém tocou": a tela mostra o PDF pré-marcado (o único que serve à captura por
+   * recorte — dali a mesma badge "sem PDF" da lista), mas o pedido **não leva `formats`**, e quem
+   * decide o padrão continua sendo o backend. Só quando a pessoa marca ou desmarca algo é que a
+   * escolha vira um `Set` concreto e passa a viajar no corpo do pedido — mexer e voltar ao mesmo
+   * estado do padrão ainda conta como "mexeu": é a intenção que mudou, não o resultado.
+   *
+   * As opções são as que a **seleção** de fato tem — união de `entry.files[].format` dos livros
+   * marcados, nunca lista fixa. Mesmo princípio do filtro de formato ali em cima: se a seleção só
+   * tem PDF, o controle nem aparece — perguntar algo com uma resposta só ensina a ignorar o
+   * controle.
+   */
+  const [formatosEscolhidos, setFormatosEscolhidos] = useState<ReadonlySet<string> | null>(null);
+
+  useEffect(() => {
+    // Seleção mudou (marcou mais um, limpou, trocou de filtro): os formatos disponíveis podem ter
+    // mudado junto, então a escolha manual anterior perde o sentido e volta ao padrão.
+    setFormatosEscolhidos(null);
+  }, [selecionados]);
+
+  const formatosNaSelecao = [
+    ...new Set(selecionados.flatMap((entry) => entry.files.map((file) => file.format))),
+  ];
+  const pdfNaSelecao = formatosNaSelecao.includes("PDF");
+  const outrosFormatosNaSelecao = formatosNaSelecao
+    .filter((format) => format !== "PDF")
+    .sort();
+  // PDF sempre primeiro quando existe — é o padrão, e a lista lida com ele por último faria
+  // parecer um formato igual aos outros, quando não é.
+  const ordemFormatos = pdfNaSelecao
+    ? ["PDF", ...outrosFormatosNaSelecao]
+    : outrosFormatosNaSelecao;
+  const mostrarEscolhaDeFormatos = outrosFormatosNaSelecao.length > 0;
+
+  const formatoMarcado = (format: string) =>
+    formatosEscolhidos ? formatosEscolhidos.has(format) : format === "PDF";
+
+  const alternarFormato = (format: string) => {
+    setFormatosEscolhidos((atual) => {
+      const base = new Set(atual ?? ordemFormatos.filter((f) => f === "PDF"));
+      if (base.has(format)) base.delete(format);
+      else base.add(format);
+      return base;
+    });
+  };
+
+  // `undefined` mantém o corpo do pedido igual ao de antes desta tela existir, para quem não
+  // pediu nada — o padrão do backend (só o PDF) é dele, não da tela repeti-lo aqui.
+  const formatsParaEnviar = formatosEscolhidos
+    ? ordemFormatos.filter((format) => formatosEscolhidos.has(format))
+    : undefined;
+
   /**
    * Filtros do protótipo (2500–2515), e os dois respondem a perguntas que a lista não responde.
    *
@@ -195,6 +251,8 @@ export function CalibreScreen({
           path: root,
           libraryId: library.id,
           externalIds: selecionados.map((entry) => entry.externalId),
+          // Ausente quando ninguém tocou no controle — o padrão (só PDF) é do backend.
+          ...(formatsParaEnviar ? { formats: formatsParaEnviar } : {}),
         }),
       });
       const payload = (await response.json()) as {
@@ -254,6 +312,8 @@ export function CalibreScreen({
           libraryId: library.id,
           externalId: selected.externalId,
           force,
+          // Ausente quando ninguém tocou no controle — o padrão (só PDF) é do backend.
+          ...(formatsParaEnviar ? { formats: formatsParaEnviar } : {}),
         }),
       });
       const payload = (await response.json()) as {
@@ -636,6 +696,29 @@ export function CalibreScreen({
                   {selecionados.map((entry) => entry.title).join(" · ")}
                 </div>
               </Callout>
+            )}
+
+            {mostrarEscolhaDeFormatos && (
+              <div style={{ marginTop: "var(--space-3)" }}>
+                <div className="lbb-card-meta" style={{ marginBottom: 6 }}>
+                  Formatos a copiar — PDF vem sempre marcado, é o único que serve à captura por
+                  recorte.
+                </div>
+                <div
+                  role="group"
+                  aria-label="Formatos a copiar"
+                  style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}
+                >
+                  {ordemFormatos.map((format) => (
+                    <Checkbox
+                      key={format}
+                      label={format}
+                      checked={formatoMarcado(format)}
+                      onChange={() => alternarFormato(format)}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
 
             {duplicate && (
