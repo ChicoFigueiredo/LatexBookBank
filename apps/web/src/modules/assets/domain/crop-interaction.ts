@@ -153,3 +153,37 @@ export const CURSORS: Readonly<Record<Handle, string>> = {
   w: "ew-resize",
   move: "move",
 };
+
+/** Os limites de zoom do visualizador — 40% a 400%, os mesmos dos botões `−` e `+`. */
+export const ESCALA_MINIMA = 0.4;
+export const ESCALA_MAXIMA = 4;
+
+/**
+ * A escala que faz a página caber — por largura, ou inteira.
+ *
+ * Zoom em passos de 20% é tentativa e erro: para enquadrar a página é preciso adivinhar quantos
+ * cliques faltam, e cada palpite custa um render. A conta aqui é feita de uma vez, e mora no
+ * domínio porque é aritmética pura sobre dimensões — a tela só sabe medir o palco e aplicar o
+ * resultado.
+ *
+ * `"largura"` serve a ler e recortar (o texto no maior tamanho legível, rolando para descer);
+ * `"pagina"` serve a achar onde a questão está antes de mirar.
+ */
+export function escalaParaCaber(
+  natural: { readonly width: number; readonly height: number },
+  palco: { readonly width: number; readonly height: number },
+  modo: "largura" | "pagina",
+  /** O respiro em volta da página. Sem descontá-lo, "caber" entrega barra de rolagem por alguns pixels. */
+  folga = 32,
+): number | null {
+  // Página ainda não desenhada ou palco sem medida: não há escala honesta a devolver, e devolver
+  // um número inventado moveria o zoom para um lugar que ninguém pediu.
+  if (natural.width <= 0 || natural.height <= 0) return null;
+  if (palco.width <= 0 || palco.height <= 0) return null;
+
+  const porLargura = (palco.width - folga) / natural.width;
+  const alvo =
+    modo === "largura" ? porLargura : Math.min(porLargura, (palco.height - folga) / natural.height);
+
+  return Math.min(ESCALA_MAXIMA, Math.max(ESCALA_MINIMA, alvo));
+}

@@ -6,6 +6,7 @@ import { Button, injectCss } from "@/design-system";
 import {
   clampToPage,
   CURSORS,
+  escalaParaCaber,
   handleAt,
   isUsable,
   rectFromDrag,
@@ -33,7 +34,12 @@ import { normalizedBoxFrom, type PixelRect } from "@modules/assets/domain/source
  */
 
 const CSS = `
-.lbb-pdf{display:flex;flex-direction:column;gap:var(--space-2);min-height:0}
+/* \`height:100%\` é o que faz a página **rolar**, e a falta dele era um bug de verdade: sem altura
+   herdada do contêiner, o \`flex:1\` do palco não tinha o que dividir, o palco crescia junto com o
+   canvas e o \`overflow:hidden\` de quem hospeda (ingestão e origem, ambos de altura fixa) cortava o
+   resto da página em silêncio — sem barra de rolagem, sem como chegar na questão de baixo.
+   Achado no dogfooding da prova ProfMat, 2026-09-02. */
+.lbb-pdf{display:flex;flex-direction:column;gap:var(--space-2);min-height:0;height:100%}
 .lbb-pdf-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border-subtle)}
 .lbb-pdf-info{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-secondary)}
 .lbb-pdf-stage{position:relative;overflow:auto;flex:1;min-height:0;background:var(--surface-sunken);display:flex;justify-content:center;padding:var(--space-3)}
@@ -89,6 +95,7 @@ export default function PdfCropViewerInner({
   injectCss("lbb-pdf-css", CSS);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const docRef = useRef<{ numPages: number; getPage: (n: number) => Promise<unknown> } | null>(
     null,
   );
@@ -216,6 +223,27 @@ export default function PdfCropViewerInner({
     // `pages` entra para o primeiro render acontecer assim que o documento abre.
   }, [pageNumber, scale, pages, isImage, fileUrl]);
 
+  /**
+   * Medir o palco e aplicar a escala que a conta do domínio devolver.
+   *
+   * O tamanho natural sai de `size / scale`: `size` é o que já foi desenhado, e dividir pela escala
+   * atual devolve a página em 100% — sem guardar outro estado que pudesse divergir do canvas.
+   */
+  const ajustar = useCallback(
+    (modo: "largura" | "pagina") => {
+      const stage = stageRef.current;
+      if (stage === null || scale <= 0) return;
+
+      const alvo = escalaParaCaber(
+        { width: size.width / scale, height: size.height / scale },
+        { width: stage.clientWidth, height: stage.clientHeight },
+        modo,
+      );
+      if (alvo !== null) setScale(alvo);
+    },
+    [scale, size],
+  );
+
   const pointFrom = useCallback((event: React.MouseEvent): Point => {
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
     return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
@@ -340,6 +368,15 @@ export default function PdfCropViewerInner({
         <Button size="sm" variant="ghost" onClick={() => setScale((s) => Math.min(4, s + 0.2))}>
           +
         </Button>
+        {/* Os dois ajustes servem a gestos diferentes: "largura" é para ler e recortar uma questão
+            (o texto fica no maior tamanho legível, e rola-se para descer); "página" é para achar
+            onde a questão está antes de mirar. */}
+        <Button size="sm" variant="ghost" onClick={() => ajustar("largura")}>
+          Ajustar à largura
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => ajustar("pagina")}>
+          Página inteira
+        </Button>
 
         <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           {rect !== null && (
@@ -358,7 +395,7 @@ export default function PdfCropViewerInner({
         </span>
       </div>
 
-      <div className="lbb-pdf-stage">
+      <div className="lbb-pdf-stage" ref={stageRef}>
         <div
           className="lbb-pdf-holder"
           style={{ cursor }}

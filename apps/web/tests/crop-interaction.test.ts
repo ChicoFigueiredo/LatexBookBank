@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   clampToPage,
   CURSORS,
+  ESCALA_MAXIMA,
+  ESCALA_MINIMA,
+  escalaParaCaber,
   handleAt,
   HANDLES,
   isUsable,
@@ -147,5 +150,46 @@ describe("prender à página", () => {
 
     expect(clamped.x).toBe(700);
     expect(clamped.width).toBe(100);
+  });
+});
+
+/**
+ * A escala que enquadra a página.
+ *
+ * Nasceu do dogfooding da prova ProfMat (2026-09-02): com zoom só em passos de 20%, achar o
+ * enquadramento certo era adivinhar quantos cliques faltavam, e cada palpite custava um render.
+ */
+describe("escalaParaCaber", () => {
+  /** Página A4 retrato em 72 dpi — a forma real do PDF da prova. */
+  const A4 = { width: 595, height: 842 };
+
+  it("por largura, enche o palco descontando a folga", () => {
+    // (1000 - 32) / 595 — cabe na largura, e a altura que sobra vira rolagem, que é o desejado
+    // quando se está lendo e recortando.
+    expect(escalaParaCaber(A4, { width: 1000, height: 600 }, "largura")).toBeCloseTo(
+      (1000 - 32) / A4.width,
+      5,
+    );
+  });
+
+  it("página inteira obedece à dimensão mais apertada", () => {
+    // O palco é largo e baixo: quem manda é a altura, senão a página passaria do rodapé.
+    const escala = escalaParaCaber(A4, { width: 1000, height: 600 }, "pagina");
+    expect(escala).toBeCloseTo((600 - 32) / 842, 3);
+    expect(escala! * A4.height).toBeLessThanOrEqual(600);
+  });
+
+  it("respeita o teto e o piso do zoom da barra", () => {
+    // Palco gigante pediria 8×; o visualizador não passa de 4× — o mesmo limite dos botões.
+    expect(escalaParaCaber(A4, { width: 5000, height: 9000 }, "largura")).toBe(ESCALA_MAXIMA);
+    // Palco minúsculo pediria menos de 40%, onde a página deixa de ser legível.
+    expect(escalaParaCaber(A4, { width: 100, height: 100 }, "pagina")).toBe(ESCALA_MINIMA);
+  });
+
+  it("devolve null quando não há o que medir", () => {
+    // Antes do primeiro render a página não tem tamanho, e o palco pode estar oculto. Inventar uma
+    // escala aqui moveria o zoom para um lugar que ninguém pediu.
+    expect(escalaParaCaber({ width: 0, height: 0 }, { width: 800, height: 600 }, "largura")).toBeNull();
+    expect(escalaParaCaber(A4, { width: 0, height: 0 }, "largura")).toBeNull();
   });
 });
