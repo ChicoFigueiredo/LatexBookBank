@@ -151,12 +151,16 @@ A verificação **não** destruiu o banco de desenvolvimento: ela subiu a aplica
 
 - Só o **PDF** é copiado como fonte. EPUB e MOBI aparecem na lista e ficam no Calibre — o contrato
   aceita outros formatos (`formats` no comando), e falta a tela oferecer a escolha.
-- ◐ **Importação em lote** — o backend fechou em 2026-08-31 (`importManyFromCatalog`, rota
+- ✅ **Importação em lote** — o backend fechou em 2026-08-31 (`importManyFromCatalog`, rota
   `POST /api/catalog/import-batch`): livros entram um de cada vez **de propósito** (não
   `Promise.all` — é o que faz o segundo livro do lote enxergar o primeiro como duplicata), e um
-  livro ruim não derruba o lote, só aparece como `failed` no relatório com o motivo. **A tela
-  ainda só deixa escolher um livro por vez** — expor seleção múltipla em `import-screen.tsx` é
-  decisão de UX que não foi tomada aqui, fica para quem desenhar a tela.
+  livro ruim não derruba o lote, só aparece como `failed` no relatório com o motivo. A tela veio
+  em 2026-09-02, por decisão do Chico: os cartões alternam seleção, "Selecionar visíveis" marca o
+  que os filtros deixaram (é o gesto que importa uma coleção de dez volumes em dois cliques), e o
+  relatório do lote separa o que entrou (com link) do que não entrou (com a razão). **Um** livro
+  marcado segue pela rota antiga — é lá que mora a conversa de duplicata ("abrir o que existe" ×
+  "importar assim mesmo"), que só faz sentido de um em um; no lote, duplicata bloqueante vira
+  linha de relatório. Testes em `calibre-batch-ui.test.tsx`.
 
 ### P2 — evolução
 

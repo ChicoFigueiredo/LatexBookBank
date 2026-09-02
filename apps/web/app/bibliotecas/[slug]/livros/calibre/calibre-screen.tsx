@@ -72,7 +72,17 @@ export function CalibreScreen({
   const [query, setQuery] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [entries, setEntries] = useState<readonly CatalogEntry[] | null>(null);
-  const [selected, setSelected] = useState<CatalogEntry | null>(null);
+  /**
+   * Seleção múltipla, na ordem do clique (beta-editorial.md, "não há importação em lote" —
+   * o backend fechou primeiro, em `importManyFromCatalog`; isto é a tela alcançando ele).
+   *
+   * Com **um** livro marcado o fluxo é o de sempre — inclusive a conversa de duplicata, que é uma
+   * escolha ("abrir o que existe" × "importar assim mesmo") e só faz sentido de um em um. Com
+   * vários, a duplicata bloqueante vira linha de relatório, e quem quiser forçá-la importa aquele
+   * livro sozinho depois.
+   */
+  const [selecionados, setSelecionados] = useState<readonly CatalogEntry[]>([]);
+  const selected = selecionados.length === 1 ? (selecionados[0] ?? null) : null;
   /**
    * Filtros do protótipo (2500–2515), e os dois respondem a perguntas que a lista não responde.
    *
@@ -119,11 +129,32 @@ export function CalibreScreen({
     null,
   );
   const [done, setDone] = useState<{ href: string; warnings: readonly string[] } | null>(null);
+  /** Relatório do lote: um resultado por livro, na ordem pedida — sucesso com link, falha com razão. */
+  const [batchDone, setBatchDone] = useState<
+    readonly {
+      readonly externalId: string;
+      readonly title: string;
+      readonly outcome:
+        | { readonly kind: "imported"; readonly href: string; readonly warnings: readonly string[] }
+        | { readonly kind: "failed"; readonly message: string };
+    }[]
+    | null
+  >(null);
+
+  const alternar = (entry: CatalogEntry) => {
+    setDuplicate(null);
+    setSelecionados((atual) =>
+      atual.some((e) => e.externalId === entry.externalId)
+        ? atual.filter((e) => e.externalId !== entry.externalId)
+        : [...atual, entry],
+    );
+  };
 
   const abrir = async (texto = query) => {
     setBusy(true);
     setError(null);
     setDone(null);
+    setBatchDone(null);
 
     try {
       const response = await fetch("/api/catalog", {
@@ -152,7 +183,62 @@ export function CalibreScreen({
     }
   };
 
+  const importarLote = async () => {
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/catalog/import-batch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          path: root,
+          libraryId: library.id,
+          externalIds: selecionados.map((entry) => entry.externalId),
+        }),
+      });
+      const payload = (await response.json()) as {
+        results?: {
+          externalId: string;
+          outcome:
+            | { kind: "imported"; result: { href: string; warnings: string[] } }
+            | { kind: "failed"; message: string };
+        }[];
+        message?: string;
+      };
+
+      if (!response.ok || !payload.results) {
+        setError(payload.message ?? "Não deu para importar o lote.");
+        return;
+      }
+
+      const porId = new Map(selecionados.map((entry) => [entry.externalId, entry]));
+      setBatchDone(
+        payload.results.map((linha) => ({
+          externalId: linha.externalId,
+          title: porId.get(linha.externalId)?.title ?? linha.externalId,
+          outcome:
+            linha.outcome.kind === "imported"
+              ? {
+                  kind: "imported",
+                  href: linha.outcome.result.href,
+                  warnings: linha.outcome.result.warnings,
+                }
+              : { kind: "failed", message: linha.outcome.message },
+        })),
+      );
+    } catch {
+      setError("Não deu para falar com o servidor.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const importar = async (force = false) => {
+    if (selecionados.length > 1) {
+      await importarLote();
+      return;
+    }
     if (selected === null) return;
 
     setBusy(true);
@@ -206,6 +292,75 @@ export function CalibreScreen({
     { label: "Calibre" },
   ];
 
+  if (batchDone) {
+    const importados = batchDone.filter((linha) => linha.outcome.kind === "imported");
+    const falhas = batchDone.filter((linha) => linha.outcome.kind === "failed");
+
+    return (
+      <AppShell activeModule="bibliotecas" breadcrumb={breadcrumb}>
+        <div className="lbb-acervo">
+          <PageHeader
+            eyebrow="IMPORTADO DO CALIBRE"
+            title={`${importados.length} de ${batchDone.length} livros no acervo`}
+          />
+          {falhas.length > 0 && (
+            <Callout tone="warn" title={`${falhas.length} não entraram`}>
+              Cada um tem a razão ao lado. Duplicata bloqueante se resolve importando o livro
+              sozinho — é lá que mora a escolha entre abrir o que existe e importar assim mesmo.
+            </Callout>
+          )}
+          <ul style={{ margin: "var(--space-4) 0 0", padding: 0, listStyle: "none" }}>
+            {batchDone.map((linha) => (
+              <li
+                key={linha.externalId}
+                className="lbb-card"
+                style={{ marginBottom: "var(--space-2)" }}
+              >
+                <span className="lbb-card-title">{linha.title}</span>
+                {linha.outcome.kind === "imported" ? (
+                  <span style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+                    <Badge tone="ok" mono>
+                      importado
+                    </Badge>
+                    <Button size="sm" variant="secondary" href={linha.outcome.href}>
+                      Abrir
+                    </Button>
+                    {linha.outcome.warnings.map((warning) => (
+                      <span key={warning} className="lbb-card-meta">
+                        {warning}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <span style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+                    <Badge tone="warn" mono>
+                      não entrou
+                    </Badge>
+                    <span className="lbb-card-meta">{linha.outcome.message}</span>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="lbb-acervo-actions">
+            <Button
+              variant="secondary"
+              icon="library"
+              onClick={() => {
+                setBatchDone(null);
+                setSelecionados([]);
+                void abrir();
+              }}
+            >
+              Voltar ao catálogo
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (done) {
     return (
       <AppShell activeModule="bibliotecas" breadcrumb={breadcrumb}>
@@ -232,7 +387,7 @@ export function CalibreScreen({
               icon="library"
               onClick={() => {
                 setDone(null);
-                setSelected(null);
+                setSelecionados([]);
               }}
             >
               Importar outro
@@ -338,8 +493,35 @@ export function CalibreScreen({
                 </Select>
               )}
 
+              {/*
+                O gesto que faz o lote valer: filtrar (só PDF, só uma coleção) e marcar tudo de
+                uma vez. Sem ele, importar uma série de dez volumes são dez cliques mirados — com
+                ele, são dois. Só some quando não há o que marcar.
+              */}
+              {visiveis.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setDuplicate(null);
+                    setSelecionados((atual) => {
+                      const ids = new Set(atual.map((e) => e.externalId));
+                      return [...atual, ...visiveis.filter((e) => !ids.has(e.externalId))];
+                    });
+                  }}
+                >
+                  Selecionar visíveis
+                </Button>
+              )}
+              {selecionados.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={() => setSelecionados([])}>
+                  Limpar seleção
+                </Button>
+              )}
+
               <span className="lbb-section-count" style={{ marginLeft: "auto" }}>
                 {visiveis.length} {visiveis.length === 1 ? "resultado" : "resultados"}
+                {selecionados.length > 0 ? ` · ${selecionados.length} na seleção` : ""}
               </span>
             </div>
 
@@ -367,7 +549,7 @@ export function CalibreScreen({
             <div className="lbb-acervo-grid" style={{ marginTop: "var(--space-4)" }}>
               {visiveis.map((entry) => {
                 const pdf = entry.files.find((file) => file.format === "PDF");
-                const escolhido = selected?.externalId === entry.externalId;
+                const escolhido = selecionados.some((e) => e.externalId === entry.externalId);
 
                 return (
                   <button
@@ -381,10 +563,7 @@ export function CalibreScreen({
                       borderColor: escolhido ? "var(--accent)" : undefined,
                       background: escolhido ? "var(--accent-surface)" : undefined,
                     }}
-                    onClick={() => {
-                      setSelected(entry);
-                      setDuplicate(null);
-                    }}
+                    onClick={() => alternar(entry)}
                   >
                     <span className="lbb-card-title">{entry.title}</span>
                     <span className="lbb-card-meta">
@@ -435,19 +614,29 @@ export function CalibreScreen({
           </>
         )}
 
-        {selected && (
+        {selecionados.length > 0 && (
           <div style={{ marginTop: "var(--space-6)" }}>
-            <Callout tone="info" title={`Importar “${selected.title}”`}>
-              Entram no acervo: título, autores, editora, ano, ISBN, coleção e volume — mais o PDF e
-              a capa, <strong>copiados</strong> para o storage do LatexBookBank.
-              {selected.isbn && <div className="lbb-card-meta">ISBN {selected.isbn}</div>}
-              {selected.series && (
+            {selected ? (
+              <Callout tone="info" title={`Importar “${selected.title}”`}>
+                Entram no acervo: título, autores, editora, ano, ISBN, coleção e volume — mais o
+                PDF e a capa, <strong>copiados</strong> para o storage do LatexBookBank.
+                {selected.isbn && <div className="lbb-card-meta">ISBN {selected.isbn}</div>}
+                {selected.series && (
+                  <div className="lbb-card-meta">
+                    {selected.series}
+                    {selected.seriesIndex ? ` · volume ${selected.seriesIndex}` : ""}
+                  </div>
+                )}
+              </Callout>
+            ) : (
+              <Callout tone="info" title={`Importar ${selecionados.length} livros`}>
+                Um por um, na ordem marcada — o que falhar não derruba os outros, e o relatório
+                diz o que entrou e o que não entrou, com a razão.
                 <div className="lbb-card-meta">
-                  {selected.series}
-                  {selected.seriesIndex ? ` · volume ${selected.seriesIndex}` : ""}
+                  {selecionados.map((entry) => entry.title).join(" · ")}
                 </div>
-              )}
-            </Callout>
+              </Callout>
+            )}
 
             {duplicate && (
               <div style={{ marginTop: "var(--space-3)" }}>
@@ -467,9 +656,11 @@ export function CalibreScreen({
 
             <div className="lbb-acervo-actions">
               <Button variant="primary" loading={busy} onClick={() => void importar()}>
-                Importar livro
+                {selecionados.length > 1
+                  ? `Importar ${selecionados.length} livros`
+                  : "Importar livro"}
               </Button>
-              <Button variant="ghost" disabled={busy} onClick={() => setSelected(null)}>
+              <Button variant="ghost" disabled={busy} onClick={() => setSelecionados([])}>
                 Cancelar
               </Button>
             </div>
