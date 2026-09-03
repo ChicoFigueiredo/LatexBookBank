@@ -21,243 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso (2026-09-02, fim do dia):** 932 ✅ · 7 ◐ · 12 ⛔ · 68 `[ ]`. Duas rodadas no mesmo
-dia. **Manhã** (decisões do Chico): 7 sem gabarito importam como inconsistentes; 12 órfãs de seed
-apagadas; benchmark da Fase 12 fechado; storage cloud adiado formalmente; segmentação adiada com
-critério de retorno (Fase 15); UI de lote do Calibre entregue; dogfooding da prova ProfMat
-verificado ponta a ponta (página 200, PDF de 16 páginas íntegro, `gemma3:12b` de pé em
-`localhost:28080`). **Tarde** (orquestração autorizada): banco de dev limpo de **1.311
-bibliotecas de resíduo E2E** (`delete-test-workspaces.ts`, pela rota real — sobram 13: o legado,
-a demo e o Acervo de Teste); relatório de assets ausentes entregue (acervo 100% íntegro, 11
-figuras conferidas 1:1) e ele **achou pendência nova** — as 11 figuras de questão não entram no
-import (`assets: []`), linha nova na Fase 11; escolha de formatos no Calibre entregue; e o "64
-pubs" reconciliado **exato** (64 = 60 ativas + 4 `_Antigos`; 297 = 288 + 9; 1.247 = 1.212 + 35 —
-o levantamento estava certo, contava os 13 arquivos e linhas cruas).
-**Última atualização:** 2026-08-11 — **o que do checklist visual é medida** (#197): transbordo
-horizontal é fato, não gosto. A aritmética que o checklist trazia desde a Fase 1 foi conferida numa
-tela — 217 + 281 + 432 —, e a leitura dos seis estados vazios achou um dizendo "na Fase 3" para
-quem não tem o planejamento.
-**Antes:** **o download do `.lbb` diz o tamanho** (#195). Ele saía
-`chunked`, e o navegador mostrava "tamanho desconhecido" — sem barra e sem como distinguir lento de
-travado. O guarda novo amarra o par: quem oferece download anuncia o tamanho.
-**Antes:** **reconhecer texto do recorte** (#193), sem porta nova: a
-fronteira já tinha `mode`. O trabalho foi o escape — prosa de um scan traz `%`, e ele comenta o
-resto da linha. Conferido com o modelo de visão real sobre um render do acervo.
-**Antes:** **auditoria das fronteiras** (#191), agora que todas as telas
-foram percorridas: `TransactionRunner` estava definida desde a Fase 0 e **nunca foi implementada nem
-chamada**. Removida, com guarda para a próxima não passar despercebida.
-**Antes:** **a página de diagnóstico** (#189): era a única sem `main`, e a
-confirmação do import era um `confirm()` do navegador — o único gesto do produto que o navegador
-pode desligar. O export foi conferido na tela: `demo.lbb` baixou.
-**Antes:** **a lista de candidatas a prova** (#187): ela oferecia questões
-da lixeira, e montar uma prova com elas põe no papel uma questão que a pessoa acha ter excluído. A
-tela em si está sem erro de console — o defeito estava na consulta.
-**Antes:** **a ingestão aceita imagem** (#185): a tela promete "PDF ou
-imagem" e o visualizador mandava tudo para o `pdf.js`. Conferido ponta a ponta no navegador com o
-modelo de visão real — subir, recortar, reconhecer: `gemma3:12b · 1511 ms`, com o recorte à vista.
-**Antes:** **o erro que doze E2E não viam** (#183): o worker do Monaco
-não carregava e a tela da questão estourava um `TypeError` não tratado a cada abertura. Nenhum teste
-olhava o console. O painel de histórico, sondado na mesma volta, está correto — inclusive ao dizer
-"idêntica ao estado atual" em vez de desenhar um diff vazio.
-**Antes:** **a busca deixou de mostrar beco sem saída** (#181): ela não
-filtrava o nó, e devolvia questão da lixeira e questão órfã — a mesma questão aparecia seis vezes na
-paleta. Achado exercitando o `Ctrl+K` que a #179 destravou.
-**Antes:** **os atalhos, medidos** (#179). O caminho do agente passou
-limpo pela sonda de escopo (revisão de outra questão, questão inexistente e campo fora da whitelist
-são todos recusados), então a iteração foi para o item aberto desde a Fase 2. A árvore não conflita
-— seus atalhos vivem na linha. O conflito real era o oposto do esperado: o Monaco engolia o
-`Ctrl+K` e a paleta não abria, com o botão do rail anunciando o atalho.
-**Antes:** **escopo nas demais rotas** (#177). A árvore já conferia a
-publicação; a montagem de prova **não conferia a biblioteca**, e uma questão de outro acervo entrava
-com `201`. Verificado com duas bibliotecas de verdade e com controle positivo — sem o guarda, passa.
-**Antes:** **o guarda central de autorização** (#175), e ele achou um
-buraco de verdade: o `publicationId` da URL era decorativo nas rotas de questão, então dava para
-gravar uma questão real por uma publicação inexistente — e o 200 confirmava.
-**Antes:** **figura na questão, de ponta a ponta** (#173): o
-`figureSnippet` existia desde a Fase 14 e nada o chamava, e inseri-lo teria produzido LaTeX que não
-compila — nenhum asset chegava ao worker. Agora chega, e só o que o corpo cita. No caminho
-apareceram mais dois: `!pdfTeX error:` (sem espaço) não virava diagnóstico, então uma figura
-corrompida dava "falha ao compilar" **sem motivo na tela**; e a rota de upload devolvia a
-`storageKey`, que a D26 diz nunca sair do servidor.
-**Antes:** **apagar uma avaliação** (#171), achado exercitando o produto
-em vez de ler a lista: dava para criar e nunca apagar. A correção não era só a rota — o mapa de
-letras de uma variante é o gabarito de uma prova que pode já ter sido impressa, então com variante o
-servidor recusa com 409 e a tela faz uma segunda pergunta.
-**Antes:** **o registry passou a mandar na compilação** (#165): o
-`buildLatex` do plugin existia desde a Fase 7 e nunca teve chamador, então acrescentar um tipo de
-questão dava validação própria, preview próprio e um PDF igual ao da múltipla escolha. Era a última
-dívida que o confronto com o planejamento tinha achado. O plugin passou a devolver **blocos**, para
-que o mapa de linhas da #161 saia da mesma montagem que o texto.
-**Antes:** **`bun run setup` deixou de mentir** (#168): ele agora constrói
-a imagem do renderer, sobe o worker, espera o `/health` e sincroniza o segredo entre o `.env` da
-raiz e o `.env.local` — as duas checagens que o planejamento marca como *obrigatórias* desde a Fase
-0, e que estavam abertas desde então. A página de diagnóstico ganhou o cache de render (tamanho,
-jobs, último erro) e o TeX do host marcado como fallback. Um clone novo vira produto rodando com
-`bun run setup && bun run dev`, sem ler comentário de `.env.example`.
-**Antes, no mesmo dia:** **os dois defeitos que impediam usar o produto** (#156, #166).
-Salvar duas vezes seguidas dava 409 e o autosave parava, então valia um salvamento por carregamento
-de página; e recompilar uma questão cuja saída não mudou dava 500 dizendo "falha ao compilar" sobre
-uma compilação bem-sucedida. O segundo apareceu **ao consertar o primeiro**, e o E2E que estava
-`fixme` desde a #155 voltou a valer — **7 de 7**.
-**Antes, no mesmo dia:** confronto com o [`_planejamento.md`](./_planejamento.md), fase a fase
-(ver §16). A revisão fechou duas linhas do critério de produto local que já tinham prova —
-IA local e ferramentas TeX — e marcou como **decisão**, não esquecimento, a virtualização da árvore
-e os migradores de formato do `.lbb`.
-**Antes, no mesmo dia:** a interface de render fechada (#161): copiar o LaTeX, tela
-cheia, diagnósticos sublinhados no Monaco e clicáveis. Fechar o quarto exigiu consertar a **linha**:
-o contrato prometia a linha do `sourceLatex` e entregava a do `main.tex`, com o preâmbulo na frente.
-Errava por um quando o formato pré-compilado funcionava e pelo preâmbulo inteiro quando não — e
-apareceram mais dois buracos no caminho: a aba Log nunca teve log (o `stdout` era guardado e nunca
-devolvido) e a aba Fonte mostrava o enunciado chamando-o de "o corpo enviado ao worker".
-**Antes, no mesmo dia:** auditoria das seções finais. O §12 (painel agêntico), o §13
-(segurança) e quase todo o §15 (regras invioláveis) estavam **inteiros abertos** contra fases
-fechadas: 21, 19 e 14 linhas que já tinham guarda, teste ou verificação em alguma fase e nunca
-foram cruzadas. Fechado também o bloco "Questão" e o "Agente" do §10, e os quatro itens de schema
-da Fase 7 que já estavam no banco desde a Fase 0. Os dois health checks da Fase 0 deixaram de ser
-⛔ e viraram `[ ]`: a Fase 6 chegou, então o impedimento acabou — o que falta é o `setup` verificar.
-**Revisão anterior — 2026-08-07** — Fase 1 fechada em código (falta o aceite visual); Fase 2
-fechada em mecânica. **Fase 3 com o Monaco de pé** (#43, #45): edição, autosave e conflito
-visível. **Fase 4 fechada** (#47, #49, #51): o conhecimento LaTeX do legado está no banco — 652
-autocompletes, 2.740 símbolos, 13 grupos, 28 menus, com as quatro contagens fechando contra o
-levantamento —, os autocompletes sugerem dentro do Monaco e a palette de símbolos insere no
-cursor. As miniaturas precisaram ser convertidas de SVG font para `<path>`: o formato do legado
-não renderiza em navegador nenhum desde que Chrome, Firefox e Safari removeram suporte.
-**Fase 5 fechada em código** (#53, #55): o `PreviewModel`, o leitor de LaTeX e o preview na tela,
-com MathJax local. Falta só a conferência visual, que fica com o Chico.
-**Fase 6 em andamento** (#57, #59, #61, #63, #65): contratos isolados por teste, worker
-compilando e exposto por HTTP, imagem verificada dentro do contêiner, compose com **saída de rede
-bloqueada comprovada nos dois sentidos**, e o `RenderWorkerExecutor` ligando a aplicação ao
-worker, com `RenderJob` persistido, artefatos no `StorageProvider`, cache por content hash,
-perfis de compilação, API de render e as abas PDF/PNG/Log. **Verificado ponta a ponta**: uma
-questão real do acervo demo compila pela API, mostra `R$` e as alternativas a)–e), a segunda
-chamada acerta o cache e o artefato baixa pela rota do app. O preâmbulo pré-compilado corta a
-compilação de 1886 ms para 508 ms, e os renders são coalescidos. **Fase 6 fechada em código** —
-restam os itens que dependem de infraestrutura futura (assets da Fase 11, `QuestionTypePlugin` da
-Fase 7) e a conferência visual.
-**Fase 8 iniciada** (#91): o `OpenAiCompatibleProvider` — **um** provider com `baseURL`
-configurável, não quatro adaptadores — com os quatro perfis e a matriz de capacidades. A chave
-vive só no servidor, e há teste percorrendo o grafo de imports de cada `"use client"` para provar
-que nenhum caminho chega até ela. Verificado contra o Ollama real da máquina: 13 modelos listados
-e uma resposta completa, com uso e razão de parada lidos corretamente.
-O painel do agente veio junto (#93): contexto montado por gesto, nunca por dedução — nada entra
-sem aparecer na barra, e o teste de fronteira da chave achou um vazamento real no caminho, um
-Client Component importando tipo de módulo `server-only`.
-As sete tools somente leitura vieram em seguida (#95), com o guarda que varre o módulo atrás de
-escrita, SQL cru e processo externo — e o lint de boundary recusou a implementação Prisma dentro
-de `modules/agents/`, que foi parar em `infrastructure/agent/` onde a composição fica visível.
-O runner fechou a fase (#97): modo `ASK` com laço de tools, `ToolCallCard` na timeline e
-`AgentRun` persistido. Verificado contra o Ollama real — e foi a verificação que corrigiu o
-desenho duas vezes: o modelo inventava id de questão até o id deixar de ser parâmetro, e gastava
-as três rodadas relendo a mesma coisa até a última volta passar a ir sem tools.
-**Fase 9 iniciada** (#99): `QuestionPatch` em Zod com whitelist versionada, as cinco tools
-`propose_*` e o diff por campo. Verificado contra o Ollama real — que revelou o modelo propondo o
-**mesmo patch três vezes**, uma por rodada, mesmo instruído a não repetir; a bandeja passou a
-descartar repetição comparando conteúdo, não a frase.
-O bloco de aplicação veio em seguida (#101): `Revision`, aplicação transacional com a revisão
-anterior gravada antes, aplicação seletiva e reversão. Verificado contra o acervo real — aplicar
-uma linha entre duas propostas mexeu só nela, a revisão guardou o estado inteiro do antes, e
-reverter devolveu a questão exata, com o gabarito intacto.
-A tela de revisão fechou o fluxo (#103): diff por linha com Monaco no LaTeX, aprovação seletiva
-com **nada marcado por padrão**, aplicar/rejeitar/pedir revisão e o modo `REVIEW`. Verificado
-contra o Ollama real: o modelo leu a questão, propôs, a bandeja descartou a repetição — e o
-próprio modelo reconheceu que já tinha proposto — e o servidor devolveu o diff calculado.
-`render_candidate_latex` fechou a apresentação (#105): compilar para conferir, nunca para
-guardar. Verificado contra o worker real — `Undefined control sequence` em `main.tex:2` chegou ao
-agente em 181 ms, e a prévia antes/depois compilou a questão de verdade em 348 ms, com
-`\SI{1000}{\real}` virando `1000 R$` e nada indo para o banco.
-Os cinco modos fecharam a Fase 9 (#107): um modo é um conjunto de tools, um teto de iterações e
-um relógio — não um prompt diferente. A verificação contra o Ollama real mostrou o ciclo do
-`FIX_LATEX` funcionando (compilou o erro, corrigiu, compilou de novo) e revelou que o timeout do
-provider matava o turno antes do orçamento do modo.
-A aba Histórico fechou a Wave C (#109): timeline com origem, diff entre revisão e estado atual, e
-restauração com confirmação. O teste que importa é o da ida e volta — restaurar devolve o estado
-**exato**, com acento, `\\` e gabarito intactos; "parecido" seria pior que nada, porque ninguém
-confere caractere a caractere um enunciado que já parece certo.
-**Fase 11 iniciada** (#111), com uma ressalva importante: **o acervo legado não está nesta
-máquina** — só o `LatexMetadata.db` da Fase 4. O domínio do importador foi construído a partir do
-levantamento §2.4/§6, que é detalhado e feito contra dados reais; o que **não** dá para fazer é
-rodar o import e conferir contra o acervo, e isso fica ⛔ até o acervo estar disponível.
-**Fase 12 fechada** (#113), e a medição mudou o desenho: com `LIMIT 50` o `LIKE` responde em
-0,2 ms mesmo em 200 mil linhas, mas o `COUNT(*)` que o acompanhava custava 85 ms. O caro nunca foi
-buscar — era contar. O adaptador passou a pedir `limit + 1` linha e nenhuma contagem.
-**Fase 13 iniciada** (#115): o formato `.lbb` com schema portável versionado, assets endereçados
-por `sha256` e round-trip provando identidade. UI, serviço de backup e progresso ficam para a
-próxima.
-Export, import e o serviço de backup vieram em seguida (#117). Round-trip verificado **contra o
-banco real**: exportar a biblioteca demo, importar num workspace novo e reexportar devolveu
-`data.json` idêntico — e o mesmo vale para um arquivo produzido pelo backup automático.
-A página de diagnóstico (#119) fechou pendências de três fases de uma vez: o "testar conexão" que
-faltava da 8, a leitura do estado de backup e a UI de export/import da 13, e a §25 da 17. Ela
-distingue **três** estados — no ar, fora do ar e não configurado —, porque os dois últimos mandam
-procurar em lugares opostos.
-**Fase 14 iniciada** (#121): âncora normalizada, ingestão e o snippet de figura. A prova do crop
-foi feita com `pdftocairo` sobre um PDF real — a mesma bbox recortou o mesmo conteúdo em três
-DPIs, que é exatamente o que a D28 promete. O visualizador de PDF com desenho de retângulo fica
-para a próxima: é UI pesada e a conferência é visual.
-Upload e recorte vieram em seguida (#123). O recorte é feito no cliente — o visualizador já
-rasteriza a página para mostrá-la, e recortar o que está na tela custa uma chamada de canvas. O
-que sobe é a **caixa normalizada** mais o PNG; a fonte nunca é tocada.
-**Fase 15 verificada com modelo de visão real** (#125): o `gemma3:12b` leu
-`M = C(1 + i)^n - \frac{\sqrt{x^2 + 1}}{2n}` de um recorte de
-`M = C\left(1+i\right)^{n} - \frac{\sqrt{x^2+1}}{2n}` — equivalente —, o LaTeX lido compilou, e
-o confronto visual entre o recorte e o resultado é idêntico.
-**Fase 16 com o aceite provado** (#127): dois processos `bun` separados, mesma seed, 1695 bytes
-idênticos. E a distribuição foi medida, não presumida — 2,57% de desvio máximo em 60 mil provas.
-Os modelos e os três templates vieram em seguida (#129), com as três versões **compiladas** e
-conferidas na imagem: aluno e professor com a mesma ordem e as mesmas letras, e o gabarito
-(`— · a · d`) igual aos `[X]` do professor.
-**Fase 17 com os guardas de verdade** (#131): as afirmações de endurecimento viraram testes que
-varrem o repositório — e foram conferidos contra uma violação deliberada, que os três pegaram.
-O visualizador de PDF com recorte veio em seguida (#133), com as regras de arrastar e
-redimensionar num **módulo puro** — regra dentro de `onMouseMove` é regra que ninguém testa.
-E a tela que amarra tudo (#135): os três gestos de upload num componente só, e a ingestão
-completa em `/publications/[id]/ingestao`. O teste do teclado achou uma recursão de verdade — o
-clique do `input` escondido subia até o `div`, que clicava o `input` de novo.
-**"Voltar à origem" fechado** (#137): a aba Origem abre o PDF na página da âncora com a caixa
-destacada. A âncora já guardava tudo desde a Fase 14 — faltava a porta, e proveniência que não se
-navega é proveniência que ninguém confere.
-**Painéis órfãos ligados** (#139): `MetadataPanel` e `OptionsEditor` existiam, tinham teste, e não
-eram renderizados em lugar nenhum — este checklist os dava por prontos. Agora estão montados, e os
-metadados ganharam o caminho de escrita que nunca tiveram.
-**Tags saíram do domínio para a tela** (#141): adaptador Prisma, três rotas, painel na questão e
-filtro na árvore. A promessa de #85 foi conferida contra o banco pela primeira vez — três grafias
-de "Função Quadrática" continuaram sendo **uma linha**.
-**A avaliação virou produto** (#143): persistência, quatro rotas e a tela de montagem. A cadeia
-inteira foi conferida com dado real e prova compilada — o mapa gravado no banco diz `c`, a rota
-responde `c`, e o `c)` impresso na prova do aluno é a alternativa correta. As três versões
-compilaram (30 702 · 53 021 · 16 440 bytes) e o gabarito saiu `1) e · 2) c · 3) —`.
-**Cancelamento de verdade** (#148): desistir do render passou a chegar ao worker — e apareceu que
-a imagem do renderer estava **inbuildável desde a Fase 13**, porque o `Dockerfile` não conhecia o
-serviço de backup. O contêiner que já rodava continuou rodando, e por isso o defeito não aparecia.
-**Fase 6 auditada** (#159): o bloco de interface tinha a mesma exigência escrita **duas vezes** —
-uma com a palavra da spec, outra com a do código —, e metade estava aberta contra a outra metade
-fechada. E o item "tempo base medido" estava aberto **duas linhas abaixo** da medição que ele
-pedia. Restaram quatro buracos de verdade: copiar o LaTeX, tela cheia, decorar o Monaco e clicar
-no log.
-**A §27 fechada, menos o render** (#158): a metade agêntica também está coberta — propor, revisar
-linha a linha e aplicar, com o modelo dublê e a rota de aplicar de verdade. Achou o segundo bug do
-dia: depois de aplicar um patch, o editor continuava mostrando o texto de antes.
-**O E2E da §27 existe** (#155): abrir → selecionar → editar → autosave → recarregar → desfazer,
-num Chromium de verdade, em 17 s. E na primeira execução ele achou um 500 no render (#156) que
-1123 testes de unidade não pegavam — porque o defeito só aparece na **sequência**: editar,
-compilar, e o produto colidir consigo mesmo.
-**Derivado é descartável, agora afirmado** (#153): o artefato some e volta com a mesma chave, o
-`preview.png` do legado continua fora, e o caminho do render ganhou as primeiras linhas de log —
-o logger da Fase 17 não tinha um único ponto de chamada até aqui.
-Fechado com guarda dos dois lados (#151): um teste rápido que compara `Dockerfile` × workspaces, e
-um job de CI que **constrói a imagem** — porque nada a construía fora do terminal de quem mexia.
-**Indicadores na árvore, e o bug que eles revelaram** (#147): o registro de plugins de tipo de
-questão **não era importado por ninguém** em produção — só pelo próprio teste, que por isso
-sempre passou. Toda questão do acervo respondia "tipo não suportado", em silêncio, desde a Fase 7.
-Com o registro carregado e um produtor chamando a validação, o indicador acende: `VALID` e
-`INVALID` conferidos contra o banco pelas rotas de verdade.
-**Auditoria do checklist** (#145): dez itens estavam marcados `[ ]` e já estavam feitos — sete da
-Fase 6, todos conferidos contra o contêiner rodando. E a auditoria achou o que não procurava:
-quatro arquivos-fonte com **byte NUL** dentro, usados como separador de chave. O `grep` pula esses
-arquivos em silêncio e o **git os trata como binários** — qualquer alteração neles aparecia na
-revisão como "0 insertions, 0 deletions". Num projeto que entrega em branch para revisão humana,
-esse é o pior lugar possível para uma mudança se esconder.
-1295 testes (1231 no app + 64 no renderer) + **17 de E2E, todos passando** · 98 PRs abertos, nada mergeado.
+**Progresso (2026-09-02, noite):** 933 ✅ · 7 ◐ · 12 ⛔ · 68 `[ ]`. O dia teve três rodadas.
+**Manhã** (decisões): 7 sem gabarito importam como inconsistentes; 12 órfãs de seed apagadas;
+benchmark da Fase 12 fechado; storage cloud adiado formalmente; UI de lote do Calibre entregue.
+**Tarde** (orquestração): 1.311 bibliotecas de resíduo E2E apagadas (sobram 13); relatório de
+assets ausentes (acervo 100% íntegro, 11 figuras conferidas 1:1, e ele achou pendência nova — as
+figuras não entram no import); escolha de formatos no Calibre; "64 pubs" reconciliado exato.
+**Noite** (dogfooding de verdade): o Chico usou a captura e achou o que nenhuma especulação
+acharia — o leitor de PDF **não rolava** (bug de altura não herdada, valia também para a aba
+Origem), faltavam controles de enquadramento, e a segmentação automática saiu do adiamento pela
+porta da frente: 30 de 30 questões na prova real, porque medir a premissa mostrou que ela não era
+visão computacional. Ver Fase 15.
 
 | Wave | Fases | Estado |
 |---|---|---|
@@ -1558,14 +1332,30 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 
 ### Fase 15 — Reconhecimento matemático
 
-> **Segmentação automática de página — adiada de novo, agora com data e critério (2026-09-02).**
-> A especificação (§21 do prompt Beta Editorial) já fixava o P0 como "crop manual + reconhecimento
-> automático" e mandava não bloquear o Beta por ela. A decisão do Chico reafirma: não fazer agora.
-> O critério de retorno também ficou definido: ela volta à mesa **quando o dogfooding de captura
-> (prova ProfMat, decidido na mesma conversa) mostrar com dado real que o gargalo é o recorte
-> manual** — e não antes, porque com 225 questões na base o ganho de automatizar recorte é
-> especulativo e o custo de visão computacional de layout é o mais incerto da fila.
+> **Segmentação automática de página — adiada de manhã, entregue à tarde (2026-09-02).** O
+> adiamento durou o tempo do dogfooding: em menos de uma hora de uso real da prova ProfMat, o
+> Chico perguntou "não tem um botão de estimar as questões?" — o critério de retorno registrado
+> aqui de manhã, atingido por dado e não por opinião.
+>
+> **A premissa também estava errada, e medi-la foi o que destravou.** O item era "o mais arriscado
+> da fila" porque se supunha visão computacional de layout. Mas o PDF **tem camada de texto**: a
+> segmentação virou aritmética sobre coordenadas de palavras, determinística e testável como
+> qualquer função pura daqui. Para página escaneada continua sendo visão computacional, e continua
+> fora de escopo — a tela diz isso quando não acha camada de texto, em vez de fingir que não há
+> questão.
+>
+> Medido nas 16 páginas reais: **30 de 30 questões**, números 1..30, zero duplicada, zero falso
+> positivo; 29 das 30 caixas contêm a própria solução, e a única que não contém (questão 28, cuja
+> solução vira a página) vem sinalizada. As armadilhas vieram do documento real: "Gabarito com
+> **Soluções**" no título, "**Solução** Alternativa" no meio do texto, e "1.500 reais" abrindo
+> linha igual a um enunciado — o que separa marcador de aritmética é a **margem esquerda**, não a
+> expressão regular.
 
+- ✅ **Segmentação por camada de texto** *(2026-09-02 — `segmentar-pagina.ts` (domínio puro, 26
+  testes), `pdf-text-layer.ts` (adapter do pdf.js, com o eixo y invertido e NFC), botões "Estimar
+  questões" e "Recortar as N" no visualizador. O lote salva e transcreve **em série** — o
+  reconhecedor local é uma GPU só — e **para em transcrição guardada**: nenhuma questão nasce sem
+  revisão, que é o que impede um erro de segmentação de virar trinta questões erradas)*
 - ✅ `MathRecognitionProvider` definido
 - ✅ Resultado com latex, confidence, alternatives, provider, model e duração
 - ✅ Implementação via modelo multimodal por endpoint OpenAI-compatible
