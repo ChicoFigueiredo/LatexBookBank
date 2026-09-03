@@ -11,6 +11,7 @@ import {
   separarAlternativas,
   type AlternativaLida,
 } from "@modules/recognition/domain/separar-alternativas";
+import type { QuestaoEstimada } from "@modules/recognition/domain/segmentar-pagina";
 import {
   accept,
   candidateFrom,
@@ -212,6 +213,16 @@ export function IngestionPanel({
     new Map(),
   );
   const [error, setError] = useState<string | null>(null);
+  /**
+   * As caixas que a estimativa propôs para a página atual, e o andamento do lote.
+   *
+   * O lote **não cria questão**: ele para em recorte salvo e transcrição guardada, que é onde a
+   * fila de captura (§26) já sabe esperar. É a regra do módulo — "o OCR propõe, o domínio
+   * editorial só persiste depois da revisão" — e num lote ela pesa mais, não menos: um erro de
+   * segmentação viraria trinta questões erradas de uma vez.
+   */
+  const [estimadas, setEstimadas] = useState<readonly QuestaoEstimada[] | undefined>(undefined);
+  const [lote, setLote] = useState<{ feitos: number; total: number; falhas: number } | null>(null);
 
   const upload = async (file: File) => {
     setBusy("subindo");
@@ -295,6 +306,72 @@ export function IngestionPanel({
     } finally {
       setBusy(null);
     }
+  };
+
+  /**
+   * O lote: salvar cada recorte proposto e mandar reconhecer, um de cada vez.
+   *
+   * **Em série, de propósito.** O reconhecedor local é um modelo de visão numa GPU só; disparar
+   * trinta chamadas juntas não as torna paralelas, só troca "demora" por "estoura a memória e
+   * falha tudo". Em série, o que já foi reconhecido está guardado quando a trigésima falhar.
+   *
+   * Falha de uma não derruba as outras — o recorte dela já está salvo e a fila de captura (§26) a
+   * mostra esperando, que é exatamente o estado verdadeiro: recortada, ainda não transcrita.
+   *
+   * Nada aqui cria questão. O lote termina em transcrição guardada, e quem promove cada uma a
+   * questão é a pessoa, uma a uma, com o recorte à vista — a regra do módulo, que num lote pesa
+   * mais e não menos.
+   */
+  const recortarLote = async (
+    recortes: readonly {
+      readonly numero: number | null;
+      readonly pageNumber: number;
+      readonly box: { x: number; y: number; width: number; height: number };
+      readonly png: Blob;
+    }[],
+  ) => {
+    if (source === null || recortes.length === 0) return;
+
+    setError(null);
+    setLote({ feitos: 0, total: recortes.length, falhas: 0 });
+    let falhas = 0;
+
+    for (const [indice, recorte] of recortes.entries()) {
+      try {
+        const form = new FormData();
+        form.set("image", recorte.png, "crop.png");
+        form.set("sourceAssetId", source.assetId);
+        form.set("publicationId", publicationId);
+        form.set("pageNumber", String(recorte.pageNumber));
+        for (const [chave, valor] of Object.entries(recorte.box)) form.set(chave, String(valor));
+
+        const salvo = await fetch("/api/assets/crop", { method: "POST", body: form });
+        const guardado = (await salvo.json()) as { cropAssetId?: string; anchorId?: string };
+        if (!salvo.ok || !guardado.cropAssetId) {
+          falhas += 1;
+          continue;
+        }
+
+        // O reconhecimento é a parte cara e a que pode não existir (modelo fora do ar). O recorte
+        // já está salvo neste ponto, então falhar aqui custa a transcrição, nunca o recorte.
+        const pedido = new FormData();
+        pedido.set("image", recorte.png, "crop.png");
+        pedido.set("cropAssetId", guardado.cropAssetId);
+        pedido.set("mode", MODO_DO_PROVIDER("questao"));
+        if (guardado.anchorId !== undefined) pedido.set("anchorId", guardado.anchorId);
+
+        const lido = await fetch("/api/recognition", { method: "POST", body: pedido });
+        if (!lido.ok) falhas += 1;
+      } catch {
+        falhas += 1;
+      }
+
+      setLote({ feitos: indice + 1, total: recortes.length, falhas });
+    }
+
+    // A estimativa sai da tela quando o lote acaba: as caixas já viraram recorte guardado, e
+    // mantê-las desenhadas convidaria a recortar as mesmas questões de novo.
+    setEstimadas(undefined);
   };
 
   const recognize = async (
@@ -474,11 +551,48 @@ export function IngestionPanel({
             />
           </div>
 
+          {estimadas !== undefined && lote === null && (
+            <Banner
+              tone={estimadas.length > 0 ? "info" : "warn"}
+              title={
+                estimadas.length > 0
+                  ? `${estimadas.length} questão(ões) estimada(s) nesta página`
+                  : "Nenhuma questão reconhecível nesta página"
+              }
+              onDismiss={() => setEstimadas(undefined)}
+            >
+              {estimadas.length > 0
+                ? "Confira as caixas na página. “Recortar as N” salva todas e manda reconhecer — nenhuma vira questão sem você aprovar."
+                : "A estimativa lê a camada de texto do PDF. Página escaneada, ou sem os marcadores de questão, não dá para estimar — o recorte à mão continua valendo."}
+            </Banner>
+          )}
+
+          {lote !== null && (
+            <Banner
+              tone={lote.feitos < lote.total ? "info" : lote.falhas > 0 ? "warn" : "ok"}
+              title={
+                lote.feitos < lote.total
+                  ? `Recortando e reconhecendo ${lote.feitos} de ${lote.total}…`
+                  : `${lote.total - lote.falhas} de ${lote.total} na fila de captura`
+              }
+              {...(lote.feitos >= lote.total ? { onDismiss: () => setLote(null) } : {})}
+            >
+              {lote.feitos < lote.total
+                ? "Um de cada vez: o reconhecedor local é uma GPU só, e em série o que já foi lido fica guardado se o resto falhar."
+                : lote.falhas > 0
+                  ? `${lote.falhas} não foi/foram transcrita(s) — o recorte está salvo e a fila mostra esperando, então é só mandar reconhecer de novo.`
+                  : "Todas transcritas e esperando revisão na fila. Nenhuma virou questão ainda."}
+            </Banner>
+          )}
+
           <div className="lbb-ing-viewer">
             <PdfCropViewer
               fileUrl={source.url}
               mimeType={source.mimeType}
               onCrop={(crop) => void saveCrop(crop)}
+              onEstimar={setEstimadas}
+              {...(estimadas !== undefined ? { estimadas } : {})}
+              onCropLote={(recortes) => void recortarLote(recortes)}
             />
           </div>
         </>

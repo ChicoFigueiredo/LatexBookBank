@@ -11,18 +11,51 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 vi.mock("@modules/assets/ui/PdfCropViewer", () => ({
-  PdfCropViewer: ({ onCrop }: { onCrop: (crop: unknown) => void }) => (
-    <button
-      onClick={() =>
-        onCrop({
-          pageNumber: 3,
-          box: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
-          png: new Blob([new Uint8Array([1])], { type: "image/png" }),
-        })
-      }
-    >
-      recortar
-    </button>
+  PdfCropViewer: ({
+    onCrop,
+    onEstimar,
+    onCropLote,
+  }: {
+    onCrop: (crop: unknown) => void;
+    onEstimar?: (estimadas: unknown) => void;
+    onCropLote?: (recortes: unknown) => void;
+  }) => (
+    <>
+      <button
+        onClick={() =>
+          onCrop({
+            pageNumber: 3,
+            box: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
+            png: new Blob([new Uint8Array([1])], { type: "image/png" }),
+          })
+        }
+      >
+        recortar
+      </button>
+      {/* Os dois gestos da estimativa, dublados: o que o teste tem a dizer é sobre o que a tela
+          manda para cada rota, e não sobre ler camada de texto — isso é de `pdf-text-layer`. */}
+      <button
+        onClick={() =>
+          onEstimar?.([
+            { numero: 1, box: { x: 0.1, y: 0.1, width: 0.8, height: 0.3 }, razao: "enunciado-ate-solucao", continuaNaProxima: false },
+            { numero: 2, box: { x: 0.1, y: 0.5, width: 0.8, height: 0.3 }, razao: "enunciado-ate-solucao", continuaNaProxima: false },
+          ])
+        }
+      >
+        estimar
+      </button>
+      <button onClick={() => onEstimar?.([])}>estimar vazio</button>
+      <button
+        onClick={() =>
+          onCropLote?.([
+            { numero: 1, pageNumber: 1, box: { x: 0.1, y: 0.1, width: 0.8, height: 0.3 }, png: new Blob([new Uint8Array([1])], { type: "image/png" }) },
+            { numero: 2, pageNumber: 1, box: { x: 0.1, y: 0.5, width: 0.8, height: 0.3 }, png: new Blob([new Uint8Array([2])], { type: "image/png" }) },
+          ])
+        }
+      >
+        recortar lote
+      </button>
+    </>
   ),
 }));
 
@@ -243,5 +276,71 @@ describe("quando dá errado", () => {
 
     const accept = screen.getByText("Conferi — usar este LaTeX").closest("button");
     expect(accept?.disabled).toBe(true);
+  });
+});
+
+/**
+ * A estimativa e o lote.
+ *
+ * O que se protege aqui é o que faz o lote ser seguro: ele para em **transcrição guardada**, e
+ * nunca cria questão sozinho. Um erro de segmentação viraria trinta questões erradas de uma vez,
+ * e é exatamente por isso que a revisão continua sendo de uma em uma.
+ */
+describe("estimar e recortar em lote", () => {
+  it("o lote salva e reconhece cada recorte, em série, e não cria questão nenhuma", async () => {
+    stubFetch(responses());
+    const onAccept = show();
+
+    await upload(document.body);
+    fireEvent.click(screen.getByText("recortar lote"));
+
+    await waitFor(() => screen.getByText("2 de 2 na fila de captura"));
+
+    // Duas questões: salva-reconhece, salva-reconhece — e nesta ordem. Intercalado é o que prova a
+    // série: se fossem disparadas juntas, os dois `crop` viriam antes dos dois `recognition`.
+    expect(calls.map((call) => call.url)).toEqual([
+      "/api/assets",
+      "/api/assets/crop",
+      "/api/recognition",
+      "/api/assets/crop",
+      "/api/recognition",
+    ]);
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it("recorte que falha ao transcrever não derruba os outros, e o relatório conta", async () => {
+    stubFetch(responses({ "/api/recognition": json({ message: "modelo fora do ar" }, 503) }));
+    show();
+
+    await upload(document.body);
+    fireEvent.click(screen.getByText("recortar lote"));
+
+    // O recorte das duas está salvo; o que faltou foi a leitura. A fila mostra as duas esperando,
+    // que é o estado verdadeiro — e é o caso real de quando o Ollama está fora do ar.
+    await waitFor(() => screen.getByText("0 de 2 na fila de captura"));
+    expect(calls.filter((call) => call.url === "/api/assets/crop")).toHaveLength(2);
+  });
+
+  it("página sem camada de texto diz isso, em vez de fingir que não achou questão", async () => {
+    stubFetch(responses());
+    show();
+
+    await upload(document.body);
+    fireEvent.click(screen.getByText("estimar vazio"));
+
+    expect(screen.getByText("Nenhuma questão reconhecível nesta página")).toBeTruthy();
+  });
+
+  it("a estimativa anuncia quantas achou antes de qualquer gravação", async () => {
+    stubFetch(responses());
+    show();
+
+    await upload(document.body);
+    const antes = calls.length;
+    fireEvent.click(screen.getByText("estimar"));
+
+    expect(screen.getByText("2 questão(ões) estimada(s) nesta página")).toBeTruthy();
+    // Estimar é leitura da página, no cliente: não toca em rota nenhuma.
+    expect(calls).toHaveLength(antes);
   });
 });
