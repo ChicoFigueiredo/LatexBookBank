@@ -1,0 +1,13 @@
+# Runtimes deste repositório.
+#
+# O `node` está aqui por um motivo concreto, não por gosto de fixar versão: o `vite@7` que a suíte
+# usa é ESM puro, e `require()` de ESM só existe a partir do Node 22.12. Com Node 20 a suíte não
+# falha em algum teste — ela morre no startup, com `ERR_REQUIRE_ESM` ao carregar
+# `vitest.config.ts`, e nenhum teste chega a rodar. O `tsc --noEmit` continua passando nesse
+# estado, então typecheck limpo não prova que o ambiente está são.
+#
+# Aconteceu de verdade em 2026-09-08, depois de reinstalar a máquina: a config global do mise
+# pedia `node = "lts"` e o PATH ativo tinha 20.11.0. Declarar aqui torna o repositório
+# independente do que a máquina resolveu por último.
+[tools]
+node = "24"
