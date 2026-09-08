@@ -9,5 +9,12 @@
 # Aconteceu de verdade em 2026-09-08, depois de reinstalar a máquina: a config global do mise
 # pedia `node = "lts"` e o PATH ativo tinha 20.11.0. Declarar aqui torna o repositório
 # independente do que a máquina resolveu por último.
+#
+# O `bun` **não** é fixado de propósito: a global resolve 1.4.2, que satisfaz o `engines`
+# (`>=1.3.0`) e roda a suíte inteira (131 arquivos, 1582 testes, conferido nesta data). Fixar sem
+# problema para resolver seria cerimônia — e uma versão a mais para instalar em cada máquina.
+#
+# Numa máquina nova, o mise pede confiança antes de ler este arquivo:
+#     mise trust
 [tools]
 node = "24"

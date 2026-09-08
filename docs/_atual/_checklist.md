@@ -21,17 +21,25 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso (2026-09-02, noite):** 933 ✅ · 7 ◐ · 12 ⛔ · 68 `[ ]`. O dia teve três rodadas.
-**Manhã** (decisões): 7 sem gabarito importam como inconsistentes; 12 órfãs de seed apagadas;
-benchmark da Fase 12 fechado; storage cloud adiado formalmente; UI de lote do Calibre entregue.
-**Tarde** (orquestração): 1.311 bibliotecas de resíduo E2E apagadas (sobram 13); relatório de
-assets ausentes (acervo 100% íntegro, 11 figuras conferidas 1:1, e ele achou pendência nova — as
-figuras não entram no import); escolha de formatos no Calibre; "64 pubs" reconciliado exato.
-**Noite** (dogfooding de verdade): o Chico usou a captura e achou o que nenhuma especulação
-acharia — o leitor de PDF **não rolava** (bug de altura não herdada, valia também para a aba
-Origem), faltavam controles de enquadramento, e a segmentação automática saiu do adiamento pela
-porta da frente: 30 de 30 questões na prova real, porque medir a premissa mostrou que ela não era
-visão computacional. Ver Fase 15.
+**Progresso (2026-09-08):** 933 ✅ · 7 ◐ · 12 ⛔ · 68 `[ ]`. **A máquina foi reinstalada, e a
+reativação do ambiente foi o trabalho do dia** — o repositório e os dados saíram ilesos (banco de
+dev com as 13 bibliotecas, 231 questões e 90 assets; storage íntegro; `.env.local` preservado). O
+que quebrou foi o entorno: o **Node caiu para 20.11.0** e matava a suíte inteira no startup
+(`ERR_REQUIRE_ESM` do `vite@7`, com `tsc` continuando limpo — typecheck verde não prova ambiente
+são), agora fixado em 24 pelo `mise.toml` do repositório; o **modelo de visão sumiu** do Ollama e
+voltou (`gemma3:12b`, transcrição de questão real conferida em 11,4 s); o **acervo legado mudou de
+drive** (`/mnt/t` → `/mnt/bak`) e os 11 caminhos foram religados por
+`religar-acervo-legado.ts` — 10 religados e 1 intocado por falta do arquivo no backup (Análise
+Elon, que tinha 0 questões); e o **worker de render** foi reconstruído e subiu, compilando LaTeX
+real em 0,5 s. Suíte de volta ao verde: 131 arquivos, 1582 testes.
+
+**Rodadas de 2026-09-02** — **manhã** (decisões): 7 sem gabarito importam como inconsistentes; 12
+órfãs de seed apagadas; benchmark da Fase 12 fechado; storage cloud adiado formalmente; UI de lote
+do Calibre entregue. **Tarde** (orquestração): 1.311 bibliotecas de resíduo E2E apagadas (sobram
+13); relatório de assets ausentes (acervo 100% íntegro, e ele achou pendência nova — as 11 figuras
+não entram no import); escolha de formatos no Calibre; "64 pubs" reconciliado exato. **Noite**
+(dogfooding): o leitor de PDF **não rolava** (bug de altura não herdada), faltavam controles de
+enquadramento, e a segmentação automática saiu do adiamento com 30 de 30 questões na prova real.
 
 | Wave | Fases | Estado |
 |---|---|---|
