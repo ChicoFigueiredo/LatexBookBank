@@ -85,7 +85,7 @@ describe("escolha de formatos a copiar", () => {
     const livros = [entrada(1), entrada(2)];
     stubFetch(CATALOGO(livros));
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));
@@ -104,7 +104,7 @@ describe("escolha de formatos a copiar", () => {
     ];
     stubFetch(CATALOGO(livros));
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));
@@ -150,7 +150,7 @@ describe("escolha de formatos a copiar", () => {
       },
     });
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));
@@ -183,7 +183,7 @@ describe("escolha de formatos a copiar", () => {
       },
     });
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));
@@ -215,7 +215,7 @@ describe("escolha de formatos a copiar", () => {
       },
     });
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));

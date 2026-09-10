@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
+import { env } from "@shared/config/env";
 
 import { CalibreScreen } from "./calibre-screen";
 
@@ -13,5 +14,10 @@ export default async function CalibrePage({ params }: { params: Promise<{ slug: 
   const library = await new PrismaLibraryRepository().findBySlug(slug);
   if (!library) notFound();
 
-  return <CalibreScreen library={{ id: library.id, name: library.name, slug: library.slug }} />;
+  return (
+    <CalibreScreen
+      library={{ id: library.id, name: library.name, slug: library.slug }}
+      configuredRoot={env().calibreLibraryRoot}
+    />
+  );
 }

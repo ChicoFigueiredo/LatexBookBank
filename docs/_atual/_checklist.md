@@ -21,8 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso (2026-09-10):** 951 ✅ · 6 ◐ · 13 ⛔ · 65 `[ ]`. **Nasce a Wave G — captura em
-volume.** Rodada de grilling sobre a distância entre o que o autor imaginava e o que a Wave E
+**Progresso (2026-09-10):** 951 ✅ · 6 ◐ · 13 ⛔ · 65 `[ ]`. **A biblioteca do Calibre mudou de
+lugar na reinstalação, e o conserto achou um defeito maior.** O caminho virou
+`CALIBRE_LIBRARY_ROOT` no ambiente — endereço de máquina não pertence ao código, e este já mudou
+duas vezes. Mas apontar para o acervo real (3.260 livros) fez o catálogo falhar inteiro com
+`no such column: isbn`: o provider lia `books.isbn`, coluna que o Calibre **removeu** ao
+generalizar identificador em `identifiers`. A [spike](./calibre-spike.md) foi rodada contra uma
+biblioteca de 64 livros que não era a do autor, e as fixtures dos testes copiaram o schema dela —
+17 testes verdes afirmando o contrário do que acontecia na máquina de quem usa. Corrigido no
+provider e nas fixtures, e provado contra o acervo real.
+
+**Nasce a Wave G — captura em volume.** Rodada de grilling sobre a distância entre o que o autor imaginava e o que a Wave E
 entregou: ele esperava um botão de scan que varresse o livro, circular um trecho e ver virar
 LaTeX, e o livro aberto ao lado da questão. A segunda existe inteira desde a Fase 15. A primeira
 existe pela metade — o lote de 02/09 estima, recorta e transcreve, mas **para antes de criar
@@ -1584,7 +1593,7 @@ e eles escondiam o que falta de verdade)*
 **O livro entra no acervo**
 - [ ] *Curso de Análise Vol. 1* importado do Calibre, com `SOURCE_PDF` gravado *(hoje a
   publicação existe com 2 nós e **nenhum** PDF fonte — sem isso o perfil de livro-texto não tem
-  o que ler)*
+  o que ler. Destravado em 2026-09-10: o livro está no catálogo, em PDF, e a rota já o encontra)*
 - [ ] Biblioteca "Análise Elon" religada *(o `legacySourcePath` ainda aponta para `/mnt/t`)*
 
 **Scan de intervalo** *(D39)*
@@ -2045,6 +2054,10 @@ fechou:
 
 - ✅ **Calibre funcional** (Gate 3): adapter, wizard, contract test, E2E e importação verificada
   contra a biblioteca real do acervo — 64 livros, PDF de 2,7 MB copiado com capa e origem.
+  *(2026-09-10: "a biblioteca real do acervo" era uma de 64 livros que **não** é a do Chico. Contra
+  a de verdade — 3.260 livros — o catálogo não abria: `books.isbn` não existe no Calibre atual.
+  Corrigido para ler de `identifiers`, com as fixtures no schema certo, e reverificado: 3.260
+  livros, 2.426 PDFs, ISBN nos 944 que têm. O caminho da biblioteca virou `CALIBRE_LIBRARY_ROOT`.)*
 - ✅ **Lixeira com tela** (§33). `listDeleted` existia desde a Fase 2 e nenhuma tela a alcançava:
   dava para excluir e não dava para ver o que foi excluído.
 - ✅ **Fila de captura** (§26), **sem tabela nova**: ela é a pergunta "quais recortes ainda não

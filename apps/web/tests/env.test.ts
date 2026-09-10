@@ -13,6 +13,15 @@ describe("configuração de ambiente", () => {
     // O que ainda não chegou fica nulo em vez de string vazia — o consumidor checa presença.
     expect(env.rendererBaseUrl).toBeNull();
     expect(env.aiApiKey).toBeNull();
+    expect(env.calibreLibraryRoot).toBeNull();
+  });
+
+  it("lê a pasta da biblioteca Calibre", () => {
+    // Endereço de máquina, e a máquina muda: o acervo já saiu de `/mnt/t` para `/mnt/bak`, e o
+    // Calibre para `/mnt/e/Livros`. Consertar isso é uma linha de configuração, não um commit.
+    const env = loadEnv({ ...base, CALIBRE_LIBRARY_ROOT: "/mnt/e/Livros" });
+
+    expect(env.calibreLibraryRoot).toBe("/mnt/e/Livros");
   });
 
   it("recusa DATABASE_URL ausente, e a mensagem diz o que fazer", () => {

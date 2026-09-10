@@ -64,12 +64,22 @@ const mb = (bytes: number) => `${Math.max(1, Math.round(bytes / 1024 / 1024))} M
 
 export function CalibreScreen({
   library,
+  configuredRoot,
 }: {
   readonly library: { readonly id: string; readonly name: string; readonly slug: string };
+  /**
+   * `CALIBRE_LIBRARY_ROOT` do ambiente, quando existe.
+   *
+   * O caminho continua sendo preferência de máquina guardada no navegador (§65) — isto é só o
+   * ponto de partida, para que uma instalação nova não comece com o campo vazio e para que uma
+   * biblioteca que mudou de lugar seja um clique, não uma digitação. O que a pessoa escolher
+   * continua ganhando.
+   */
+  readonly configuredRoot: string | null;
 }) {
   useAcervoStyles();
 
-  const [root, setRoot] = useStoredState("lbb:calibre:root", "");
+  const [root, setRoot] = useStoredState("lbb:calibre:root", configuredRoot ?? "");
   const [query, setQuery] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [entries, setEntries] = useState<readonly CatalogEntry[] | null>(null);
@@ -475,16 +485,35 @@ export function CalibreScreen({
 
         <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-end" }}>
           <div style={{ flex: 1, maxWidth: "34rem" }}>
-            <Field label="Pasta da biblioteca" hint="Caminho completo. Ex.: /mnt/u/Calibre">
+            <Field
+              label="Pasta da biblioteca"
+              hint={
+                configuredRoot
+                  ? `Caminho completo. A configurada nesta máquina é ${configuredRoot}.`
+                  : "Caminho completo da pasta que contém o metadata.db."
+              }
+            >
               <Input
                 value={root}
-                placeholder="/caminho/para/Calibre"
+                placeholder={configuredRoot ?? "/caminho/para/Calibre"}
                 onChange={(event) => setRoot(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && root.trim() !== "") void abrir();
                 }}
               />
             </Field>
+            {/*
+              O caminho vive no navegador, então uma biblioteca que muda de lugar deixa para trás
+              um valor que não abre mais — foi o que aconteceu com o acervo na reinstalação. Sem
+              isto, o conserto é lembrar o caminho novo e digitá-lo; com isto, é um clique.
+            */}
+            {configuredRoot && root.trim() !== configuredRoot && (
+              <div style={{ marginTop: "var(--space-1)" }}>
+                <Button variant="ghost" size="sm" onClick={() => setRoot(configuredRoot)}>
+                  Usar a biblioteca configurada
+                </Button>
+              </div>
+            )}
           </div>
           <Button
             variant="primary"

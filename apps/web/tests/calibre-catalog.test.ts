@@ -22,10 +22,20 @@ import { CatalogUnavailableError } from "@/shared/ports/library-catalog";
 
 let root = "";
 
+/**
+ * O schema é o do Calibre **de hoje** (`user_version` 27), conferido contra as duas bibliotecas
+ * reais desta máquina: `books` **não tem** coluna `isbn`, e identificador vive em `identifiers`.
+ *
+ * A fixture antiga declarava `books.isbn`, copiando a biblioteca de 64 livros da spike. Contra o
+ * acervo real de 3.260 livros, a consulta que ela protegia morre inteira — `no such column:
+ * isbn` — e o catálogo não abre. Um teste verde sobre um schema que o usuário não tem é pior que
+ * nenhum teste: ele afirma o contrário do que acontece.
+ */
 const SCHEMA = [
   `create table books (id integer primary key, title text, sort text, timestamp text,
-    pubdate text, series_index real default 1.0, author_sort text, isbn text, lccn text,
+    pubdate text, series_index real default 1.0, author_sort text, lccn text,
     path text, flags integer, uuid text, has_cover bool, last_modified text)`,
+  `create table identifiers (id integer primary key, book integer, type text, val text)`,
   `create table authors (id integer primary key, name text, sort text, link text)`,
   `create table books_authors_link (id integer primary key, book integer, author integer)`,
   `create table publishers (id integer primary key, name text, sort text)`,
@@ -46,12 +56,17 @@ const SEED = [
   `insert into series (id, name) values (1, 'Fundamentos de Matemática Elementar')`,
   `insert into languages (id, lang_code) values (1, 'por'), (2, 'eng')`,
 
-  `insert into books (id, title, author_sort, isbn, pubdate, path, uuid, has_cover, series_index)
-   values (1, 'Conjuntos e Funções', 'Iezzi, Gelson', '9783161484100', '2013-01-27 02:00:00+00:00',
+  `insert into books (id, title, author_sort, pubdate, path, uuid, has_cover, series_index)
+   values (1, 'Conjuntos e Funções', 'Iezzi, Gelson', '2013-01-27 02:00:00+00:00',
            'Gelson Iezzi/Conjuntos e Funcoes (1)', 'uuid-livro-1', 1, 1.0)`,
-  `insert into books (id, title, author_sort, isbn, pubdate, path, uuid, has_cover, series_index)
-   values (2, 'A Música dos Números Primos', 'Sautoy, Marcus du', null,
+  `insert into books (id, title, author_sort, pubdate, path, uuid, has_cover, series_index)
+   values (2, 'A Música dos Números Primos', 'Sautoy, Marcus du',
            '0101-01-01 00:00:00+00:00', 'Marcus du Sautoy/A Musica (2)', 'uuid-livro-2', 0, 1.0)`,
+
+  // Como o acervo real: o livro 1 tem ISBN e um identificador que não é ISBN — e o segundo não
+  // pode virar ISBN por descuido. O livro 2 não tem nenhum.
+  `insert into identifiers (id, book, type, val)
+   values (1, 1, 'isbn', '9783161484100'), (2, 1, 'google', 'aBcD1234')`,
 
   `insert into books_authors_link (book, author) values (1, 1), (1, 2), (2, 3)`,
   `insert into books_publishers_link (book, publisher) values (1, 1), (2, 2)`,

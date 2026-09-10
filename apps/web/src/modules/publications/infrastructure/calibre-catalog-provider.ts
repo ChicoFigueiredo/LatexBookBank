@@ -66,7 +66,7 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
        * colunas.
        */
       const todos = await client.execute(
-        `select id, uuid, title, author_sort, isbn, pubdate, path, has_cover, series_index
+        `select id, uuid, title, author_sort, pubdate, path, has_cover, series_index
          from books order by title`,
       );
 
@@ -85,12 +85,13 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
       const ids = books.rows.map((row) => Number(row["id"]));
       if (ids.length === 0) return [];
 
-      const [autores, editoras, idiomas, series, arquivos] = await Promise.all([
+      const [autores, editoras, idiomas, series, arquivos, isbns] = await Promise.all([
         this.relacionados(client, ids, "authors", "books_authors_link", "author"),
         this.relacionados(client, ids, "publishers", "books_publishers_link", "publisher"),
         this.idiomas(client, ids),
         this.relacionados(client, ids, "series", "books_series_link", "series"),
         this.arquivos(client, ids),
+        this.isbns(client, ids),
       ]);
 
       return books.rows.map((row) => {
@@ -103,7 +104,7 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
           authors: autores.get(id) ?? [],
           publisher: editoras.get(id)?.[0] ?? null,
           year: anoDe(row["pubdate"]),
-          isbn: texto(row["isbn"]),
+          isbn: isbns.get(id) ?? null,
           language: idiomas.get(id) ?? null,
           series: series.get(id)?.[0] ?? null,
           seriesIndex: indiceDeSerie(row["series_index"]),
@@ -237,6 +238,44 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
       const lista = mapa.get(book);
       if (lista) lista.push(nome);
       else mapa.set(book, [nome]);
+    }
+    return mapa;
+  }
+
+  /**
+   * ISBN, que **não** é coluna de `books`.
+   *
+   * A spike leu `books.isbn` e funcionou contra a biblioteca de 64 livros que estava à mão. Foi
+   * sorte de amostra: aquele era um Calibre antigo. O Calibre generalizou identificador em
+   * `identifiers(book, type, val)` — ISBN, ASIN, Google, Goodreads, o que o usuário quiser — e
+   * **removeu** a coluna. Contra a biblioteca real de 3.260 livros (`user_version` 27), a
+   * consulta antiga morre inteira com `no such column: isbn`: não é o ISBN que fica nulo, é o
+   * catálogo que não abre.
+   *
+   * Ler de `identifiers` é o caminho que serve às duas: a tabela existe desde o Calibre 0.8, e
+   * onde a coluna ainda existir ela é cópia do que está aqui.
+   *
+   * Um livro pode ter mais de um ISBN (edição impressa e digital). Fica o primeiro por `id`, que
+   * é o que o Calibre mostra — e o ISBN aqui serve para **detectar duplicata**, não para
+   * catalogar: um palpite estável vale mais que a escolha certa entre dois.
+   */
+  private async isbns(client: Client, ids: readonly number[]): Promise<Map<number, string>> {
+    const marcadores = ids.map((_, index) => `?${index + 1}`).join(",");
+    const resultado = await client.execute({
+      sql: `select book as book, val as val
+            from identifiers
+            where type = 'isbn' and book in (${marcadores})
+            order by id`,
+      args: [...ids],
+    });
+
+    const mapa = new Map<number, string>();
+    for (const row of resultado.rows) {
+      const book = Number(row["book"]);
+      if (mapa.has(book)) continue;
+
+      const val = texto(row["val"]);
+      if (val !== null) mapa.set(book, val);
     }
     return mapa;
   }

@@ -109,7 +109,7 @@ describe("seleção múltipla", () => {
       },
     });
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     // A ordem do clique é a ordem do lote: 2 antes de 1, de propósito.
@@ -150,7 +150,7 @@ describe("seleção múltipla", () => {
       },
     });
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));
@@ -175,7 +175,7 @@ describe("seleção múltipla", () => {
       },
     });
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));
@@ -199,7 +199,7 @@ describe("seleção múltipla", () => {
     ];
     stubFetch(CATALOGO(livros));
 
-    render(<CalibreScreen library={LIBRARY} />);
+    render(<CalibreScreen library={LIBRARY} configuredRoot={null} />);
     await abrirCatalogo(livros);
 
     fireEvent.click(screen.getByText("Livro 1"));
