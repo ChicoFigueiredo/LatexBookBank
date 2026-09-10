@@ -38,6 +38,11 @@ Um elemento da árvore de conteúdo de um livro: capítulo, seção, grupo ou qu
 profundidade arbitrária. A árvore é dos nós; o conteúdo da questão não é.
 _Avoid_: item, pasta, capítulo (quando o tipo não importa)
 
+**Corpo do nó**:
+A teoria, as definições e os exemplos que uma seção do livro carrega, vindos do PDF. É leitura,
+não exercício: não tem tipo, alternativas nem gabarito. Decidido em 2026-09-10; ainda não existe.
+_Avoid_: texto (ambíguo com o texto da questão), conteúdo do capítulo, prosa
+
 **Questão** (`Question`):
 O conteúdo que um nó de tipo questão carrega: enunciado, resolução, complemento, metadados e,
 quando é objetiva, as alternativas. Tem tipo: escolha simples, múltipla escolha ou discursiva.
@@ -115,6 +120,22 @@ _Avoid_: upload (em texto de tela), importação
 A segmentação automática de uma página: caixas onde o app acha que há questões, a partir do
 texto do PDF. Sugestão, nunca questão criada sem confirmação.
 _Avoid_: segmentação (em texto de tela), detecção
+
+**Scan**:
+Varrer um trecho do livro de uma vez: estimar, recortar, reconhecer e criar as questões a
+revisar no destino escolhido. É a estimativa em lote, com perfil.
+_Avoid_: captura automática, importação do PDF, OCR do livro
+
+**Perfil de captura**:
+As regras que dizem ao scan como um livro é organizado: como uma questão começa, onde a teoria
+acaba e os exercícios começam, onde ficam as respostas. Uma prova de concurso e um livro-texto
+têm perfis diferentes.
+_Avoid_: perfil (sem qualificar; confunde com Perfil LaTeX), template de scan, preset
+
+**A revisar**:
+Uma questão criada pelo scan que ninguém leu ainda. Carrega o recorte e a âncora, e o LaTeX é o
+do modelo até alguém corrigir e confirmar. Diferente de rascunho, que é trabalho da pessoa.
+_Avoid_: pendente, não validada (é outro eixo), rascunho
 
 **Reconhecimento**:
 Transformar um recorte em LaTeX por um modelo de visão. Sempre passa por revisão humana; o

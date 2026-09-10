@@ -45,8 +45,9 @@ mestra assumia:
    somam 109 MB em 409 arquivos, com menos de 1% recuperável por deduplicação. Isso remove a
    questão de custo de storage da lista de riscos.
 
-O plano resultante tem **19 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
-com critérios de aceite verificáveis por comando.
+O plano resultante tem **21 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
+com critérios de aceite verificáveis por comando. *(Eram 19; a Wave G — captura em volume —
+acrescentou as Fases 18 e 19 em 2026-09-10, ver §3.7.)*
 
 ---
 
@@ -879,6 +880,81 @@ da ordenação demonstra o cenário exato.
 
 ---
 
+### 3.7 Captura em volume — decisões de 2026-09-10
+
+*Rodada de grilling sobre a distância entre o que o autor imaginava e o que a Fase 14/15
+entregou. As três expectativas eram: um botão de scan que varre o livro; circular um trecho e o
+LLM converter em LaTeX; e o livro aberto ao lado da questão. A segunda existe inteira desde a
+Fase 15. A primeira existe pela metade — estimar, recortar em lote e transcrever, parando antes
+de criar questão. A terceira quase não existe: é a aba Origem, entre outras quatro, que não
+acompanha a troca de questão.*
+
+#### D39 — O scan **cria** questões a revisar; não devolve sugestões
+
+O lote de 02/09 para em "recorte salvo e transcrição guardada", e cada questão ainda nasce de um
+gesto: escolher destino, escolher tipo, clicar em criar. Para uma página, é honesto. Para um
+livro de trezentas questões, é o mesmo trabalho manual com um passo a menos.
+
+A alternativa oposta — criar questões prontas — está descartada pelo
+[benchmark de reconhecimento](./recognition-benchmark.md): 2 de 6 casos limpos, com erro de
+dígito e de sinal que o modelo local **não** corrige por ajuste de prompt, porque é falha de
+percepção. Aceitar isso em silêncio é envenenar o acervo.
+
+**A decisão é o meio-termo:** o scan cria a questão no destino, com o recorte e a âncora ligados
+e o LaTeX **como o modelo devolveu**, marcada como *a revisar*. A revisão deixa de ser um
+pedágio na captura e vira trabalho de editor, no ritmo de quem edita, com o livro do lado (D43).
+
+#### D40 — *A revisar* é derivado, não é coluna nova
+
+`Question.status` já tem `DRAFT · READY · ARCHIVED`, e o import legado grava `READY` enquanto a
+criação manual grava `DRAFT`. Uma questão em `DRAFT` **cuja âncora tem LaTeX cru ainda não
+conferido** é exatamente "ninguém leu isto". É o que a fila de captura já faz com
+`SourceAnchor`, pela mesma razão registrada em `capture-queue.ts`: o dado durável já existe, o
+estado é uma pergunta sobre ele.
+
+Nada de `TO_REVIEW` no enum, nada de tag automática. O filtro *a revisar* na árvore e na busca
+deriva do par. Conferir e aceitar promove para `READY`, como já acontece hoje.
+
+#### D41 — Perfil de captura é preset no código, e o livro lembra o seu
+
+A segmentação atual conhece **um** padrão: prova de concurso, marcador `1.` ou `Questão 12` na
+margem esquerda, sequência crescente. Provada com 30 de 30 na prova do ENA. Livro-texto é outro
+mundo — teoria antes, bloco de exercícios depois, respostas no fim do volume.
+
+Um perfil declara oito coisas: marcadores de início de questão · marcador de fim ou de solução ·
+títulos de capítulo e de seção · marcador do bloco de exercícios · onde ficam as respostas (fim
+do livro, fim do capítulo, logo abaixo, nenhuma) · número de colunas · tipo padrão da questão
+criada · modelo de visão.
+
+**Presets no código, não tela de edição.** Cada perfil nasce com um livro real na mão e um teste
+com o PDF dele, como a segmentação nasceu com o ENA. Tela para editar expressão regular é
+cerimônia antes de existirem cinco perfis — e regex editável por formulário é a classe de
+recurso que parece poder e entrega frustração. A publicação guarda qual perfil usa.
+
+#### D42 — A seção do livro ganha corpo, em LaTeX — [ADR 0001](../adr/0001-corpo-do-no.md)
+
+Capítulo e seção passam a ter conteúdo próprio, editado no mesmo Monaco e compilado pelo mesmo
+worker. É o que dá lugar à teoria que o scan de livro-texto lê junto com os exercícios.
+
+**Consequência que importa:** o `.lbb` chega à `formatVersion` 2, e nasce o primeiro migrador
+`v1 → v2` — o que a D37 previa "quando fizer sentido". Detalhes, alternativas rejeitadas e o
+efeito sobre as 5 figuras órfãs de Fundamentos estão no ADR.
+
+#### D43 — "Ver fonte" **troca** o painel direito; não é aba nem terceira coluna
+
+O PDF ao lado do editor é o que torna a revisão em lote suportável: ler o recorte original e
+corrigir o LaTeX sem trocar de tela.
+
+Terceira coluna está fora por medida, não por gosto: em 1366×768 o editor já cai para ~240 px
+com o painel do agente aberto (#197). Sexta aba também está fora — a aba Origem, que já faz
+quase isto, é precisamente o que o autor não encontrou em um mês de uso.
+
+**A decisão:** um botão *Ver fonte* ao lado de "Preview rápido" troca o painel inteiro pelo PDF,
+aberto na página da âncora com a caixa marcada, acompanhando a troca de questão. A escolha fica
+lembrada por livro. Em questão sem âncora — o acervo legado inteiro — o botão não aparece.
+
+---
+
 ## 4. Arquitetura
 
 ### 4.1 Topologia — modo local (o MVP)
@@ -1259,7 +1335,7 @@ de round-trip exercita as duas direções e está ligado a qualquer mudança de 
 
 ---
 
-## 8. As 19 fases
+## 8. As 21 fases
 
 Cada fase termina em estado verificável e em checkpoint humano. Os itens marcáveis estão em
 [`_checklist.md`](./_checklist.md).
@@ -1510,6 +1586,42 @@ repositório; nenhuma configuração de infraestrutura hard-coded.
 > O deploy em produção **não** faz parte deste plano. A prova de que ele é viável é a Fase 6.5;
 > a execução dele é decisão posterior de negócio.
 
+### Wave G — captura em volume
+
+*Decidida em 2026-09-10 (§3.7). A Wave E entregou o gesto unitário: circular um trecho e receber
+LaTeX. Esta wave é o que falta para digitalizar um livro inteiro sem repetir esse gesto trezentas
+vezes.*
+
+#### Fase 18 — Scan, perfis de captura e o livro ao lado
+Perfil de captura como preset no código (D41), com os oito campos e um teste por perfil contra o
+PDF real que o originou · perfil **prova**, derivado da segmentação existente (ENA, 30 de 30) ·
+perfil **livro-texto**, com o *Curso de Análise Vol. 1* como fixture, entrando no acervo pelo
+Calibre para ter `SOURCE_PDF` · `Publication.captureProfileId` · scan de **intervalo de páginas**
+sob um nó de destino escolhido, encadeando estimativa → recorte → reconhecimento → **criação da
+questão** a revisar (D39), em série e tolerante a falha unitária · *a revisar* derivado de
+`DRAFT` + âncora não conferida (D40), com filtro na árvore e na busca · botão **Ver fonte** no
+editor, trocando o painel direito pelo PDF na página da âncora, com a escolha lembrada por livro
+(D43) · gesto manual de mandar um recorte para o corpo do nó fica para a Fase 19.
+**Aceite:** um intervalo de páginas do ProfMat vira questões *a revisar* no nó escolhido, cada
+uma com recorte e âncora; o filtro *a revisar* mostra exatamente essas; abrir uma delas mostra o
+PDF ao lado, na página certa; conferir e aceitar promove para `READY` e some do filtro; o mesmo
+scan rodado duas vezes não duplica questão.
+
+#### Fase 19 — Corpo do nó
+`DocumentNode.bodyLatex` · edição no mesmo Monaco, com preview rápido, render autoritativo e
+revisão em histórico · gesto manual "mandar para o corpo da seção" a partir de um recorte
+reconhecido · **Portable Schema v2** e o migrador `v1 → v2` (D37, D42) · o perfil de captura
+passa a saber onde a teoria acaba e os exercícios começam, mandando o que vem antes para o corpo
+do nó, também a revisar.
+**Aceite:** uma seção com teoria compila junto com as questões que ela contém; um `.lbb` v1
+gerado antes desta fase importa sem perda; o round-trip de um `.lbb` v2 com corpo de nó dá
+identidade; o *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF.
+
+> **Fora desta wave, por decisão:** parear resposta com questão automaticamente (a resposta é um
+> segundo gesto — recortar e apontar); criar capítulos e seções a partir dos títulos que o perfil
+> reconhece (a árvore é montada à mão, e o scan preenche); tela para editar perfis. Cada um volta
+> à mesa depois que o anterior funcionar num livro real.
+
 ---
 
 ## 9. Riscos
@@ -1545,7 +1657,7 @@ render em função serverless · LaTeX em WASM ·
 multiusuário · auth complexa · billing · sincronização distribuída · Local Companion ·
 microserviços · Kubernetes · Redis · vector database · event sourcing · CQRS · multi-tenancy
 complexo · pagamentos · marketplace · colaboração em tempo real · CRDT · TexLab/LSP obrigatório
-(spike apenas, sem bloquear) · OCR de livro inteiro antes do crop unitário · agente em lote antes
+(spike apenas, sem bloquear) · agente em lote antes
 do agente unitário ser confiável · tipos de questão 3–7 (V/F, Resolva, CESPE, Múltipla,
 Somatório), que existem no vocabulário legado mas têm **zero linhas** no acervo.
 
@@ -1557,6 +1669,10 @@ Somatório), que existem no vocabulário legado mas têm **zero linhas** no acer
 - **Estimativa de custo de storage em nuvem** — respondida pelo inventário: 109 MB.
 
 - **Deduplicação como estratégia de economia** — 0,77 MB recuperáveis.
+- **"OCR de livro inteiro antes do crop unitário"** — a condição foi satisfeita, não violada. O
+  crop unitário existe e funciona desde a Fase 15, com revisão obrigatória; o scan da Fase 18 é o
+  passo que a exclusão contemplava para depois dele. Continua fora: OCR de livro inteiro **sem**
+  destino escolhido, sem perfil e sem revisão.
 
 Também fora, por decisão da segunda auditoria §35: Redis obrigatório · filas distribuídas
 complexas · autenticação SaaS completa.
@@ -1588,3 +1704,5 @@ complexas · autenticação SaaS completa.
 | 15 | EPIC 06 | §13.3, §13.4 | D29 |
 | 16 | EPIC 09 | §17, §18 | — |
 | 17 | EPIC 10 | §25, §28 | D21 |
+| **18** | — | §13.1–13.4 (estende) | **D39, D40, D41, D43** |
+| **19** | — | §8.3 (estende) | **D42** ([ADR 0001](../adr/0001-corpo-do-no.md)), D37 |

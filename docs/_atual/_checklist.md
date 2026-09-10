@@ -21,6 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
+**Progresso (2026-09-10):** 951 ✅ · 6 ◐ · 13 ⛔ · 65 `[ ]`. **Nasce a Wave G — captura em
+volume.** Rodada de grilling sobre a distância entre o que o autor imaginava e o que a Wave E
+entregou: ele esperava um botão de scan que varresse o livro, circular um trecho e ver virar
+LaTeX, e o livro aberto ao lado da questão. A segunda existe inteira desde a Fase 15. A primeira
+existe pela metade — o lote de 02/09 estima, recorta e transcreve, mas **para antes de criar
+questão**. A terceira é a aba Origem, entre outras quatro, que não acompanha a troca de questão e
+que ele não achou em um mês de uso. Daí as Fases 18 e 19 e as decisões D39–D43
+([planejamento §3.7](./_planejamento.md)), mais o [ADR 0001](../adr/0001-corpo-do-no.md) para o
+corpo do nó, que é o que muda o domínio e leva o `.lbb` à v2. Os 47 `[ ]` novos são essa wave —
+o denominador cresceu, o numerador não.
+
 **Progresso (2026-09-09):** 951 ✅ · 6 ◐ · 13 ⛔ · 18 `[ ]`. **Rodada de decisões sobre a
 posição do repo, e as figuras do legado** — das 11 figuras citadas pelo acervo, as 4 que têm
 questão no banco foram gravadas como `Asset` e o LaTeX reescrito para o nome da Fase 14; as 7
@@ -61,9 +72,11 @@ enquadramento, e a segmentação automática saiu do adiamento com 30 de 30 ques
 | D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; os ◐ são o `ImportReport` e o §33 "Legado"; a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
+| G — captura em volume | **18** · **19** | decidida em 2026-09-10 e **não começada**: scan de intervalo, perfis de captura, o livro ao lado do editor, e o corpo do nó |
 
-**Fases fechadas: 12 de 19** — 0, 1, 3, 4, 5, 7, 8, 9, 10, 12, 15 e 16. *(1 e 5 fecharam em 2026-09-09
-por decisão do Chico, sem conferência visual: um mês de uso sem reclamação registrada.)*
+**Fases fechadas: 12 de 21** — 0, 1, 3, 4, 5, 7, 8, 9, 10, 12, 15 e 16. *(1 e 5 fecharam em 2026-09-09
+por decisão do Chico, sem conferência visual: um mês de uso sem reclamação registrada. O
+denominador virou 21 em 2026-09-10, com a Wave G.)*
 
 ### Por épico *(rastreabilidade da §11 do planejamento)*
 
@@ -82,6 +95,7 @@ por decisão do Chico, sem conferência visual: um mês de uso sem reclamação 
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 13 | 1 | 5 | 3 | escopo reescrito em 2026-09-09: falta a suíte de integração contra PostgreSQL; o par de storage é ⛔ adiado |
 | — seções cruzadas | §8–§15 | 175 | 2 | — | 8 | recontado em 2026-09-09 pelo mesmo critério do total; o checklist visual fechou, e os `[ ]` são o §33 "Legado" |
+| — captura em volume | 18 · 19 | — | — | — | 47 | decidida em 2026-09-10, **não começada** |
 
 *As seções cruzadas repetem, por tema, o que as fases já afirmam — elas não são trabalho novo, são
 a verificação de que o trabalho das fases fecha contra a spec.*
@@ -1546,6 +1560,102 @@ e eles escondiam o que falta de verdade)*
 
 ---
 
+## Wave G — captura em volume
+
+> Decidida em 2026-09-10 ([planejamento §3.7](./_planejamento.md)). A Wave E entregou o gesto
+> unitário — circular e receber LaTeX. Esta wave é o que falta para digitalizar um livro inteiro
+> sem repetir o gesto trezentas vezes. **Nada aqui está começado.**
+
+### Fase 18 — Scan, perfis de captura e o livro ao lado *(D39, D40, D41, D43 — #199)*
+
+**Perfil de captura** *(D41)*
+- [ ] `CaptureProfile` no domínio, com os oito campos: marcadores de início de questão · marcador
+  de fim ou solução · títulos de capítulo e de seção · marcador do bloco de exercícios · onde
+  ficam as respostas (`FIM_DO_LIVRO` · `FIM_DO_CAPITULO` · `ABAIXO` · `NENHUMA`) · colunas ·
+  tipo padrão da questão criada · modelo de visão
+- [ ] Perfil **prova**, derivado da segmentação existente *(o `segmentar-pagina.ts` de hoje é
+  este perfil embutido; extraí-lo não pode mudar o resultado — os 30 de 30 do ENA continuam)*
+- [ ] Perfil **livro-texto**, com o *Curso de Análise Vol. 1* como fixture
+- [ ] Um teste por perfil, contra o PDF real que o originou
+- [ ] `Publication.captureProfileId` — o livro lembra o perfil que usa
+- [ ] Presets no código, **sem tela de edição** *(decisão: regex por formulário é recurso que
+  parece poder e entrega frustração)*
+
+**O livro entra no acervo**
+- [ ] *Curso de Análise Vol. 1* importado do Calibre, com `SOURCE_PDF` gravado *(hoje a
+  publicação existe com 2 nós e **nenhum** PDF fonte — sem isso o perfil de livro-texto não tem
+  o que ler)*
+- [ ] Biblioteca "Análise Elon" religada *(o `legacySourcePath` ainda aponta para `/mnt/t`)*
+
+**Scan de intervalo** *(D39)*
+- [ ] Escolher intervalo de páginas e nó de destino
+- [ ] Encadeia estimativa → recorte → reconhecimento → **criação da questão**, em série
+- [ ] Falha unitária não aborta o lote, e o relatório diz o que falhou e por quê
+- [ ] A questão nasce com recorte e âncora ligados, e o LaTeX **como o modelo devolveu**
+- [ ] Tipo padrão vem do perfil
+- [ ] Modelo de visão escolhido por scan, local por padrão, com o aviso de localidade que a
+  ingestão já dá
+- [ ] Idempotente: o mesmo intervalo rodado duas vezes não duplica questão
+- [ ] Progresso presta contas durante o lote *(o que já foi garantido, o que falta)*
+
+**"A revisar"** *(D40)*
+- [ ] Derivado de `status = DRAFT` + âncora com LaTeX cru não conferido — **sem coluna nova, sem
+  valor novo no enum, sem tag automática**
+- [ ] Filtro na árvore
+- [ ] Filtro na busca
+- [ ] Conferir e aceitar promove para `READY` e sai do filtro
+
+**Ver fonte** *(D43)*
+- [ ] Botão ao lado de "Preview rápido", trocando o painel direito pelo PDF
+- [ ] Abre na página da âncora, com a caixa marcada
+- [ ] Acompanha a troca de questão
+- [ ] A escolha fica lembrada por livro
+- [ ] Questão sem âncora não mostra o botão *(o acervo legado inteiro)*
+
+**Aceite da fase**
+- [ ] Um intervalo do ProfMat vira questões *a revisar* no nó escolhido, cada uma com recorte e
+  âncora
+- [ ] O filtro *a revisar* mostra exatamente essas
+- [ ] Abrir uma delas mostra o PDF ao lado, na página certa
+- [ ] Conferir e aceitar promove para `READY` e some do filtro
+- [ ] O mesmo scan rodado duas vezes não duplica questão
+- [ ] E2E do caminho inteiro, num navegador de verdade
+
+### Fase 19 — Corpo do nó *(D42, [ADR 0001](../adr/0001-corpo-do-no.md) — #200)*
+
+**Domínio e edição**
+- [ ] `DocumentNode.bodyLatex`
+- [ ] Edição no mesmo Monaco, com autocomplete e paleta
+- [ ] Preview rápido
+- [ ] Render autoritativo — um capítulo com corpo é compilável *(primeiro `RenderJob` de nó; hoje
+  só a questão exercita esse caminho)*
+- [ ] Revisão em histórico, como a questão
+- [ ] O estado vazio do nó deixa de dizer "o conteúdo fica nas questões"
+
+**Captura da teoria**
+- [ ] Gesto manual: mandar um recorte reconhecido para o corpo da seção
+- [ ] O perfil sabe onde a teoria acaba e os exercícios começam, e manda o que vem antes para o
+  corpo do nó, também a revisar
+
+**Portabilidade** *(D37, D42)*
+- [ ] Portable Schema **v2**, com o campo novo
+- [ ] Migrador `v1 → v2` — o primeiro, e o que a D37 previa "quando fizer sentido"
+- [ ] Versão desconhecida continua sendo recusada, nunca adivinhada
+
+**Aceite da fase**
+- [ ] Uma seção com teoria compila junto com as questões que ela contém
+- [ ] Um `.lbb` v1 gerado antes desta fase importa sem perda
+- [ ] O round-trip de um `.lbb` v2 com corpo de nó dá identidade
+- [ ] O *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF
+- [ ] Reavaliar as 5 figuras órfãs de Fundamentos *(estão em nó estrutural, e a decisão de
+  2026-09-09 de deixá-las fora valia enquanto não havia onde pôr — ver ADR 0001)*
+
+> **Fora desta wave, por decisão:** parear resposta com questão automaticamente · criar capítulos
+> e seções a partir dos títulos que o perfil reconhece · tela para editar perfis. Cada um volta à
+> mesa depois que o anterior funcionar num livro real.
+
+---
+
 ## 8. Fronteiras de provider *(auditoria §36)*
 
 Checklist arquitetural. Verificar a cada fase, não só na Fase 0.
@@ -1889,7 +1999,7 @@ Verificar em toda revisão de fase:
 Revisão fase a fase do plano contra este checklist, procurando **o que o plano pede e o checklist
 não registra**. Foi o inverso da auditoria anterior, que procurava trabalho feito e não marcado.
 
-**Nada do plano está ausente daqui.** As 19 fases têm bloco correspondente, e os aceites de cada
+**Nada do plano está ausente daqui.** As 21 fases têm bloco correspondente, e os aceites de cada
 uma aparecem como item marcável. O que a revisão achou foram quatro **divergências**, que agora
 estão escritas onde alguém vai procurá-las:
 

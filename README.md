@@ -7,7 +7,8 @@ sem que nenhuma regra de negócio saiba qual infraestrutura está por trás.
 
 - [Glossário](CONTEXT.md) — o que cada palavra significa neste projeto, e qual usar
 - [Beta Editorial](docs/_atual/beta-editorial.md) — a matriz Design → Código, o que ficou pronto e o que não
-- [Planejamento de execução](docs/_atual/_planejamento.md) — decisões, arquitetura, as 19 fases
+- [Planejamento de execução](docs/_atual/_planejamento.md) — decisões, arquitetura, as 21 fases
+- [Decisões arquiteturais](docs/adr/) — as que são caras de reverter, uma por arquivo
 - [Checklist](docs/_atual/_checklist.md) — instrumento de controle, item a item
 - [Especificação mestra](docs/prompts/260806-01.LatexBookBank_Web_Especificacao_Mestra.md)
 
