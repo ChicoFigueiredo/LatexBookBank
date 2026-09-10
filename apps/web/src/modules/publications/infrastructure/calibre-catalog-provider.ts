@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient, type Client } from "@libsql/client";
+import { createClient, type Client, type Row } from "@libsql/client";
 import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -82,53 +82,71 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
           .slice(0, limit),
       };
 
-      const ids = books.rows.map((row) => Number(row["id"]));
-      if (ids.length === 0) return [];
+      return this.entradasDe(client, books.rows);
+    });
+  }
 
-      const [autores, editoras, idiomas, series, arquivos, isbns] = await Promise.all([
-        this.relacionados(client, ids, "authors", "books_authors_link", "author"),
-        this.relacionados(client, ids, "publishers", "books_publishers_link", "publisher"),
-        this.idiomas(client, ids),
-        this.relacionados(client, ids, "series", "books_series_link", "series"),
-        this.arquivos(client, ids),
-        this.isbns(client, ids),
-      ]);
+  /**
+   * As linhas de `books` viradas `CatalogEntry`, com tudo o que mora nas tabelas de ligação.
+   *
+   * Extraído de `list` quando `read` precisou do **mesmo** trabalho para **um** livro. Antes, ele
+   * pedia a lista inteira e procurava o seu livro nela — e a lista tem limite de 200. Numa
+   * biblioteca de 64 livros isso nunca apareceu; na de 3.260 do autor, qualquer livro fora dos 200
+   * primeiros por título respondia "não está mais no catálogo" **na hora de copiar o arquivo**,
+   * depois de a pessoa já o ter escolhido na tela. Aqui o livro é buscado pelo id que se quer.
+   */
+  private async entradasDe(client: Client, rows: readonly Row[]): Promise<CatalogEntry[]> {
+    const ids = rows.map((row) => Number(row["id"]));
+    if (ids.length === 0) return [];
 
-      return books.rows.map((row) => {
-        const id = Number(row["id"]);
-        return {
-          // O `uuid` e não o `id` numérico: é o que o Calibre preserva ao mover a biblioteca, e é
-          // o que faz reimportar reconhecer o que já entrou.
-          externalId: String(row["uuid"] ?? id),
-          title: String(row["title"] ?? "").trim(),
-          authors: autores.get(id) ?? [],
-          publisher: editoras.get(id)?.[0] ?? null,
-          year: anoDe(row["pubdate"]),
-          isbn: isbns.get(id) ?? null,
-          language: idiomas.get(id) ?? null,
-          series: series.get(id)?.[0] ?? null,
-          seriesIndex: indiceDeSerie(row["series_index"]),
-          files: arquivos.get(id) ?? [],
-          hasCover: Number(row["has_cover"] ?? 0) === 1,
-        };
-      });
+    const [autores, editoras, idiomas, series, arquivos, isbns] = await Promise.all([
+      this.relacionados(client, ids, "authors", "books_authors_link", "author"),
+      this.relacionados(client, ids, "publishers", "books_publishers_link", "publisher"),
+      this.idiomas(client, ids),
+      this.relacionados(client, ids, "series", "books_series_link", "series"),
+      this.arquivos(client, ids),
+      this.isbns(client, ids),
+    ]);
+
+    return rows.map((row) => {
+      const id = Number(row["id"]);
+      return {
+        // O `uuid` e não o `id` numérico: é o que o Calibre preserva ao mover a biblioteca, e é
+        // o que faz reimportar reconhecer o que já entrou.
+        externalId: String(row["uuid"] ?? id),
+        title: String(row["title"] ?? "").trim(),
+        authors: autores.get(id) ?? [],
+        publisher: editoras.get(id)?.[0] ?? null,
+        year: anoDe(row["pubdate"]),
+        isbn: isbns.get(id) ?? null,
+        language: idiomas.get(id) ?? null,
+        series: series.get(id)?.[0] ?? null,
+        seriesIndex: indiceDeSerie(row["series_index"]),
+        files: arquivos.get(id) ?? [],
+        hasCover: Number(row["has_cover"] ?? 0) === 1,
+      };
     });
   }
 
   async read(externalId: string, formats?: readonly string[]): Promise<CatalogBook | null> {
-    const entradas = await this.withCatalog(async (client) => {
+    // Uma abertura do catálogo só, e por **este** livro: a linha de `books` e a entrada saem da
+    // mesma cópia do `metadata.db`, em vez de duas cópias e uma listagem inteira para achar um.
+    const encontrado = await this.withCatalog(async (client) => {
       const linha = await client.execute({
-        sql: "select id, path from books where uuid = ?1 or cast(id as text) = ?1",
+        sql: `select id, uuid, title, author_sort, pubdate, path, has_cover, series_index
+              from books where uuid = ?1 or cast(id as text) = ?1`,
         args: [externalId],
       });
+
       const row = linha.rows[0];
-      return row ? { id: Number(row["id"]), path: String(row["path"] ?? "") } : null;
+      if (!row) return null;
+
+      const [entrada] = await this.entradasDe(client, [row]);
+      return entrada ? { entry: entrada, path: String(row["path"] ?? "") } : null;
     });
 
-    if (entradas === null) return null;
-
-    const [entry] = (await this.list()).filter((item) => item.externalId === externalId);
-    if (!entry) return null;
+    if (encontrado === null) return null;
+    const entry = encontrado.entry;
 
     const desejados =
       formats === undefined
@@ -138,12 +156,12 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
     const files = await Promise.all(
       desejados.map(async (file) => ({
         file,
-        content: await this.ler(entradas.path, file.filename),
+        content: await this.ler(encontrado.path, file.filename),
       })),
     );
 
     const cover = entry.hasCover
-      ? await this.ler(entradas.path, "cover.jpg")
+      ? await this.ler(encontrado.path, "cover.jpg")
           .then((content) => ({ filename: "cover.jpg", content }))
           .catch(() => null)
       : null;

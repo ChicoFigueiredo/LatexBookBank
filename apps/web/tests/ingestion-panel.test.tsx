@@ -12,15 +12,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@modules/assets/ui/PdfCropViewer", () => ({
   PdfCropViewer: ({
+    fileUrl,
     onCrop,
     onEstimar,
     onCropLote,
+    onLoadError,
   }: {
+    fileUrl: string;
     onCrop: (crop: unknown) => void;
     onEstimar?: (estimadas: unknown) => void;
     onCropLote?: (recortes: unknown) => void;
+    onLoadError?: (motivo: string) => void;
   }) => (
     <>
+      {/* De onde o visualizador está lendo — a única coisa do `pdf.js` que a tela decide. */}
+      <span data-testid="file-url">{fileUrl}</span>
+      {/* O arquivo que não abre: asset sumido do storage é 404 para o `pdf.js`. */}
+      <button onClick={() => onLoadError?.("Missing PDF")}>falhar ao abrir</button>
       <button
         onClick={() =>
           onCrop({
@@ -388,5 +396,111 @@ describe("estimar e recortar em lote", () => {
     expect(screen.getByText("2 questão(ões) estimada(s) nesta página")).toBeTruthy();
     // Estimar é leitura da página, no cliente: não toca em rota nenhuma.
     expect(calls).toHaveLength(antes);
+  });
+});
+
+/**
+ * A fonte do livro — o arquivo que a sessão de captura já tem.
+ *
+ * O defeito que isto protege era de recepção: o livro **tinha** PDF, o servidor mandava qual era,
+ * e a tela abria com "Trazer arquivo — Arraste um PDF ou imagem…" e o arquivo certo escondido num
+ * botão ao lado. Quem chegava era convidado a subir de novo o que o app já tinha.
+ */
+describe("o PDF que o livro já tem", () => {
+  const fonte = {
+    assetId: "asset-livro",
+    filename: "profmat-2023.pdf",
+    mimeType: "application/pdf",
+  };
+
+  const comFonte = (props: Record<string, unknown> = {}) =>
+    render(
+      <IngestionPanel
+        workspaceId="ws-1"
+        publicationId="pub-1"
+        bookSource={fonte}
+        onAccept={vi.fn()}
+        {...props}
+      />,
+    );
+
+  it("abre **no visualizador**, sem clique nenhum — e lendo do acervo", () => {
+    stubFetch(responses());
+    comFonte();
+
+    expect(screen.getByText("recortar")).toBeTruthy();
+    // A rota do conteúdo do asset, e não um `blob:`: este arquivo nunca passou pelo navegador.
+    expect(screen.getByTestId("file-url").textContent).toBe("/api/assets/asset-livro/content");
+    // E nada foi buscado para abrir: quem sabia o arquivo era o servidor, no render da rota.
+    expect(calls).toHaveLength(0);
+    expect(screen.queryByText("Trazer arquivo")).toBeNull();
+  });
+
+  it("sem fonte no livro, a área de arrastar continua sendo a primeira coisa da tela", () => {
+    stubFetch(responses());
+    show();
+
+    expect(screen.getByText("Trazer arquivo")).toBeTruthy();
+    expect(screen.queryByText("recortar")).toBeNull();
+  });
+
+  it("“Usar outro arquivo” devolve o upload — e o caminho de volta para a fonte", () => {
+    stubFetch(responses());
+    comFonte();
+
+    fireEvent.click(screen.getByText("Usar outro arquivo"));
+
+    expect(screen.getByText("Trazer arquivo")).toBeTruthy();
+    expect(screen.getByText("Usar profmat-2023.pdf (fonte do livro)")).toBeTruthy();
+    expect(screen.queryByText("recortar")).toBeNull();
+  });
+
+  it("e o botão da fonte reabre o mesmo arquivo, para quem mudou de ideia", () => {
+    stubFetch(responses());
+    comFonte();
+
+    fireEvent.click(screen.getByText("Usar outro arquivo"));
+    fireEvent.click(screen.getByText("Usar profmat-2023.pdf (fonte do livro)"));
+
+    expect(screen.getByTestId("file-url").textContent).toBe("/api/assets/asset-livro/content");
+  });
+
+  it("fonte que não abre cai para o upload, dizendo o que aconteceu", () => {
+    // O caso concreto: o asset sumiu do storage, a linha ficou no banco, o `pdf.js` toma 404.
+    // Sem isto a captura vira um visualizador com uma frase de erro dentro e mais nada a fazer.
+    stubFetch(responses());
+    comFonte();
+
+    fireEvent.click(screen.getByText("falhar ao abrir"));
+
+    expect(screen.getByText(/profmat-2023\.pdf, o PDF fonte do livro/)).toBeTruthy();
+    expect(screen.getByText("Trazer arquivo")).toBeTruthy();
+  });
+
+  it("o aviso de onde a IA roda continua à vista com o PDF já aberto", async () => {
+    // Ele morava só no ramo de escolher arquivo — o único que existia antes de reconhecer. Com a
+    // captura abrindo direto no visualizador, quem nunca vê a dropzone reconheceria sem a frase.
+    const aviso = "O reconhecimento roda no seu computador. Nada é enviado para fora.";
+    stubFetch(responses());
+    comFonte({ aviso });
+
+    expect(screen.getByText(aviso)).toBeTruthy();
+
+    fireEvent.click(screen.getByText("recortar"));
+    await waitFor(() => screen.getByLabelText("LaTeX reconhecido"));
+
+    expect(screen.getByText(aviso)).toBeTruthy();
+  });
+
+  it("recortar da fonte do livro manda o asset do acervo como origem", async () => {
+    stubFetch(responses());
+    comFonte();
+
+    fireEvent.click(screen.getByText("recortar"));
+    await waitFor(() => expect(calls.length).toBe(2));
+
+    // Sem upload nenhum antes: as duas chamadas são recorte e reconhecimento.
+    expect(calls.map((call) => call.url)).toEqual(["/api/assets/crop", "/api/recognition"]);
+    expect(calls[0]!.form.get("sourceAssetId")).toBe("asset-livro");
   });
 });

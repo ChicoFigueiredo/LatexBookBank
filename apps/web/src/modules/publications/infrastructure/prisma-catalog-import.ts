@@ -5,9 +5,12 @@ import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-fi
 import { storeAsset } from "@modules/assets/application/store-asset";
 import { createAsset } from "@modules/assets/infrastructure/prisma-asset-writer";
 import type {
-  CatalogAssetWriter,
-  PublicationOriginWriter,
-} from "@modules/publications/application/import-from-catalog";
+  AttachSourceInput,
+  AttachSourceResult,
+  PublicationSourceWriter,
+} from "@modules/publications/application/attach-from-catalog";
+import type { CatalogAssetWriter } from "@modules/publications/application/catalog-source";
+import type { PublicationOriginWriter } from "@modules/publications/application/import-from-catalog";
 import type { ExistingPublication } from "@modules/publications/domain/catalog-import";
 import { env as appEnv } from "@/shared/config/env";
 
@@ -56,6 +59,57 @@ export class PrismaPublicationOriginWriter implements PublicationOriginWriter {
         metadataJson: input.metadataJson,
         importedAt: input.importedAt,
       },
+    });
+  }
+}
+
+/**
+ * Aponta o PDF fonte de um livro que **já existe** — o lado de escrita do "anexar" (D44).
+ *
+ * Três coisas numa transação só, e cada uma consertando um jeito conhecido de perder o arquivo:
+ *
+ * 1. **Adoção do órfão.** `createAsset` deduplica por `storageKey`, que contém o hash do conteúdo:
+ *    anexar um PDF que já foi subido antes devolve a **linha que já existe**. No banco de dev há
+ *    exatamente essa linha — um `SOURCE_PDF` de "Curso de Analise Vol. 1" com `publicationId`
+ *    nulo, resíduo da tentativa que a D44 cita como evidência. Sem este `updateMany`, anexar
+ *    apontaria a fonte para um asset que continua sem dono, que é metade do defeito original.
+ *    O filtro `publicationId: null` é o que impede o outro extremo: roubar o arquivo de outro
+ *    livro que legitimamente o tem.
+ * 2. **A troca condicionada ao que se leu.** `where: { sourcePdfAssetId: <o que estava lá> }` é a
+ *    mesma peça do `PrismaAssetWriter` da ingestão, generalizada de "só se estiver nulo" para "só
+ *    se ainda for aquele". Quem perde a corrida volta com `count: 0` e ouve a pergunta de novo,
+ *    em vez de sobrescrever uma decisão que outro acabou de tomar.
+ * 3. **A capa que não apaga.** `coverAssetId` só entra quando há um; `null` aqui significa "não
+ *    mexa", e nunca "apague a que está lá".
+ *
+ * O PDF anterior **continua** sendo `Asset` do livro: nada é apagado, porque os recortes já feitos
+ * apontam para ele (D44.5).
+ */
+export class PrismaPublicationSourceWriter implements PublicationSourceWriter {
+  async attachSource(input: AttachSourceInput): Promise<AttachSourceResult> {
+    return prisma.$transaction(async (tx) => {
+      await tx.asset.updateMany({
+        where: { id: input.sourcePdfAssetId, publicationId: null },
+        data: { publicationId: input.publicationId },
+      });
+
+      const asset = await tx.asset.findUnique({
+        where: { id: input.sourcePdfAssetId },
+        select: { publicationId: true },
+      });
+
+      const escrita = await tx.publication.updateMany({
+        where: { id: input.publicationId, sourcePdfAssetId: input.expectedSourcePdfAssetId },
+        data: {
+          sourcePdfAssetId: input.sourcePdfAssetId,
+          ...(input.coverAssetId === null ? {} : { coverAssetId: input.coverAssetId }),
+        },
+      });
+
+      return {
+        attached: escrita.count > 0,
+        ownedByBook: asset?.publicationId === input.publicationId,
+      };
     });
   }
 }

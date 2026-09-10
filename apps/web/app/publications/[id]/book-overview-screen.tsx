@@ -67,6 +67,12 @@ export interface BookOverviewScreenProps {
       readonly size: string;
       readonly origin: string;
     } | null;
+    /** As fontes que o livro já teve — trocar não apaga (D44.5). */
+    readonly previousSources: readonly {
+      readonly id: string;
+      readonly filename: string;
+      readonly size: string;
+    }[];
     readonly capture: {
       readonly queued: number;
       readonly lastPage: number | null;
@@ -89,6 +95,15 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
 
   const editor = `/publications/${book.id}/editor`;
   const captura = `/publications/${book.id}/ingestao`;
+  /**
+   * O catálogo do Calibre aberto **para este livro** (D44.1).
+   *
+   * A mesma tela de sempre, com o destino na query string: quem chega por aqui escolhe um livro do
+   * catálogo e o PDF dele vira a fonte deste. Um diálogo novo de busca teria que reaprender a
+   * listar, filtrar por formato, filtrar por série e avisar de duplicata — tudo o que aquela tela
+   * já faz.
+   */
+  const catalogo = `/bibliotecas/${book.librarySlug}/livros/calibre?para=${book.id}`;
 
   /**
    * "Criar primeiro capítulo" **cria** o capítulo.
@@ -371,6 +386,66 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
               <div className="lbb-source-origin" style={{ borderTop: 0, paddingTop: 10 }}>
                 Nenhum arquivo anexado. Sem fonte não há o que recortar — capturar questões começa
                 por aqui.
+              </div>
+            )}
+
+            {/*
+              **Anexar é do livro, e tem duas origens** (D44.1).
+
+              Era aqui que a tela dizia a falta e não oferecia saída: a pendência "Sem PDF fonte
+              anexado" levava à ingestão, que sobe arquivo do computador, e do Calibre não havia
+              caminho nenhum — a pergunta "como vinculo o livro do Calibre a este?" não tinha
+              resposta porque não havia botão. Agora tem os dois, lado a lado, e o rótulo diz de
+              onde o arquivo vem.
+            */}
+            <div style={{ marginTop: "var(--space-3)", display: "grid", gap: "var(--space-2)" }}>
+              {book.source && (
+                <div className="lbb-acervo-eyebrow" style={{ marginBottom: 0 }}>
+                  Trocar o PDF fonte
+                </div>
+              )}
+              <Button
+                variant={book.source ? "ghost" : "primary"}
+                size="sm"
+                icon="download-cloud"
+                href={captura}
+                style={{ width: "100%" }}
+              >
+                Anexar do computador
+              </Button>
+              <Button
+                variant={book.source ? "ghost" : "secondary"}
+                size="sm"
+                icon="library"
+                href={catalogo}
+                style={{ width: "100%" }}
+              >
+                Anexar do catálogo do Calibre
+              </Button>
+              {book.source && (
+                <span style={{ color: "var(--text-muted)", fontSize: "var(--text-body-sm)" }}>
+                  O arquivo de agora continua no acervo: os recortes já feitos apontam para ele.
+                </span>
+              )}
+            </div>
+
+            {/* Trocar não apaga: as fontes anteriores continuam listadas (D44.5). */}
+            {book.previousSources.length > 0 && (
+              <div className="lbb-source-progress">
+                <div className="lbb-acervo-eyebrow" style={{ marginBottom: 0 }}>
+                  {book.previousSources.length === 1
+                    ? "Fonte anterior"
+                    : "Fontes anteriores"}
+                </div>
+                {book.previousSources.map((fonte) => (
+                  <div key={fonte.id} className="lbb-source-file" style={{ opacity: 0.75 }}>
+                    <Icon name="file-text" size={16} />
+                    <div style={{ minWidth: 0 }}>
+                      <div className="lbb-source-name">{fonte.filename}</div>
+                      <div className="lbb-source-size">{fonte.size} · guardada no acervo</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

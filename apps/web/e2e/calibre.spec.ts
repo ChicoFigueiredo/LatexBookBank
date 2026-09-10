@@ -179,34 +179,37 @@ test("do catálogo do Calibre a um livro do acervo", async ({ page }) => {
     await expect(page.getByRole("link", { name: "Abrir PDF fonte" })).toBeVisible();
   });
 
-  await test.step("e a captura oferece o PDF que veio junto, em vez de mandar procurar no disco", async () => {
+  await test.step("e a captura **abre** no PDF que veio junto, em vez de pedir um arquivo", async () => {
     /*
-     * O protótipo (1487) põe "Usar FME1.pdf (fonte do livro)" ao lado de colar e escolher arquivo.
-     *
-     * É o caminho mais comum de todos, e o mais absurdo de não ter: a importação do Calibre existe
-     * para trazer o PDF **para dentro do acervo**, e a tela de captura mandava procurá-lo no
-     * computador de novo. O arquivo estava a um clique e a tela pedia um explorador de arquivos.
+     * O protótipo (1487) punha "Usar FME1.pdf (fonte do livro)" ao lado de colar e escolher
+     * arquivo, e este teste esperava esse botão. Era pouco: a importação do Calibre existe para
+     * trazer o PDF **para dentro do acervo**, e a tela ainda recebia quem chegava com "Trazer
+     * arquivo — arraste um PDF", com o arquivo certo escondido num botão que era preciso
+     * descobrir. Agora a sessão de captura já nasce com ele, e o botão virou a volta para quem
+     * desviou.
      */
     await page.getByRole("link", { name: "Abrir PDF fonte" }).click();
 
-    const usar = page.getByRole("button", { name: /Usar .*\.pdf \(fonte do livro\)/ });
-    await expect(usar).toBeVisible();
-
-    await usar.click();
+    // O que o servidor afirma sobre esta sessão: ela já tem arquivo, e o gesto seguinte é
+    // recortar. Sem clique nenhum entre chegar e isto.
+    await expect(page.getByText("O PDF do livro está aberto")).toBeVisible({ timeout: 20_000 });
 
     /*
-     * Pela fonte **escolhida**, e não pelo visualizador renderizado.
+     * Pelo arquivo **em uso**, e não pelo visualizador renderizado.
      *
      * A primeira versão esperava o `.lbb-pdf-holder`, e isso pede ao pdf.js que renderize o PDF
      * desta fixture — que é um stub de três linhas, montado para o `storeAsset` conferir mime e
      * tamanho, não para ser um documento. Passou uma vez e falhou depois: o teste media a
      * capacidade do pdf.js de tolerar um arquivo inválido, e não o que ele afirma.
      *
-     * O que ele afirma é que a fonte do livro entra **sem upload**. O nome do arquivo no lugar da
-     * dropzone é exatamente esse fato.
+     * Com um stub, os dois desfechos são legítimos: o arquivo aparece em uso na barra, ou o
+     * pdf.js o recusa e a tela cai para a área de arrastar **dizendo qual arquivo não abriu**.
+     * O que nenhum dos dois pode ser é o que havia antes — pedir upload calada, com o PDF do
+     * livro escondido atrás de um clique.
      */
-    await expect(page.getByText(/\.pdf$/).first()).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("Arraste um PDF ou imagem")).toHaveCount(0);
+    const emUso = page.locator(".lbb-ing-actions").getByText(/\.pdf/);
+    const naoAbriu = page.getByText("O arquivo não abriu");
+    await expect(emUso.or(naoAbriu).first()).toBeVisible({ timeout: 20_000 });
   });
 
   await test.step("reimportar o mesmo livro é recusado, com saída", async () => {

@@ -50,11 +50,17 @@ export default async function IngestionPage({ params }: { params: Promise<{ id: 
    * não do endereço. Mesma regra do `describeAiSetup`, que já manda rótulos e nunca a chave.
    */
   /**
-   * O PDF que o livro já tem — o caminho mais curto para começar a recortar.
+   * O PDF que o livro já tem — e é com ele que a captura **abre**.
    *
    * Quem importou do Calibre trouxe o arquivo **para dentro do acervo** justamente para não
-   * precisar dele no disco de novo. Sem isto, a tela mandava procurar no computador o arquivo que
-   * estava a um clique.
+   * precisar dele no disco de novo. Oferecê-lo num botão ao lado de "Arraste um PDF" ainda era o
+   * app sabendo qual é o arquivo e mandando a pessoa procurá-lo: quem chegava via um convite a
+   * subir **outro**, e tinha que descobrir o botão certo.
+   *
+   * Por isso quem responde "que arquivo esta sessão está usando" é esta função, aqui no servidor,
+   * e não um clique na tela: `readBookSource` devolve `null` quando não há fonte **ou** quando o
+   * asset sumiu, e é esse `null` que mantém a área de arrastar em primeiro plano para o livro que
+   * não tem PDF.
    */
   const fonte = await readBookSource(detalhe?.sourcePdfAssetId ?? null);
 

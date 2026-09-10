@@ -38,6 +38,19 @@ export interface FonteEditorial {
   readonly origin: string;
 }
 
+/**
+ * As fontes que o livro já teve, e não são mais a atual.
+ *
+ * Elas continuam listadas porque **trocar não apaga** (D44.5): os recortes feitos apontam para o
+ * PDF de onde saíram, e sumir da tela faria a aba Origem de uma questão antiga referenciar um
+ * arquivo que a interface nega existir.
+ */
+export interface FonteAnterior {
+  readonly id: string;
+  readonly filename: string;
+  readonly size: string;
+}
+
 export interface BookOverview {
   readonly id: string;
   readonly title: string;
@@ -55,6 +68,7 @@ export interface BookOverview {
   readonly invalidCount: number;
   readonly issues: readonly PendenciaDoLivro[];
   readonly source: FonteEditorial | null;
+  readonly previousSources: readonly FonteAnterior[];
   readonly capture: ProgressoDeCaptura | null;
   readonly reviewedRange: string | null;
   /**
@@ -108,7 +122,7 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
 
   // Uma consulta pela árvore inteira e três agregações, não uma consulta por capítulo: a estrutura
   // de um livro cabe folgada na memória, e a alternativa é o mesmo N+1 que a estante já evitou.
-  const [nos, primeiraInvalida, anchors, sourceAsset] = await Promise.all([
+  const [nos, primeiraInvalida, anchors, sourceAsset, sourcePdfs] = await Promise.all([
     prisma.documentNode.findMany({
       where: { publicationId, deletedAt: null },
       select: {
@@ -137,6 +151,12 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
           select: { originalFilename: true, sizeBytes: true, createdAt: true },
         })
       : null,
+    // Todos os PDFs fonte do livro, e não só o atual: ver `FonteAnterior`.
+    prisma.asset.findMany({
+      where: { publicationId, kind: "SOURCE_PDF" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, originalFilename: true, sizeBytes: true },
+    }),
   ]);
 
   const estrutura: NoDaEstrutura[] = nos.map((no) => ({
@@ -191,6 +211,13 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
             : `Anexado em ${dataCurta(sourceAsset.createdAt)}, guardado no acervo.`,
         }
       : null,
+    previousSources: sourcePdfs
+      .filter((asset) => asset.id !== publication.sourcePdfAssetId)
+      .map((asset) => ({
+        id: asset.id,
+        filename: asset.originalFilename ?? "fonte.pdf",
+        size: formatarTamanho(asset.sizeBytes),
+      })),
     capture: resumirCaptura(capturados, naFila, ultimaPagina),
     reviewedRange: faixaRevisada(chapters),
     isEmpty: chapters.length === 0 && questionCount === 0,

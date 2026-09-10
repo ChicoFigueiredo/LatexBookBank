@@ -115,6 +115,16 @@ export interface PdfCropViewerInnerProps {
       readonly png: Blob;
     }[],
   ) => void;
+  /**
+   * O documento não abriu — e quem hospeda precisa saber.
+   *
+   * O visualizador já dizia isso **dentro dele**, o que basta para um arquivo que a pessoa acabou
+   * de escolher: ela vê o motivo e troca. Não basta quando o arquivo foi aberto sozinho (a fonte
+   * do livro, na captura): aí a tela inteira é um visualizador com uma frase de erro, e quem
+   * chegou não pediu por aquele arquivo nem sabe como sair dele. Avisar para fora é o que permite
+   * cair para a área de arrastar em vez de deixar a pessoa num beco.
+   */
+  readonly onLoadError?: (motivo: string) => void;
 }
 
 export default function PdfCropViewerInner({
@@ -127,6 +137,7 @@ export default function PdfCropViewerInner({
   onEstimar,
   estimadas,
   onCropLote,
+  onLoadError,
 }: PdfCropViewerInnerProps) {
   injectCss("lbb-pdf-css", CSS);
 
@@ -149,6 +160,17 @@ export default function PdfCropViewerInner({
   const drag = useRef<{ handle: Handle | "new"; origin: Point; base: PixelRect | null } | null>(
     null,
   );
+
+  /**
+   * O aviso de falha por `ref`, e não pelas dependências do efeito.
+   *
+   * Ele é chamado de dentro do efeito que abre o documento. Pô-lo nas dependências faria uma
+   * função nova a cada render **reabrir o PDF** — e um PDF que não abre reabriria em laço.
+   */
+  const avisarFalha = useRef(onLoadError);
+  useEffect(() => {
+    avisarFalha.current = onLoadError;
+  }, [onLoadError]);
 
   /** Imagem é documento de uma página. O recorte não muda: ele opera sobre o canvas. */
   const isImage = mimeType.startsWith("image/");
@@ -189,7 +211,10 @@ export default function PdfCropViewerInner({
         docRef.current = doc as unknown as typeof docRef.current;
         setPdfPageCount(doc.numPages);
       } catch (problem) {
-        if (!cancelled) setError(problem instanceof Error ? problem.message : "PDF não abriu.");
+        if (cancelled) return;
+        const motivo = problem instanceof Error ? problem.message : "PDF não abriu.";
+        setError(motivo);
+        avisarFalha.current?.(motivo);
       }
     })();
 
@@ -220,6 +245,7 @@ export default function PdfCropViewerInner({
         if (cancelled) return;
         if (bitmap === null) {
           setError("A imagem não abriu.");
+          avisarFalha.current?.("A imagem não abriu.");
           return;
         }
 

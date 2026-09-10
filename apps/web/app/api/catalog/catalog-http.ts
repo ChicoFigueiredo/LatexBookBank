@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import {
+  CatalogPdfMissingError,
+  PublicationHasSourceError,
+} from "@modules/publications/application/attach-from-catalog";
+import {
   CatalogEntryNotFoundError,
   DuplicatePublicationError,
 } from "@modules/publications/application/import-from-catalog";
@@ -68,6 +72,33 @@ export function toCatalogErrorResponse(error: unknown): NextResponse {
         message: error.message,
         signal: error.signal,
         publicationId: error.publicationId,
+      },
+      { status: 409 },
+    );
+  }
+
+  // 422: o pedido está bem formado, e o que o recusa é o livro do outro lado não ter PDF. A tela
+  // precisa dos formatos para dizer o que **há** lá, em vez de só o que falta.
+  if (error instanceof CatalogPdfMissingError) {
+    return NextResponse.json(
+      {
+        error: "catalog_no_pdf",
+        message: error.message,
+        availableFormats: error.availableFormats,
+      },
+      { status: 422 },
+    );
+  }
+
+  // 409, como a duplicata, e pela mesma razão: o pedido seria aceito num livro sem fonte. O que o
+  // recusa é o estado atual — e a resposta carrega o que a tela precisa para oferecer a troca.
+  if (error instanceof PublicationHasSourceError) {
+    return NextResponse.json(
+      {
+        error: "publication_has_source",
+        message: error.message,
+        publicationId: error.publicationId,
+        currentSourcePdfAssetId: error.currentSourcePdfAssetId,
       },
       { status: 409 },
     );

@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 
 import {
+  camposAPreencher,
+  type CampoDoCatalogo,
+  type PublicationMetadata,
+} from "@modules/publications/domain/catalog-attach";
+
+import {
   Badge,
   Banner,
   Button,
@@ -33,6 +39,13 @@ import { AppShell } from "../../../../app-shell";
  *
  * O caminho fica em `localStorage` porque ninguém quer digitá-lo de novo a cada importação — e
  * porque ele é **preferência de máquina**, não dado do acervo (§65).
+ *
+ * ## Modo "escolher para este livro" (D44.1)
+ *
+ * Com `?para=<id>` na URL, a **mesma** tela deixa de importar e passa a **anexar**: escolher um
+ * livro do catálogo dá o PDF dele a um livro que já existe no acervo. Nada da listagem muda — a
+ * busca, os filtros, os formatos e o aviso de duplicata são os mesmos —, e o que muda é o que o
+ * botão promete e o que acontece depois. Um diálogo novo de busca teria que reaprender tudo isso.
  */
 
 interface CatalogEntry {
@@ -42,6 +55,8 @@ interface CatalogEntry {
   readonly publisher: string | null;
   readonly year: number | null;
   readonly isbn: string | null;
+  /** Veio sempre na resposta da rota; passou a ser lido quando anexar precisou preencher idioma. */
+  readonly language: string | null;
   readonly series: string | null;
   readonly seriesIndex: string | null;
   readonly files: readonly { readonly format: string; readonly sizeBytes: number }[];
@@ -62,9 +77,21 @@ const DUPLICATE_LABEL: Readonly<Record<string, string>> = {
 
 const mb = (bytes: number) => `${Math.max(1, Math.round(bytes / 1024 / 1024))} MB`;
 
+/** O livro que recebe o PDF, quando a tela abre em modo "escolher para este livro" (D44). */
+export interface AttachTarget {
+  readonly id: string;
+  readonly title: string;
+  /** Já tem PDF fonte? Trocar é possível, mas nunca em silêncio. */
+  readonly hasSource: boolean;
+  /** O que o livro tem hoje — é contra isto que se decide o que o catálogo preencheria. */
+  readonly metadata: PublicationMetadata;
+}
+
 export function CalibreScreen({
   library,
   configuredRoot,
+  target = null,
+  initialQuery = "",
 }: {
   readonly library: { readonly id: string; readonly name: string; readonly slug: string };
   /**
@@ -76,11 +103,17 @@ export function CalibreScreen({
    * continua ganhando.
    */
   readonly configuredRoot: string | null;
+  /** Presente = a tela anexa em vez de importar. Ausente = a tela de sempre. */
+  readonly target?: AttachTarget | null;
+  /** A busca já digitada de onde a pessoa veio — hoje, do aviso de duplicata. */
+  readonly initialQuery?: string;
 }) {
   useAcervoStyles();
 
+  const anexando = target !== null;
+
   const [root, setRoot] = useStoredState("lbb:calibre:root", configuredRoot ?? "");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [entries, setEntries] = useState<readonly CatalogEntry[] | null>(null);
   /**
@@ -207,13 +240,106 @@ export function CalibreScreen({
     | null
   >(null);
 
+  /**
+   * O que o catálogo preencheria no livro de destino — calculado **na tela**, com o que ela tem.
+   *
+   * A entrada do catálogo já está aqui (editora, ano, ISBN, autores, coleção) e o que o livro tem
+   * chegou do servidor com a rota. Faltava só a regra, e ela é a mesma função pura que o servidor
+   * chama antes de gravar: a tela mostra a promessa, o servidor a cumpre contra o livro recém-lido
+   * do banco. Um endpoint de simulação diria a mesma coisa uma viagem depois.
+   */
+  const [preencherCampos, setPreencherCampos] = useState(true);
+  const camposOferecidos: readonly CampoDoCatalogo[] =
+    target && selected ? camposAPreencher(target.metadata, selected) : [];
+
+  /** A troca de fonte, quando o livro já tem uma — só depois de dita (D44.5). */
+  const [trocar, setTrocar] = useState<string | null>(null);
+  const [anexado, setAnexado] = useState<{
+    readonly href: string;
+    readonly filename: string;
+    readonly replaced: boolean;
+    readonly filled: readonly CampoDoCatalogo[];
+    readonly warnings: readonly string[];
+  } | null>(null);
+
   const alternar = (entry: CatalogEntry) => {
     setDuplicate(null);
+    setTrocar(null);
+    // Anexar é de um livro para um livro: marcar dois não quer dizer nada, e a segunda marcação
+    // troca a escolha em vez de somar a ela.
+    if (anexando) {
+      setSelecionados((atual) =>
+        atual.some((e) => e.externalId === entry.externalId) ? [] : [entry],
+      );
+      return;
+    }
+
     setSelecionados((atual) =>
       atual.some((e) => e.externalId === entry.externalId)
         ? atual.filter((e) => e.externalId !== entry.externalId)
         : [...atual, entry],
     );
+  };
+
+  /**
+   * Anexar o PDF do livro escolhido ao livro de destino.
+   *
+   * `replace` é a segunda ida ao servidor, depois de a pessoa ver que o livro já tem fonte e
+   * confirmar. A primeira volta com 409 — e é assim de propósito: quem decide a troca é quem está
+   * olhando a tela, não o cliente adivinhando pelo `hasSource` que leu ao abrir a página.
+   */
+  const anexar = async (publicationId: string, replace = false) => {
+    if (selected === null) return;
+
+    setBusy(true);
+    setError(null);
+    setTrocar(null);
+
+    try {
+      const response = await fetch("/api/catalog/attach", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          path: root,
+          publicationId,
+          externalId: selected.externalId,
+          replace,
+          fillMetadata: preencherCampos,
+          ...(formatsParaEnviar ? { formats: formatsParaEnviar } : {}),
+        }),
+      });
+      const payload = (await response.json()) as {
+        href?: string;
+        filename?: string;
+        replaced?: string | null;
+        filled?: CampoDoCatalogo[];
+        warnings?: string[];
+        message?: string;
+        error?: string;
+      };
+
+      if (response.status === 409 && payload.error === "publication_has_source") {
+        setTrocar(payload.message ?? "Este livro já tem um PDF fonte.");
+        return;
+      }
+
+      if (!response.ok || !payload.href) {
+        setError(payload.message ?? "Não deu para anexar.");
+        return;
+      }
+
+      setAnexado({
+        href: payload.href,
+        filename: payload.filename ?? "o PDF",
+        replaced: typeof payload.replaced === "string",
+        filled: payload.filled ?? [],
+        warnings: payload.warnings ?? [],
+      });
+    } catch {
+      setError("Não deu para falar com o servidor.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const abrir = async (texto = query) => {
@@ -359,8 +485,52 @@ export function CalibreScreen({
   const breadcrumb = [
     { label: "Bibliotecas", href: "/bibliotecas" },
     { label: library.name, href: `/bibliotecas/${library.slug}` },
-    { label: "Calibre" },
+    ...(target
+      ? [{ label: target.title, href: `/publications/${target.id}` }, { label: "Anexar do Calibre" }]
+      : [{ label: "Calibre" }]),
   ];
+
+  if (anexado) {
+    return (
+      <AppShell activeModule="bibliotecas" breadcrumb={breadcrumb}>
+        <div className="lbb-acervo">
+          <PageHeader eyebrow="PDF FONTE ANEXADO" title={target?.title ?? "Livro"} />
+          <Callout tone="ok" title={anexado.filename}>
+            O arquivo foi <strong>copiado</strong> para o storage do LatexBookBank — o livro
+            continua inteiro aqui mesmo que a pasta do Calibre mude de lugar.
+            {anexado.replaced && (
+              <div className="lbb-card-meta">
+                O PDF anterior continua no acervo: os recortes já feitos apontam para ele.
+              </div>
+            )}
+            {anexado.filled.length > 0 && (
+              <ul style={{ margin: "8px 0 0", paddingLeft: "1.2rem" }}>
+                {anexado.filled.map((campo) => (
+                  <li key={campo.field}>
+                    {campo.label}: {campo.value}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {anexado.warnings.map((warning) => (
+              <div key={warning} className="lbb-card-meta">
+                {warning}
+              </div>
+            ))}
+          </Callout>
+
+          <div className="lbb-acervo-actions">
+            <Button variant="primary" icon="book-open" href={anexado.href}>
+              Abrir o livro
+            </Button>
+            <Button variant="secondary" icon="scan-text" href={`${anexado.href}/ingestao`}>
+              Capturar questões
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (batchDone) {
     const importados = batchDone.filter((linha) => linha.outcome.kind === "imported");
@@ -472,9 +642,13 @@ export function CalibreScreen({
     <AppShell activeModule="bibliotecas" breadcrumb={breadcrumb}>
       <div className="lbb-acervo">
         <PageHeader
-          eyebrow="IMPORTAR DO CALIBRE"
-          title={library.name}
-          meta="Aponte a pasta da biblioteca — a que tem o arquivo metadata.db dentro."
+          eyebrow={target ? "ANEXAR PDF FONTE" : "IMPORTAR DO CALIBRE"}
+          title={target ? target.title : library.name}
+          meta={
+            target
+              ? "Escolha no catálogo o livro cujo PDF vira a fonte deste. Nenhum livro novo é criado."
+              : "Aponte a pasta da biblioteca — a que tem o arquivo metadata.db dentro."
+          }
         />
 
         {error && (
@@ -703,7 +877,103 @@ export function CalibreScreen({
           </>
         )}
 
-        {selecionados.length > 0 && (
+        {anexando && selected && target && (
+          <div style={{ marginTop: "var(--space-6)" }}>
+            <Callout
+              tone="info"
+              title={`Anexar “${selected.title}” a “${target.title}”`}
+            >
+              O PDF é <strong>copiado</strong> para o storage do LatexBookBank
+              {selected.hasCover ? ", com a capa," : ""} e vira a fonte de recorte deste livro. O
+              livro do Calibre não fica ligado a ele — o catálogo é a origem do arquivo, não o dono
+              do livro.
+              {!selected.files.some((file) => file.format === "PDF") && (
+                <div className="lbb-card-meta">
+                  Este livro do Calibre não tem PDF — só{" "}
+                  {selected.files.map((file) => file.format).join(", ") || "nada"}. Só o PDF serve
+                  de fonte para recortar.
+                </div>
+              )}
+            </Callout>
+
+            {/*
+              A lista à vista **antes** de confirmar (D44.2): o que o catálogo preencheria, campo a
+              campo, e só onde o livro está vazio. Sem a lista, "trazer os metadados" é um cheque em
+              branco sobre a ficha de um livro que alguém já preencheu à mão.
+            */}
+            {camposOferecidos.length > 0 ? (
+              <div style={{ marginTop: "var(--space-3)" }}>
+                <Checkbox
+                  label={`Preencher ${camposOferecidos.length === 1 ? "o campo vazio" : "os campos vazios"} com o que o catálogo tem`}
+                  checked={preencherCampos}
+                  onChange={() => setPreencherCampos((atual) => !atual)}
+                />
+                <ul
+                  style={{
+                    margin: "6px 0 0",
+                    paddingLeft: "1.6rem",
+                    color: "var(--text-secondary)",
+                    fontSize: "var(--text-body-sm)",
+                    opacity: preencherCampos ? 1 : 0.5,
+                  }}
+                >
+                  {camposOferecidos.map((campo) => (
+                    <li key={campo.field}>
+                      {campo.label}: {campo.value}
+                    </li>
+                  ))}
+                </ul>
+                <div className="lbb-card-meta">
+                  O que já está preenchido não é tocado — nem aqui, nem depois.
+                </div>
+              </div>
+            ) : (
+              <div className="lbb-card-meta" style={{ marginTop: "var(--space-3)" }}>
+                Nada a preencher: este livro já tem os metadados que o catálogo conhece.
+              </div>
+            )}
+
+            {trocar && (
+              <div style={{ marginTop: "var(--space-3)" }}>
+                <Banner tone="warn" title="Este livro já tem um PDF fonte">
+                  {trocar} O arquivo de agora continua no acervo e continua listado no resumo do
+                  livro, porque os recortes já feitos apontam para ele.
+                  <div
+                    style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)" }}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={busy}
+                      onClick={() => void anexar(target.id, true)}
+                    >
+                      Trocar a fonte
+                    </Button>
+                    <Button size="sm" variant="ghost" href={`/publications/${target.id}`}>
+                      Ver o livro antes
+                    </Button>
+                  </div>
+                </Banner>
+              </div>
+            )}
+
+            <div className="lbb-acervo-actions">
+              <Button
+                variant="primary"
+                loading={busy}
+                disabled={!selected.files.some((file) => file.format === "PDF")}
+                onClick={() => void anexar(target.id)}
+              >
+                {target.hasSource ? "Trocar o PDF fonte deste livro" : "Anexar ao livro"}
+              </Button>
+              <Button variant="ghost" disabled={busy} onClick={() => setSelecionados([])}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!anexando && selecionados.length > 0 && (
           <div style={{ marginTop: "var(--space-6)" }}>
             {selected ? (
               <Callout tone="info" title={`Importar “${selected.title}”`}>
@@ -757,6 +1027,18 @@ export function CalibreScreen({
                   <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
                     <Button size="sm" variant="secondary" href={`/publications/${duplicate.publicationId}`}>
                       Abrir o que já existe
+                    </Button>
+                    {/*
+                      A terceira saída (D44.7): o livro já está no acervo, e o que falta nele é
+                      justamente o arquivo. Antes daqui só havia "abrir o que existe" — que leva a
+                      um livro sem fonte — e "importar assim mesmo", que cria o segundo livro igual.
+                    */}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      href={`/bibliotecas/${library.slug}/livros/calibre?para=${duplicate.publicationId}&q=${encodeURIComponent(selected?.title ?? query)}`}
+                    >
+                      Anexar ao livro que já existe
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => void importar(true)}>
                       Importar assim mesmo

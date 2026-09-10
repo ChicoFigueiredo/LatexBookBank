@@ -290,7 +290,13 @@ export function IngestionScreen({
       <PageHeader
         eyebrow="CAPTURA"
         title={title}
-        meta="Suba um PDF ou imagem, recorte a questão, confira o LaTeX e crie a questão."
+        /* O que fazer agora — e agora depende de o livro já ter PDF: mandar "subir um PDF" quem
+           está olhando o PDF do livro já aberto seria a tela pedindo um passo que ela pulou. */
+        meta={
+          bookSource
+            ? "O PDF do livro está aberto: recorte a questão, confira o LaTeX e crie a questão."
+            : "Suba um PDF ou imagem, recorte a questão, confira o LaTeX e crie a questão."
+        }
         {...(count > 0
           ? { actions: <span style={{ color: "var(--text-secondary)" }}>{count} criada(s) nesta sessão</span> }
           : {})}

@@ -100,12 +100,15 @@ export interface IngestionPanelProps {
    */
   readonly aviso?: string;
   /**
-   * O PDF que o livro já tem — o PDF fonte anexada.
+   * O PDF que o livro já tem — o PDF fonte anexado, resolvido no servidor.
    *
-   * O protótipo (1487) oferece “Usar FME1.pdf (fonte do livro)” ao lado de colar e escolher
-   * arquivo, e é o caminho mais comum de todos: quem importou do Calibre trouxe o PDF **para
-   * dentro do acervo** justamente para não precisar dele no disco de novo. Sem este botão, a tela
-   * mandava procurar no computador o arquivo que estava a um clique.
+   * Presente, ele **é** o arquivo desta sessão de captura: o painel abre nele, sem clique
+   * nenhum. O protótipo (1487) oferecia “Usar FME1.pdf (fonte do livro)” ao lado de colar e
+   * escolher arquivo, e isso ainda era pouco — o caminho mais comum de todos ficava como terceira
+   * opção, atrás de um convite a subir um arquivo que o app já tinha. O botão continua existindo
+   * (ver o ramo sem fonte aberta), mas como volta, não como entrada.
+   *
+   * Ausente, nada muda: a área de arrastar é a primeira coisa da tela.
    */
   readonly bookSource?: {
     readonly assetId: string;
@@ -171,7 +174,33 @@ interface SourceState {
   readonly filename: string;
   /** O visualizador precisa saber: PDF abre pelo `pdf.js`, imagem vai direto ao canvas (#185). */
   readonly mimeType: string;
+  /**
+   * De onde saiu o arquivo aberto.
+   *
+   * Muda o que a tela diz quando ele não abre: um upload recém-escolhido tem dono óbvio, a fonte
+   * do livro foi aberta sozinha e precisa se explicar.
+   */
+  readonly origin: "book" | "upload";
 }
+
+/** O que a tela mostra enquanto o arquivo do livro ainda está chegando. */
+type BookSource = NonNullable<IngestionPanelProps["bookSource"]>;
+
+/**
+ * O PDF do livro **como fonte desta sessão de captura**.
+ *
+ * Uma função só, usada pelo valor inicial do estado e pelo botão que volta para a fonte depois de
+ * um desvio — a URL do conteúdo tem um único lugar onde é montada.
+ */
+const fonteDoLivro = (bookSource: BookSource): SourceState => ({
+  assetId: bookSource.assetId,
+  // A rota do servidor, e não `createObjectURL`: este arquivo não passou pelo navegador — ele já
+  // está no acervo, e é de lá que ele vem.
+  url: `/api/assets/${bookSource.assetId}/content`,
+  filename: bookSource.filename,
+  mimeType: bookSource.mimeType,
+  origin: "book",
+});
 
 export function IngestionPanel({
   aviso,
@@ -192,7 +221,25 @@ export function IngestionPanel({
    * que encontrar — e perder o resto (#193).
    */
   const [mode, setMode] = useState<RecognitionMode>("display");
-  const [source, setSource] = useState<SourceState | null>(null);
+  /**
+   * Que arquivo esta sessão de captura está usando — e ele **já vem escolhido** quando o livro tem
+   * fonte.
+   *
+   * Quem sabe qual é o arquivo do livro é o servidor: o Server Component desta rota resolve o
+   * `sourcePdfAssetId` e devolve `null` quando o asset não existe mais. O que a tela fazia com
+   * essa resposta era desenhar um convite para subir **outro** arquivo, com o certo escondido num
+   * botão ao lado: o app sabia qual era o PDF e ainda assim mandava procurar no disco.
+   *
+   * Por isso o valor inicial vem do `bookSource` no primeiro render, e não de um efeito que
+   * "clica no botão" depois de montar: um efeito faria a tela piscar a área de arrastar antes de
+   * se corrigir, e a decisão de qual arquivo abrir passaria a morar em dois lugares.
+   *
+   * Sem fonte no livro, `null` — e a área de arrastar continua sendo a primeira coisa da tela,
+   * exatamente como antes.
+   */
+  const [source, setSource] = useState<SourceState | null>(() =>
+    bookSource ? fonteDoLivro(bookSource) : null,
+  );
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [cropAssetId, setCropAssetId] = useState<string | null>(null);
   // A âncora é o dado; o crop é a imagem dela. Guardá-la aqui é o que permite criar a questão com
@@ -223,6 +270,14 @@ export function IngestionPanel({
   );
   const [error, setError] = useState<string | null>(null);
   /**
+   * O arquivo que estava aberto não abriu — e a tela voltou para a área de arrastar.
+   *
+   * Separado do `error` porque o desfecho é outro: `error` é uma falha **sobre** o que se estava
+   * fazendo (o upload, o recorte, o modelo) e a tela continua onde estava; este aqui é a tela
+   * mudando de estado, e a frase precisa dizer o que aconteceu com o arquivo que sumiu de vista.
+   */
+  const [naoAbriu, setNaoAbriu] = useState<string | null>(null);
+  /**
    * As caixas que a estimativa propôs para a página atual, e o andamento do lote.
    *
    * O lote **não cria questão**: ele para em recorte salvo e transcrição guardada, que é onde a
@@ -232,6 +287,31 @@ export function IngestionPanel({
    */
   const [estimadas, setEstimadas] = useState<readonly QuestaoEstimada[] | undefined>(undefined);
   const [lote, setLote] = useState<{ feitos: number; total: number; falhas: number } | null>(null);
+
+  /** Fecha o arquivo aberto e devolve a área de arrastar. O recorte em revisão sai junto. */
+  const fecharFonte = () => {
+    setSource(null);
+    setCandidate(null);
+    setCropUrl(null);
+  };
+
+  /**
+   * O arquivo aberto não abriu de verdade — cai para a área de arrastar, dizendo o motivo.
+   *
+   * O caso concreto é o asset que sumiu do storage: a linha continua no banco, o servidor manda a
+   * fonte, e o `pdf.js` recebe um 404. Sem isto a captura ficava sendo um visualizador com uma
+   * frase de erro dentro, sem nenhuma outra coisa para fazer.
+   */
+  const fonteNaoAbriu = (motivo: string) => {
+    if (source === null) return;
+
+    setNaoAbriu(
+      source.origin === "book"
+        ? `Não deu para abrir ${source.filename}, o PDF fonte do livro: ${motivo}`
+        : `Não deu para abrir ${source.filename}: ${motivo}`,
+    );
+    fecharFonte();
+  };
 
   const upload = async (file: File) => {
     setBusy("subindo");
@@ -270,9 +350,11 @@ export function IngestionPanel({
         // O tipo vem do **arquivo escolhido**, e não do que o servidor devolveu: é o mesmo blob
         // que o `createObjectURL` acabou de publicar, então é ele que o visualizador vai desenhar.
         mimeType: file.type,
+        origin: "upload",
       });
       setCandidate(null);
       setCropUrl(null);
+      setNaoAbriu(null);
     } catch {
       setError("Não deu para falar com o servidor.");
     } finally {
@@ -470,6 +552,12 @@ export function IngestionPanel({
         </Banner>
       )}
 
+      {naoAbriu !== null && (
+        <Banner tone="warn" title="O arquivo não abriu" onDismiss={() => setNaoAbriu(null)}>
+          {naoAbriu} Suba um arquivo aqui para continuar capturando.
+        </Banner>
+      )}
+
       {busy !== null && progresso.length > 0 && (
         <div className="lbb-ing-progress" role="status">
           {progresso.map((passo, indice) => (
@@ -510,6 +598,13 @@ export function IngestionPanel({
             A frase é derivada do host da `AI_BASE_URL`, e não do nome do provider: "Ollama local"
             é um perfil de configuração, não uma garantia.
           */}
+          {/*
+            O caminho de volta para a fonte do livro.
+
+            Ele deixou de ser a porta de entrada — a captura já abre nela — e virou o retorno de
+            quem desviou: clicou em "Usar outro arquivo" e mudou de ideia, ou viu o PDF do livro
+            não abrir. Sem ele, sair da fonte seria uma porta de mão única.
+          */}
           {bookSource && (
             <div style={{ display: "flex", justifyContent: "center" }}>
               <Button
@@ -517,16 +612,10 @@ export function IngestionPanel({
                 variant="secondary"
                 icon="file-text"
                 disabled={busy !== null}
-                onClick={() =>
-                  setSource({
-                    assetId: bookSource.assetId,
-                    // A rota do servidor, e não `createObjectURL`: este arquivo não passou pelo
-                    // navegador — ele já está no acervo, e é de lá que ele vem.
-                    url: `/api/assets/${bookSource.assetId}/content`,
-                    filename: bookSource.filename,
-                    mimeType: bookSource.mimeType,
-                  })
-                }
+                onClick={() => {
+                  setNaoAbriu(null);
+                  setSource(fonteDoLivro(bookSource));
+                }}
               >
                 Usar {bookSource.filename} (fonte do livro)
               </Button>
@@ -543,20 +632,30 @@ export function IngestionPanel({
         <>
           <div className="lbb-ing-actions">
             <Badge tone="neutral">{source.filename}</Badge>
+            {/* Quem chegou e encontrou um PDF já aberto merece saber **qual** é, e por quê. */}
+            {source.origin === "book" && (
+              <span className="lbb-ing-meta">PDF fonte do livro</span>
+            )}
             {busy !== null && <span className="lbb-ing-meta">{busy}…</span>}
             <Button
               size="sm"
               variant="ghost"
               style={{ marginLeft: "auto" }}
-              onClick={() => {
-                setSource(null);
-                setCandidate(null);
-                setCropUrl(null);
-              }}
+              onClick={fecharFonte}
             >
-              Trocar arquivo
+              Usar outro arquivo
             </Button>
           </div>
+
+          {/*
+            A frase da localidade **antes de qualquer reconhecimento**, e não só na dropzone.
+
+            Ela morava no ramo de escolher arquivo, o único que existia antes de reconhecer. Agora
+            a captura abre direto no visualizador quando o livro tem fonte, e o primeiro
+            reconhecimento acontece sem passar pela dropzone: deixá-la só lá faria a pergunta
+            "isto sai do meu computador?" ficar sem resposta exatamente para quem nunca a vê.
+          */}
+          {aviso && <span className="lbb-ing-meta">{aviso}</span>}
 
           {/* A escolha vem **antes** do recorte, e não depois: ela muda o que se pede ao modelo, e
               descobrir a opção só ao ver o resultado errado custa uma rodada do modelo de visão. */}
@@ -611,6 +710,7 @@ export function IngestionPanel({
               fileUrl={source.url}
               mimeType={source.mimeType}
               onCrop={(crop) => void saveCrop(crop)}
+              onLoadError={fonteNaoAbriu}
               onEstimar={setEstimadas}
               {...(estimadas !== undefined ? { estimadas } : {})}
               onCropLote={(recortes) => void recortarLote(recortes)}
