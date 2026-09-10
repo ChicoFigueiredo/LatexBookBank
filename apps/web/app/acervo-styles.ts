@@ -136,7 +136,7 @@ a.lbb-shelf-row:focus-visible{outline:2px solid var(--focus-ring);outline-offset
 .lbb-attention-label{flex:1;min-width:0}
 .lbb-attention-where{font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-secondary)}
 .lbb-attention-cta{font-weight:var(--weight-medium);color:var(--accent-text);white-space:nowrap}
-/* Estrutura à esquerda, fonte editorial à direita — as duas metades da pergunta "está pronto?". */
+/* Estrutura à esquerda, PDF fonte à direita — as duas metades da pergunta "está pronto?". */
 .lbb-book-split{display:grid;grid-template-columns:minmax(0,1fr) 20rem;gap:var(--space-5);align-items:start;margin-top:var(--space-6)}
 .lbb-chapters{border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface);overflow:hidden}
 .lbb-chapter{display:flex;align-items:center;gap:var(--space-3);box-sizing:border-box;width:100%;padding:9px var(--space-4);border:0;border-bottom:1px solid var(--border-subtle);background:transparent;color:inherit;font:inherit;font-size:var(--text-body-sm);text-align:left;text-decoration:none}

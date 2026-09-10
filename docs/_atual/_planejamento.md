@@ -955,6 +955,48 @@ lembrada por livro. Em questão sem âncora — o acervo legado inteiro — o bo
 
 ---
 
+#### D44 — A fonte do livro se anexa, e o Calibre é uma origem, não um dono
+
+*Decidida em 2026-09-10, ao perguntar como associar uma publicação existente a um livro do
+Calibre. A resposta era: não dá — e o caminho que promete fazer isso mente.*
+
+`Publication.sourcePdfAssetId` tem dois escritores no repositório inteiro: `attachOrigin`, da
+importação do Calibre, que **só sabe criar publicação nova**; e o script
+`backfill-legacy-assets.ts`. **Nenhuma tela escreve.** Enquanto isso, o resumo do livro sem fonte
+mostra a pendência `sem-fonte` com um botão **Anexar** que leva à ingestão — onde o upload cria
+um `Asset` com `publicationId` nulo e vai embora. A pessoa anexa, a tela responde, e nada fica.
+
+Está no banco de dev como evidência: um `SOURCE_PDF` chamado "Curso de Analise Vol. 1 - Elon
+Lages Lima.pdf" com `publicationId` nulo, ao lado da publicação de mesmo nome com
+`sourcePdfAssetId` nulo. A tentativa aconteceu e o app a perdeu em silêncio.
+
+**A decisão, em cinco partes.**
+
+1. **Anexar existe, e é do livro.** O gesto mora no resumo do livro, que é onde a falta já é
+   dita. Duas origens: do computador e do catálogo do Calibre — e o catálogo é a tela que já
+   existe, aberta em modo "escolher para este livro", não um diálogo novo.
+2. **Anexar traz arquivo e capa, e nada mais obrigatoriamente.** Os metadados que o Calibre tem e
+   o livro não — editora, ano, ISBN — são **oferecidos** para preencher só os campos vazios, com
+   a lista à vista antes de confirmar. Sobrescrever, nunca: o que a pessoa digitou vale mais que
+   o que o Calibre adivinhou.
+3. **O vínculo não persiste.** Anexado o arquivo, o Calibre não importa mais — sem sincronia, sem
+   releitura, sem campo de ligação viva. É a D2 aplicada ao catálogo: origem é registro, não
+   acoplamento. *Consequência aceita: a deteção de duplicata do catálogo deixa de reconhecer esses
+   livros por identificador e cai para ISBN ou título parecido. Como nenhuma das 12 publicações
+   tem esse registro hoje, nada piora na prática.*
+4. **Sempre cópia para o `StorageProvider`.** Apontar para o arquivo onde ele está é o que o
+   legado fazia com caminho absoluto, e é o que quebrou duas vezes num mês quando os discos
+   mudaram de letra (D26).
+5. **Trocar não apaga.** O livro aponta para um PDF fonte de cada vez, mas os anteriores
+   continuam listados: os recortes já feitos apontam para eles, e sumir da tela faria a aba
+   Origem de uma questão antiga referenciar algo que a interface nega.
+
+**Vocabulário.** O mesmo objeto se chamava "Fonte editorial" no resumo do livro, "fonte do livro"
+na ingestão e caía no guarda-chuva "Asset fonte" do glossário, que inclui figura e recorte. É
+**PDF fonte**, e está no [`CONTEXT.md`](../../CONTEXT.md).
+
+---
+
 ## 4. Arquitetura
 
 ### 4.1 Topologia — modo local (o MVP)
@@ -1593,10 +1635,15 @@ LaTeX. Esta wave é o que falta para digitalizar um livro inteiro sem repetir es
 vezes.*
 
 #### Fase 18 — Scan, perfis de captura e o livro ao lado
-Perfil de captura como preset no código (D41), com os oito campos e um teste por perfil contra o
-PDF real que o originou · perfil **prova**, derivado da segmentação existente (ENA, 30 de 30) ·
-perfil **livro-texto**, com o *Curso de Análise Vol. 1* como fixture, entrando no acervo pelo
-Calibre para ter `SOURCE_PDF` · `Publication.captureProfileId` · scan de **intervalo de páginas**
+**Anexar a fonte do livro** (D44): o gesto no resumo do livro, com as duas origens — computador e
+catálogo do Calibre em modo "escolher para este livro" —, cópia sempre para o `StorageProvider`,
+oferta de preencher só os metadados vazios, PDF anterior listado ao trocar, e o conserto do
+`Anexar` que hoje não anexa · perfil de captura como preset no código (D41), com os oito campos e
+um teste por perfil contra o PDF real que o originou · perfil **prova**, derivado da segmentação
+existente (ENA, 30 de 30) · perfil **livro-texto**, com o *Curso de Análise Vol. 1* como fixture,
+que só entra depois que anexar existir — importar do Calibre criaria uma **segunda** publicação
+de mesmo nome, e a que existe já tem a árvore começada · `Publication.captureProfileId` · scan de
+**intervalo de páginas**
 sob um nó de destino escolhido, encadeando estimativa → recorte → reconhecimento → **criação da
 questão** a revisar (D39), em série e tolerante a falha unitária · *a revisar* derivado de
 `DRAFT` + âncora não conferida (D40), com filtro na árvore e na busca · botão **Ver fonte** no
@@ -1704,5 +1751,5 @@ complexas · autenticação SaaS completa.
 | 15 | EPIC 06 | §13.3, §13.4 | D29 |
 | 16 | EPIC 09 | §17, §18 | — |
 | 17 | EPIC 10 | §25, §28 | D21 |
-| **18** | — | §13.1–13.4 (estende) | **D39, D40, D41, D43** |
+| **18** | — | §13.1–13.4 (estende), §16 | **D39, D40, D41, D43, D44** |
 | **19** | — | §8.3 (estende) | **D42** ([ADR 0001](../adr/0001-corpo-do-no.md)), D37 |

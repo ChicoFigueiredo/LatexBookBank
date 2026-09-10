@@ -309,7 +309,7 @@ function pendencias(facts: {
   if (!facts.temFonte) {
     issues.push({
       kind: "sem-fonte",
-      label: "Sem fonte editorial anexada",
+      label: "Sem PDF fonte anexado",
       where: "não dá para recortar sem PDF",
       cta: "Anexar",
       href: `/publications/${facts.publicationId}/ingestao`,

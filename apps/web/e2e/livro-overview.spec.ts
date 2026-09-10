@@ -65,7 +65,7 @@ test("o resumo do livro é a parada antes do editor, e leva a ele", async ({ pag
   // Os quatro blocos do protótipo que carregam decisão. "Precisa da sua atenção" só aparece
   // quando há pendência, então não entra na lista do que é obrigatório.
   await expect(page.getByRole("heading", { name: "Estrutura" })).toBeVisible();
-  // Pelo `.lbb-source`, e não pelo texto: "Sem fonte editorial anexada" é uma das pendências, e
+  // Pelo `.lbb-source`, e não pelo texto: "Sem PDF fonte anexado" é uma das pendências, e
   // procurar a frase solta casa com a pendência e com o título do bloco ao mesmo tempo.
   await expect(page.locator(".lbb-source")).toBeVisible();
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import type { StoredAssetRecord } from "@modules/assets/application/store-asset";
+import type { AssetWriter, NewAsset, WrittenAsset } from "@modules/assets/domain/book-source";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
 
 /**
@@ -21,7 +22,14 @@ export interface CreateAssetInput extends StoredAssetRecord {
   readonly publicationId?: string | null;
 }
 
+/** O cliente dentro da transação. `prisma.$transaction` entrega um cliente restrito. */
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export async function createAsset(input: CreateAssetInput): Promise<{ id: string }> {
+  return createAssetWith(prisma, input);
+}
+
+async function createAssetWith(client: Tx, input: CreateAssetInput): Promise<{ id: string }> {
   // O mesmo conteúdo já subido devolve o asset existente: a `storageKey` contém o hash, então
   // chave igual é conteúdo igual, e a mesma figura em duas questões é o caso comum.
   //
@@ -34,13 +42,13 @@ export async function createAsset(input: CreateAssetInput): Promise<{ id: string
   // **artefato de render** para um arquivo que a pessoa subiu. Ela é `onDelete: Cascade` do job,
   // e descartar o job — que a D29 diz ser sempre permitido — levaria junto a fonte de alguém.
   // Derivado é descartável; a fonte é patrimônio, e as duas coisas não podem dividir uma linha.
-  const existing = await prisma.asset.findFirst({
+  const existing = await client.asset.findFirst({
     where: { storageKey: input.storageKey, renderJobId: null },
     select: { id: true },
   });
   if (existing) return existing;
 
-  return prisma.asset.create({
+  return client.asset.create({
     data: {
       workspaceId: input.workspaceId,
       questionId: input.questionId ?? null,
@@ -56,6 +64,39 @@ export async function createAsset(input: CreateAssetInput): Promise<{ id: string
     },
     select: { id: true },
   });
+}
+
+/**
+ * O `AssetWriter` do domínio, em Prisma.
+ *
+ * O que ele acrescenta ao `createAsset` é a única coisa que o registro de um upload não podia
+ * fazer em dois passos: gravar o asset e apontar `Publication.sourcePdfAssetId` para ele **juntos**.
+ *
+ * O `updateMany` com `sourcePdfAssetId: null` no `where` é a peça inteira da concorrência. Não é
+ * um `update` com leitura antes: ler para decidir e escrever depois deixa uma janela em que dois
+ * uploads simultâneos leem "sem fonte" e o segundo sobrescreve o primeiro. Aqui o filtro é a
+ * própria escrita — o SQLite aplica a condição na hora, e o perdedor volta com `count: 0`, asset
+ * gravado e pertencendo ao livro, fonte inalterada. É também o que impede um upload de substituir
+ * uma fonte que já existe (D29).
+ */
+export class PrismaAssetWriter implements AssetWriter {
+  async write(asset: NewAsset, asBookSourceOf: string | null): Promise<WrittenAsset> {
+    if (asBookSourceOf === null) {
+      const created = await createAsset(asset);
+      return { id: created.id, becameBookSource: false };
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const created = await createAssetWith(tx, asset);
+
+      const attached = await tx.publication.updateMany({
+        where: { id: asBookSourceOf, sourcePdfAssetId: null },
+        data: { sourcePdfAssetId: created.id },
+      });
+
+      return { id: created.id, becameBookSource: attached.count > 0 };
+    });
+  }
 }
 
 export interface CreateAnchorInput {

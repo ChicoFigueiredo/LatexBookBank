@@ -21,7 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
-**Progresso (2026-09-10):** 951 ✅ · 6 ◐ · 13 ⛔ · 65 `[ ]`. **A biblioteca do Calibre mudou de
+**Progresso (2026-09-10):** 953 ✅ · 6 ◐ · 13 ⛔ · 74 `[ ]`. **"Como associo uma publicação que já
+existe a um livro do Calibre?" — não dá, e o caminho que promete isso mente.** O
+`sourcePdfAssetId` só é escrito pela importação do Calibre, que **só cria publicação nova**, e por
+um script do legado; nenhuma tela escreve. Enquanto isso o resumo do livro sem fonte mostra a
+pendência com um botão `Anexar` que leva à ingestão, onde o upload cria um `Asset` órfão e vai
+embora. A tentativa está no banco de dev: um `SOURCE_PDF` do Curso de Análise com `publicationId`
+nulo, ao lado da publicação de mesmo nome sem fonte. Daí a D44 e o bloco "A fonte do livro" na
+Fase 18. O defeito do `Anexar` **já está consertado** — era o único item da Wave G que não
+podia esperar, porque é caminho à vista que engana. O resto do bloco fica para a fase.
+
+**A biblioteca do Calibre mudou de
 lugar na reinstalação, e o conserto achou um defeito maior.** O caminho virou
 `CALIBRE_LIBRARY_ROOT` no ambiente — endereço de máquina não pertence ao código, e este já mudou
 duas vezes. Mas apontar para o acervo real (3.260 livros) fez o catálogo falhar inteiro com
@@ -81,7 +91,7 @@ enquadramento, e a segmentação automática saiu do adiamento com 30 de 30 ques
 | D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; os ◐ são o `ImportReport` e o §33 "Legado"; a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
-| G — captura em volume | **18** · **19** | decidida em 2026-09-10 e **não começada**: scan de intervalo, perfis de captura, o livro ao lado do editor, e o corpo do nó |
+| G — captura em volume | **◐18** · **19** | decidida em 2026-09-10; só o conserto do `Anexar` entrou. Falta o scan de intervalo, os perfis, anexar do Calibre, o livro ao lado do editor e o corpo do nó |
 
 **Fases fechadas: 12 de 21** — 0, 1, 3, 4, 5, 7, 8, 9, 10, 12, 15 e 16. *(1 e 5 fecharam em 2026-09-09
 por decisão do Chico, sem conferência visual: um mês de uso sem reclamação registrada. O
@@ -104,7 +114,7 @@ denominador virou 21 em 2026-09-10, com a Wave G.)*
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 13 | 1 | 5 | 3 | escopo reescrito em 2026-09-09: falta a suíte de integração contra PostgreSQL; o par de storage é ⛔ adiado |
 | — seções cruzadas | §8–§15 | 175 | 2 | — | 8 | recontado em 2026-09-09 pelo mesmo critério do total; o checklist visual fechou, e os `[ ]` são o §33 "Legado" |
-| — captura em volume | 18 · 19 | — | — | — | 47 | decidida em 2026-09-10, **não começada** |
+| — captura em volume | 18 · 19 | 2 | — | — | 56 | decidida em 2026-09-10; só o conserto do `Anexar` foi feito |
 
 *As seções cruzadas repetem, por tema, o que as fases já afirmam — elas não são trabalho novo, são
 a verificação de que o trabalho das fases fecha contra a spec.*
@@ -1575,7 +1585,40 @@ e eles escondiam o que falta de verdade)*
 > unitário — circular e receber LaTeX. Esta wave é o que falta para digitalizar um livro inteiro
 > sem repetir o gesto trezentas vezes. **Nada aqui está começado.**
 
-### Fase 18 — Scan, perfis de captura e o livro ao lado *(D39, D40, D41, D43 — #199)*
+### Fase 18 — Scan, perfis de captura e o livro ao lado *(D39, D40, D41, D43, D44 — #199)*
+
+**A fonte do livro** *(D44 — decidido em 2026-09-10, ao perguntar como associar uma publicação
+existente a um livro do Calibre. A resposta era: não dá. `Publication.sourcePdfAssetId` só é
+escrito por `attachOrigin`, da importação do Calibre, que **só cria publicação nova**, e pelo
+script `backfill-legacy-assets.ts`. Nenhuma tela escreve.)*
+- ✅ **Anexar passa a anexar** *(2026-09-10 — `book-source.ts` no domínio decide o que vira fonte,
+  `register-uploaded-asset.ts` orquestra, e `PrismaAssetWriter` grava as duas pontas na **mesma
+  transação**. A corrida foi resolvida pela própria escrita: `updateMany` filtrando por
+  `sourcePdfAssetId: null`, de modo que dois uploads simultâneos elegem um vencedor e nenhum fica
+  órfão — e isso dá de graça o "livro que já tem fonte não é sobrescrito", sem código separado.
+  Ler antes de decidir foi descartado por abrir janela entre ler e escrever. 8 testes novos, e
+  provado no app: `becameBookSource: true`, as duas colunas gravadas, a pendência sumindo do
+  resumo. Imagem não vira fonte (#185).)*
+- ✅ Vocabulário fechado: **PDF fonte** *(era "Fonte editorial" no resumo do livro, "fonte do
+  livro" na ingestão, e caía no guarda-chuva "Asset fonte" do glossário, que inclui figura e
+  recorte. Renomeado na tela, nos comentários, nos testes e nos E2E)*
+- [ ] O gesto mora no resumo do livro, com duas origens: **do computador** e **do Calibre**
+- [ ] "Do Calibre" reaproveita a tela de catálogo em modo "escolher para este livro" — não um
+  diálogo novo *(ela já filtra, mostra formato, capa e duplicata)*
+- [ ] A duplicata do catálogo ganha "anexar ao livro que já existe", ao lado de "abrir o que
+  existe" e "importar assim mesmo" *(é o único lugar do app que já sabe dizer que um livro do
+  Calibre corresponde a um do acervo)*
+- [ ] Cópia sempre para o `StorageProvider`, nunca referência a caminho de disco (D26)
+- [ ] Metadados do Calibre preenchem só os **campos vazios** do livro, com a lista à vista antes
+  de confirmar — sobrescrever nunca
+- [ ] Trocar o PDF fonte mantém o anterior **listado**, não só guardado *(os recortes já feitos
+  apontam para ele; sumir da tela faria a aba Origem de uma questão antiga referenciar algo que a
+  interface nega)*
+- [ ] Imagem subida na ingestão **não** vira PDF fonte (#185 — a ingestão aceita imagem)
+- [ ] Diagnóstico: relatório de assets fonte sem publicação *(na tela, não em script — é onde se
+  olha de novo daqui a três meses, e a Fase 17 é a fase do diagnóstico)*
+- [ ] O `SOURCE_PDF` órfão do Curso de Análise apagado, e o livro anexado do Calibre *(que traz
+  capa, editora e ano que o upload não traz — e só é possível depois que anexar existir)*
 
 **Perfil de captura** *(D41)*
 - [ ] `CaptureProfile` no domínio, com os oito campos: marcadores de início de questão · marcador
@@ -1591,9 +1634,9 @@ e eles escondiam o que falta de verdade)*
   parece poder e entrega frustração)*
 
 **O livro entra no acervo**
-- [ ] *Curso de Análise Vol. 1* importado do Calibre, com `SOURCE_PDF` gravado *(hoje a
-  publicação existe com 2 nós e **nenhum** PDF fonte — sem isso o perfil de livro-texto não tem
-  o que ler. Destravado em 2026-09-10: o livro está no catálogo, em PDF, e a rota já o encontra)*
+- [ ] *Curso de Análise Vol. 1* com PDF fonte, **anexado** e não importado *(a publicação já
+  existe, com 2 nós; importar do Calibre criaria uma segunda de mesmo nome. Depende do bloco "A
+  fonte do livro" acima. O livro está no catálogo em PDF, e a rota já o encontra)*
 - [ ] Biblioteca "Análise Elon" religada *(o `legacySourcePath` ainda aponta para `/mnt/t`)*
 
 **Scan de intervalo** *(D39)*

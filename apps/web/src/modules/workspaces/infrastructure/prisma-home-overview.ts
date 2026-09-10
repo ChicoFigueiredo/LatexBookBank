@@ -30,7 +30,7 @@ export interface ContinueWhere {
   readonly questionCount: number;
   readonly invalidCount: number;
   /**
-   * A fonte editorial, quando existe.
+   * O PDF fonte, quando existe.
    *
    * O protótipo mostra “412 pág.” — número que este banco não tem: nada guarda a contagem de
    * páginas do PDF. O tamanho está guardado e é verdadeiro, então ocupa o mesmo lugar. Inventar a

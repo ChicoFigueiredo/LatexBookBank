@@ -310,6 +310,15 @@ export function IngestionScreen({
           workspaceId={workspaceId}
           publicationId={publicationId}
           onAccept={setAccepted}
+          /**
+           * O PDF acabou de virar o PDF fonte do livro.
+           *
+           * `router.refresh()` e não um estado local: quem sabe o `bookSource` é o Server
+           * Component desta rota, e o que precisa esquecer o que sabia é o cache do router — sem
+           * isto, voltar ao resumo do livro reaproveitaria o payload em que a pendência “Sem
+           * PDF fonte anexado” ainda existia, sobre um livro que já tem fonte.
+           */
+          onBookSourceAttached={() => router.refresh()}
         />
 
         {queue.length > 0 && (

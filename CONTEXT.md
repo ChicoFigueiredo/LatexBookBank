@@ -87,6 +87,17 @@ _Avoid_: arquivo, anexo, blob, mídia
 Patrimônio: PDF de origem, imagem de origem, figura, fonte de figura e recorte. Imutável. Um
 arquivo alterado é um asset novo, nunca uma sobrescrita.
 
+**PDF fonte**:
+O PDF que um livro tem por origem, e de onde a captura tira as questões. O livro aponta para um
+de cada vez; trocar não apaga o anterior, porque os recortes já feitos continuam apontando para
+ele. Um livro pode não ter nenhum.
+_Avoid_: fonte editorial, fonte do livro, PDF original, source PDF
+
+**Anexar**:
+Dar um PDF fonte a um livro que já existe, vindo do computador ou do catálogo do Calibre. O
+arquivo é sempre copiado para o storage: o acervo nunca depende de um caminho de disco.
+_Avoid_: vincular, associar, ligar, importar (que é criar livro novo)
+
 **Asset derivado**:
 Saída reconstruível: PDF, PNG ou SVG de render. Descartável; apagar e recompilar dá o mesmo
 resultado.
@@ -241,7 +252,9 @@ _Avoid_: export, dump, backup (quando se refere ao formato)
 
 **Catálogo do Calibre**:
 A biblioteca de livros do Calibre na máquina da pessoa, lida como fonte de livros para o acervo.
-Importar dali cria livros com capa e PDF; nunca escreve de volta no Calibre.
+Dali se **importa**, criando um livro novo com capa e PDF, ou se **anexa**, dando o PDF a um
+livro que já existe. Nunca escreve de volta no Calibre, e o livro importado não fica preso a ele:
+o Calibre é uma origem, não um dono.
 
 **Diagnóstico**:
 A tela que diz se o app está inteiro: banco, storage, worker de render, modelo de IA, TeX do

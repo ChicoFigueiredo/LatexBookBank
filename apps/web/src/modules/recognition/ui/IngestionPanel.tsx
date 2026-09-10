@@ -100,7 +100,7 @@ export interface IngestionPanelProps {
    */
   readonly aviso?: string;
   /**
-   * O PDF que o livro já tem — a fonte editorial anexada.
+   * O PDF que o livro já tem — o PDF fonte anexada.
    *
    * O protótipo (1487) oferece “Usar FME1.pdf (fonte do livro)” ao lado de colar e escolher
    * arquivo, e é o caminho mais comum de todos: quem importou do Calibre trouxe o PDF **para
@@ -117,6 +117,14 @@ export interface IngestionPanelProps {
   readonly questionId?: string | null;
   /** Chamado quando o usuário confere e aceita o candidato. */
   readonly onAccept: (accepted: AcceptedRecognition) => void;
+  /**
+   * Chamado quando o upload acabou de virar o PDF fonte do livro.
+   *
+   * O painel não chama `router.refresh()` sozinho porque o que precisa ser revalidado não é dele:
+   * é o `bookSource` que o Server Component da rota resolve, e o resumo do livro, que até agora
+   * continuava mostrando a pendência “Sem PDF fonte anexado” já resolvida.
+   */
+  readonly onBookSourceAttached?: () => void;
 }
 
 /** Aplica as divisões aceitas até nenhuma mais casar. Ver o comentário no consumidor. */
@@ -172,6 +180,7 @@ export function IngestionPanel({
   publicationId,
   questionId = null,
   onAccept,
+  onBookSourceAttached,
 }: IngestionPanelProps) {
   injectCss("lbb-ing-css", CSS);
 
@@ -231,14 +240,26 @@ export function IngestionPanel({
       const form = new FormData();
       form.set("file", file);
       form.set("workspaceId", workspaceId);
+      // O livro vai junto — e é o que faltava. Sem ele o `Asset` nascia com `publicationId` nulo,
+      // `Publication.sourcePdfAssetId` continuava nulo, e o PDF que alguém acabou de subir pela
+      // pendência "Sem PDF fonte anexado" sumia do livro em silêncio: a tela mostrava o
+      // arquivo, dava para recortar, e na visita seguinte a pendência estava lá de novo.
+      form.set("publicationId", publicationId);
 
       const response = await fetch("/api/assets", { method: "POST", body: form });
-      const payload = (await response.json()) as { id?: string; message?: string };
+      const payload = (await response.json()) as {
+        id?: string;
+        becameBookSource?: boolean;
+        message?: string;
+      };
 
       if (!response.ok || payload.id === undefined) {
         setError(payload.message ?? "O arquivo não foi aceito.");
         return;
       }
+
+      // O livro deixou de estar sem fonte agora. Quem revalida é quem tem o router.
+      if (payload.becameBookSource === true) onBookSourceAttached?.();
 
       // `URL.createObjectURL` e não uma rota de download: o arquivo já está na memória do
       // navegador, e buscá-lo de volta do servidor seria pagar duas vezes pelo mesmo byte.

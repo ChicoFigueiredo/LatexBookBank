@@ -168,6 +168,52 @@ describe("o caminho inteiro", () => {
     expect(calls[0]!.form.get("workspaceId")).toBe("ws-1");
   });
 
+  it("o **livro** acompanha o upload — sem ele o PDF não chega a ser a fonte do livro", async () => {
+    // O defeito era este campo faltando: o `Asset` nascia sem `publicationId`, o
+    // `sourcePdfAssetId` continuava nulo, e o resumo do livro seguia pedindo "Anexar" um arquivo
+    // que a pessoa já tinha subido. A regra é do servidor; o que a tela deve é mandar o livro.
+    stubFetch(responses());
+    show();
+
+    await upload(document.body);
+
+    expect(calls[0]!.form.get("publicationId")).toBe("pub-1");
+  });
+
+  it("avisa quem revalida quando o upload virou o PDF fonte do livro", async () => {
+    const attached = vi.fn();
+    stubFetch(responses({ "/api/assets": json({ id: "asset-1", becameBookSource: true }, 201) }));
+    render(
+      <IngestionPanel
+        workspaceId="ws-1"
+        publicationId="pub-1"
+        onAccept={vi.fn()}
+        onBookSourceAttached={attached}
+      />,
+    );
+
+    await upload(document.body);
+
+    await waitFor(() => expect(attached).toHaveBeenCalledTimes(1));
+  });
+
+  it("um upload que **não** virou fonte não pede revalidação nenhuma", async () => {
+    const attached = vi.fn();
+    stubFetch(responses());
+    render(
+      <IngestionPanel
+        workspaceId="ws-1"
+        publicationId="pub-1"
+        onAccept={vi.fn()}
+        onBookSourceAttached={attached}
+      />,
+    );
+
+    await upload(document.body);
+
+    expect(attached).not.toHaveBeenCalled();
+  });
+
   it("o recorte fica **ao lado** do candidato", async () => {
     // É o requisito da Fase 15: sem a imagem à vista, a revisão que se pede é impossível.
     stubFetch(responses());

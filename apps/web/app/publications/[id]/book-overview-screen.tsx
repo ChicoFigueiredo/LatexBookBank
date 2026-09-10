@@ -342,7 +342,7 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
 
           <section className="lbb-source">
             <div className="lbb-acervo-eyebrow" style={{ marginBottom: 0 }}>
-              Fonte editorial
+              PDF fonte
             </div>
 
             {book.source ? (

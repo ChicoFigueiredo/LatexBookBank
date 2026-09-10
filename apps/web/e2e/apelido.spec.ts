@@ -84,7 +84,7 @@ test("a origem “a partir de um arquivo” emenda o cadastro com o anexo da fon
   await page.getByRole("button", { name: "Adicionar livro" }).click();
 
   const origem = page.getByRole("link", { name: /A partir de um arquivo/ });
-  await expect(origem).toContainText("PDF, imagem ou EPUB como fonte editorial de um livro novo.");
+  await expect(origem).toContainText("PDF, imagem ou EPUB como PDF fonte de um livro novo.");
   await origem.click();
 
   // A tela avisa na entrada que são dois passos, em vez de deixar o segundo por descobrir.

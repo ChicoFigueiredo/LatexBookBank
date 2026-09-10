@@ -329,7 +329,7 @@ export function LibraryScreen({
             href={`/bibliotecas/${library.slug}/livros/novo?fonte=arquivo`}
             icon="file-text"
             title="A partir de um arquivo"
-            desc="PDF, imagem ou EPUB como fonte editorial de um livro novo."
+            desc="PDF, imagem ou EPUB como PDF fonte de um livro novo."
           />
           <Origem
             href="/importar"
