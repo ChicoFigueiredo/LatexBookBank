@@ -21,6 +21,17 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
+**Progresso (2026-09-09):** 951 ✅ · 6 ◐ · 13 ⛔ · 18 `[ ]`. **Rodada de decisões sobre a
+posição do repo, e as figuras do legado** — das 11 figuras citadas pelo acervo, as 4 que têm
+questão no banco foram gravadas como `Asset` e o LaTeX reescrito para o nome da Fase 14; as 7
+órfãs (nó estrutural e ProfMat 9) ficam fora, por decisão. As 100 issues abertas no GitHub tinham,
+todas, branch mesclada na `main` (inclusive as 23 auditorias de 10-11/08); ninguém as fechou depois
+do merge. Foram **fechadas em lote** por `scripts/fechar-issues-mescladas.sh`, com o commit citado
+em cada uma; só o épico #1 segue aberto, até a Fase 6 ter o preâmbulo embutido. As Fases 1 e 5 foram aceitas **sem conferência
+visual**, por decisão do Chico: um mês de uso sem reclamação registrada. A Fase 6.5 foi reescrita
+para só o que não depende de storage — os 42 `[ ]` que ninguém ia tocar viraram um ⛔ explícito.
+Nasceu o [`CONTEXT.md`](../../CONTEXT.md) na raiz: o glossário do projeto, só vocabulário.
+
 **Progresso (2026-09-08):** 933 ✅ · 7 ◐ · 12 ⛔ · 68 `[ ]`. **A máquina foi reinstalada, e a
 reativação do ambiente foi o trabalho do dia** — o repositório e os dados saíram ilesos (banco de
 dev com as 13 bibliotecas, 231 questões e 90 assets; storage íntegro; `.env.local` preservado). O
@@ -43,34 +54,34 @@ enquadramento, e a segmentação automática saiu do adiamento com 30 de 30 ques
 
 | Wave | Fases | Estado |
 |---|---|---|
-| A — fundação e IDE editorial | ✅0 · **◐1** · **◐2** · ✅3 · ✅4 · **◐5** · **◐6** | 1 e 5 esperam só o olho; a 6 espera o preâmbulo embutido na imagem |
-| — prova arquitetural | **◐6.5** | schema PostgreSQL provado; storage parado na decisão |
+| A — fundação e IDE editorial | ✅0 · ✅1 · **◐2** · ✅3 · ✅4 · ✅5 · **◐6** | 1 e 5 aceitas por decisão em 2026-09-09; a 2 só espera a virtualização, adiada por decisão; a 6 espera o preâmbulo embutido na imagem |
+| — prova arquitetural | **◐6.5** | schema PostgreSQL provado; falta a suíte de integração contra PostgreSQL; o par de storage foi adiado explicitamente em 2026-09-09 |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
-| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas escritas de verdade no banco de dev; falta Assets/Editoras/Tags; a 13 só não mostra progresso |
+| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; os ◐ são o `ImportReport` e o §33 "Legado"; a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
 
-**Fases fechadas: 10 de 19** — 0, 3, 4, 7, 8, 9, 10, 12, 15 e 16. *(Eram 2 no cabeçalho antigo, que
-estava desatualizado desde a Fase 4; a conferência visual das Fases 1 e 5 continua sendo do Chico.)*
+**Fases fechadas: 12 de 19** — 0, 1, 3, 4, 5, 7, 8, 9, 10, 12, 15 e 16. *(1 e 5 fecharam em 2026-09-09
+por decisão do Chico, sem conferência visual: um mês de uso sem reclamação registrada.)*
 
 ### Por épico *(rastreabilidade da §11 do planejamento)*
 
 | Épico | Fases | ✅ | ◐ | ⛔ | `[ ]` | Estado |
 |---|---|---:|---:|---:|---:|---|
 | **01** fundação e providers | 0 | 70 | — | — | — | **fechado** — os dois health checks entraram no `setup` (#168) |
-| **02** shell e árvore | 1 · 2 | 90 | — | 1 | 2 | 1 é a conferência visual; 1 é virtualização, adiada por decisão |
+| **02** shell e árvore | 1 · 2 | 91 | — | 1 | 1 | a conferência visual foi aceita em 2026-09-09; o `[ ]` é a virtualização, adiada por decisão |
 | **03** editor LaTeX | 3 · 4 | 49 | — | — | — | **fechado** |
-| **04** preview e render | 5 · 6 | 159 | — | 3 | 1 | 1 é a conferência visual; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas |
-| **05** banco de questões | 7 | 48 | 1 | — | — | **fechado**; o ◐ é a conferência visual do §33 |
+| **04** preview e render | 5 · 6 | 160 | — | 3 | — | a conferência visual foi aceita em 2026-09-09; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas; a Fase 6 ainda espera o preâmbulo embutido |
+| **05** banco de questões | 7 | 49 | — | — | — | **fechado**; a conferência visual do §33 foi aceita em 2026-09-09 |
 | **06** ingestão visual | 14 · 15 | 41 | 1 | — | — | falta o reconhecimento de **texto** |
 | **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
-| **08** legado | 11 | 56 | 2 | 2 | 1 | fechada: 11 bibliotecas, 8 publicações com capa e PDF fonte quando existe; só falta relatório formal de assets ausentes |
+| **08** legado | 11 | 61 | 2 | — | — | recontado em 2026-09-09: 11 bibliotecas, 8 publicações com capa e PDF fonte, 4 figuras de questão gravadas; as 7 órfãs ficam fora por decisão |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
-| — prova arquitetural | 6.5 | 8 | 1 | 4 | 42 | **parado na decisão de storage**, que é do Chico |
-| — seções cruzadas | §8–§15 | 173 | — | 1 | 31 | 12 são o checklist visual; 8 são o §33 "Legado" |
+| — prova arquitetural | 6.5 | 13 | 1 | 5 | 3 | escopo reescrito em 2026-09-09: falta a suíte de integração contra PostgreSQL; o par de storage é ⛔ adiado |
+| — seções cruzadas | §8–§15 | 175 | 2 | — | 8 | recontado em 2026-09-09 pelo mesmo critério do total; o checklist visual fechou, e os `[ ]` são o §33 "Legado" |
 
 *As seções cruzadas repetem, por tema, o que as fases já afirmam — elas não são trabalho novo, são
 a verificação de que o trabalho das fases fecha contra a spec.*
@@ -295,7 +306,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   é o caso que só o redimensionamento pega: as larguras das divisórias são pixels guardados em
   `localStorage`, e uma divisória arrastada num monitor grande pode não caber no pequeno)*
 - ✅ Larguras sobrevivem a refresh
-- [ ] Checklist visual (§11 deste documento) passa nos itens aplicáveis
+- ✅ Checklist visual (§11 deste documento) passa nos itens aplicáveis *(aceito por decisão do Chico em 2026-09-09, sem conferência visual: um mês de uso sem reclamação registrada vale como aceite; o que incomodar daqui em diante vira issue nova, com evidência)*
 
 ---
 
@@ -474,7 +485,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 **Aceite da fase**
 - ✅ Latência entre editar e ver o preview parece imediata *(cache por fórmula: editar um enunciado só reconverte a fórmula que mudou)*
 - ✅ Preview nunca congela a UI *(o conteúdo anterior fica na tela, esmaecido, com selo "atualizando…" e `aria-live`)*
-- [ ] Conferência visual na tela *(fica com o Chico, junto com o aceite da Fase 1)*
+- ✅ Conferência visual na tela *(aceito por decisão do Chico em 2026-09-09, sem conferência visual: um mês de uso sem reclamação registrada vale como aceite; o que incomodar daqui em diante vira issue nova, com evidência)*
 
 ---
 
@@ -696,7 +707,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Tudo derrubado ao fim, mantendo só o relatório
 
 **Os dois pares**
-- ◐ `SQLite ↕ PostgreSQL` — *schema traduzido e o D38 provado na tabela real; falta a suíte de integração (ver bloqueio do `db push` abaixo)*
+- ◐ `SQLite ↕ PostgreSQL` — *schema traduzido e o D38 provado na tabela real; falta a suíte de integração (ver escopo reescrito abaixo)*
 - ⛔ `LocalFileStorage ↕ Vercel Blob` — *bloqueado pela decisão e pela credencial; a decisão foi **adiada formalmente em 2026-09-02** (ver §0 Pré-requisitos), então este par espera a necessidade cloud, não o Chico*
 
 **O achado da fase** *(#77)*
@@ -707,57 +718,30 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ `prisma/postgres-collation.sql` — *o Prisma não tem atributo de colação; num arquivo, e não num comentário, porque comentário não roda*
 - ⛔ `prisma db push` contra o banco do spike — *o CLI do Prisma 7 classifica como destrutivo e exige consentimento explícito; a sessão rodava sem supervisão e a operação foi abortada. O DDL veio de `migrate diff` (não destrutivo) e foi aplicado por `psql` — prova a tradução do schema, **não** o caminho `prisma migrate` ponta a ponta.*
 
-**Amostra mínima** *(auditoria §30)*
-- [ ] 1 workspace · 1 publication · 1 chapter · 1 section
-- [ ] 10 questions com alternatives e tags
-- [ ] 1 PDF original · 3–5 assets · 1 crop · 1 SourceAnchor
-- [ ] `render.pdf` e `render.png` **pré-gerados na Fase 6**, usados só como carga de teste
-- [ ] **Nenhuma compilação acontece nesta fase**
+**Escopo reescrito em 2026-09-09** *(decisão do Chico: a fase fica só com o que não depende de storage;
+o resto vira adiamento explícito, não pendência. Antes havia 42 itens `[ ]` que ninguém ia tocar,
+e eles escondiam o que falta de verdade)*
 
-**Entidades que devem continuar funcionando sem mudança de domínio** *(§31)*
-- [ ] `Question`
-- [ ] `Publication`
-- [ ] `DocumentNode`
-- [ ] `QuestionOption`
-- [ ] `Asset`
-- [ ] `SourceAnchor`
-- [ ] `Revision`
+**Par banco — o que ainda falta**
+- ✅ Suíte de integração roda contra SQLite *(é a suíte do projeto)*
+- [ ] Suíte de integração roda contra PostgreSQL **em imagem glibc** *(cobre a amostra mínima da
+  auditoria §30 — workspace, publicação, capítulo, seção, dez questões com alternativas e tags —,
+  as entidades da §31 e os testes de criação de publicação, árvore, tags, save, concorrência
+  otimista, relations, timestamps e UUIDs; render pré-gerado, nenhuma compilação)*
+- [ ] Relatório: seções de banco *(diferenças SQLite/PostgreSQL, migrations, Prisma, constraints,
+  índices — o relatório já cobre D38 e a tradução do schema; o resto sai da suíte acima)*
 
-**Testes obrigatórios** *(auditoria §31)*
-- [ ] Criação de publicação
-- [ ] Árvore
-- [ ] Tags
-- [ ] Save
-- [ ] Optimistic concurrency
-- [ ] Upload
-- [ ] `StorageProvider` — upload, leitura, persistência, referência de `Asset`
-- [ ] Download
-- [ ] Crop
-- [ ] Hashes
-- [ ] Relations
-- [ ] Timestamps
-- [ ] UUIDs
-- [ ] **Suíte de integração roda contra SQLite**
-- [ ] **Suíte de integração roda contra PostgreSQL**
-
-**Entregável: [`Cloud Compatibility Report`](./cloud-compatibility-report.md)** — ◐ *parcial, escrito e commitado* *(auditoria §32)*
-- [ ] Diferenças SQLite/PostgreSQL
-- [ ] Problemas de migrations
-- [ ] Problemas do Prisma
-- [ ] Diferenças de constraints
-- [ ] Diferenças de índices
-- [ ] Problemas de storage
-- [ ] Problemas de paths
-- [ ] Problemas de uploads
-- [ ] Problemas de assets
-- [ ] Mudanças necessárias — ou "nenhum problema encontrado"
+**Par storage — adiado**
+- ⛔ `StorageProvider` contra Blob: upload, download, crop, hashes, referência de `Asset`, e as
+  seções de storage, paths, uploads e assets do relatório — *adiado com a decisão de destino cloud
+  (2026-09-02), ratificado em 2026-09-09; volta quando houver necessidade cloud real, não antes*
 
 **Aceite da fase**
-- [ ] Relatório escrito e commitado
+- ✅ Relatório escrito e commitado *(parcial: só banco, como o escopo reescrito pede)*
 - [ ] Suíte verde nos dois motores, ou lista explícita do que falhou e por quê
-- [ ] Nenhuma reescrita de domínio foi necessária — ou a fronteira violada está identificada
-- [ ] **Desenvolvimento voltou ao modo local**
-- [ ] O spike não consumiu semanas *(guarda-corpo de D30)*
+- ✅ Nenhuma reescrita de domínio foi necessária *(D38 foi colação de coluna, não domínio)*
+- ✅ **Desenvolvimento voltou ao modo local**
+- ✅ O spike não consumiu semanas *(guarda-corpo de D30)*
 
 ---
 
@@ -820,7 +804,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ `validate_question` com regras, warnings e inconsistências *(#79, #85 — regras nos plugins; **aviso não invalida**, senão a lista de problemas vira ruído que ninguém abre. Tipo sem plugin fica `UNVALIDATED`, não `INVALID`: dizer que ela está errada seria mentira — o que falta é o produto saber avaliá-la.)*
 
 **Aceite da fase**
-- ◐ §33 "Questão" completo *(o domínio está de pé, e desde a #141 tudo tem tela: alternativas, metadados, tags e o filtro. Falta a conferência visual, que é do usuário)*
+- ✅ §33 "Questão" completo *(o domínio está de pé, e desde a #141 tudo tem tela: alternativas, metadados, tags e o filtro. A conferência visual foi aceita por decisão do Chico em 2026-09-09, junto com as Fases 1 e 5)*
 
 ---
 
@@ -1033,11 +1017,22 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
   Fundamentos itens 6–7) e a figura mora na pasta da questão dona. O caminho de falha foi
   exercitado contra biblioteca sintética: três razões distintas — `arquivo-ausente`,
   `caminho-escapa-da-pasta`, `questao-dona-desconhecida`)*
-- [ ] Figuras de questão → `Asset` *(pendência **nova**, achada pelo relatório acima em
-  2026-09-02: as 11 figuras existem no disco e o LaTeX importado as cita, mas
-  `map-legacy-library.ts` monta `assets: []` e o backfill só traz capa e PDF da publicação — o
-  renderizador do produto novo não tem esses arquivos. São exatamente 11, nomeadas no relatório;
-  trabalho pequeno e bem delimitado)*
+- ✅ Figuras de questão → `Asset` *(2026-09-09 — `import-legacy-figures.ts` + `legacy-figures.ts`,
+  17 testes, e `backfill-legacy-figures.ts` (dry-run por padrão, `CONFIRM=yes` grava, idempotente
+  por sha256 + questão). **Alias era impossível**: o contrato do bundle recusa nome com barra, então
+  `images/clipboard_<ts>.png` não viaja; o LaTeX importado é **reescrito** para o nome da Fase 14
+  (`<slug>-<sha8>.png`), e `originalLatex` guarda o texto como veio. Rodado no banco de dev: **4
+  gravadas, 3 campos reescritos, 0 falhas** — Cesgranrio 198 (enunciado), Cálculo 4 (resolução,
+  duas figuras), Fundamentos 9 (resolução); as três montam bundle válido com as figuras citadas.
+  Segunda execução: 0 gravadas, 4 "já gravadas". A regra "o corpo decide o que viaja" saiu de
+  `loadQuestionAssets` para `cited-assets.ts`, que é o que permitiu provar o bundle sem banco)*
+- ✅ As 7 figuras órfãs ficam fora, por decisão *(achado do backfill acima: das 11 referências, 7
+  **não têm questão** no banco. Fundamentos 10 e 11 (5 figuras) são `TipoQuestao = -1` — nó
+  estrutural, cujo `latexResposta` e alternativas o import descarta —, e ProfMat 9 (2 figuras) foi
+  excluída pela invariante das alternativas (5 opções, nenhuma correta). **Decisão do Chico em
+  2026-09-09:** ratificar que ProfMat 9 fica fora, e registrar as 5 de Fundamentos como limitação
+  conhecida — nó estrutural com resposta é o legado usando a tabela errada, e importar isso criaria
+  um conceito novo por causa de duas linhas. Nada se perde: o `originalLatex` guarda a citação)*
 
 **Mapeamento**
 - ✅ Biblioteca → `Workspace` (D11) *(2026-08-31 — `map-legacy-library.ts` + `MapLegacyLibraryOptions`)*
@@ -1714,20 +1709,21 @@ escritas de verdade no banco de desenvolvimento.*
 
 ## 11. Checklist visual *(spec §34)*
 
-> **Este bloco é do Chico.** O que tem prova de máquina está fechado abaixo; o resto é olho, e
-> marcar por dedução seria justamente o erro que a auditoria de 2026-08-10 foi corrigir.
+> **Este bloco era do Chico.** O que tem prova de máquina está fechado com a prova ao lado; o resto
+> era olho, e foi **aceito por decisão do Chico em 2026-09-09**: um mês de uso sem reclamação
+> registrada vale como conferência. O que incomodar daqui em diante vira issue nova, com evidência.
 
-- [ ] Nenhum painel parece "CRUD de sistema interno de 2014"
-- [ ] A árvore tem densidade próxima de IDE
-- [ ] Editor domina visualmente o centro
-- [ ] Preview é legível sem abrir modal
-- [ ] Agente não rouba espaço quando fechado
-- [ ] Botão do agente é reconhecível e discreto
+- ✅ Nenhum painel parece "CRUD de sistema interno de 2014"
+- ✅ A árvore tem densidade próxima de IDE
+- ✅ Editor domina visualmente o centro
+- ✅ Preview é legível sem abrir modal
+- ✅ Agente não rouba espaço quando fechado
+- ✅ Botão do agente é reconhecível e discreto
 - ✅ Resize não quebra layout *(#197 — E2E encolhendo a janela de 1920 para 1366 sem recarregar)*
 - ✅ 1366×768 continua utilizável *(#197 — sem transbordo, inclusive com o painel do agente aberto)*
-- [ ] 1920×1080 fica excelente
+- ✅ 1920×1080 fica excelente
 - ✅ Dark mode coerente *(teste cobre todo token de cor do tema claro)*
-- [ ] Focus ring correto
+- ✅ Focus ring correto
 - ✅ Atalhos não conflitam com Monaco *(#179 — cinco afirmações num E2E, com controle: a paleta
   abre com o editor **e** com a árvore focados)*
 - ✅ Loading nunca congela a UI *(o preview mantém o conteúdo anterior esmaecido; o render fica
