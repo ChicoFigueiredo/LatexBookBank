@@ -1,9 +1,9 @@
 import path from "node:path";
 
 import {
-  extractLegacyAssetRefs,
+  legacyAssetRefsByQuestion,
   legacyQuestionAssetDir,
-  type LegacyAssetRef,
+  locateLegacyAsset,
 } from "../domain/legacy-asset-refs";
 import type { LegacyFsProbe } from "../domain/legacy-config";
 import type { LegacyLibraryContents } from "../domain/legacy-library-reader";
@@ -19,16 +19,6 @@ import type { LegacyLibraryContents } from "../domain/legacy-library-reader";
  *
  * Ver checklist Fase 11, bloco "Relatório: assets ausentes" · issue #111.
  */
-
-/**
- * Sem extensão, o `graphicx` tenta uma lista dele — então o relatório também tenta, senão
- * acusaria falta de um arquivo que o pdflatex acharia sozinho. Ordem do `\DeclareGraphicsExtensions`
- * padrão do pdftex, com `.jpeg` a mais porque o acervo tem imagem colada de clipboard.
- */
-const GRAPHICS_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".eps"] as const;
-
-const hasExtension = (relativePath: string): boolean =>
-  /\.[A-Za-z0-9]{1,5}$/.test(path.posix.basename(relativePath));
 
 export type MissingAssetReason =
   /** O caminho resolveu, e não há arquivo nenhum lá. O caso comum. */
@@ -63,94 +53,12 @@ export interface ReportMissingLegacyAssetsOptions {
   readonly libraryDir: string;
 }
 
-interface QuestionRefs {
-  readonly legacyQuestionId: number;
-  readonly idPublication: number | null;
-  readonly refs: readonly LegacyAssetRef[];
-}
-
-/**
- * Agrupa por questão porque a pasta no disco é por questão: a figura de uma alternativa mora em
- * `idQuestion<IdQuestao da questão dona>`, nunca numa pasta da alternativa — conferido no acervo
- * (Fundamentos, alternativas 6 e 7 da questão 10, em `pub0000000001/idQuestion10/images/`).
- */
-function refsByQuestion(contents: LegacyLibraryContents): readonly QuestionRefs[] {
-  const publicationOf = new Map(contents.questions.map((row) => [row.IdQuestao, row.idPublication]));
-  const grouped = new Map<number, LegacyAssetRef[]>();
-
-  const push = (legacyQuestionId: number, refs: readonly LegacyAssetRef[]): void => {
-    if (refs.length === 0) return;
-    const bucket = grouped.get(legacyQuestionId) ?? [];
-    bucket.push(...refs);
-    grouped.set(legacyQuestionId, bucket);
-  };
-
-  for (const row of contents.questions) {
-    push(
-      row.IdQuestao,
-      extractLegacyAssetRefs([
-        { field: "latexQuestao", latex: row.latexQuestao },
-        { field: "latexResposta", latex: row.latexResposta },
-        { field: "latexComplemento", latex: row.latexComplemento },
-        // `latexOrigin` é o texto de origem, mantido como veio; se ele cita figura, o arquivo
-        // precisa existir tanto quanto o do enunciado.
-        { field: "latexOrigin", latex: row.latexOrigin },
-      ]),
-    );
-  }
-
-  for (const row of contents.options) {
-    push(
-      row.IdQuestao,
-      extractLegacyAssetRefs([
-        { field: `Questao_Itens.${row.IdQuestao_Itens}.latexItem`, latex: row.latexItem },
-        { field: `Questao_Itens.${row.IdQuestao_Itens}.latexResposta`, latex: row.latexResposta },
-        { field: `Questao_Itens.${row.IdQuestao_Itens}.latexOrigin`, latex: row.latexOrigin },
-      ]),
-    );
-  }
-
-  return [...grouped.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([legacyQuestionId, refs]) => ({
-      legacyQuestionId,
-      idPublication: publicationOf.get(legacyQuestionId) ?? null,
-      // Deduplicado por caminho: o relatório é lista de arquivos a caçar, e o mesmo arquivo
-      // citado no enunciado e na resposta é uma caçada só. Fica a primeira citação, que é a que
-      // a pessoa vai achar primeiro abrindo a questão.
-      refs: dedupeByPath(refs).sort((a, b) => a.relativePath.localeCompare(b.relativePath)),
-    }));
-}
-
-function dedupeByPath(refs: readonly LegacyAssetRef[]): LegacyAssetRef[] {
-  const first = new Map<string, LegacyAssetRef>();
-  for (const ref of refs) {
-    if (!first.has(ref.relativePath)) first.set(ref.relativePath, ref);
-  }
-  return [...first.values()];
-}
-
-async function resolves(
-  fs: LegacyFsProbe,
-  questionDir: string,
-  relativePath: string,
-): Promise<boolean> {
-  const target = path.posix.join(questionDir, relativePath);
-  if (await fs.exists(target)) return true;
-  if (hasExtension(relativePath)) return false;
-
-  for (const extension of GRAPHICS_EXTENSIONS) {
-    if (await fs.exists(`${target}${extension}`)) return true;
-  }
-  return false;
-}
-
 export async function reportMissingLegacyAssets(
   contents: LegacyLibraryContents,
   fs: LegacyFsProbe,
   options: ReportMissingLegacyAssetsOptions,
 ): Promise<MissingLegacyAssetsReport> {
-  const grouped = refsByQuestion(contents);
+  const grouped = legacyAssetRefsByQuestion(contents);
   const missing: MissingLegacyAsset[] = [];
   let refs = 0;
 
@@ -180,7 +88,7 @@ export async function reportMissingLegacyAssets(
         legacyQuestionAssetDir(question.idPublication, question.legacyQuestionId),
       );
 
-      if (await resolves(fs, questionDir, ref.relativePath)) continue;
+      if ((await locateLegacyAsset(fs, questionDir, ref.relativePath)) !== null) continue;
 
       missing.push({
         ...base,

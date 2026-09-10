@@ -1,7 +1,11 @@
+import path from "node:path";
+
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 import { PrismaClient } from "../src/generated/prisma/client.ts";
+import { resolveLegacyFigures } from "../src/modules/legacy-import/application/import-legacy-figures.ts";
 import { mapLegacyLibrary } from "../src/modules/legacy-import/application/map-legacy-library.ts";
+import { NodeLegacyFsProbe } from "../src/modules/legacy-import/infrastructure/node-legacy-fs-probe.ts";
 import { SqliteLegacyLibraryReader } from "../src/modules/legacy-import/infrastructure/sqlite-legacy-library-reader.ts";
 import {
   normalizeIsbn,
@@ -74,7 +78,12 @@ async function main(): Promise<void> {
 
   try {
     const contents = await new SqliteLegacyLibraryReader(libraryPath).read();
-    const mapping = mapLegacyLibrary(contents, { workspaceName, workspaceSlug });
+    // As figuras são lidas do disco aqui também — o dry-run precisa dizer quantas iriam, e o
+    // LaTeX mapeado já sai citando o nome do asset. Nada é gravado: nem storage, nem banco.
+    const figures = await resolveLegacyFigures(contents, new NodeLegacyFsProbe(), {
+      libraryDir: path.dirname(libraryPath),
+    });
+    const mapping = mapLegacyLibrary(contents, { workspaceName, workspaceSlug, figures });
 
     console.log(`=== ${workspaceName} ===`);
     console.log(`${mapping.portable.publications.length} publicação(ões) no arquivo mapeado.`);
@@ -97,6 +106,15 @@ async function main(): Promise<void> {
 
     if (mapping.coercedDifficulty.length > 0) {
       console.log(`\n${mapping.coercedDifficulty.length} dificuldade(s) fora da escala, coagida(s) para 5.`);
+    }
+
+    const attached = figures.figures.length - mapping.unattachedFigures.length;
+    console.log(`\n${figures.figures.length} figura(s) no disco; ${attached} iria(m) como Asset de questão.`);
+    for (const entry of mapping.unattachedFigures) {
+      console.log(`  - questão ${entry.legacyQuestionId} · ${entry.relativePath}: sem questão no destino (${entry.reason})`);
+    }
+    for (const entry of figures.skipped) {
+      console.log(`  - questão ${entry.legacyQuestionId} · ${entry.field} · ${entry.ref}: ${entry.reason}`);
     }
 
     const existingIndex = await readExistingIndex(prisma);

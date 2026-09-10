@@ -15,6 +15,9 @@
  * Ver checklist Fase 11, bloco "Relatório: assets ausentes" · issue #111.
  */
 
+import type { LegacyFsProbe } from "./legacy-config";
+import type { LegacyLibraryContents } from "./legacy-library-reader";
+
 /**
  * Só os dois comandos que citam **arquivo de conteúdo**.
  *
@@ -132,3 +135,144 @@ export function extractLegacyAssetRefs(
  */
 export const legacyQuestionAssetDir = (idPublication: number, idQuestao: number): string =>
   `pub${String(idPublication).padStart(10, "0")}/idQuestion${idQuestao}`;
+
+/* ───────────────────────── referências agrupadas por questão ───────────────────────── */
+
+export interface LegacyQuestionRefs {
+  readonly legacyQuestionId: number;
+  readonly idPublication: number | null;
+  /** Deduplicadas por caminho e ordenadas — a mesma figura citada duas vezes é um arquivo só. */
+  readonly refs: readonly LegacyAssetRef[];
+}
+
+/**
+ * Todas as referências de uma biblioteca, agrupadas pela questão **dona** da pasta.
+ *
+ * Por questão porque a pasta no disco é por questão: a figura de uma alternativa mora em
+ * `idQuestion<IdQuestao da questão dona>`, nunca numa pasta da alternativa — conferido no acervo
+ * (Fundamentos, alternativas 6 e 7 da questão 10, em `pub0000000001/idQuestion10/images/`).
+ *
+ * É o mesmo agrupamento que o relatório de ausentes e o import de figuras usam: se um dia os
+ * dois divergissem, o relatório diria "está tudo no disco" sobre um arquivo que o import não
+ * levaria.
+ */
+export function legacyAssetRefsByQuestion(
+  contents: Pick<LegacyLibraryContents, "questions" | "options">,
+): readonly LegacyQuestionRefs[] {
+  const publicationOf = new Map(contents.questions.map((row) => [row.IdQuestao, row.idPublication]));
+  const grouped = new Map<number, LegacyAssetRef[]>();
+
+  const push = (legacyQuestionId: number, refs: readonly LegacyAssetRef[]): void => {
+    if (refs.length === 0) return;
+    const bucket = grouped.get(legacyQuestionId) ?? [];
+    bucket.push(...refs);
+    grouped.set(legacyQuestionId, bucket);
+  };
+
+  for (const row of contents.questions) {
+    push(
+      row.IdQuestao,
+      extractLegacyAssetRefs([
+        { field: "latexQuestao", latex: row.latexQuestao },
+        { field: "latexResposta", latex: row.latexResposta },
+        { field: "latexComplemento", latex: row.latexComplemento },
+        // `latexOrigin` é o texto de origem, mantido como veio; se ele cita figura, o arquivo
+        // precisa existir tanto quanto o do enunciado.
+        { field: "latexOrigin", latex: row.latexOrigin },
+      ]),
+    );
+  }
+
+  for (const row of contents.options) {
+    push(
+      row.IdQuestao,
+      extractLegacyAssetRefs([
+        { field: `Questao_Itens.${row.IdQuestao_Itens}.latexItem`, latex: row.latexItem },
+        { field: `Questao_Itens.${row.IdQuestao_Itens}.latexResposta`, latex: row.latexResposta },
+        { field: `Questao_Itens.${row.IdQuestao_Itens}.latexOrigin`, latex: row.latexOrigin },
+      ]),
+    );
+  }
+
+  return [...grouped.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([legacyQuestionId, refs]) => ({
+      legacyQuestionId,
+      idPublication: publicationOf.get(legacyQuestionId) ?? null,
+      // Fica a primeira citação, que é a que a pessoa vai achar primeiro abrindo a questão.
+      refs: dedupeByPath(refs).sort((a, b) => a.relativePath.localeCompare(b.relativePath)),
+    }));
+}
+
+function dedupeByPath(refs: readonly LegacyAssetRef[]): LegacyAssetRef[] {
+  const first = new Map<string, LegacyAssetRef>();
+  for (const ref of refs) {
+    if (!first.has(ref.relativePath)) first.set(ref.relativePath, ref);
+  }
+  return [...first.values()];
+}
+
+/* ───────────────────────────── localizar no disco ───────────────────────────── */
+
+/**
+ * Sem extensão, o `graphicx` tenta uma lista dele — então a busca também tenta, senão acusaria
+ * falta de um arquivo que o pdflatex acharia sozinho. Ordem do `\DeclareGraphicsExtensions`
+ * padrão do pdftex, com `.jpeg` a mais porque o acervo tem imagem colada de clipboard.
+ */
+const GRAPHICS_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".eps"] as const;
+
+const hasExtension = (relativePath: string): boolean =>
+  /\.[A-Za-z0-9]{1,5}$/.test(relativePath.split("/").pop() ?? relativePath);
+
+const joinPosix = (...parts: readonly string[]): string =>
+  parts.filter((part) => part !== "").join("/");
+
+/**
+ * O caminho (POSIX) do arquivo que a referência cita, ou `null` quando não há arquivo.
+ *
+ * `questionDir` é a pasta da questão dona já resolvida contra a biblioteca — quem chama sabe onde
+ * a biblioteca está; esta função só sabe onde, dentro dela, a questão guarda as coisas.
+ */
+export async function locateLegacyAsset(
+  fs: Pick<LegacyFsProbe, "exists">,
+  questionDir: string,
+  relativePath: string,
+): Promise<string | null> {
+  const target = joinPosix(questionDir, relativePath);
+  if (await fs.exists(target)) return target;
+  if (hasExtension(relativePath)) return null;
+
+  for (const extension of GRAPHICS_EXTENSIONS) {
+    const candidate = `${target}${extension}`;
+    if (await fs.exists(candidate)) return candidate;
+  }
+  return null;
+}
+
+/* ───────────────────────────── reescrever a citação ───────────────────────────── */
+
+/**
+ * Troca, dentro de cada `\includegraphics{…}`, o caminho legado pelo nome novo.
+ *
+ * O renderizador do produto novo não tem pasta `images/`: cada asset viaja no bundle com um nome
+ * simples — sem barra, por contrato — e é esse nome que o LaTeX precisa citar. Reescrever é o
+ * **único** caminho: um alias `images/clipboard_x.png` seria recusado pelo próprio contrato do
+ * bundle, e uma `\graphicspath` não resolve um caminho que já tem diretório dentro.
+ *
+ * Só o argumento muda. As opções (`[width=…]`), o `\r` do editor legado e o resto do texto ficam
+ * exatamente como estavam — este é o enunciado de alguém, e a reescrita precisa ser reconhecível
+ * num diff. Caminho que não está no mapa fica intocado.
+ */
+export function rewriteLegacyAssetRefs(
+  latex: string,
+  renames: ReadonlyMap<string, string>,
+): string {
+  if (renames.size === 0) return latex;
+
+  return latex.replace(REF_PATTERN, (whole: string, _command: string, argument: string) => {
+    const relativePath = toPosix(argument);
+    const name = renames.get(relativePath);
+    if (name === undefined) return whole;
+    return whole.replace(/\{[^{}]*\}$/, `{${name}}`);
+  });
+}

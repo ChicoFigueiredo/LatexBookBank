@@ -7,6 +7,7 @@ import type {
 } from "@modules/portability/domain/portable-schema";
 
 import { checkInvariants, type InvariantViolation } from "../domain/import-invariants";
+import { rewriteLegacyAssetRefs } from "../domain/legacy-asset-refs";
 import type {
   LegacyLibraryContents,
   RawLegacyOptionRow,
@@ -21,6 +22,7 @@ import {
   siblingOrder,
   UnknownTipoQuestaoError,
 } from "../domain/legacy-mapping";
+import { EMPTY_LEGACY_FIGURES, type LegacyFiguresResolution } from "./import-legacy-figures";
 
 /**
  * Legado lido → `PortableWorkspace`. Depois disso, o import é o mesmo de um `.lbb`: `toRuntime`
@@ -38,11 +40,25 @@ import {
 export interface MapLegacyLibraryOptions {
   readonly workspaceName: string;
   readonly workspaceSlug: string;
+  /**
+   * As figuras já resolvidas do disco (`resolveLegacyFigures`). Com elas, o LaTeX de cada questão
+   * — e das alternativas dela — passa a citar o nome do asset, e `assets` recebe o `sha256`.
+   * Sem elas o mapeamento é o de antes: texto como veio, `assets: []`.
+   *
+   * Vem pronto porque o mapeamento é puro e síncrono, e ler arquivo não é.
+   */
+  readonly figures?: LegacyFiguresResolution;
 }
 
 export interface ExcludedQuestion {
   readonly legacyId: number;
   readonly reason: string;
+}
+
+export interface UnattachedFigure {
+  readonly legacyQuestionId: number;
+  readonly relativePath: string;
+  readonly reason: "questao-excluida" | "no-estrutural";
 }
 
 export interface LegacyLibraryMapping {
@@ -57,6 +73,13 @@ export interface LegacyLibraryMapping {
   readonly coercedDifficulty: readonly number[];
   /** Questões cujo `idPublication` não bate com nenhuma linha de `Publication` — não descartadas em silêncio. */
   readonly orphanPublicationRefs: readonly { readonly legacyQuestionId: number; readonly idPublication: number }[];
+  /**
+   * Figuras resolvidas do disco cuja dona **não vira questão** no portable: ou foi excluída por
+   * invariante, ou é nó estrutural (um `QUESTION_GROUP` com `latexResposta`, como a Fundamentos
+   * 11). O arquivo existe e o texto o cita, mas não há questão para ligar o asset — e isso precisa
+   * sair no relatório, não sumir.
+   */
+  readonly unattachedFigures: readonly UnattachedFigure[];
 }
 
 function invariantExclusions(violations: readonly InvariantViolation[]): Map<number, string> {
@@ -74,10 +97,22 @@ const blankToNull = (value: string | null | undefined): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
+/**
+ * O LaTeX com a figura citada pelo nome do asset.
+ *
+ * `originalLatex` **não** passa por aqui: é o texto de origem, guardado como veio (proveniência),
+ * e nenhuma tela o compila. Reescrevê-lo seria mexer no único campo que promete não mudar.
+ */
+const cite = (renames: ReadonlyMap<string, string>, latex: string | null | undefined): string =>
+  rewriteLegacyAssetRefs(latex ?? "", renames);
+
+const NO_RENAMES: ReadonlyMap<string, string> = new Map();
+
 function toPortableNodes(
   questions: readonly RawLegacyQuestionRow[],
   optionsByQuestion: ReturnType<typeof optionOrder<RawLegacyOptionRow>>,
   coercedDifficulty: number[],
+  figures: LegacyFiguresResolution,
 ): readonly PortableNode[] {
   const orderedByParent = siblingOrder(questions);
   const nodes: PortableNode[] = [];
@@ -92,13 +127,17 @@ function toPortableNodes(
         const { difficulty, coerced } = mapDifficulty(row.Dificuldade);
         if (coerced) coercedDifficulty.push(row.IdQuestao);
 
+        // A figura de uma alternativa mora na pasta da questão dona, então o mapa de nomes é o
+        // da questão — para o enunciado, a resposta e cada alternativa.
+        const renames = figures.renamesByQuestion.get(row.IdQuestao) ?? NO_RENAMES;
+
         const optionEntries = optionsByQuestion.get(row.IdQuestao) ?? [];
         const options: PortableOption[] = optionEntries.map(
           ({ row: optionRow, sortKey: optionSortKey }): PortableOption => ({
             ref: `o${optionRow.IdQuestao_Itens}`,
             sortKey: optionSortKey,
-            statementLatex: optionRow.latexItem ?? "",
-            solutionLatex: optionRow.latexResposta ?? "",
+            statementLatex: cite(renames, optionRow.latexItem),
+            solutionLatex: cite(renames, optionRow.latexResposta),
             originalLatex: blankToNull(optionRow.latexOrigin),
             isCorrect: optionRow.Correta === 1,
             weight: null,
@@ -111,9 +150,9 @@ function toPortableNodes(
           ref: `q${row.IdQuestao}`,
           type: classification.questionType as string,
           nickname: blankToNull(row.Apelido),
-          statementLatex: row.latexQuestao ?? "",
-          solutionLatex: row.latexResposta ?? "",
-          complementLatex: row.latexComplemento ?? "",
+          statementLatex: cite(renames, row.latexQuestao),
+          solutionLatex: cite(renames, row.latexResposta),
+          complementLatex: cite(renames, row.latexComplemento),
           originalLatex: blankToNull(row.latexOrigin),
           difficulty,
           year: row.Ano,
@@ -128,7 +167,15 @@ function toPortableNodes(
           legacyId: row.IdQuestao,
           tags: [],
           options,
-          assets: [],
+          // Só o hash, nunca caminho (contrato do portable). Deduplicado: a mesma figura citada
+          // no enunciado e na resposta é um asset só.
+          assets: [
+            ...new Set(
+              figures.figures
+                .filter((figure) => figure.legacyQuestionId === row.IdQuestao)
+                .map((figure) => figure.sha256),
+            ),
+          ],
         };
       }
 
@@ -237,11 +284,12 @@ export function mapLegacyLibrary(
 
   const optionsByQuestion = optionOrder(optionRows);
   const coercedDifficulty: number[] = [];
+  const figures = options.figures ?? EMPTY_LEGACY_FIGURES;
 
   const portablePublications: PortablePublication[] = [...byPublication.entries()]
     .sort(([a], [b]) => a - b)
     .map(([idPublication, groupQuestions]) => {
-      const nodes = toPortableNodes(groupQuestions, optionsByQuestion, coercedDifficulty);
+      const nodes = toPortableNodes(groupQuestions, optionsByQuestion, coercedDifficulty, figures);
       return toPortablePublication(
         publicationByLegacyId.get(idPublication) ?? null,
         idPublication,
@@ -253,6 +301,17 @@ export function mapLegacyLibrary(
     ([legacyId, reason]) => ({ legacyId, reason }),
   );
 
+  const questionRows = new Set(
+    included.filter((q) => classifyNode(q.TipoQuestao).kind === "QUESTION").map((q) => q.IdQuestao),
+  );
+  const unattachedFigures: UnattachedFigure[] = figures.figures
+    .filter((figure) => !questionRows.has(figure.legacyQuestionId))
+    .map((figure) => ({
+      legacyQuestionId: figure.legacyQuestionId,
+      relativePath: figure.relativePath,
+      reason: exclusionReasons.has(figure.legacyQuestionId) ? "questao-excluida" : "no-estrutural",
+    }));
+
   return {
     portable: {
       name: options.workspaceName,
@@ -263,5 +322,6 @@ export function mapLegacyLibrary(
     excluded,
     coercedDifficulty,
     orphanPublicationRefs,
+    unattachedFigures,
   };
 }

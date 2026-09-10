@@ -1,10 +1,24 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import type { ImportPlan } from "@modules/portability/application/import-workspace";
+import type { StorageProvider } from "@/shared/ports";
+
+import {
+  storeLegacyFigure,
+  type LegacyFiguresResolution,
+} from "../application/import-legacy-figures";
+import { LEGACY_FIGURE_ASSET_KIND } from "../domain/legacy-figures";
 
 /**
  * Grava um `ImportPlan` do legado — numa transação, e nunca por cima. Mesma lógica de
- * `writeImportedWorkspace` (portability), sem a parte de assets: o mapeador do legado ainda não
- * produz nenhum (checklist Fase 11, bloco "Assets", em aberto).
+ * `writeImportedWorkspace` (portability), com um só tipo de asset: as **figuras** que o LaTeX
+ * cita (`resolveLegacyFigures`). Capa e PDF da publicação continuam em
+ * `scripts/backfill-legacy-assets.ts`; fonte de figura (gnuplot, PGF, …) segue em aberto.
+ *
+ * O `sha256` que cada questão lista (`assetSha256`) foi calculado na resolução, **antes** da
+ * transação, e o nome que o LaTeX já cita saiu dele. Aqui só se sobe o arquivo e se cria a linha
+ * — se o hash do storage discordasse, `storeLegacyFigure` pararia a transação inteira, que é o
+ * certo: uma questão gravada citando um nome que não existe seria o mesmo `File not found` que
+ * a pendência veio resolver.
  *
  * O cliente vem pelo construtor, e não do módulo `server-only`: o importador é um script de linha
  * de comando (`dry-run-legacy-import.ts` / `write-legacy-import.ts`), e importar aquele módulo
@@ -20,6 +34,13 @@ export interface LegacyImportReport {
   readonly nodes: number;
   readonly questions: number;
   readonly options: number;
+  /** Figuras gravadas como `Asset` e ligadas à questão dona. */
+  readonly figures: number;
+}
+
+export interface LegacyImportFigures {
+  readonly resolution: LegacyFiguresResolution;
+  readonly storage: StorageProvider;
 }
 
 export interface LegacyWorkspaceIdentity {
@@ -47,7 +68,15 @@ export class PrismaLegacyImportWriter {
     return found?.id ?? null;
   }
 
-  async write(plan: ImportPlan, identity: LegacyWorkspaceIdentity): Promise<LegacyImportReport> {
+  async write(
+    plan: ImportPlan,
+    identity: LegacyWorkspaceIdentity,
+    figures: LegacyImportFigures | null = null,
+  ): Promise<LegacyImportReport> {
+    const figureBySha = new Map(
+      (figures?.resolution.figures ?? []).map((figure) => [figure.sha256, figure]),
+    );
+
     return this.prisma.$transaction(async (client) => {
       const workspace = await client.workspace.create({
         data: {
@@ -62,6 +91,7 @@ export class PrismaLegacyImportWriter {
       let nodes = 0;
       let questions = 0;
       let options = 0;
+      let storedFigures = 0;
 
       for (const publication of plan.workspace.publications) {
         const createdPublication = await client.publication.create({
@@ -154,6 +184,36 @@ export class PrismaLegacyImportWriter {
               });
               options += 1;
             }
+
+            for (const sha256 of question.assetSha256) {
+              const figure = figureBySha.get(sha256);
+              if (figure === undefined || figures === null) {
+                // O mapeamento só lista hash que a resolução produziu, então isto é um bug de
+                // quem chamou (passou o portable com figuras e esqueceu a resolução). Parar é
+                // melhor que gravar a questão citando um nome sem arquivo.
+                throw new Error(
+                  `A questão legada ${question.legacyId} lista a figura ${sha256}, mas ela não ` +
+                    "está na resolução passada ao writer.",
+                );
+              }
+
+              const stored = await storeLegacyFigure(figure, figures.storage, workspace.id);
+              await client.asset.create({
+                data: {
+                  workspaceId: workspace.id,
+                  questionId: createdQuestion.id,
+                  kind: LEGACY_FIGURE_ASSET_KIND,
+                  storageKey: stored.storageKey,
+                  mimeType: stored.mimeType,
+                  originalFilename: stored.originalFilename,
+                  sha256: stored.sha256,
+                  sizeBytes: stored.sizeBytes,
+                  width: stored.width,
+                  height: stored.height,
+                },
+              });
+              storedFigures += 1;
+            }
           }
 
           const createdNode = await client.documentNode.create({
@@ -191,6 +251,7 @@ export class PrismaLegacyImportWriter {
         nodes,
         questions,
         options,
+        figures: storedFigures,
       };
     });
   }
