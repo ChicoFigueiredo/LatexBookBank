@@ -21,6 +21,22 @@
 > Direção vigente: **LOCAL-FIRST, CLOUD-READY** (D21). Decisões D21–D37;
 > D33 e D34 **suspensas**; D32 corrigida por D36.
 
+**Progresso (2026-09-16):** 1027 ✅ · 13 ◐ · 13 ⛔ · 26 `[ ]`. **O scan estrutural existe — e
+devolve uma proposta, não o acervo.** Rodada de grilling sobre o [prompt 03](../prompts/): ele
+pedia proposta antes do acervo, perfis com comportamento, árvore inteira vinda do PDF e uma tela
+de três áreas — quatro contradições com as D39–D43. Cada uma virou decisão (D45–D54, ADRs 0002 e
+0003) e a Wave G ganhou épico (#202), duas fases (20, 21) e 17 issues. Entregue na branch
+`feat/scan-estrutural`: várias âncoras por nó; o PDF lido no servidor, por linha, com fonte,
+imagem e desenho; colunas por evidência e mobília por repetição; os perfis `book-v1`, `exam-v1` e
+`exam-enem-v1`; a execução retomável; a revisão em tela própria com as operações da §36; a
+aprovação transacional; *Ver fonte* com todas as âncoras; *a revisar* e *Conferido*; o corpo do
+nó; o `.lbb` v2. **Medido no corpus real**: 735 de 735 questões em oito cadernos do ENEM, 98,4%
+completas e zero invasões; o *Curso de Análise* com 10 capítulos, 59 seções e 447 exercícios, o
+sumário confirmando tudo — depois de consertar o que ele ensinou (acento do TeX antigo, seção de
+um número só, título em duas linhas, numeração alinhada à direita). Dois E2E da `main` falham
+fora do escopo e ficaram registrados: `calibre.spec.ts` (a fixture ainda monta o schema antigo
+do Calibre, sem `identifiers`) e `estante.spec.ts` (depende de uma biblioteca com livros).
+
 **Progresso (2026-09-10):** 966 ✅ · 7 ◐ · 13 ⛔ · 65 `[ ]`. **"Como associo uma publicação que já
 existe a um livro do Calibre?" — não dá, e o caminho que promete isso mente.** O
 `sourcePdfAssetId` só é escrito pela importação do Calibre, que **só cria publicação nova**, e por
@@ -120,7 +136,7 @@ denominador virou 21 em 2026-09-10, com a Wave G.)*
 | — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
 | — prova arquitetural | 6.5 | 13 | 1 | 5 | 3 | escopo reescrito em 2026-09-09: falta a suíte de integração contra PostgreSQL; o par de storage é ⛔ adiado |
 | — seções cruzadas | §8–§15 | 175 | 2 | — | 8 | recontado em 2026-09-09 pelo mesmo critério do total; o checklist visual fechou, e os `[ ]` são o §33 "Legado" |
-| — captura em volume | 18 · 19 | 15 | 1 | — | 47 | decidida e **começada** em 2026-09-10: anexar a fonte do livro, do computador e do Calibre, e a captura abrindo no PDF |
+| — captura em volume | 18 · 19 · 20 · 21 | 76 | 7 | — | 8 | revista em 2026-09-16 (D45–D54, épico #202): scan estrutural com proposta, revisão e aprovação, corpo do nó e `.lbb` v2; faltam a conferência visual e a aprovação no acervo real |
 
 *As seções cruzadas repetem, por tema, o que as fases já afirmam — elas não são trabalho novo, são
 a verificação de que o trabalho das fases fecha contra a spec.*
@@ -1587,11 +1603,13 @@ e eles escondiam o que falta de verdade)*
 
 ## Wave G — captura em volume
 
-> Decidida em 2026-09-10 ([planejamento §3.7](./_planejamento.md)). A Wave E entregou o gesto
-> unitário — circular e receber LaTeX. Esta wave é o que falta para digitalizar um livro inteiro
-> sem repetir o gesto trezentas vezes. **Nada aqui está começado.**
+> Decidida em 2026-09-10 ([planejamento §3.7](./_planejamento.md)); **revista em 2026-09-16** pela
+> rodada sobre o [prompt 03](../prompts/) (D45–D54): o scan devolve uma **proposta**, revisada numa
+> tela própria, e só a aprovação escreve no acervo. Épico #202. Auditoria em
+> [`source-scanning-audit.md`](./source-scanning-audit.md); números em
+> [`source-scanning-validation.md`](./source-scanning-validation.md).
 
-### Fase 18 — Scan, perfis de captura e o livro ao lado *(D39, D40, D41, D43, D44 — #199)*
+### Fase 18 — Scan estrutural: motor, perfis e proposta *(D40, D44–D46, D48–D51, D54 — #199)*
 
 **A fonte do livro** *(D44 — decidido em 2026-09-10, ao perguntar como associar uma publicação
 existente a um livro do Calibre. A resposta era: não dá. `Publication.sourcePdfAssetId` só é
@@ -1635,42 +1653,71 @@ script `backfill-legacy-assets.ts`. Nenhuma tela escreve.)*
   teria apontado a fonte para um asset sem dono — metade exata do defeito que a D44 cita como
   evidência. O acervo saiu de 1 órfão para 0, com 12 publicações antes e depois)*
 
-**Perfil de captura** *(D41)*
-- [ ] `CaptureProfile` no domínio, com os oito campos: marcadores de início de questão · marcador
-  de fim ou solução · títulos de capítulo e de seção · marcador do bloco de exercícios · onde
-  ficam as respostas (`FIM_DO_LIVRO` · `FIM_DO_CAPITULO` · `ABAIXO` · `NENHUMA`) · colunas ·
-  tipo padrão da questão criada · modelo de visão
-- [ ] Perfil **prova**, derivado da segmentação existente *(o `segmentar-pagina.ts` de hoje é
-  este perfil embutido; extraí-lo não pode mudar o resultado — os 30 de 30 do ENA continuam)*
-- [ ] Perfil **livro-texto**, com o *Curso de Análise Vol. 1* como fixture
-- [ ] Um teste por perfil, contra o PDF real que o originou
-- [ ] `Publication.captureProfileId` — o livro lembra o perfil que usa
-- [ ] Presets no código, **sem tela de edição** *(decisão: regex por formulário é recurso que
-  parece poder e entrega frustração)*
+
+
+**Várias âncoras por nó** *(D50, [ADR 0003](../adr/0003-ancoras-do-no.md) — #206)*
+- ✅ `DocumentNodeAnchor`: nó ↔ âncora, com ordem e papel *(um nó com duas âncoras em duas
+  páginas, provado contra um SQLite com as migrações reais — `node-anchors.test.ts`, o primeiro
+  teste de adaptador Prisma contra banco de verdade)*
+- ✅ A coluna `sourceAnchorId` do nó e da questão em sincronia com a principal, na mesma transação
+- ✅ Criar questão, religar origem, duplicar subárvore e importar `.lbb` gravam a lista
+- [ ] A aba Origem lê a lista *(ainda lê a principal; o *Ver fonte* já mostra todas)*
+
+**O PDF lido no servidor** *(D49 — #207)*
+- ✅ pdf.js no Node: trechos com fonte e posição; imagens e desenhos pela lista de operadores, sem
+  rasterizar *(o canvas nativo entra só para recortar)*
+- ✅ Linha, não bloco: fim de linha pendente, fragmentos de fórmula e matriz de volta à linha,
+  duas colunas na mesma altura separadas
+- ✅ Acento do TeX antigo (OT1) recomposto — o *Curso de Análise* saía "Pref´ acio"
+- ✅ Fixtures sintéticas geradas por `gerar.sh` e versionadas: livros A, B e C, colunas 2 → 1 → 2,
+  fórmulas, prova no formato ENEM, livro de demonstração com sumário (D48)
+- ◐ PDF digitalizado: a página sem camada de texto é detectada e vira aviso *(o OCR de página
+  inteira não existe; o reconhecimento continua sendo por recorte)*
+
+**Mobília e ordem de leitura** *(#208)*
+- ✅ Mobília pela posição na faixa de margem e pela forma repetida; o número impresso sai dela
+- ✅ Colunas por evidência, decididas por página — nunca `largura / 2` *(2 → 1 → 2 com teste; o
+  divisor da prova vem dos cabeçalhos, como no TRI)*
+- ✅ Ordem página → coluna → altura; atravessar coluna ou página não é caso especial
+
+**Perfis de captura** *(D41, D46 — #209, #210, #211)*
+- ✅ Contrato com os oito campos da D41 e ganchos opcionais; registro explícito em
+  `profiles/index.ts`
+- ✅ `Publication.captureProfileId` — o livro lembra o perfil
+- ✅ Presets no código, **sem tela de edição**
+- ✅ `exam-v1`: a segmentação da captura, chamada sem mudança *(as mesmas caixas nas páginas do
+  ENA; 30 de 30 no PDF real)*
+- ✅ `book-v1`: parte, capítulo, seção, subseção, exemplo, bloco de exercícios, exercício, item,
+  subitem; estilo aprendido do próprio livro; sumário como expectativa e deslocamento de página
+- ✅ Livro C: o exercício que vira a página é **um** exercício com **duas** âncoras
+- ✅ `book-v1` no *Curso de Análise* (447 páginas): 10 capítulos com os títulos inteiros, 59
+  seções, 107 exemplos, 447 exercícios em 10 blocos, e o sumário confirma tudo
+- ✅ `exam-enem-v1`: 735 de 735 questões em 8 cadernos (2017–2024), 98,4% completas, zero
+  invasões; inglês e espanhol pelo marco impresso; diagnóstico com motivos
+- ✅ Um teste por perfil contra o PDF que o originou *(`scan-corpus.test.ts`, corpus fora do git)*
+
+**A execução** *(D49, D51, D53 — #212)*
+- ✅ `ScanRun`, `ScanPage`, `ScanItem`; as âncoras só nascem na aprovação
+- ✅ Laço no servidor com ponto de parada por página: fechar a aba não interrompe, reiniciar deixa
+  *interrompida*, retomar continua da página seguinte
+- ✅ Cancelar é estado; falhar grava o motivo e não perde as páginas lidas
+- ✅ A mesma chave (livro, PDF, perfil@versão, motor, configuração) reabre; `forceNew` cria outra
+  *(o E2E achou a chave sem o livro reabrindo a execução de outro livro com o mesmo PDF)*
+- ✅ Métricas da execução (§58) e retrato congelado do que o scan propôs (§59)
+- ✅ Rotas e tela provadas no app, com banco temporário, na porta 28080
+
+**"A revisar"** *(D40)*
+- ✅ Derivado de `DRAFT` + âncora de máquina (`scan:` ou `recognition:`) — **sem coluna nova, sem
+  valor novo no enum, sem tag automática**
+- ✅ Filtro na árvore
+- ◐ Filtro na busca *(na API, `aRevisar=1`; a paleta de busca ainda não tem o controle)*
+- ✅ **Conferido** promove para `READY` e sai do filtro
 
 **O livro entra no acervo**
 - ✅ *Curso de Análise Vol. 1* com PDF fonte, **anexado** e não importado *(2026-09-10 — editora
   IMPA, série Projeto Euclides e idioma preenchidos do Calibre; a publicação continua uma só, com
   os 2 nós que já tinha)*
 - [ ] Biblioteca "Análise Elon" religada *(o `legacySourcePath` ainda aponta para `/mnt/t`)*
-
-**Scan de intervalo** *(D39)*
-- [ ] Escolher intervalo de páginas e nó de destino
-- [ ] Encadeia estimativa → recorte → reconhecimento → **criação da questão**, em série
-- [ ] Falha unitária não aborta o lote, e o relatório diz o que falhou e por quê
-- [ ] A questão nasce com recorte e âncora ligados, e o LaTeX **como o modelo devolveu**
-- [ ] Tipo padrão vem do perfil
-- [ ] Modelo de visão escolhido por scan, local por padrão, com o aviso de localidade que a
-  ingestão já dá
-- [ ] Idempotente: o mesmo intervalo rodado duas vezes não duplica questão
-- [ ] Progresso presta contas durante o lote *(o que já foi garantido, o que falta)*
-
-**"A revisar"** *(D40)*
-- [ ] Derivado de `status = DRAFT` + âncora com LaTeX cru não conferido — **sem coluna nova, sem
-  valor novo no enum, sem tag automática**
-- [ ] Filtro na árvore
-- [ ] Filtro na busca
-- [ ] Conferir e aceitar promove para `READY` e sai do filtro
 
 **A captura abre no PDF do livro** *(2026-09-10 — relatado pelo autor: "não abre PDF se já
 vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo", com o botão
@@ -1684,54 +1731,89 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 - ✅ Asset ilegível cai para o upload com aviso nomeando o arquivo, em vez de um beco
 - ✅ O aviso de localidade da IA aparece nos **dois** estados, não só no de upload
 
-**Ver fonte no editor** *(D43)*
-- [ ] Botão ao lado de "Preview rápido", trocando o painel direito pelo PDF
-- [ ] Abre na página da âncora, com a caixa marcada
-- [ ] Acompanha a troca de questão
-- [ ] A escolha fica lembrada por livro
-- [ ] Questão sem âncora não mostra o botão *(o acervo legado inteiro)*
+
+**Ver fonte no editor** *(D43, D47 — #218)*
+- ✅ Botão ao lado das abas, trocando o painel direito pelo PDF
+- ✅ Abre na página da âncora, com **todas** as âncoras marcadas e navegáveis
+- ✅ Acompanha a troca de questão
+- ✅ A escolha fica lembrada por livro
+- ✅ Questão sem âncora não mostra o botão *(o acervo legado inteiro)*
+- ✅ Marcar e retirar âncora dali *(a condição do autor ao aceitar o vocabulário)*
 
 **Aceite da fase**
-- [ ] Um intervalo do ProfMat vira questões *a revisar* no nó escolhido, cada uma com recorte e
-  âncora
-- [ ] O filtro *a revisar* mostra exatamente essas
-- [ ] Abrir uma delas mostra o PDF ao lado, na página certa
-- [ ] Conferir e aceitar promove para `READY` e some do filtro
-- [ ] O mesmo scan rodado duas vezes não duplica questão
-- [ ] E2E do caminho inteiro, num navegador de verdade
+- ◐ Um intervalo do ProfMat vira questões *a revisar* no nó escolhido, cada uma com recorte e
+  âncora *(provado com o livro sintético, no E2E; no ProfMat real a proposta sai com 30 de 30, e
+  falta a aprovação conferida pelo autor)*
+- ✅ O filtro *a revisar* mostra exatamente essas
+- ✅ Abrir uma delas mostra o PDF ao lado, na página certa
+- ✅ Conferir promove para `READY` e some do filtro
+- ✅ O mesmo scan rodado duas vezes não duplica questão
+- ✅ E2E do caminho inteiro, num navegador de verdade (`e2e/scan.spec.ts`)
 
 ### Fase 19 — Corpo do nó *(D42, [ADR 0001](../adr/0001-corpo-do-no.md) — #200)*
 
 **Domínio e edição**
-- [ ] `DocumentNode.bodyLatex`
-- [ ] Edição no mesmo Monaco, com autocomplete e paleta
-- [ ] Preview rápido
-- [ ] Render autoritativo — um capítulo com corpo é compilável *(primeiro `RenderJob` de nó; hoje
-  só a questão exercita esse caminho)*
-- [ ] Revisão em histórico, como a questão
-- [ ] O estado vazio do nó deixa de dizer "o conteúdo fica nas questões"
+- ✅ `DocumentNode.bodyLatex`
+- ◐ Edição no mesmo Monaco, com autocomplete *(a paleta de símbolos ainda não está no editor do
+  corpo)*
+- ✅ Preview rápido
+- ✅ Render autoritativo — o corpo compila no worker *(ao vivo: PDF e PNG em 189 ms; o primeiro
+  `RenderJob` sem questão)*
+- ◐ Revisão em histórico *(gravada e listada; restaurar ainda não)*
+- ✅ O estado vazio do nó deixa de dizer "o conteúdo fica nas questões"
 
 **Captura da teoria**
 - [ ] Gesto manual: mandar um recorte reconhecido para o corpo da seção
-- [ ] O perfil sabe onde a teoria acaba e os exercícios começam, e manda o que vem antes para o
-  corpo do nó, também a revisar
+- ✅ O perfil sabe onde a teoria acaba e os exercícios começam, e a aprovação manda a teoria, o
+  exemplo e a nota para o corpo da seção, na ordem do livro
 
 **Portabilidade** *(D37, D42)*
-- [ ] Portable Schema **v2**, com o campo novo
-- [ ] Migrador `v1 → v2` — o primeiro, e o que a D37 previa "quando fizer sentido"
-- [ ] Versão desconhecida continua sendo recusada, nunca adivinhada
+- ✅ Portable Schema **v2**, com o corpo, as âncoras do nó e o PDF fonte
+- ✅ Migrador `v1 → v2` — o primeiro
+- ✅ Versão desconhecida continua sendo recusada, nunca adivinhada
 
 **Aceite da fase**
-- [ ] Uma seção com teoria compila junto com as questões que ela contém
-- [ ] Um `.lbb` v1 gerado antes desta fase importa sem perda
-- [ ] O round-trip de um `.lbb` v2 com corpo de nó dá identidade
-- [ ] O *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF
-- [ ] Reavaliar as 5 figuras órfãs de Fundamentos *(estão em nó estrutural, e a decisão de
-  2026-09-09 de deixá-las fora valia enquanto não havia onde pôr — ver ADR 0001)*
+- [ ] Uma seção com teoria compila **junto** com as questões que ela contém *(o corpo compila
+  sozinho; a composição com as questões é da exportação de avaliação)*
+- ✅ Um `.lbb` v1 gerado antes desta fase importa sem perda
+- ✅ O round-trip de um `.lbb` v2 com corpo de nó dá identidade *(e contra o banco: escanear,
+  aprovar, exportar e importar devolvem corpo, âncoras e PDF fonte)*
+- ◐ O *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF *(a proposta
+  tem; aprovar no acervo real fica com o autor)*
+- [ ] Reavaliar as 5 figuras órfãs de Fundamentos
 
-> **Fora desta wave, por decisão:** parear resposta com questão automaticamente · criar capítulos
-> e seções a partir dos títulos que o perfil reconhece · tela para editar perfis. Cada um volta à
-> mesa depois que o anterior funcionar num livro real.
+### Fase 20 — Revisão e aprovação da proposta *(D45, D47, D53, [ADR 0002](../adr/0002-tipos-do-scan-no-acervo.md) — #203)*
+
+- ✅ Tela própria em três áreas: estrutura, PDF com as âncoras, propriedades *(#215)*
+- ✅ Árvore ↔ PDF sincronizados: escolher abre a página e marca todas as âncoras; clicar na marca
+  escolhe o item; "âncora 2 de 3" navega
+- ✅ Diagnóstico, confiança e evidência visíveis; filtros por pendência, dúvida e diagnóstico
+- ✅ As operações da §36 *(#216)*: tipo, título, rótulo, reparentear, promover, rebaixar, unir,
+  separar, acrescentar, retirar, redimensionar e reordenar âncoras, papel, editar texto e LaTeX ao
+  lado do lido, aceitar, rejeitar, reabrir, marcar item à mão, reprocessar com IA e com matemática
+- ✅ Aprovação em lote (§37) sem esconder baixa confiança; atalhos A, X, J, K
+- ✅ Aprovação transacional, parcial, com destino; capítulo existente reaproveitado; *já no
+  acervo* por sobreposição de âncora *(#217)*
+- ✅ Acompanha a execução enquanto anda, e oferece retomar
+- [ ] Conferência visual do autor
+
+### Fase 21 — IA, matemática e validação *(D52 — #204)*
+
+- ✅ Desempate semântico pelo `AiProvider`: só itens duvidosos, em lote, contexto compacto,
+  resposta validada por Zod e pelo perfil; todo item tocado volta para revisão *(#219)*
+- ✅ Reconhecimento matemático pelo `MathRecognitionProvider`, uma imagem por âncora, só onde o
+  texto do PDF não basta *(#220 — ao vivo, com `gemma3:12b` local, na fixture de fórmulas: o
+  exercício com matriz e radical saiu certo; no texto, inline, integral e radical certos, e a
+  matriz e um `+` lido como `±` errados — por isso nada entra sem revisão)*
+- ✅ Sem modelo configurado, o scan é só determinístico, e avisa
+- ✅ Provedor, modelo e número de chamadas registrados na execução
+- ✅ [`source-scanning-validation.md`](./source-scanning-validation.md) com o corpus disponível
+  *(#221)*
+- [ ] Desempate por IA medido com o modelo local sobre um livro real
+
+> **Fora desta wave, por decisão:** parear resposta com questão automaticamente · tela para
+> editar perfis · a tela de diff entre dois scans (§61 — o retrato congelado já guarda o que é
+> preciso para ela).
 
 ---
 

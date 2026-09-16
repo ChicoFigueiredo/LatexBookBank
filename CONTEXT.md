@@ -165,9 +165,21 @@ O que se repete nas páginas sem ser conteúdo: cabeçalho corrido, número de p
 livro, código de barras, marca d'água. O scan a reconhece pela repetição e a deixa de fora.
 _Avoid_: cabeçalho e rodapé (é só parte dela), ruído
 
+**Aceitar** (um item da proposta):
+Dizer que um elemento da proposta de scan pode entrar no acervo. Não muda livro nenhum; quem
+muda é a aprovação. O scan pode **sugerir** itens de confiança alta, que a pessoa aceita em lote.
+_Avoid_: aprovar (é o passo seguinte), confirmar
+
+**Aprovar** (a proposta):
+Levar para o acervo os itens aceitos da proposta de scan — e, em lote, os sugeridos —, sob um nó
+de destino. É o único caminho da proposta para o acervo, e não cria nada duas vezes.
+_Avoid_: importar, publicar, aplicar
+
 **A revisar**:
-Uma questão criada pelo scan que ninguém leu ainda. Carrega o recorte e a âncora, e o LaTeX é o
-do modelo até alguém corrigir e confirmar. Diferente de rascunho, que é trabalho da pessoa.
+Uma questão que uma máquina escreveu — o scan ou o reconhecimento — e ninguém leu ainda. Carrega
+as âncoras, e o LaTeX é o que a máquina leu até alguém corrigir. **Conferir** é ler contra o PDF e
+dizer que está certa; aí ela deixa de estar a revisar. Diferente de rascunho, que é trabalho da
+pessoa.
 _Avoid_: pendente, não validada (é outro eixo), rascunho
 
 **Reconhecimento**:

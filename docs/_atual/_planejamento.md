@@ -45,9 +45,9 @@ mestra assumia:
    somam 109 MB em 409 arquivos, com menos de 1% recuperável por deduplicação. Isso remove a
    questão de custo de storage da lista de riscos.
 
-O plano resultante tem **21 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
+O plano resultante tem **23 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
 com critérios de aceite verificáveis por comando. *(Eram 19; a Wave G — captura em volume —
-acrescentou as Fases 18 e 19 em 2026-09-10, ver §3.7.)*
+acrescentou as Fases 18 e 19 em 2026-09-10 e as 20 e 21 em 2026-09-16, ver §3.7.)*
 
 ---
 
@@ -1736,25 +1736,23 @@ repositório; nenhuma configuração de infraestrutura hard-coded.
 LaTeX. Esta wave é o que falta para digitalizar um livro inteiro sem repetir esse gesto trezentas
 vezes.*
 
-#### Fase 18 — Scan, perfis de captura e o livro ao lado
+#### Fase 18 — Scan estrutural: motor, perfis e proposta *(revista em 2026-09-16 pela D45)*
 **Anexar a fonte do livro** (D44): o gesto no resumo do livro, com as duas origens — computador e
 catálogo do Calibre em modo "escolher para este livro" —, cópia sempre para o `StorageProvider`,
 oferta de preencher só os metadados vazios, PDF anterior listado ao trocar, e o conserto do
-`Anexar` que hoje não anexa · perfil de captura como preset no código (D41), com os oito campos e
-um teste por perfil contra o PDF real que o originou · perfil **prova**, derivado da segmentação
-existente (ENA, 30 de 30) · perfil **livro-texto**, com o *Curso de Análise Vol. 1* como fixture,
-que só entra depois que anexar existir — importar do Calibre criaria uma **segunda** publicação
-de mesmo nome, e a que existe já tem a árvore começada · `Publication.captureProfileId` · scan de
-**intervalo de páginas**
-sob um nó de destino escolhido, encadeando estimativa → recorte → reconhecimento → **criação da
-questão** a revisar (D39), em série e tolerante a falha unitária · *a revisar* derivado de
-`DRAFT` + âncora não conferida (D40), com filtro na árvore e na busca · botão **Ver fonte** no
-editor, trocando o painel direito pelo PDF na página da âncora, com a escolha lembrada por livro
-(D43) · gesto manual de mandar um recorte para o corpo do nó fica para a Fase 19.
+`Anexar` que não anexava · **várias âncoras por nó**, em ordem e com papel (D50, ADR 0003) · o
+PDF lido **no servidor**, por linha, com fonte, imagem e desenho (D49) · mobília, colunas por
+evidência e ordem de leitura · perfil de captura como código, com os oito campos da D41 e ganchos
+(D46), registrado explicitamente, e `Publication.captureProfileId` · `exam-v1` (a segmentação de
+hoje, sem mudança — ENA 30 de 30), `exam-enem-v1` (o conhecimento do segmentador do TRI) e
+`book-v1` (com o *Curso de Análise* como livro real) · a **execução** persistida, retomável,
+cancelável e idempotente, que devolve uma **proposta de scan** separada do acervo (D45, D51) ·
+*a revisar* derivado de `DRAFT` + âncora de máquina (D40), com filtro na árvore e na busca, e o
+gesto de conferir · **Ver fonte** no editor, com todas as âncoras da questão (D43, D47).
 **Aceite:** um intervalo de páginas do ProfMat vira questões *a revisar* no nó escolhido, cada
 uma com recorte e âncora; o filtro *a revisar* mostra exatamente essas; abrir uma delas mostra o
-PDF ao lado, na página certa; conferir e aceitar promove para `READY` e some do filtro; o mesmo
-scan rodado duas vezes não duplica questão.
+PDF ao lado, na página certa; conferir promove para `READY` e some do filtro; o mesmo scan rodado
+duas vezes não duplica questão; o exercício que vira a página é um item com duas âncoras.
 
 #### Fase 19 — Corpo do nó
 `DocumentNode.bodyLatex` · edição no mesmo Monaco, com preview rápido, render autoritativo e
@@ -1766,10 +1764,25 @@ do nó, também a revisar.
 gerado antes desta fase importa sem perda; o round-trip de um `.lbb` v2 com corpo de nó dá
 identidade; o *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF.
 
+#### Fase 20 — Revisão e aprovação da proposta *(D45, D47, D53)*
+Tela própria em três áreas — estrutura, PDF com todas as âncoras, propriedades — com árvore e
+PDF sincronizados · as operações de revisão da §36 do prompt 03 · aprovação em lote sem esconder
+baixa confiança · aprovação transacional sob um destino, com o mapeamento do ADR 0002, capítulo
+existente reaproveitado e *já no acervo* por sobreposição de âncora.
+**Aceite:** um scan do livro sintético é revisado e aprovado; os nós aparecem na árvore; o
+exercício de duas páginas abre com as duas âncoras; aprovar de novo não duplica. E2E do caminho.
+
+#### Fase 21 — IA, matemática e validação *(D52)*
+Desempate pelo `AiProvider` só nos itens duvidosos, com resposta validada · reconhecimento pelo
+`MathRecognitionProvider` só onde o texto do PDF não basta, uma imagem por âncora · o scan
+funciona sem modelo · `source-scanning-validation.md` medido no corpus real (D48).
+**Aceite:** nenhuma saída de modelo chega ao acervo sem aprovação; o relatório traz os números
+medidos e diz o que não mediu.
+
 > **Fora desta wave, por decisão:** parear resposta com questão automaticamente (a resposta é um
-> segundo gesto — recortar e apontar); criar capítulos e seções a partir dos títulos que o perfil
-> reconhece (a árvore é montada à mão, e o scan preenche); tela para editar perfis. Cada um volta
-> à mesa depois que o anterior funcionar num livro real.
+> segundo gesto — recortar e apontar); tela para editar perfis; a tela de diff entre dois scans
+> (o retrato congelado de cada item já guarda o necessário). *Criar capítulos e seções a partir
+> dos títulos*, que estava aqui, entrou pela D45: a aprovação protege o acervo do erro estrutural.
 
 ---
 
