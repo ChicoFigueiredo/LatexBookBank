@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { segmentarPagina, type PaginaDeTexto } from "@modules/recognition/domain/segmentar-pagina";
 import { assembleDocument } from "@modules/scan/domain/document";
@@ -10,6 +10,10 @@ import { buildProposal } from "@modules/scan/domain/structure";
 
 import ena from "./fixtures/profmat-ena-2023-p1-p2.json";
 import { fixturePages } from "./support/scan-fixtures";
+
+// Lê PDF de verdade e, em alguns casos, monta um SQLite com as migrações: sozinho leva um ou dois
+// segundos, e com a suíte inteira em paralelo passa dos 5 s padrão. Limite explícito, não sorte.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 /**
  * O motor e os perfis contra as fixtures sintéticas (§52–§55 do prompt 03). Cada `describe` é um

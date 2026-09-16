@@ -1,5 +1,6 @@
 import { fontTraits, looksLikeMath } from "./fonts";
 import { median, type Rect } from "./geometry";
+import { composeSpacingAccents, endsWithSpacingAccent, isSpacingAccent } from "./text";
 
 /**
  * O modelo de uma página, independente de tela e de biblioteca de PDF (Fase 2 do prompt 03).
@@ -140,6 +141,7 @@ export function buildLines(page: RawPage): PageModel {
   // inline ele aparece no meio da fórmula, e o trecho seguinte continua à direita, na mesma
   // altura. Só quebra de verdade quando o próximo trecho não continua a linha.
   let pendingBreak = false;
+  let lastSpan: TextSpan | null = null;
 
   for (const raw of page.spans) {
     const blank = raw.text.trim() === "";
@@ -153,10 +155,17 @@ export function buildLines(page: RawPage): PageModel {
 
     const span = toTextSpan(raw);
     if (bounds) {
-      const continues = pendingBreak ? continuesToTheRight(bounds, span) : continuesLine(bounds, span);
+      // O acento solto do TeX antigo fica em cima da letra seguinte: o trecho depois dele começa
+      // "para trás", e isso não é outra linha.
+      const afterAccent =
+        overlapsVertically(bounds, span) &&
+        ((lastSpan !== null && endsWithSpacingAccent(lastSpan.text)) || isSpacingAccent(span.text.trim().charAt(0)));
+      const continues =
+        afterAccent || (pendingBreak ? continuesToTheRight(bounds, span) : continuesLine(bounds, span));
       if (!continues) close();
     }
     pendingBreak = false;
+    lastSpan = span;
 
     current.push(span);
     bounds = bounds
@@ -184,6 +193,10 @@ export function buildLines(page: RawPage): PageModel {
     graphics: page.graphics,
     scanned: lines.length === 0 && page.graphics.some((g) => g.kind === "image"),
   };
+}
+
+function overlapsVertically(line: Rect, span: TextSpan): boolean {
+  return Math.min(line.y1, span.y1) - Math.max(line.y0, span.y0) > 0;
 }
 
 function continuesLine(line: Rect, span: TextSpan): boolean {
@@ -278,7 +291,10 @@ function continuesToTheRight(line: Rect, span: TextSpan): boolean {
 }
 
 function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[], box: Rect): TextLine {
-  const sorted = [...spans].sort((a, b) => a.x0 - b.x0);
+  // O acento solto fica em cima da letra, com o x um pouco à direita do começo dela: ordenado pelo
+  // x puro, ele cairia depois da letra que acentua.
+  const key = (span: TextSpan) => (isSpacingAccent(span.text.trim()) ? span.x0 - span.size * 0.6 : span.x0);
+  const sorted = [...spans].sort((a, b) => key(a) - key(b));
 
   let text = "";
   let previous: TextSpan | null = null;
@@ -321,7 +337,7 @@ function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[],
   return {
     id: `p${pageNumber}-l${index}`,
     pageNumber,
-    text: text.trim().normalize("NFC"),
+    text: composeSpacingAccents(text.trim()),
     spans: sorted,
     x0: box.x0,
     y0: box.y0,

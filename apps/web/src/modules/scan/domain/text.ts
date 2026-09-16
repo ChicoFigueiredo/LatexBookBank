@@ -6,7 +6,49 @@
  * e sem acento continua sendo o mesmo marco.
  */
 export function stripAccents(text: string): string {
-  return text.normalize("NFD").replace(/\p{M}+/gu, "").normalize("NFC");
+  // O "ı" sem pingo é como o TeX antigo escreve o "í": sem o acento, ele precisa voltar a ser "i".
+  return text.normalize("NFD").replace(/\p{M}+/gu, "").replace(/ı/g, "i").replace(/ȷ/g, "j").normalize("NFC");
+}
+
+/** Os acentos "soltos" do TeX antigo (OT1) e a marca combinante que cada um representa. */
+const SPACING_ACCENTS: Readonly<Record<string, string>> = {
+  "´": "́",
+  "`": "̀",
+  "ˆ": "̂",
+  "˜": "̃",
+  "¨": "̈",
+  "¸": "̧",
+  "˘": "̆",
+  "ˇ": "̌",
+  "˚": "̊",
+  "˙": "̇",
+};
+
+export const isSpacingAccent = (text: string): boolean => text.length === 1 && text in SPACING_ACCENTS;
+
+/** O trecho termina num acento solto — a letra que ele acentua vem no trecho seguinte. */
+export const endsWithSpacingAccent = (text: string): boolean => {
+  const last = text.trimEnd().slice(-1);
+  return last !== "" && last in SPACING_ACCENTS;
+};
+
+/**
+ * Recompõe o acento que o PDF escreveu como glifo separado: "Pref´ acio" → "Prefácio",
+ * "edi¸c˜ ao" → "edição". O TeX em codificação OT1 desenha o acento antes da letra — inclusive a
+ * cedilha —, e o texto extraído sai partido; sem isto, nenhuma palavra acentuada casa com nada.
+ */
+export function composeSpacingAccents(text: string): string {
+  const withMarks = text
+    // A cedilha só vai para "c": às vezes vem antes dele ("edi¸cao"), às vezes depois ("FUNC¸ ÕES").
+    .replace(/¸\s*([cC])/g, (_, letter: string) => `${letter}̧`)
+    .replace(/([cC])\s*¸\s*(?=\p{L})/gu, (_, letter: string) => `${letter}̧`)
+    .replace(/([cC])\s*¸/g, (_, letter: string) => `${letter}̧`)
+    .replace(/([´`ˆ˜¨˘ˇ˚˙])\s*(\p{L})/gu, (_, accent: string, letter: string) => {
+      const base = letter === "ı" ? "i" : letter === "ȷ" ? "j" : letter;
+      return base + (SPACING_ACCENTS[accent] ?? "");
+    })
+    .replace(/(\p{L})\s*([´`ˆ˜¨¸˘ˇ˚˙])/gu, (_, letter: string, accent: string) => letter + (SPACING_ACCENTS[accent] ?? ""));
+  return withMarks.normalize("NFC");
 }
 
 /** Maiúsculas, sem acento, espaços colapsados. */

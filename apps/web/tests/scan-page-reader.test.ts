@@ -1,10 +1,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { OpenedPdf } from "@modules/scan/application/pdf-document";
 import { buildLines, type PageModel } from "@modules/scan/domain/page";
 import { PdfjsDocumentReader } from "@modules/scan/infrastructure/pdfjs-document-reader";
+
+// Lê PDF de verdade e, em alguns casos, monta um SQLite com as migrações: sozinho leva um ou dois
+// segundos, e com a suíte inteira em paralelo passa dos 5 s padrão. Limite explícito, não sorte.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 /**
  * A leitura de página no servidor (Fase 2 do prompt 03), contra os PDFs sintéticos da D48.

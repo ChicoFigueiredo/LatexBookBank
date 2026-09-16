@@ -24,7 +24,8 @@ export interface TableOfContents {
 }
 
 const TOC_TITLE = /^(sum[áa]rio|[íi]ndice(\s+geral)?|conte[úu]do|contents|table of contents)$/i;
-const ENTRY = /^(.*?\S)(?:\s*[.·…]{2,}\s*|\s+)(\d{1,4})$/u;
+/** O pontilhado pode vir colado ("....") ou espaçado (". . . ."), como o TeX antigo compõe. */
+const ENTRY = /^(.*?[^\s.·…])(?:\s*(?:[.·…]\s*){2,}|\s+)(\d{1,4})$/u;
 /** Um sumário tem entradas: menos do que isto numa página é coincidência. */
 const MIN_ENTRIES = 4;
 

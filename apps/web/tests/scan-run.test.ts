@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { AiProvider } from "@shared/ports/ai-provider";
 import { MathRecognitionError, type MathRecognitionProvider } from "@shared/ports/math-recognition";
@@ -10,6 +10,10 @@ import { isInterrupted, normalizeSettings, InvalidScanSettingsError } from "@mod
 
 import { createTempDatabase } from "./support/temp-database";
 import { seedBookWithSource } from "./support/scan-seed";
+
+// Lê PDF de verdade e, em alguns casos, monta um SQLite com as migrações: sozinho leva um ou dois
+// segundos, e com a suíte inteira em paralelo passa dos 5 s padrão. Limite explícito, não sorte.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 /**
  * A execução do scan (Fase 8 do prompt 03 · D49, D51, D53), com as peças de verdade: SQLite com as

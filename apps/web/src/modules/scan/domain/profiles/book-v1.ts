@@ -59,6 +59,9 @@ const NUMBERED_ITEM = /^(\d{1,3})[.)](?:\s+|$)(.*)$/;
 const LETTER_ITEM = /^\(?([a-z])\)(?:\s+|$)(.*)$/;
 const ROMAN_ITEM = /^\(?([ivx]{1,5})\)(?:\s+|$)(.*)$/i;
 
+/** A marca, no estilo aprendido, de que o livro numera as seções com um número só. */
+const SECTIONS_BY_SINGLE_NUMBER = "@sections-by-single-number";
+
 /** Quanto um número de exercício pode "pular" e ainda ser a sequência (exercício omitido na edição). */
 const MAX_NUMBER_JUMP = 3;
 /** Distância, em pontos, para duas âncoras irmãs estarem "na mesma margem". */
@@ -92,12 +95,25 @@ function headingTypography(line: TextLine, style: PublicationStyle): number {
 }
 
 /** O título que vem na linha seguinte ("Capítulo 1" / "Números reais"): grande, e logo abaixo. */
-function titleBelow(context: WalkContext): string | null {
-  const next = context.peek(1);
+function titleBelow(context: WalkContext): { readonly text: string; readonly lines: number } | null {
   const { line, style } = context;
-  if (!next || next.slot !== line.slot) return null;
-  if (next.y0 - line.y1 > style.lineSpacing * 5) return null;
-  return relativeSize(next, style) >= 1.3 && looksLikeHeading(next, style) ? next.text : null;
+  const parts: DocLine[] = [];
+  let previous: DocLine = line;
+
+  // O título pode quebrar em duas ou três linhas do mesmo corpo ("Conjuntos Finitos, /
+  // Enumeráveis e Não-Enumeráveis"); a primeira tem de vir logo abaixo do rótulo.
+  for (let offset = 1; offset <= 3; offset++) {
+    const next = context.peek(offset);
+    if (!next || next.slot !== line.slot) break;
+    const limit = parts.length === 0 ? style.lineSpacing * 5 : next.size * 0.8;
+    if (next.y0 - previous.y1 > limit) break;
+    if (relativeSize(next, style) < 1.3 || !looksLikeHeading(next, style)) break;
+    if (parts[0] && Math.abs(next.size - parts[0].size) > 0.5) break;
+    parts.push(next);
+    previous = next;
+  }
+
+  return parts.length > 0 ? { text: parts.map((part) => part.text).join(" "), lines: parts.length } : null;
 }
 
 function heading(
@@ -114,9 +130,9 @@ function heading(
     kind,
     label,
     number,
-    title: below ?? (inlineTitle.trim() || null),
+    title: below?.text ?? (inlineTitle.trim() || null),
     extent: "heading",
-    lines: below ? 2 : 1,
+    lines: below ? below.lines + 1 : 1,
     confidence: { pattern, typography: headingTypography(context.line, context.style) },
     evidence: [evidence, `corpo ${relativeSize(context.line, context.style).toFixed(2)}× o do livro`],
   };
@@ -150,11 +166,17 @@ function classify(context: WalkContext): AnchorMatch | null {
   if (numbered && headingLike && (line.bold || relativeSize(line, style) >= 1.15)) {
     const number = numbered[1] ?? "";
     const depth = number.split(".").length;
-    const kind: ScanKind = depth === 1 ? "CHAPTER" : depth === 2 ? "SECTION" : "SUBSECTION";
+    // No livro que escreve "Capítulo I" por extenso e numera as seções com um número só ("1
+    // Conjuntos"), o número sozinho é seção; nos outros ("4 Funções", "1.1 …"), é capítulo.
+    const wordChapters = context.learned.get(SECTIONS_BY_SINGLE_NUMBER) === "SECTION";
+    const levels: readonly ScanKind[] = wordChapters ? ["SECTION", "SUBSECTION", "SUBSECTION"] : ["CHAPTER", "SECTION", "SUBSECTION"];
+    const kind: ScanKind = levels[Math.min(depth, levels.length) - 1] ?? "SUBSECTION";
     if (kind !== "CHAPTER" || relativeSize(line, style) >= 1.3) {
-      // "1.2" dentro do capítulo 1 é continuidade; dentro do capítulo 3, é suspeita.
-      const chapterNumber = [...context.open].reverse().find((e) => e.kind === "CHAPTER")?.number;
-      const continuity = chapterNumber && depth > 1 ? (number.startsWith(`${chapterNumber}.`) ? 0.97 : 0.6) : undefined;
+      // "1.2" dentro do capítulo 1 (ou da seção 1, quando o capítulo é por extenso) é continuidade;
+      // dentro do 3, é suspeita.
+      const parentKind: ScanKind = wordChapters ? "SECTION" : "CHAPTER";
+      const parentNumber = [...context.open].reverse().find((e) => e.kind === parentKind)?.number;
+      const continuity = parentNumber && depth > 1 ? (number.startsWith(`${parentNumber}.`) ? 0.97 : 0.6) : undefined;
       return {
         ...heading(context, kind, number, number, numbered[2] ?? "", 0.9, "título numerado"),
         title: numbered[2] ?? null,
@@ -219,8 +241,10 @@ function classify(context: WalkContext): AnchorMatch | null {
     const number = Number.parseInt(item[1] ?? "", 10);
     const previous = context.lastSibling("EXERCISE");
     const sequence = sequenceConfidence(previous?.number ?? null, number);
+    // Numeração alinhada pela direita: o "10." começa meio corpo antes do "9.".
+    const digitsDiff = previous ? Math.abs(String(number).length - (previous.number ?? "").length) : 0;
     const aligned = previous
-      ? Math.abs(previous.anchor.x0 - line.x0) <= ALIGNMENT
+      ? Math.abs(previous.anchor.x0 - line.x0) <= ALIGNMENT + digitsDiff * style.bodySize * 0.6
       : line.x0 <= context.columnLeft + style.bodySize * 3;
     if (sequence !== null && aligned) {
       return {
@@ -284,8 +308,9 @@ function classify(context: WalkContext): AnchorMatch | null {
     }
   }
 
-  // Título sem padrão, reconhecido pela tipografia que o livro já mostrou para aquele nível.
-  if (headingLike && line.text.length <= 80 && !/[.;:,]$/.test(line.text)) {
+  // Título sem padrão, reconhecido pela tipografia que o livro já mostrou para aquele nível — só
+  // depois que a estrutura começou: antes dela, título grande é prefácio, sumário, dedicatória.
+  if (context.open.length > 0 && headingLike && line.text.length <= 80 && !/[.;:,]$/.test(line.text)) {
     const learned = context.learned.get(typographicSignature(line, style));
     if (learned === "SECTION" || learned === "SUBSECTION" || learned === "CHAPTER") {
       return {
@@ -355,11 +380,22 @@ export const bookV1: CaptureProfile = {
 
   learnStyle(lines: readonly DocLine[], style: PublicationStyle): LearnedStyle {
     const learned = new Map<string, ScanKind>();
+    // "Capítulo I" por extenso **e** títulos de um número só: as seções são numeradas dentro do
+    // capítulo. Com "Capítulo 1" e seções "1.1" (o `book` do LaTeX), a numeração é a de sempre.
+    const hasWordChapters = lines.some((line) => CHAPTER.test(fold(line)) && looksLikeHeading(line, style));
+    const hasSingleNumberHeadings = lines.some((line) => {
+      const numbered = NUMBERED_HEADING.exec(line.text.trim());
+      return numbered !== null && !(numbered[1] ?? "").includes(".") && line.bold && looksLikeHeading(line, style);
+    });
+    const wordChapters = hasWordChapters && hasSingleNumberHeadings;
+    if (wordChapters) learned.set(SECTIONS_BY_SINGLE_NUMBER, "SECTION");
+    const levels: readonly ScanKind[] = wordChapters ? ["SECTION", "SUBSECTION", "SUBSECTION"] : ["CHAPTER", "SECTION", "SUBSECTION"];
+
     for (const line of lines) {
       const numbered = NUMBERED_HEADING.exec(line.text.trim());
       if (!numbered || !looksLikeHeading(line, style)) continue;
       const depth = (numbered[1] ?? "").split(".").length;
-      const kind: ScanKind = depth === 1 ? "CHAPTER" : depth === 2 ? "SECTION" : "SUBSECTION";
+      const kind = levels[Math.min(depth, levels.length) - 1] ?? "SUBSECTION";
       const signature = typographicSignature(line, style);
       if (!learned.has(signature)) learned.set(signature, kind);
     }

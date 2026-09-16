@@ -6,6 +6,7 @@ import { detectColumns, dividerFromAnchors } from "@modules/scan/domain/layout";
 import type { PageModel, TextLine } from "@modules/scan/domain/page";
 import { examEnemV1, longestAlternativeRun } from "@modules/scan/domain/profiles/exam-enem-v1";
 import { combineConfidence } from "@modules/scan/domain/proposal";
+import { composeSpacingAccents, stripAccents } from "@modules/scan/domain/text";
 import { readTableOfContents } from "@modules/scan/domain/toc";
 
 /** Uma linha de mentira, em pontos. Só o que as regras leem. */
@@ -152,6 +153,32 @@ describe("sumário", () => {
       ["CHAPTER", "1", 1],
       ["SECTION", "1.1", 2],
       ["CHAPTER", "2", 5],
+    ]);
+  });
+});
+
+describe("acentos do TeX antigo (OT1)", () => {
+  it("o acento solto volta para a letra certa, e a cedilha só para o c", () => {
+    expect(composeSpacingAccents("Pref´ acio da primeira edi¸c˜ ao")).toBe("Prefácio da primeira edição");
+    expect(composeSpacingAccents("CONJUNTOS E FUNC¸ ÕES")).toBe("CONJUNTOS E FUNÇÕES");
+    expect(composeSpacingAccents("n´ umeros")).toBe("números");
+    expect(stripAccents("Exercı́cios")).toBe("Exercicios");
+  });
+
+  it("o sumário aceita pontilhado espaçado", () => {
+    const lines = [
+      line("Sumário", 71, 60),
+      line("1 Números naturais . . . . . . . . . . . . 34", 71, 100),
+      line("2 Boa ordenação . . . . . . . . . . 39", 71, 120),
+      line("3 Conjuntos finitos . . . . . . . . 42", 71, 140),
+      line("4 Conjuntos enumeráveis . . . . . . 48", 71, 160),
+    ];
+    const toc = readTableOfContents([{ pageNumber: 5, width: 600, height: 800, lines, graphics: [], scanned: false }]);
+    expect(toc.entries.map((e) => [e.number, e.title, e.printedPage])).toEqual([
+      ["1", "Números naturais", 34],
+      ["2", "Boa ordenação", 39],
+      ["3", "Conjuntos finitos", 42],
+      ["4", "Conjuntos enumeráveis", 48],
     ]);
   });
 });

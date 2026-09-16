@@ -14,6 +14,7 @@ import {
   type ScanKind,
 } from "./proposal";
 import { indexBySlot, segmentsBetween, segmentsOfLines, type Segment } from "./regions";
+import { foldText } from "./text";
 import { normalizeNumber } from "./toc";
 
 /**
@@ -329,11 +330,18 @@ function checkAgainstToc(
 
   const offsets = new Map<number, number>();
   const matched = new Set<number>();
+  // O tipo que o sumário sugere é ambíguo — "1 Conjuntos" é capítulo num livro e seção no outro —,
+  // então quem casa é o número com o começo do título; o tipo só desempata quando não há título.
+  const titleKey = (text: string | null) => foldText(text ?? "").replace(/[^A-Z0-9]/g, "").slice(0, 12);
   const result = drafts.map((draft) => {
     if (!TOC_KINDS.has(draft.kind) || draft.number === null) return draft;
     const number = normalizeNumber(draft.number);
+    const key = titleKey(draft.title);
     const index = entries.findIndex(
-      (entry, i) => !matched.has(i) && entry.kind === draft.kind && entry.number === number,
+      (entry, i) =>
+        !matched.has(i) &&
+        entry.number === number &&
+        (key !== "" ? titleKey(entry.title) === key : entry.kind === draft.kind),
     );
     const entry = entries[index];
     if (!entry) return draft;
