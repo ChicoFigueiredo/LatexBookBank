@@ -110,6 +110,12 @@ describe("execução contra o banco", () => {
     // Outro intervalo é outra chave.
     const partial = await startScan(startDeps, { publicationId: publication.id, profileId: "book-v1", pageTo: 2 });
     expect(partial.run.runKey).not.toBe(run.runKey);
+
+    // O mesmo PDF em outro livro é outra varredura: a execução deste livro não é reaberta lá.
+    const other = await seedBookWithSource("book-c.pdf", "run-a-outro");
+    const elsewhere = await startScan(startDeps, { publicationId: other.publication.id, profileId: "book-v1" });
+    expect(elsewhere.reused).toBe(false);
+    expect(elsewhere.run.publicationId).toBe(other.publication.id);
   });
 
   it("cancelar para no ponto de parada, e retomar continua dali", async () => {

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge, Banner, Button, Field, Select, Tabs } from "@/design-system";
+import { Badge, Banner, Button, Field, Select, Tabs, useStoredState } from "@/design-system";
+import { QuestionSourcePane } from "@modules/scan/ui/QuestionSourcePane";
 import {
   diffSnapshots,
   type RevisionChange,
@@ -154,6 +155,29 @@ export function QuestionEditor({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [rightTab, setRightTab] = useState<RightTab>("rapido");
+
+  /**
+   * *Ver fonte* (D43): o painel direito inteiro vira o PDF do livro, com as âncoras da questão.
+   * Botão, não sexta aba; lembrado por livro, e só aparece quando há de onde a questão veio — o
+   * acervo legado inteiro não tem âncora, e um botão que abre o vazio ensina a ignorá-lo.
+   */
+  const [sourceOpen, setSourceOpen] = useStoredState(`lbb:ver-fonte:${publicationId}`, false);
+  const [hasSource, setHasSource] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/questions/${questionId}/anchors`)
+      .then((response) => response.json() as Promise<{ anchors?: unknown[] }>)
+      .then((payload) => {
+        if (!cancelled) setHasSource((payload.anchors?.length ?? 0) > 0);
+      })
+      .catch(() => {
+        if (!cancelled) setHasSource(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [questionId]);
+  const showingSource = sourceOpen && hasSource;
 
   /**
    * O histórico é carregado **ao abrir a aba**, não junto com a questão.
@@ -683,10 +707,23 @@ export function QuestionEditor({
                 }}
                 aria-label="Modo de visualização"
               />
+              {hasSource && (
+                <Button
+                  size="sm"
+                  variant={showingSource ? "primary" : "ghost"}
+                  icon="file-text"
+                  aria-pressed={showingSource}
+                  onClick={() => setSourceOpen(!sourceOpen)}
+                >
+                  Ver fonte
+                </Button>
+              )}
             </div>
 
             <div style={{ flex: 1, minHeight: 0 }}>
-              {rightTab === "origem" ? (
+              {showingSource ? (
+                <QuestionSourcePane questionId={questionId} />
+              ) : rightTab === "origem" ? (
                 // A aba estava bloqueada pela Fase 14: a âncora já guardava a página e a caixa,
                 // e não havia porta para navegá-las.
                 <OriginPanel

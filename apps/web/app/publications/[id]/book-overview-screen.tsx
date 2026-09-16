@@ -95,6 +95,7 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
 
   const editor = `/publications/${book.id}/editor`;
   const captura = `/publications/${book.id}/ingestao`;
+  const scan = `/publications/${book.id}/scan`;
   /**
    * O catálogo do Calibre aberto **para este livro** (D44.1).
    *
@@ -209,6 +210,11 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
                     Abrir fonte (PDF)
                   </Button>
                 )}
+                {book.source && (
+                  <Button variant="secondary" icon="sparkles" href={scan}>
+                    Escanear o livro
+                  </Button>
+                )}
                 <Button variant="ghost" icon="settings-2" href={`${editor}?metadados=1`}>
                   Metadados
                 </Button>
@@ -288,14 +294,18 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
                   Abrir PDF fonte
                 </Button>
               )}
+              {/*
+                A quarta ação do protótipo — `Importar estrutura` — existe agora como scan (D45):
+                o livro inteiro vira uma proposta de capítulos, seções e exercícios, que só entra
+                no acervo depois de revisada. Sem PDF fonte não há o que varrer, e o botão some.
+              */}
+              {book.source && (
+                <Button variant="secondary" icon="sparkles" href={scan}>
+                  Escanear o livro
+                </Button>
+              )}
             </div>
 
-            {/*
-              O protótipo tem uma quarta ação — `Importar estrutura` — e a linha "o sumário do PDF
-              pode virar capítulos automaticamente". **Não existe leitura de sumário neste app.**
-              Um botão que abre um "em breve" é pior que botão ausente (§81), e a frase seria pior
-              ainda: prometeria trabalho automático a quem está decidindo se faz o trabalho à mão.
-            */}
             <span className="lbb-book-empty-foot">
               {book.source
                 ? "a captura por recorte já tem de onde partir — a fonte está anexada"

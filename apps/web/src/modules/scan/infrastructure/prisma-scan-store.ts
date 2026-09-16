@@ -195,8 +195,11 @@ export class PrismaScanStore implements ScanStore {
     return row ? toRun(row) : null;
   }
 
-  async findLatestByKey(runKey: string): Promise<ScanRun | null> {
-    const row = await prisma.scanRun.findFirst({ where: { runKey }, orderBy: { createdAt: "desc" } });
+  async findLatestByKey(publicationId: string, runKey: string): Promise<ScanRun | null> {
+    const row = await prisma.scanRun.findFirst({
+      where: { publicationId, runKey },
+      orderBy: { createdAt: "desc" },
+    });
     return row ? toRun(row) : null;
   }
 
@@ -300,6 +303,14 @@ export class PrismaScanSources implements ScanSourceReader {
       storageKey: asset.storageKey,
       sha256: asset.sha256,
     };
+  }
+
+  async rememberedProfile(publicationId: string): Promise<string | null> {
+    const row = await prisma.publication.findUnique({
+      where: { id: publicationId },
+      select: { captureProfileId: true },
+    });
+    return row?.captureProfileId ?? null;
   }
 
   async rememberProfile(publicationId: string, profileId: string): Promise<void> {

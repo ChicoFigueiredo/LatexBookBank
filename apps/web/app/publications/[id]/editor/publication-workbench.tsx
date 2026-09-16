@@ -51,6 +51,7 @@ import { useRailCounts } from "../../../rail-counts";
 import { railHref, railModules } from "../../../rail";
 import { AddMenu } from "./add-menu";
 import { TrashDialog } from "./trash-dialog";
+import { NodeBodyEditor } from "./node-body-editor";
 import { QuestionEditor } from "./question-editor";
 import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
 import { useTreeEditing } from "./use-tree-editing";
@@ -205,6 +206,8 @@ export function PublicationWorkbench({
   // indicador mais urgente enquanto existe.
   const [unsavedQuestionId, setUnsavedQuestionId] = useState<string | null>(null);
   const [problemOnly, setProblemOnly] = useState(false);
+  // *A revisar* (D40): o que o scan ou o reconhecimento escreveu e ninguém conferiu ainda.
+  const [toReviewOnly, setToReviewOnly] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
 
   /**
@@ -341,7 +344,10 @@ export function PublicationWorkbench({
     [nodes],
   );
 
-  const filtering = query.trim() !== "" || kindFilter !== "" || tagFilter.length > 0 || problemOnly;
+  const reviewById = useMemo(() => new Map(nodes.map((node) => [node.id, node.toReview])), [nodes]);
+
+  const filtering =
+    query.trim() !== "" || kindFilter !== "" || tagFilter.length > 0 || problemOnly || toReviewOnly;
 
   const filtered = useMemo(() => {
     // Os dois filtros num predicado só: `filterTree` aceita um, e encadear duas passagens
@@ -351,14 +357,29 @@ export function PublicationWorkbench({
     // Do DTO e não do selo escolhido: a questão inválida **sendo editada** aparece como "não
     // salva", e derivar o filtro do rótulo a esconderia justamente do filtro que a procura.
     const byProblem = (node: TreeNode) => !problemOnly || problemById.get(node.id) === true;
+    const byReview = (node: TreeNode) => !toReviewOnly || reviewById.get(node.id) === true;
 
     return filterTree(allNodes, {
       query,
-      ...(kindFilter !== "" || tagFilter.length > 0 || problemOnly
-        ? { predicate: (node: TreeNode) => byKind(node) && byTag(node) && byProblem(node) }
+      ...(kindFilter !== "" || tagFilter.length > 0 || problemOnly || toReviewOnly
+        ? {
+            predicate: (node: TreeNode) =>
+              byKind(node) && byTag(node) && byProblem(node) && byReview(node),
+          }
         : {}),
     });
-  }, [allNodes, query, kindFilter, kindById, tagFilter, tagsById, problemOnly, problemById]);
+  }, [
+    allNodes,
+    query,
+    kindFilter,
+    kindById,
+    tagFilter,
+    tagsById,
+    problemOnly,
+    problemById,
+    toReviewOnly,
+    reviewById,
+  ]);
 
   const treeNodes = filtering ? filtered.nodes : allNodes;
   // Um nó guardado pode ter sido excluído entre sessões: cair no primeiro é melhor que abrir
@@ -749,6 +770,9 @@ export function PublicationWorkbench({
           <div
             style={{
               display: "flex",
+              // Quatro controles não cabem na largura da árvore: a linha quebra em vez de esconder
+              // o último filtro atrás da borda.
+              flexWrap: "wrap",
               gap: "var(--space-2)",
               marginBottom: "var(--space-2)",
             }}
@@ -784,6 +808,15 @@ export function PublicationWorkbench({
               onClick={() => setProblemOnly((current) => !current)}
             >
               Com problema
+            </Button>
+            <Button
+              size="sm"
+              variant={toReviewOnly ? "primary" : "ghost"}
+              aria-pressed={toReviewOnly}
+              title="Só as questões que o scan ou o reconhecimento escreveu e ninguém conferiu"
+              onClick={() => setToReviewOnly((current) => !current)}
+            >
+              A revisar
             </Button>
           </div>
 
@@ -1074,6 +1107,29 @@ function NodeDetail({
             ? [node.question.difficultyLabel, node.question.source].filter(Boolean).join(" · ")
             : (publisher ?? undefined)
         }
+        actions={
+          node.question && node.toReview ? (
+            /*
+              Conferir (D40): a questão veio do scan ou do reconhecimento, e ninguém a leu contra o
+              PDF. `READY` a tira do filtro *a revisar*. Pela mesma versão do texto: conferir uma
+              versão velha seria aprovar o que a pessoa não viu.
+            */
+            <Button
+              size="sm"
+              variant="primary"
+              icon="check"
+              onClick={() => {
+                void fetch(`/api/publications/${publicationId}/questions/${node.question?.id}`, {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ expectedVersion: node.question?.version, status: "READY" }),
+                }).then(() => window.location.reload());
+              }}
+            >
+              Conferido
+            </Button>
+          ) : undefined
+        }
       />
 
       {/*
@@ -1150,15 +1206,22 @@ function NodeDetail({
             </div>
           </>
         ) : (
-          <EmptyState
-            icon="file-text"
-            title="Capítulo ou seção"
-            // O texto anterior dizia "ganham conteúdo próprio no editor, **na Fase 3**" — número de
-            // fase do planejamento, na tela, prometendo um futuro que chegou faz tempo (#197). Um
-            // estado vazio precisa dizer o que fazer agora; este agora aponta para a questão, que é
-            // onde o conteúdo mora.
-            description="Capítulos e seções organizam a publicação — o conteúdo fica nas questões. Selecione uma na árvore, ou crie a primeira aqui dentro com Ctrl+Shift+N."
-          />
+          /*
+            O capítulo e a seção têm corpo agora (D42, ADR 0001): a teoria que o livro traz antes
+            dos exercícios — escrita aqui ou vinda do scan. O estado vazio que dizia "o conteúdo
+            fica nas questões" deixou de ser verdade.
+          */
+          <div
+            key={node.id}
+            style={{
+              height: "34rem",
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)",
+              overflow: "hidden",
+            }}
+          >
+            <NodeBodyEditor publicationId={publicationId} nodeId={node.id} />
+          </div>
         )}
       </div>
     </>

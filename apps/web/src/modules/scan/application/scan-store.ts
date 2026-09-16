@@ -84,8 +84,11 @@ export interface ScanItemChanges {
 export interface ScanStore {
   createRun(run: NewScanRun): Promise<ScanRun>;
   findRun(id: string): Promise<ScanRun | null>;
-  /** A execução mais recente com a chave, qualquer estado. */
-  findLatestByKey(runKey: string): Promise<ScanRun | null>;
+  /**
+   * A execução mais recente do livro com a chave, qualquer estado. Do livro: o mesmo PDF anexado a
+   * dois livros são duas varreduras, com destinos diferentes.
+   */
+  findLatestByKey(publicationId: string, runKey: string): Promise<ScanRun | null>;
   listRuns(publicationId: string): Promise<readonly ScanRun[]>;
   updateRun(id: string, patch: ScanRunPatch): Promise<void>;
 

@@ -10,6 +10,10 @@ import {
   type NodeAnchorPlan,
 } from "@modules/assets/domain/node-anchors";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type {
+  AnchoredQuestion,
+  NodeAnchorEditor,
+} from "@modules/assets/application/edit-node-anchors";
 
 /**
  * As âncoras de um nó, gravadas e lidas (D50, ADR 0003).
@@ -106,7 +110,54 @@ function toView(row: AnchorRow): NodeAnchorView {
   };
 }
 
-export class PrismaNodeAnchors {
+export class PrismaNodeAnchors implements NodeAnchorEditor {
+  async findByQuestion(questionId: string): Promise<AnchoredQuestion | null> {
+    const node = await prisma.documentNode.findUnique({
+      where: { questionId },
+      select: {
+        id: true,
+        publicationId: true,
+        publication: { select: { sourcePdfAssetId: true } },
+        anchors: {
+          orderBy: { sortOrder: "asc" },
+          select: { sourceAnchorId: true, role: true, sourceAnchor: { select: { sourceAssetId: true } } },
+        },
+      },
+    });
+    if (!node) return null;
+
+    return {
+      nodeId: node.id,
+      publicationId: node.publicationId,
+      links: node.anchors.map((link) => ({
+        sourceAnchorId: link.sourceAnchorId,
+        role: isAnchorRole(link.role) ? link.role : "PRIMARY",
+      })),
+      sourceAssetId: node.anchors[0]?.sourceAnchor.sourceAssetId ?? node.publication.sourcePdfAssetId,
+    };
+  }
+
+  async createAnchor(input: Parameters<NodeAnchorEditor["createAnchor"]>[0]): Promise<string> {
+    const anchor = await prisma.sourceAnchor.create({
+      data: {
+        publicationId: input.publicationId,
+        sourceAssetId: input.sourceAssetId,
+        pageNumber: input.pageNumber,
+        xNormalized: input.box.x,
+        yNormalized: input.box.y,
+        widthNormalized: input.box.width,
+        heightNormalized: input.box.height,
+        extractionMethod: "manual:editor",
+      },
+      select: { id: true },
+    });
+    return anchor.id;
+  }
+
+  async replaceLinks(nodeId: string, links: readonly NodeAnchorLink[]): Promise<void> {
+    await this.replace(nodeId, links);
+  }
+
   async listForNode(nodeId: string): Promise<readonly NodeAnchorView[]> {
     const rows = await prisma.documentNodeAnchor.findMany({
       where: { documentNodeId: nodeId },

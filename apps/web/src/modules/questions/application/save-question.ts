@@ -52,6 +52,7 @@ function changedFields(current: QuestionSnapshot, edit: QuestionEdit): (keyof Qu
     "publisher",
     "videoUrl",
     "type",
+    "status",
   ];
   return keys.filter((key) => edit[key] !== undefined && edit[key] !== current[key]);
 }

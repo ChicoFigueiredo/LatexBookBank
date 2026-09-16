@@ -1,4 +1,4 @@
-import type { QuestionType } from "@modules/questions/domain/question-type";
+import type { QuestionStatus, QuestionType } from "@modules/questions/domain/question-type";
 
 /**
  * Porta do agregado `Question`.
@@ -23,6 +23,12 @@ export interface QuestionEdit {
    * vez de levar um "não" sem explicação.
    */
   readonly type?: QuestionType;
+
+  /**
+   * Conferir: `READY` tira a questão de *a revisar* (D40). Pelo mesmo caminho e pela mesma versão
+   * do texto — conferir uma versão velha seria aprovar o que a pessoa não viu.
+   */
+  readonly status?: QuestionStatus;
 
   /**
    * Os metadados entram **pelo mesmo caminho** que o texto.
@@ -51,6 +57,7 @@ export interface QuestionSnapshot {
   readonly solutionLatex: string;
   readonly complementLatex: string;
   readonly nickname: string | null;
+  readonly status?: QuestionStatus;
 
   // Os metadados vêm no snapshot porque é contra ele que "mudou alguma coisa?" é respondido. Sem
   // eles aqui, todo salvamento de metadado pareceria uma edição — inclusive o que não mudou nada.

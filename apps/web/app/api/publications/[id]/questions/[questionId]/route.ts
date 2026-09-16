@@ -13,7 +13,11 @@ import {
   normalizeMetadata,
   type MetadataInput,
 } from "@modules/questions/domain/question-metadata";
-import { isQuestionType } from "@modules/questions/domain/question-type";
+import {
+  isQuestionType,
+  QUESTION_STATUSES,
+  type QuestionStatus,
+} from "@modules/questions/domain/question-type";
 import { PrismaQuestionRepository } from "@modules/questions/infrastructure/prisma-question-repository";
 import { ConcurrencyConflictError } from "@/shared/ports/repository";
 
@@ -167,6 +171,12 @@ export async function PATCH(
       throw new BadRequestError("`type` precisa ser um tipo de questão conhecido.");
     }
 
+    // Conferir (D40): `READY` tira a questão de *a revisar*; voltar a `DRAFT` também vale.
+    const status = body["status"];
+    if (status !== undefined && (typeof status !== "string" || !(QUESTION_STATUSES as readonly string[]).includes(status))) {
+      throw new BadRequestError("`status` precisa ser DRAFT, READY ou ARCHIVED.");
+    }
+
     const nickname = body["nickname"];
     if (nickname !== undefined && nickname !== null && typeof nickname !== "string") {
       throw new BadRequestError("`nickname` precisa ser texto ou nulo.");
@@ -187,6 +197,7 @@ export async function PATCH(
           : {}),
         ...(nickname !== undefined ? { nickname: nickname as string | null } : {}),
         ...(type !== undefined ? { type } : {}),
+        ...(status !== undefined ? { status: status as QuestionStatus } : {}),
         // Os metadados vão pelo mesmo `PATCH` e pela mesma versão. Um segundo caminho de escrita
         // teria o próprio `updatedAt` a comparar — duas versões da mesma questão brigando.
         ...normalizeMetadata(metadataFrom(body)),

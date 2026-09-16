@@ -37,6 +37,9 @@ export interface TreeQuestionRecord {
   readonly options: readonly TreeOptionRecord[];
   /** Vínculos de tag, na forma da tabela de junção. */
   readonly tags: readonly { readonly tag: { readonly name: string } }[];
+  /** `DRAFT` · `READY` · `ARCHIVED`. Com a âncora, responde *a revisar* (D40). */
+  readonly status?: string;
+  readonly sourceAnchor?: { readonly extractionMethod: string | null } | null;
 }
 
 export interface TreeOptionRecord {

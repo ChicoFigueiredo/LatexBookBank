@@ -67,7 +67,7 @@ export async function startScan(
   );
 
   if (!command.forceNew) {
-    const existing = await deps.store.findLatestByKey(runKey);
+    const existing = await deps.store.findLatestByKey(command.publicationId, runKey);
     if (existing && existing.state !== "FAILED" && existing.state !== "CANCELLED") {
       if (isInProgress(existing.state)) deps.runner.ensure(existing.id);
       return { run: existing, reused: true };

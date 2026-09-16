@@ -31,6 +31,7 @@ export async function GET(request: Request) {
       years: params.getAll("year"),
       types: params.getAll("type"),
       difficulties: params.getAll("difficulty"),
+      toReview: params.get("aRevisar") ?? undefined,
       limit: params.get("limit") ?? undefined,
       offset: params.get("offset") ?? undefined,
     });

@@ -44,6 +44,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             board: true,
             year: true,
             validationStatus: true,
+            status: true,
+            sourceAnchor: { select: { extractionMethod: true } },
             // Só o **último** job, e só o estado: a árvore quer saber se o render quebrou, não
             // quantas vezes. Trazer a lista faria a abertura da publicação pagar pelo histórico
             // de compilação de cada questão.

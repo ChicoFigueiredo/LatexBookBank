@@ -6,7 +6,11 @@ import type {
   QuestionSnapshot,
 } from "@modules/questions/domain/question-repository";
 import { prisma } from "@infrastructure/database/sqlite/client";
-import { isQuestionType } from "@modules/questions/domain/question-type";
+import {
+  isQuestionType,
+  QUESTION_STATUSES,
+  type QuestionStatus,
+} from "@modules/questions/domain/question-type";
 
 const SELECT = {
   id: true,
@@ -23,6 +27,7 @@ const SELECT = {
   roleLevel: true,
   publisher: true,
   videoUrl: true,
+  status: true,
   updatedAt: true,
 } as const;
 
@@ -34,7 +39,13 @@ export class PrismaQuestionRepository implements QuestionRepository {
     // O banco guarda `String` porque o conector SQLite não tem `enum`. Linha com tipo
     // desconhecido cai em discursiva — a mesma escolha que a busca faz, e pelo mesmo motivo: uma
     // questão que some é pior que uma exibida com o rótulo errado.
-    return { ...row, type: isQuestionType(row.type) ? row.type : "DISCURSIVE" };
+    return {
+      ...row,
+      type: isQuestionType(row.type) ? row.type : "DISCURSIVE",
+      status: (QUESTION_STATUSES as readonly string[]).includes(row.status)
+        ? (row.status as QuestionStatus)
+        : "DRAFT",
+    };
   }
 
   /**

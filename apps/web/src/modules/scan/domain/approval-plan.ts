@@ -187,7 +187,8 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
           parent: container,
           kind: nodeKind,
           title: item.title,
-          originalLabel: item.number ?? item.originalLabel,
+          // "Exercícios" como rótulo e como título diria a mesma coisa duas vezes na árvore.
+          originalLabel: item.number ?? (sameText(item.originalLabel, item.title) ? null : item.originalLabel),
           anchors: item.regions,
           sourceText: item.text,
           question: null,

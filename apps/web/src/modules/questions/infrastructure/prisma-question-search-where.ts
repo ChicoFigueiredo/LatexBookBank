@@ -1,4 +1,5 @@
 import type { SearchQuery } from "@modules/questions/domain/search-query";
+import { REVIEW_SOURCES } from "@modules/questions/domain/to-review";
 
 /**
  * O `where` da busca, montado — e **sem tocar no cliente do banco**.
@@ -58,6 +59,19 @@ export function buildWhere(query: SearchQuery): Record<string, unknown> {
   if (query.years.length > 0) and.push({ year: { in: [...query.years] } });
   if (query.types.length > 0) and.push({ type: { in: [...query.types] } });
   if (query.difficulties.length > 0) and.push({ difficulty: { in: [...query.difficulties] } });
+
+  // *A revisar* é derivado (D40): rascunho cuja âncora veio de uma máquina — scan ou
+  // reconhecimento — e que ninguém conferiu. Conferir promove para `READY` e tira daqui.
+  if (query.toReview) {
+    and.push({
+      status: "DRAFT",
+      sourceAnchor: {
+        is: {
+          OR: REVIEW_SOURCES.map((prefix) => ({ extractionMethod: { startsWith: prefix } })),
+        },
+      },
+    });
+  }
 
   return { AND: and };
 }
