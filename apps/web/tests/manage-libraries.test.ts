@@ -344,7 +344,7 @@ describe("as arestas que a exclusão precisa desviar", () => {
    *
    * A leitura é do SQL das migrations, não do `schema.prisma`, e a diferença é exatamente o que
    * custou uma violação de FK contra o banco de desenvolvimento: o schema declara **uma** aresta
-   * `Restrict`, e o banco tem **duas**. A segunda é o default do Prisma para relação obrigatória
+   * `Restrict`, e o banco tem **duas** (hoje três, com a do scan). A segunda é o default do Prisma para relação obrigatória
    * sem `onDelete` — invisível em quem lê o schema, e alcançada só por um caminho de três saltos
    * (questão → render job → asset → âncora).
    *
@@ -368,7 +368,7 @@ describe("as arestas que a exclusão precisa desviar", () => {
     }
   }
 
-  it("são exatamente duas, e são as que a ordem da exclusão conhece", () => {
+  it("são exatamente três, e são as que a ordem da exclusão conhece", () => {
     const restritas = [...acaoPorConstraint]
       .filter(([, acao]) => acao === "RESTRICT")
       .map(([nome]) => nome)
@@ -377,6 +377,8 @@ describe("as arestas que a exclusão precisa desviar", () => {
     expect(restritas).toEqual([
       // Apagar questão que está numa avaliação — desviada apagando as avaliações primeiro.
       "assessment_items_questionId_fkey",
+      // Apagar o PDF fonte que uma execução de scan varreu — desviada apagando as execuções (D51).
+      "scan_runs_sourceAssetId_fkey",
       // Apagar asset que é a origem de uma âncora — desviada apagando as âncoras primeiro.
       "source_anchors_sourceAssetId_fkey",
     ]);

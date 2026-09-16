@@ -121,6 +121,9 @@ export class PrismaLibraryRepository implements LibraryRepository {
       prisma.assessment.deleteMany({ where: { workspaceId: id } }),
       // `SourceAnchor` não tem `workspaceId`: quem a escopa é a publicação.
       prisma.sourceAnchor.deleteMany({ where: { publication: { workspaceId: id } } }),
+      // `ScanRun.sourceAsset` é a terceira aresta `RESTRICT` (D51): a execução aponta para o PDF
+      // fonte que varreu, e sai antes dos assets. Páginas e itens descem por cascata dela.
+      prisma.scanRun.deleteMany({ where: { workspaceId: id } }),
       prisma.question.deleteMany({ where: questionsOf(id) }),
       prisma.workspace.delete({ where: { id } }),
     ]);

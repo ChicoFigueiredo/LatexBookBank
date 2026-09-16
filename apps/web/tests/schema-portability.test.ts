@@ -50,6 +50,8 @@ const IMMUTABLE_MODELS = new Set([
   "RenderJob",
   "AgentRun",
   "Revision",
+  // O cache de página de uma execução do scan: o que o leitor viu naquela vez (D51).
+  "ScanPage",
   // Uma variante é uma **impressão**. Editá-la depois faria a prova no papel e a do banco
   // discordarem — e a discordância só apareceria na correção.
   "AssessmentVariant",
@@ -79,7 +81,7 @@ const NO_TIMESTAMPS = new Set([
   "AssessmentVariantOptionMap",
 ]);
 
-describe("o schema tem os 26 modelos esperados", () => {
+describe("o schema tem os 29 modelos esperados", () => {
   it("nenhum foi perdido nem acrescentado sem passar por aqui", () => {
     expect(models.map((m) => m.name).sort()).toEqual([
       "AgentRun",
@@ -105,6 +107,9 @@ describe("o schema tem os 26 modelos esperados", () => {
       "QuestionTag",
       "RenderJob",
       "Revision",
+      "ScanItem",
+      "ScanPage",
+      "ScanRun",
       "SourceAnchor",
       "Tag",
       "Workspace",

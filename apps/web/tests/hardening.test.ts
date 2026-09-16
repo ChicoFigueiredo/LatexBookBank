@@ -230,6 +230,8 @@ describe("isolamento por workspace", () => {
       PublicationAuthor: "publicationId",
       SourceAnchor: "publicationId",
       DocumentNodeAnchor: "documentNodeId",
+      ScanPage: "runId",
+      ScanItem: "runId",
       AssessmentSection: "assessmentId",
       AssessmentItem: "sectionId",
       AssessmentVariant: "assessmentId",
