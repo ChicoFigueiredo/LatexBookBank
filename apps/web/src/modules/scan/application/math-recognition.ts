@@ -63,7 +63,7 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
   return {
     providerId: recognizer.id,
     model,
-    async run({ items, pdf, policy, save, cancelled }) {
+    async run({ items, pdf, policy, save, cancelled, progress }) {
       const targets = items.filter(
         (item) =>
           RECOGNIZED_KINDS.has(item.kind) &&
@@ -76,8 +76,11 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
       const warnings: string[] = [];
       let calls = 0;
 
-      for (const item of targets) {
+      await progress?.(0, targets.length);
+
+      for (const [index, item] of targets.entries()) {
         if (await cancelled()) break;
+        if (index > 0) await progress?.(index, targets.length);
         try {
           const mathResult = await recognizeItem(recognizer, pdf, item);
           calls += item.regions.length;
@@ -90,6 +93,7 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
         }
       }
 
+      await progress?.(targets.length, targets.length);
       return { calls, warnings };
     },
   };

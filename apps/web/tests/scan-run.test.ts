@@ -252,7 +252,27 @@ describe("execução contra o banco", () => {
         semantic.run({ ...input, items: input.items.map((item) => (item.kind === "CONTENT" ? { ...item, confidence: 0.5 } : item)) }),
     };
 
-    await runScan({ ...runDeps, semantic: lowering, math: createMathPass(recognizer, "qwen-vl") }, run.id);
+    // A tela acompanha cada etapa pelo andamento gravado; o dublê anota o que viu.
+    const seen: string[] = [];
+    const watching: typeof store = Object.create(store);
+    watching.updateRun = async (id, patch) => {
+      if (patch.stepTotal !== undefined) {
+        const current = await store.findRun(id);
+        seen.push(`${patch.state ?? current?.state}:${patch.stepDone}/${patch.stepTotal}`);
+      }
+      return store.updateRun(id, patch);
+    };
+
+    await runScan({ ...runDeps, store: watching, semantic: lowering, math: createMathPass(recognizer, "qwen-vl") }, run.id);
+    expect(seen).toEqual([
+      "SEMANTIC_REVIEW:0/0",
+      "SEMANTIC_REVIEW:0/1",
+      "SEMANTIC_REVIEW:1/1",
+      "RECOGNIZING_MATH:0/0",
+      "RECOGNIZING_MATH:0/2",
+      "RECOGNIZING_MATH:1/2",
+      "RECOGNIZING_MATH:2/2",
+    ]);
 
     const done = await store.findRun(run.id);
     expect(done?.state).toBe("READY_FOR_REVIEW");
