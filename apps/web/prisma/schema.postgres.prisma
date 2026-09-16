@@ -177,8 +177,15 @@ model DocumentNode {
   questionId String?   @unique
   question   Question? @relation(fields: [questionId], references: [id])
 
+  /// A âncora **principal**, mantida em sincronia com a primeira de `anchors` (D50, ADR 0003).
+  /// Fica enquanto a aba Origem, a fila de captura e o `.lbb` v1 a leem; a arquitetura nova lê
+  /// `anchors`.
   sourceAnchorId String?
   sourceAnchor   SourceAnchor? @relation(fields: [sourceAnchorId], references: [id])
+
+  /// Todas as âncoras do nó, em ordem de leitura e com papel. Um exercício que vira a página tem
+  /// duas; uma questão do ENEM que desce a coluna e sobe na outra, também.
+  anchors DocumentNodeAnchor[]
 
   /// Exclusão lógica. `collapsed` NÃO está aqui: estado de UI vive em localStorage, porque
   /// `IsExpanded`/`IsSelected` no banco foi antipadrão do legado.
@@ -399,11 +406,36 @@ model SourceAnchor {
 
   createdAt DateTime @default(now())
 
-  nodes     DocumentNode[]
-  questions Question[]
+  nodes       DocumentNode[]
+  questions   Question[]
+  nodeAnchors DocumentNodeAnchor[]
 
   @@index([publicationId, pageNumber])
   @@map("source_anchors")
+}
+
+/// A ligação ordenada entre um nó e as suas âncoras (D50, ADR 0003).
+///
+/// Do nó, e não da questão: todo nó de questão tem exatamente uma questão, e duas tabelas seriam
+/// duas verdades para o mesmo elemento. A questão encontra as suas âncoras pelo nó.
+///
+/// A âncora não é copiada: a mesma `SourceAnchor` pode servir a mais de um nó (uma cópia de
+/// questão aponta para o mesmo recorte, D29).
+model DocumentNodeAnchor {
+  documentNodeId String
+  documentNode   DocumentNode @relation(fields: [documentNodeId], references: [id], onDelete: Cascade)
+  sourceAnchorId String
+  sourceAnchor   SourceAnchor @relation(fields: [sourceAnchorId], references: [id], onDelete: Cascade)
+
+  /// Ordem de leitura, a partir de 0. Lista curta, reescrita inteira: não precisa de fractional
+  /// index como a árvore.
+  sortOrder Int
+  /// `AnchorRole`: PRIMARY · CONTINUATION · ILLUSTRATION · ANSWER · SOLUTION · FOOTNOTE
+  role      String @default("PRIMARY")
+
+  @@id([documentNodeId, sourceAnchorId])
+  @@index([sourceAnchorId])
+  @@map("document_node_anchors")
 }
 
 // ---------------------------------------------------------------------------------------------

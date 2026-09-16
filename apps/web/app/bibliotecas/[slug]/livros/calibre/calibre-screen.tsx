@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   camposAPreencher,
@@ -144,11 +144,14 @@ export function CalibreScreen({
    */
   const [formatosEscolhidos, setFormatosEscolhidos] = useState<ReadonlySet<string> | null>(null);
 
-  useEffect(() => {
-    // Seleção mudou (marcou mais um, limpou, trocou de filtro): os formatos disponíveis podem ter
-    // mudado junto, então a escolha manual anterior perde o sentido e volta ao padrão.
+  // Seleção mudou (marcou mais um, limpou, trocou de filtro): os formatos disponíveis podem ter
+  // mudado junto, então a escolha manual anterior perde o sentido e volta ao padrão. Ajustado
+  // durante o render, e não num efeito — o efeito renderizaria uma vez com a escolha velha.
+  const [selecaoDosFormatos, setSelecaoDosFormatos] = useState(selecionados);
+  if (selecaoDosFormatos !== selecionados) {
+    setSelecaoDosFormatos(selecionados);
     setFormatosEscolhidos(null);
-  }, [selecionados]);
+  }
 
   const formatosNaSelecao = [
     ...new Set(selecionados.flatMap((entry) => entry.files.map((file) => file.format))),

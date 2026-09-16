@@ -30,7 +30,9 @@ const models = [...code.matchAll(/^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm)].map(([, 
 }));
 
 /** Tabelas de junção: identidade composta, sem `id` nem timestamps próprios. */
-const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag"]);
+// `DocumentNodeAnchor` (D50) é junção com dois atributos — ordem e papel —, e a data dela seria a
+// do nó: "quando esta âncora entrou" não é pergunta que a aba Origem faz.
+const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag", "DocumentNodeAnchor"]);
 
 /**
  * Imutáveis por design (D29): registram `createdAt` e nunca `updatedAt`.
@@ -77,7 +79,7 @@ const NO_TIMESTAMPS = new Set([
   "AssessmentVariantOptionMap",
 ]);
 
-describe("o schema tem os 25 modelos esperados", () => {
+describe("o schema tem os 26 modelos esperados", () => {
   it("nenhum foi perdido nem acrescentado sem passar por aqui", () => {
     expect(models.map((m) => m.name).sort()).toEqual([
       "AgentRun",
@@ -90,6 +92,7 @@ describe("o schema tem os 25 modelos esperados", () => {
       "Asset",
       "Author",
       "DocumentNode",
+      "DocumentNodeAnchor",
       "DocumentTemplate",
       "LatexIconMenu",
       "LatexSnippet",

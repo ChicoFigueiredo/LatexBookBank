@@ -3,7 +3,13 @@ import "server-only";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import type { StoredAssetRecord } from "@modules/assets/application/store-asset";
 import type { AssetWriter, NewAsset, WrittenAsset } from "@modules/assets/domain/book-source";
+import {
+  isAnchorRole,
+  planNodeAnchors,
+  type NodeAnchorLink,
+} from "@modules/assets/domain/node-anchors";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
 
 /**
  * Escrita de assets e de âncoras.
@@ -137,7 +143,36 @@ export async function attachAnchorToQuestion(
   questionId: string,
   sourceAnchorId: string,
 ): Promise<void> {
-  await prisma.question.update({ where: { id: questionId }, data: { sourceAnchorId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.question.update({ where: { id: questionId }, data: { sourceAnchorId } });
+
+    // O nó da questão ganha a âncora como principal (D50). As que ele já tinha continuam, depois
+    // dela: religar a origem não apaga a continuação que alguém marcou.
+    const node = await tx.documentNode.findUnique({ where: { questionId }, select: { id: true } });
+    if (!node) return;
+
+    const current = await tx.documentNodeAnchor.findMany({
+      where: { documentNodeId: node.id },
+      orderBy: { sortOrder: "asc" },
+      select: { sourceAnchorId: true, role: true },
+    });
+    const rest = current
+      .filter((link) => link.sourceAnchorId !== sourceAnchorId)
+      .map((link) => ({
+        sourceAnchorId: link.sourceAnchorId,
+        role: link.role === "PRIMARY" ? ("CONTINUATION" as const) : link.role,
+      }));
+
+    await writeNodeAnchors(
+      tx,
+      node.id,
+      planNodeAnchors(
+        [{ sourceAnchorId, role: "PRIMARY" as const }, ...rest].filter(
+          (link): link is NodeAnchorLink => isAnchorRole(link.role),
+        ),
+      ),
+    );
+  });
 }
 
 export interface SourceAssetRef {
