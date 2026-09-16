@@ -62,6 +62,7 @@ export async function readWorkspaceForExport(
           legacyId: true,
           legacyUuid: true,
           metadataJson: true,
+          sourcePdfAssetId: true,
           nodes: {
             where: { deletedAt: null },
             orderBy: { sortKey: "asc" },
@@ -74,6 +75,26 @@ export async function readWorkspaceForExport(
               numberingStyle: true,
               originalLabel: true,
               legacyId: true,
+              bodyLatex: true,
+              anchors: {
+                orderBy: { sortOrder: "asc" },
+                select: {
+                  role: true,
+                  sourceAnchor: {
+                    select: {
+                      pageNumber: true,
+                      xNormalized: true,
+                      yNormalized: true,
+                      widthNormalized: true,
+                      heightNormalized: true,
+                      sourceText: true,
+                      extractionMethod: true,
+                      extractionModel: true,
+                      sourceAsset: { select: { sha256: true, storageKey: true, mimeType: true } },
+                    },
+                  },
+                },
+              },
               question: {
                 select: {
                   id: true,
@@ -124,6 +145,22 @@ export async function readWorkspaceForExport(
 
   const wanted = new Map<string, { storageKey: string; mimeType: string }>();
 
+  // O PDF fonte de cada livro viaja no arquivo (v2): as âncoras apontam para ele, e uma âncora sem
+  // o PDF seria uma coordenada sobre nada.
+  const sourceIds = row.publications.map((p) => p.sourcePdfAssetId).filter((id): id is string => id !== null);
+  const sources = new Map(
+    (
+      await prisma.asset.findMany({
+        where: { id: { in: sourceIds } },
+        select: { id: true, sha256: true, storageKey: true, mimeType: true },
+      })
+    ).map((asset) => [asset.id, asset]),
+  );
+  const want = (asset: { sha256: string; storageKey: string; mimeType: string }) => {
+    wanted.set(asset.sha256, { storageKey: asset.storageKey, mimeType: asset.mimeType });
+    return asset.sha256;
+  };
+
   const workspace: RuntimeWorkspace = {
     name: row.name,
     slug: row.slug,
@@ -147,6 +184,10 @@ export async function readWorkspaceForExport(
       legacyUuid: publication.legacyUuid,
       metadataJson: publication.metadataJson,
       coverAssetSha256: null,
+      sourcePdfAssetSha256: (() => {
+        const source = publication.sourcePdfAssetId ? sources.get(publication.sourcePdfAssetId) : undefined;
+        return source ? want(source) : null;
+      })(),
       nodes: publication.nodes.map((node) => ({
         id: node.id,
         parentId: node.parentId,
@@ -156,6 +197,21 @@ export async function readWorkspaceForExport(
         numberingStyle: node.numberingStyle,
         originalLabel: node.originalLabel,
         legacyId: node.legacyId,
+        bodyLatex: node.bodyLatex,
+        anchors: node.anchors.map(({ role, sourceAnchor: anchor }) => ({
+          sha256: want(anchor.sourceAsset),
+          pageNumber: anchor.pageNumber,
+          box: {
+            x: anchor.xNormalized,
+            y: anchor.yNormalized,
+            width: anchor.widthNormalized,
+            height: anchor.heightNormalized,
+          },
+          role,
+          sourceText: anchor.sourceText,
+          extractionMethod: anchor.extractionMethod,
+          extractionModel: anchor.extractionModel,
+        })),
         question:
           node.question === null
             ? null

@@ -142,6 +142,7 @@ export function toRuntime(
       legacyUuid: publication.legacyUuid,
       metadataJson: publication.metadataJson,
       coverAssetSha256: publication.coverAsset,
+      sourcePdfAssetSha256: publication.sourcePdfAsset ?? null,
       nodes: publication.nodes.map((node) => {
         const question = node.question;
 
@@ -166,6 +167,16 @@ export function toRuntime(
           numberingStyle: node.numberingStyle,
           originalLabel: node.originalLabel,
           legacyId: node.legacyId,
+          bodyLatex: node.bodyLatex ?? "",
+          anchors: (node.anchors ?? []).map((anchor) => ({
+            sha256: anchor.asset,
+            pageNumber: anchor.pageNumber,
+            box: anchor.box,
+            role: anchor.role,
+            sourceText: anchor.sourceText,
+            extractionMethod: anchor.extractionMethod,
+            extractionModel: anchor.extractionModel,
+          })),
           question:
             question === null
               ? null

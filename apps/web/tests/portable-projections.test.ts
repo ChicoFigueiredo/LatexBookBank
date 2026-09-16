@@ -45,6 +45,7 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
       legacyUuid: "legacy-uuid-1",
       metadataJson: '{"series":"concursos"}',
       coverAssetSha256: "aa11",
+      sourcePdfAssetSha256: "bb22",
       nodes: [
         {
           id: "uuid-node-1",
@@ -56,6 +57,18 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           originalLabel: "I",
           legacyId: 100,
           question: null,
+          bodyLatex: "Juros simples incidem só sobre o capital.",
+          anchors: [
+            {
+              sha256: "bb22",
+              pageNumber: 12,
+              box: { x: 0.1, y: 0.2, width: 0.8, height: 0.05 },
+              role: "PRIMARY",
+              sourceText: "Capítulo I — Juros Simples",
+              extractionMethod: "scan:book-v1@1",
+              extractionModel: null,
+            },
+          ],
         },
         {
           id: "uuid-node-2",
@@ -66,6 +79,8 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           numberingStyle: "ARABIC",
           originalLabel: "1",
           legacyId: 101,
+          bodyLatex: "",
+          anchors: [],
           question: {
             id: "uuid-q-1",
             type: "MULTIPLE_CHOICE",

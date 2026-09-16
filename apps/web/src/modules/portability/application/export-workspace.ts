@@ -48,7 +48,18 @@ export interface RuntimePublication {
   readonly volume: string | null;
   readonly notes: string | null;
   readonly authors: readonly string[];
+  readonly sourcePdfAssetSha256: string | null;
   readonly nodes: readonly RuntimeNode[];
+}
+
+export interface RuntimeAnchor {
+  readonly sha256: string;
+  readonly pageNumber: number;
+  readonly box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly role: string;
+  readonly sourceText: string | null;
+  readonly extractionMethod: string | null;
+  readonly extractionModel: string | null;
 }
 
 export interface RuntimeNode {
@@ -61,6 +72,8 @@ export interface RuntimeNode {
   readonly originalLabel: string | null;
   readonly legacyId: number | null;
   readonly question: RuntimeQuestion | null;
+  readonly bodyLatex: string;
+  readonly anchors: readonly RuntimeAnchor[];
 }
 
 export interface RuntimeQuestion {
@@ -155,6 +168,7 @@ function toPublication(publication: RuntimePublication, mint: RefMinter): Portab
     legacyUuid: publication.legacyUuid,
     metadataJson: publication.metadataJson,
     coverAsset: publication.coverAssetSha256,
+    sourcePdfAsset: publication.sourcePdfAssetSha256,
     nodes: publication.nodes.map((node) => toNode(node, refById, mint)),
   };
 }
@@ -170,6 +184,16 @@ function toNode(node: RuntimeNode, refById: Map<string, string>, mint: RefMinter
     originalLabel: node.originalLabel,
     legacyId: node.legacyId,
     question: node.question === null ? null : toQuestion(node.question, mint),
+    bodyLatex: node.bodyLatex,
+    anchors: node.anchors.map((anchor) => ({
+      asset: anchor.sha256,
+      pageNumber: anchor.pageNumber,
+      box: anchor.box,
+      role: anchor.role,
+      sourceText: anchor.sourceText,
+      extractionMethod: anchor.extractionMethod,
+      extractionModel: anchor.extractionModel,
+    })),
   };
 }
 

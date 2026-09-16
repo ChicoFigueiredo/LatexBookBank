@@ -16,11 +16,17 @@
 /**
  * A versão do formato.
  *
- * Só uma existe hoje. A lista de conhecidas é o que permite recusar o futuro com mensagem em vez
- * de tentar ler um arquivo que não se entende — adivinhar aqui corromperia dado do usuário.
+ * A lista de conhecidas é o que permite recusar o futuro com mensagem em vez de tentar ler um
+ * arquivo que não se entende — adivinhar aqui corromperia dado do usuário.
+ *
+ * **A v2 (ADR 0001, D50)** leva o corpo dos nós, as âncoras de cada nó e o PDF fonte de cada
+ * livro. Diferente dos campos da ficha catalográfica, que entraram na v1 sem subir a versão, estes
+ * são **conteúdo**: uma versão anterior do app que lesse um arquivo novo ignoraria a teoria das
+ * seções e a origem das questões em silêncio. Ali, recusar é o certo — e o que se lê de uma v1
+ * passa pelo migrador (`portable-migrations.ts`), nunca por adivinhação.
  */
-export const PORTABLE_FORMAT_VERSION = 1;
-export const KNOWN_FORMAT_VERSIONS = [1] as const;
+export const PORTABLE_FORMAT_VERSION = 2;
+export const KNOWN_FORMAT_VERSIONS = [1, 2] as const;
 
 export interface PortableManifest {
   readonly formatVersion: number;
@@ -102,6 +108,9 @@ export interface PortablePublication {
   /** Nomes, na ordem em que assinam. O `Author` é compartilhado e renasce por nome no destino. */
   readonly authors?: readonly string[];
 
+  /** v2: o `sha256` do PDF fonte (D44), que viaja no zip — as âncoras apontam para ele. */
+  readonly sourcePdfAsset?: string | null;
+
   readonly nodes: readonly PortableNode[];
 }
 
@@ -115,6 +124,21 @@ export interface PortableNode {
   readonly originalLabel: string | null;
   readonly legacyId: number | null;
   readonly question: PortableQuestion | null;
+  /** v2: o corpo do nó estrutural (ADR 0001). Vazio é "sem corpo". */
+  readonly bodyLatex?: string;
+  /** v2: as âncoras do nó, em ordem e com papel (D50). */
+  readonly anchors?: readonly PortableAnchor[];
+}
+
+/** Uma âncora de origem, com o PDF endereçado pelo hash — nunca por caminho. */
+export interface PortableAnchor {
+  readonly asset: string;
+  readonly pageNumber: number;
+  readonly box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly role: string;
+  readonly sourceText: string | null;
+  readonly extractionMethod: string | null;
+  readonly extractionModel: string | null;
 }
 
 export interface PortableQuestion {
