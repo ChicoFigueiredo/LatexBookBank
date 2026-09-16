@@ -1,0 +1,65 @@
+% Prova sintética no formato do ENEM (prompt 03, §55) — nada aqui é conteúdo do INEP.
+% Página 1: capa, uma coluna. Páginas 2 e 3: duas colunas com calha estreita, como os cadernos.
+%   p2 c1: LINGUAGENS · inglês Q1 Q2 · espanhol Q1 Q2 · Q06 (a última da área, fora da faixa de língua)
+%   p2 c2: MATEMÁTICA · Q136 normal · Q137 com gráfico · Q138 começa (atravessa a PÁGINA)
+%   p3 c1: Q138 termina · Q139 começa (atravessa a COLUNA)
+%   p3 c2: Q139 termina · Q140 com alternativas em fórmula · Q141, a última
+\documentclass[10pt]{article}
+\input{_preambulo}
+\usepackage{multicol,fancyhdr,tikz}
+\raggedcolumns
+\geometry{margin=1.6cm,top=2.2cm,bottom=2.2cm}
+\setlength{\columnsep}{0.35cm}
+\setlength{\columnseprule}{0.4pt}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small ENEM 2099 \textbullet{} 2º DIA \textbullet{} CADERNO 9 \textbullet{} AZUL}
+\fancyfoot[L]{\small *AZUL9 7 4AB1*}
+\fancyfoot[R]{\small Página \thepage}
+\setlength{\parindent}{0pt}
+\newcommand{\questao}[1]{\par\medskip{\bfseries QUESTÃO #1}\par\smallskip}
+\newcommand{\alt}[2]{\par\makebox[1.3em][l]{\bfseries #1}#2}
+\newcommand{\area}[1]{\par\medskip{\centering\bfseries #1\par}\smallskip}
+\newcommand{\enunciado}{Leia o texto a seguir com atenção. Este enunciado sintético existe
+para ocupar algumas linhas da coluna, como um texto-base de verdade ocuparia numa prova.}
+\newcommand{\alternativas}{\alt{A}{primeira alternativa.}\alt{B}{segunda alternativa.}%
+\alt{C}{terceira alternativa.}\alt{D}{quarta alternativa.}\alt{E}{quinta alternativa.}\par}
+\begin{document}
+\thispagestyle{empty}
+\begin{center}
+{\LARGE\bfseries EXAME NACIONAL DO ENSINO MÉDIO}\\[1cm]
+{\Large PROVA SINTÉTICA — 2º DIA}\\[2cm]
+\end{center}
+Instruções: esta capa não contém questões e não pode entrar em recorte nenhum.
+\newpage
+\begin{multicols*}{2}
+\area{LINGUAGENS, CÓDIGOS E SUAS TECNOLOGIAS}
+\area{Questões de 01 a 05 (opção inglês)}
+\questao{01}\enunciado\alternativas
+\questao{02}\enunciado\alternativas
+\area{Questões de 01 a 05 (opção espanhol)}
+\questao{01}\enunciado\alternativas
+\questao{02}\enunciado\alternativas
+\questao{06}\enunciado\alternativas
+\columnbreak
+\area{MATEMÁTICA E SUAS TECNOLOGIAS}
+\area{Questões de 136 a 180}
+\questao{136}\enunciado\alternativas
+\questao{137}Observe o gráfico.\par
+\begin{center}\begin{tikzpicture}[scale=0.8]
+\draw[->] (0,0) -- (4,0); \draw[->] (0,0) -- (0,3);
+\draw[thick] (0,0.5) -- (1,2) -- (2,1.2) -- (3,2.6);
+\end{tikzpicture}\end{center}
+Qual é o maior valor mostrado?\alternativas
+\questao{138}\enunciado\par \enunciado\par
+Esta questão continua na próxima página.\par
+\columnbreak
+Continuação da questão 138, já na página seguinte.\alternativas
+\questao{139}\enunciado\par \enunciado\par
+Esta questão continua na próxima coluna.\par
+\columnbreak
+Continuação da questão 139, na coluna da direita.\alternativas
+\questao{140}Qual expressão é igual a $\frac{1}{2}+\frac{1}{3}$?\par
+\alt{A}{$\frac{5}{6}$}\alt{B}{$\frac{2}{5}$}\alt{C}{$\frac{1}{6}$}\alt{D}{$\frac{1}{5}$}\alt{E}{$\sqrt{2}$}\par
+\questao{141}\enunciado\alternativas
+\end{multicols*}
+\end{document}

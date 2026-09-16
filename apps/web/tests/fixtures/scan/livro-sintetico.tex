@@ -1,0 +1,86 @@
+% Livro sintético de demonstração do scan (D48): um livro-texto inteiro, com sumário, páginas
+% iniciais em romano (o número impresso não é o índice do PDF), cabeçalho corrido, partes,
+% capítulos, seções, exemplos, blocos de exercícios, itens, um exercício que vira a página,
+% fórmulas e uma figura. Conteúdo original, livre para versionar.
+\documentclass[11pt,oneside]{book}
+\input{_preambulo}
+\usepackage{tikz}
+\newcommand{\texto}{Este parágrafo desenvolve a teoria da seção com calma. Ele apresenta as
+definições, comenta as consequências imediatas e prepara o leitor para os exemplos resolvidos
+que vêm a seguir, sempre com a notação usual dos livros de matemática do ensino superior.\par}
+\begin{document}
+\frontmatter
+\begin{titlepage}\centering\vspace*{5cm}
+{\Huge\bfseries Matemática Sintética}\\[1cm]{\Large Volume único}\\[4cm]{\large Editora Fixture}
+\end{titlepage}
+\tableofcontents
+\mainmatter
+\part{Fundamentos}
+\chapter{Números reais}
+\section{Ordem}
+\texto\texto
+\begin{exemplo}
+Como $2 < 3$ e $3 < 5$, a transitividade garante que $2 < 5$.
+\end{exemplo}
+\texto
+\subsection{Valor absoluto}
+O valor absoluto de $x$ é $|x| = \max\{x, -x\}$, e vale a desigualdade triangular
+\[ |x + y| \le |x| + |y|. \]
+\begin{exemplo}
+$|-7| = 7$ e $|3 - 10| = 7$.
+\end{exemplo}
+\blocoexercicios
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item Prove que $|xy| = |x|\,|y|$.
+\item Resolva as inequações:
+  \begin{enumerate}
+  \item $|x - 1| < 2$;
+  \item $|2x + 3| \ge 5$.
+  \end{enumerate}
+\item Mostre que $\sqrt{2}$ é irracional.
+\end{enumerate}
+\section{Supremo}
+\texto\texto\texto
+\begin{exemplo}
+O supremo de $\{1 - \frac{1}{n} : n \ge 1\}$ é $1$.
+\end{exemplo}
+\texto\texto\texto\texto\texto
+\blocoexercicios[Exercícios propostos]
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item Determine o supremo e o ínfimo de $\{\frac{n}{n+1} : n \ge 1\}$.
+\item \texto\texto\texto\texto\texto\texto Este exercício é longo de propósito, para virar a página: prove que todo
+conjunto não vazio e limitado superiormente de números reais tem supremo, e responda:
+  \begin{enumerate}
+  \item o supremo pertence sempre ao conjunto?
+  \item o que muda se o conjunto for finito?
+  \item dê um exemplo em que o supremo não é o máximo.
+  \end{enumerate}
+\item Calcule $\sup\,\{x \in \mathbb{Q} : x^2 < 2\}$.
+\end{enumerate}
+\part{Cálculo}
+\chapter{Derivadas}
+\section{Definição}
+\texto
+A derivada de $f$ no ponto $a$ é
+\[ f'(a) = \lim_{h\to 0} \frac{f(a+h) - f(a)}{h}. \]
+\begin{center}\begin{tikzpicture}[scale=0.9]
+\draw[->] (-0.2,0) -- (4,0); \draw[->] (0,-0.2) -- (0,3);
+\draw[thick,domain=0:3.2] plot (\x,{0.25*\x*\x});
+\draw (1,0.25) -- (3,2.25);
+\end{tikzpicture}\end{center}
+\texto
+\begin{exemplo}
+Se $f(x) = x^2$, então $f'(x) = 2x$.
+\end{exemplo}
+\section{Regras de derivação}
+\texto\texto
+\begin{exemplo}
+Pela regra do produto, $(x \sin x)' = \sin x + x\cos x$.
+\end{exemplo}
+\blocoexercicios
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item Derive $f(x) = \dfrac{x^2 + 1}{x - 1}$.
+\item Derive $g(x) = \sqrt{1 + x^2}$.
+\item Calcule a derivada de $\det\begin{pmatrix} x & 1 \\ 2 & x \end{pmatrix}$.
+\end{enumerate}
+\end{document}

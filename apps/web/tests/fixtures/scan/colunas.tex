@@ -1,0 +1,20 @@
+% Colunas mistas: página 1 em duas colunas, página 2 em uma, página 3 em duas (prompt 03, §53).
+% Cada parágrafo é numerado na ordem em que deve ser lido: a ordem de leitura certa é 1, 2, 3...
+\documentclass[10pt]{article}
+\input{_preambulo}
+\usepackage{multicol}
+\pagestyle{empty}
+\newcommand{\para}[1]{\noindent Parágrafo #1. Texto de leitura da ordem, repetido para ocupar
+algumas linhas da coluna e dar ao detector de colunas evidência suficiente de cada lado. Texto de
+leitura da ordem, repetido mais uma vez.\par\medskip}
+\begin{document}
+\begin{multicols}{2}
+\para{1}\para{2}\para{3}\para{4}\para{5}\para{6}\para{7}\para{8}\para{9}\para{10}\para{11}\para{12}
+\end{multicols}
+\newpage
+\para{13}\para{14}\para{15}\para{16}\para{17}
+\newpage
+\begin{multicols}{2}
+\para{18}\para{19}\para{20}\para{21}\para{22}\para{23}\para{24}\para{25}\para{26}\para{27}\para{28}\para{29}
+\end{multicols}
+\end{document}
