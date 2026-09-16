@@ -24,9 +24,11 @@ beforeAll(async () => {
 
   const client = createClient({ url: `file:${path.join(root, "metadata.db")}` });
   for (const sql of [
+    // Schema do Calibre de hoje (`user_version` 27): sem `books.isbn`, com `identifiers`.
     `create table books (id integer primary key, title text, sort text, timestamp text,
-      pubdate text, series_index real default 1.0, author_sort text, isbn text, lccn text,
+      pubdate text, series_index real default 1.0, author_sort text, lccn text,
       path text, flags integer, uuid text, has_cover bool, last_modified text)`,
+    `create table identifiers (id integer primary key, book integer, type text, val text)`,
     `create table authors (id integer primary key, name text, sort text, link text)`,
     `create table books_authors_link (id integer primary key, book integer, author integer)`,
     `create table publishers (id integer primary key, name text, sort text)`,

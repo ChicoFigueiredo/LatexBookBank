@@ -53,6 +53,7 @@ class InMemoryQuestions implements QuestionRepository {
 
 const base: QuestionSnapshot = {
   id: "q-1",
+  type: "MULTIPLE_CHOICE",
   statementLatex: "Calcule $2+2$.",
   solutionLatex: "$4$",
   complementLatex: "",

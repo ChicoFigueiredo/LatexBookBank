@@ -44,6 +44,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             board: true,
             year: true,
             validationStatus: true,
+            status: true,
+            sourceAnchor: { select: { extractionMethod: true } },
             // Só o **último** job, e só o estado: a árvore quer saber se o render quebrou, não
             // quantas vezes. Trazer a lista faria a abertura da publicação pagar pelo histórico
             // de compilação de cada questão.
@@ -200,6 +202,13 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             title: true,
             numberingStyle: true,
             originalLabel: true,
+            sourceAnchorId: true,
+            // As âncoras vão junto, pelo mesmo motivo do `sourceAnchorId` da questão: a origem é
+            // do conteúdo (D50).
+            anchors: {
+              orderBy: { sortOrder: "asc" },
+              select: { sourceAnchorId: true, sortOrder: true, role: true },
+            },
             question: {
               select: {
                 type: true,
@@ -259,7 +268,11 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             sortKey: step.sortKey,
             numberingStyle: source.numberingStyle,
             originalLabel: source.originalLabel,
+            sourceAnchorId: source.sourceAnchorId,
             ...(createdQuestion ? { questionId: createdQuestion.id } : {}),
+            ...(source.anchors.length > 0
+              ? { anchors: { create: source.anchors.map((anchor) => ({ ...anchor })) } }
+              : {}),
           },
           select: { id: true },
         });

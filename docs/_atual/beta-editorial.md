@@ -149,9 +149,21 @@ A verificação **não** destruiu o banco de desenvolvimento: ela subiu a aplica
 
 ### P1 — o que o Calibre ainda não faz
 
-- Só o **PDF** é copiado como fonte. EPUB e MOBI aparecem na lista e ficam no Calibre — o contrato
-  aceita outros formatos (`formats` no comando), e falta a tela oferecer a escolha.
-- Não há **importação em lote**. Um livro por vez, que é o ritmo de quem revisa metadados.
+- ✅ Escolha de formatos — fechada em 2026-09-02: a área de confirmação oferece os formatos que
+  os livros **selecionados** de fato têm (união de `entry.files[].format`; seleção só-PDF não
+  mostra controle nenhum — mesmo princípio dos filtros). PDF vem pré-marcado; quem não toca no
+  controle não manda `formats` e o padrão do backend (só PDF) segue valendo. Vale para o single e
+  para o lote. Testes em `calibre-formats-ui.test.tsx`.
+- ✅ **Importação em lote** — o backend fechou em 2026-08-31 (`importManyFromCatalog`, rota
+  `POST /api/catalog/import-batch`): livros entram um de cada vez **de propósito** (não
+  `Promise.all` — é o que faz o segundo livro do lote enxergar o primeiro como duplicata), e um
+  livro ruim não derruba o lote, só aparece como `failed` no relatório com o motivo. A tela veio
+  em 2026-09-02, por decisão do Chico: os cartões alternam seleção, "Selecionar visíveis" marca o
+  que os filtros deixaram (é o gesto que importa uma coleção de dez volumes em dois cliques), e o
+  relatório do lote separa o que entrou (com link) do que não entrou (com a razão). **Um** livro
+  marcado segue pela rota antiga — é lá que mora a conversa de duplicata ("abrir o que existe" ×
+  "importar assim mesmo"), que só faz sentido de um em um; no lote, duplicata bloqueante vira
+  linha de relatório. Testes em `calibre-batch-ui.test.tsx`.
 
 ### P2 — evolução
 

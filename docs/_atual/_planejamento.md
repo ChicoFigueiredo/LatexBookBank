@@ -45,8 +45,9 @@ mestra assumia:
    somam 109 MB em 409 arquivos, com menos de 1% recuperável por deduplicação. Isso remove a
    questão de custo de storage da lista de riscos.
 
-O plano resultante tem **19 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
-com critérios de aceite verificáveis por comando.
+O plano resultante tem **23 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
+com critérios de aceite verificáveis por comando. *(Eram 19; a Wave G — captura em volume —
+acrescentou as Fases 18 e 19 em 2026-09-10 e as 20 e 21 em 2026-09-16, ver §3.7.)*
 
 ---
 
@@ -220,6 +221,10 @@ As branches do repositório `ChicoFigueiredo/e-matematica-Banco-Questoes` narram
 confirmam decisões deste plano:
 
 ```
+001-Fazendo-API                        ← só no GitLab
+002-Experimento-outras-interfaces      ← só no GitLab
+003-Matando-Aplicação-Anterior         ← só no GitLab
+004-publicacoes                        ← só no GitLab
 005-atualizando-CSharp-Net      → modernização da plataforma
 006-expandindo-quadro-questoes
 007-refatorando-texteditex      → editor LaTeX
@@ -238,9 +243,13 @@ Dois pontos relevantes:
 - O render legado (`LatexRender5`) usa exatamente `pdflatex` + `pdftocairo`, com uma fila
   (`Queue/LatexJob.cs`, `MonitorLoop.cs`) — a "coalescência embrionária" que a spec §2 menciona.
 
-> O repositório GitLab `bqcf/bqcf.windows` exige autenticação e não pôde ser lido. Se ele contiver
-> branches que não estão no GitHub, é preciso um token ou um clone local para incorporá-lo ao
-> estudo. Não bloqueia nenhuma fase.
+> **Correção de 2026-08-31**: a premissa abaixo estava errada. O repositório GitLab
+> `bqcf/bqcf.windows` **não** exige autenticação — há um clone local funcional em
+> `/mnt/p/e-Matematica/banco-questoes.windows`, com `remote gitlab` apontando exatamente para
+> `git@gitlab.com:bqcf/bqcf.windows.git` e todo o histórico já baixado (`refs/remotes/gitlab/*`).
+> As quatro branches `001`–`004` acima só existem lá, não no GitHub. Inspeção linha a linha do
+> conteúdo (o app WPF precursor, `BancoQuestoes.sln`) fica fora de escopo por decisão do Chico —
+> é a origem documentada do desejo do produto, não trabalho pendente. Não bloqueia nenhuma fase.
 
 ### 2.7 Design system
 
@@ -871,6 +880,225 @@ da ordenação demonstra o cenário exato.
 
 ---
 
+### 3.7 Captura em volume — decisões de 2026-09-10
+
+*Rodada de grilling sobre a distância entre o que o autor imaginava e o que a Fase 14/15
+entregou. As três expectativas eram: um botão de scan que varre o livro; circular um trecho e o
+LLM converter em LaTeX; e o livro aberto ao lado da questão. A segunda existe inteira desde a
+Fase 15. A primeira existe pela metade — estimar, recortar em lote e transcrever, parando antes
+de criar questão. A terceira quase não existe: é a aba Origem, entre outras quatro, que não
+acompanha a troca de questão.*
+
+#### D39 — O scan **cria** questões a revisar; não devolve sugestões
+
+O lote de 02/09 para em "recorte salvo e transcrição guardada", e cada questão ainda nasce de um
+gesto: escolher destino, escolher tipo, clicar em criar. Para uma página, é honesto. Para um
+livro de trezentas questões, é o mesmo trabalho manual com um passo a menos.
+
+A alternativa oposta — criar questões prontas — está descartada pelo
+[benchmark de reconhecimento](./recognition-benchmark.md): 2 de 6 casos limpos, com erro de
+dígito e de sinal que o modelo local **não** corrige por ajuste de prompt, porque é falha de
+percepção. Aceitar isso em silêncio é envenenar o acervo.
+
+**A decisão é o meio-termo:** o scan cria a questão no destino, com o recorte e a âncora ligados
+e o LaTeX **como o modelo devolveu**, marcada como *a revisar*. A revisão deixa de ser um
+pedágio na captura e vira trabalho de editor, no ritmo de quem edita, com o livro do lado (D43).
+
+#### D40 — *A revisar* é derivado, não é coluna nova
+
+`Question.status` já tem `DRAFT · READY · ARCHIVED`, e o import legado grava `READY` enquanto a
+criação manual grava `DRAFT`. Uma questão em `DRAFT` **cuja âncora tem LaTeX cru ainda não
+conferido** é exatamente "ninguém leu isto". É o que a fila de captura já faz com
+`SourceAnchor`, pela mesma razão registrada em `capture-queue.ts`: o dado durável já existe, o
+estado é uma pergunta sobre ele.
+
+Nada de `TO_REVIEW` no enum, nada de tag automática. O filtro *a revisar* na árvore e na busca
+deriva do par. Conferir e aceitar promove para `READY`, como já acontece hoje.
+
+#### D41 — Perfil de captura é preset no código, e o livro lembra o seu
+
+A segmentação atual conhece **um** padrão: prova de concurso, marcador `1.` ou `Questão 12` na
+margem esquerda, sequência crescente. Provada com 30 de 30 na prova do ENA. Livro-texto é outro
+mundo — teoria antes, bloco de exercícios depois, respostas no fim do volume.
+
+Um perfil declara oito coisas: marcadores de início de questão · marcador de fim ou de solução ·
+títulos de capítulo e de seção · marcador do bloco de exercícios · onde ficam as respostas (fim
+do livro, fim do capítulo, logo abaixo, nenhuma) · número de colunas · tipo padrão da questão
+criada · modelo de visão.
+
+**Presets no código, não tela de edição.** Cada perfil nasce com um livro real na mão e um teste
+com o PDF dele, como a segmentação nasceu com o ENA. Tela para editar expressão regular é
+cerimônia antes de existirem cinco perfis — e regex editável por formulário é a classe de
+recurso que parece poder e entrega frustração. A publicação guarda qual perfil usa.
+
+#### D42 — A seção do livro ganha corpo, em LaTeX — [ADR 0001](../adr/0001-corpo-do-no.md)
+
+Capítulo e seção passam a ter conteúdo próprio, editado no mesmo Monaco e compilado pelo mesmo
+worker. É o que dá lugar à teoria que o scan de livro-texto lê junto com os exercícios.
+
+**Consequência que importa:** o `.lbb` chega à `formatVersion` 2, e nasce o primeiro migrador
+`v1 → v2` — o que a D37 previa "quando fizer sentido". Detalhes, alternativas rejeitadas e o
+efeito sobre as 5 figuras órfãs de Fundamentos estão no ADR.
+
+#### D43 — "Ver fonte" **troca** o painel direito; não é aba nem terceira coluna
+
+O PDF ao lado do editor é o que torna a revisão em lote suportável: ler o recorte original e
+corrigir o LaTeX sem trocar de tela.
+
+Terceira coluna está fora por medida, não por gosto: em 1366×768 o editor já cai para ~240 px
+com o painel do agente aberto (#197). Sexta aba também está fora — a aba Origem, que já faz
+quase isto, é precisamente o que o autor não encontrou em um mês de uso.
+
+**A decisão:** um botão *Ver fonte* ao lado de "Preview rápido" troca o painel inteiro pelo PDF,
+aberto na página da âncora com a caixa marcada, acompanhando a troca de questão. A escolha fica
+lembrada por livro. Em questão sem âncora — o acervo legado inteiro — o botão não aparece.
+
+---
+
+#### D44 — A fonte do livro se anexa, e o Calibre é uma origem, não um dono
+
+*Decidida em 2026-09-10, ao perguntar como associar uma publicação existente a um livro do
+Calibre. A resposta era: não dá — e o caminho que promete fazer isso mente.*
+
+`Publication.sourcePdfAssetId` tem dois escritores no repositório inteiro: `attachOrigin`, da
+importação do Calibre, que **só sabe criar publicação nova**; e o script
+`backfill-legacy-assets.ts`. **Nenhuma tela escreve.** Enquanto isso, o resumo do livro sem fonte
+mostra a pendência `sem-fonte` com um botão **Anexar** que leva à ingestão — onde o upload cria
+um `Asset` com `publicationId` nulo e vai embora. A pessoa anexa, a tela responde, e nada fica.
+
+Está no banco de dev como evidência: um `SOURCE_PDF` chamado "Curso de Analise Vol. 1 - Elon
+Lages Lima.pdf" com `publicationId` nulo, ao lado da publicação de mesmo nome com
+`sourcePdfAssetId` nulo. A tentativa aconteceu e o app a perdeu em silêncio.
+
+**A decisão, em cinco partes.**
+
+1. **Anexar existe, e é do livro.** O gesto mora no resumo do livro, que é onde a falta já é
+   dita. Duas origens: do computador e do catálogo do Calibre — e o catálogo é a tela que já
+   existe, aberta em modo "escolher para este livro", não um diálogo novo.
+2. **Anexar traz arquivo e capa, e nada mais obrigatoriamente.** Os metadados que o Calibre tem e
+   o livro não — editora, ano, ISBN — são **oferecidos** para preencher só os campos vazios, com
+   a lista à vista antes de confirmar. Sobrescrever, nunca: o que a pessoa digitou vale mais que
+   o que o Calibre adivinhou.
+3. **O vínculo não persiste.** Anexado o arquivo, o Calibre não importa mais — sem sincronia, sem
+   releitura, sem campo de ligação viva. É a D2 aplicada ao catálogo: origem é registro, não
+   acoplamento. *Consequência aceita: a deteção de duplicata do catálogo deixa de reconhecer esses
+   livros por identificador e cai para ISBN ou título parecido. Como nenhuma das 12 publicações
+   tem esse registro hoje, nada piora na prática.*
+4. **Sempre cópia para o `StorageProvider`.** Apontar para o arquivo onde ele está é o que o
+   legado fazia com caminho absoluto, e é o que quebrou duas vezes num mês quando os discos
+   mudaram de letra (D26).
+5. **Trocar não apaga.** O livro aponta para um PDF fonte de cada vez, mas os anteriores
+   continuam listados: os recortes já feitos apontam para eles, e sumir da tela faria a aba
+   Origem de uma questão antiga referenciar algo que a interface nega.
+
+**Vocabulário.** O mesmo objeto se chamava "Fonte editorial" no resumo do livro, "fonte do livro"
+na ingestão e caía no guarda-chuva "Asset fonte" do glossário, que inclui figura e recorte. É
+**PDF fonte**, e está no [`CONTEXT.md`](../../CONTEXT.md).
+
+---
+
+#### D45 — O scan devolve uma **proposta**; a aprovação é em lote — *revisa a D39*
+
+*Decidida em 2026-09-16, ao avaliar o [prompt 03](../prompts/) do módulo de scan estrutural.*
+
+A D39 foi pensada para questões num nó que já existe. O scan estrutural propõe também a
+**árvore** — partes, capítulos, seções, exemplos — e criar essa árvore direto no acervo é caro de
+desfazer: um perfil mal calibrado espalha centenas de nós pela biblioteca.
+
+**A decisão:** o scan grava uma *proposta de scan*, separada do acervo. Na revisão da proposta a
+pessoa corrige a **estrutura** (tipo, pai, âncoras) e aprova em lote o que tem confiança alta;
+nada de baixa confiança fica escondido. Aprovar materializa nós e questões em `DRAFT`, com o
+LaTeX como o modelo ou a camada de texto devolveram — e a partir daí vale a D40: o LaTeX se
+revisa no editor, com o *Ver fonte* da D43. O que a D39 queria evitar — o pedágio por item —
+continua evitado; o que ela não previa — errar a árvore — deixa de contaminar o acervo.
+
+A proposta guarda o que o scan propôs **e** o que a pessoa corrigiu, lado a lado, para que um
+dia se possa medir perfil contra revisão. Um novo scan gera uma nova proposta; nunca sobrescreve
+nem apaga conteúdo aprovado.
+
+#### D46 — Perfil de captura é código com ganchos opcionais — *estende a D41*
+
+Os oito campos da D41 continuam, como configuração. O que dado não expressa — validar a sequência
+A–E do ENEM, dizer que hierarquia é válida, reconhecer um marco de área — vira **gancho
+opcional** do perfil. Registro explícito, sem descoberta automática; perfil tem `id` e versão,
+e a execução do scan grava ambos. Continua sem tela de edição.
+
+Três perfis de saída: **`exam-v1`** (a segmentação de hoje extraída sem mudar resultado — os 30 de
+30 do ENA são o teste de regressão), **`exam-enem-v1`** (o conhecimento do segmentador do TRI:
+linha como âncora, divisor de colunas pelos cabeçalhos, sequência A–E na mesma margem, marcos de
+área e de língua) e **`book-v1`**.
+
+O motor genérico não é fronteira nova: vive dentro do módulo, fora de `shared/ports`, e usa
+`AiProvider`, `MathRecognitionProvider` e `StorageProvider` como já existem.
+
+#### D47 — A revisão da proposta tem tela própria, em três áreas — *a D43 vale no editor*
+
+A D43 recusou a terceira coluna **no editor**, por medida. A revisão de uma proposta é outra
+tela, de largura inteira: estrutura à esquerda, PDF com as âncoras marcadas ao centro,
+propriedades à direita. Não disputa espaço com o editor nem com o painel do agente.
+
+Selecionar um elemento abre a página e marca **todas** as suas âncoras, navegáveis; clicar numa
+marca seleciona o elemento. Depois de aprovada, a questão continua ligada às marcas no PDF — o
+*Ver fonte* do editor mostra todas as âncoras dela e permite acrescentar ou retirar uma.
+
+#### D48 — Fixtures sintéticas no repositório, corpus real fora dele
+
+Como no segmentador do TRI: os testes usam PDFs gerados (livro com capítulos, seções, exemplos e
+exercícios; exercício que vira a página; páginas de 2, 1 e 2 colunas; fórmulas; prova no formato
+ENEM), versionados. O corpus real — *Curso de Análise*, cadernos do ENEM, ENA — é de consumo
+pessoal e fica fora do git, com caminho em `.env.local`; o teste que depende dele é pulado quando
+ele não existe, e os números do corpus vão para `source-scanning-validation.md`.
+
+#### D49 — O scan roda no servidor, página a página, e retoma de onde parou
+
+O texto do PDF só era lido no navegador, e o lote era um laço de React: fechar a aba perdia o
+que faltava. O scan lê o PDF **no servidor**, com o pdf.js para Node, num laço dentro do próprio
+processo que grava um ponto de parada a cada página. Fechar a aba não interrompe; reiniciar o
+servidor deixa a execução *interrompida*, e *Retomar* continua da última página gravada.
+Cancelar é um estado, não uma exceção: o que já foi lido fica. Um worker separado, como o
+renderer, fica para quando houver motivo — o domínio não muda com isso.
+
+#### D50 — As âncoras são do nó, em ordem e com papel — [ADR 0003](../adr/0003-ancoras-do-no.md)
+
+Uma tabela de ligação nó ↔ âncora, com ordem e papel. A questão acha as suas pelo nó.
+`sourceAnchorId` continua como âncora principal, escrito na mesma transação, até a aba Origem e a
+fila de captura migrarem.
+
+#### D51 — A proposta vive em três tabelas, e as âncoras nascem na aprovação
+
+`ScanRun` (a execução: perfil e versão, motor, modelos, configuração e sua chave, estado,
+ponto de parada, métricas), `ScanPage` (o cache da página dentro da execução) e `ScanItem` (cada
+elemento proposto, com o que o scan propôs congelado ao lado do que a pessoa corrigiu). Nenhuma
+`SourceAnchor` nasce antes da aprovação: proposta descartada não deixa âncora órfã.
+
+#### D52 — Determinismo primeiro; a IA só desempata, e a transcrição é sob medida
+
+Sem modelo configurado, o scan faz tudo o que é determinístico. Com modelo, a IA recebe só os
+itens ambíguos ou de baixa confiança, em lote, e a resposta passa por Zod antes de tocar a
+proposta. O texto vem da camada do PDF; o reconhecimento matemático entra só quando a região tem
+matemática que o texto nativo não representa, ou quando a pessoa pede *reprocessar*.
+Parear respostas do fim do livro continua fora (Wave G).
+
+#### D53 — Aprovar escreve sob um destino, e nada é criado duas vezes
+
+A aprovação escreve sob um nó de destino (a raiz do livro, por padrão) e reaproveita o capítulo
+que já existe com mesmo rótulo e título. A mesma combinação de PDF, perfil, versão e
+configuração abre a execução existente; *novo scan* cria outra. Um item cujas âncoras coincidem
+com as de um nó já aprovado (mesma página, sobreposição ≥ 80%) aparece como *já no acervo* e não
+é recriado. Aprovação parcial pode; o filho só é aprovado com o pai aprovado ou já no acervo.
+O mapeamento de tipos está no [ADR 0002](../adr/0002-tipos-do-scan-no-acervo.md).
+
+#### D54 — O módulo `scan`, em inglês, e a Wave G com épico próprio
+
+O código mora em `modules/scan/`, com as quatro camadas; a leitura de página (linhas, colunas,
+mobília) é do motor, e a segmentação de hoje vira o perfil `exam-v1`, chamado pelo
+`recognition`. Identificadores em **inglês**, como o schema e a maior parte do código — por
+decisão do autor, ainda que a segmentação recente esteja em português. A Wave G ganha épico no
+GitHub; a Fase 18 é reescrita pela D45, a 19 continua, e nascem a **20** (revisão e aprovação da
+proposta) e a **21** (IA, matemática e validação), cada uma com as suas issues de trabalho.
+
+---
+
 ## 4. Arquitetura
 
 ### 4.1 Topologia — modo local (o MVP)
@@ -1251,7 +1479,7 @@ de round-trip exercita as duas direções e está ligado a qualquer mudança de 
 
 ---
 
-## 8. As 19 fases
+## 8. As 21 fases
 
 Cada fase termina em estado verificável e em checkpoint humano. Os itens marcáveis estão em
 [`_checklist.md`](./_checklist.md).
@@ -1502,6 +1730,60 @@ repositório; nenhuma configuração de infraestrutura hard-coded.
 > O deploy em produção **não** faz parte deste plano. A prova de que ele é viável é a Fase 6.5;
 > a execução dele é decisão posterior de negócio.
 
+### Wave G — captura em volume
+
+*Decidida em 2026-09-10 (§3.7). A Wave E entregou o gesto unitário: circular um trecho e receber
+LaTeX. Esta wave é o que falta para digitalizar um livro inteiro sem repetir esse gesto trezentas
+vezes.*
+
+#### Fase 18 — Scan estrutural: motor, perfis e proposta *(revista em 2026-09-16 pela D45)*
+**Anexar a fonte do livro** (D44): o gesto no resumo do livro, com as duas origens — computador e
+catálogo do Calibre em modo "escolher para este livro" —, cópia sempre para o `StorageProvider`,
+oferta de preencher só os metadados vazios, PDF anterior listado ao trocar, e o conserto do
+`Anexar` que não anexava · **várias âncoras por nó**, em ordem e com papel (D50, ADR 0003) · o
+PDF lido **no servidor**, por linha, com fonte, imagem e desenho (D49) · mobília, colunas por
+evidência e ordem de leitura · perfil de captura como código, com os oito campos da D41 e ganchos
+(D46), registrado explicitamente, e `Publication.captureProfileId` · `exam-v1` (a segmentação de
+hoje, sem mudança — ENA 30 de 30), `exam-enem-v1` (o conhecimento do segmentador do TRI) e
+`book-v1` (com o *Curso de Análise* como livro real) · a **execução** persistida, retomável,
+cancelável e idempotente, que devolve uma **proposta de scan** separada do acervo (D45, D51) ·
+*a revisar* derivado de `DRAFT` + âncora de máquina (D40), com filtro na árvore e na busca, e o
+gesto de conferir · **Ver fonte** no editor, com todas as âncoras da questão (D43, D47).
+**Aceite:** um intervalo de páginas do ProfMat vira questões *a revisar* no nó escolhido, cada
+uma com recorte e âncora; o filtro *a revisar* mostra exatamente essas; abrir uma delas mostra o
+PDF ao lado, na página certa; conferir promove para `READY` e some do filtro; o mesmo scan rodado
+duas vezes não duplica questão; o exercício que vira a página é um item com duas âncoras.
+
+#### Fase 19 — Corpo do nó
+`DocumentNode.bodyLatex` · edição no mesmo Monaco, com preview rápido, render autoritativo e
+revisão em histórico · gesto manual "mandar para o corpo da seção" a partir de um recorte
+reconhecido · **Portable Schema v2** e o migrador `v1 → v2` (D37, D42) · o perfil de captura
+passa a saber onde a teoria acaba e os exercícios começam, mandando o que vem antes para o corpo
+do nó, também a revisar.
+**Aceite:** uma seção com teoria compila junto com as questões que ela contém; um `.lbb` v1
+gerado antes desta fase importa sem perda; o round-trip de um `.lbb` v2 com corpo de nó dá
+identidade; o *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF.
+
+#### Fase 20 — Revisão e aprovação da proposta *(D45, D47, D53)*
+Tela própria em três áreas — estrutura, PDF com todas as âncoras, propriedades — com árvore e
+PDF sincronizados · as operações de revisão da §36 do prompt 03 · aprovação em lote sem esconder
+baixa confiança · aprovação transacional sob um destino, com o mapeamento do ADR 0002, capítulo
+existente reaproveitado e *já no acervo* por sobreposição de âncora.
+**Aceite:** um scan do livro sintético é revisado e aprovado; os nós aparecem na árvore; o
+exercício de duas páginas abre com as duas âncoras; aprovar de novo não duplica. E2E do caminho.
+
+#### Fase 21 — IA, matemática e validação *(D52)*
+Desempate pelo `AiProvider` só nos itens duvidosos, com resposta validada · reconhecimento pelo
+`MathRecognitionProvider` só onde o texto do PDF não basta, uma imagem por âncora · o scan
+funciona sem modelo · `source-scanning-validation.md` medido no corpus real (D48).
+**Aceite:** nenhuma saída de modelo chega ao acervo sem aprovação; o relatório traz os números
+medidos e diz o que não mediu.
+
+> **Fora desta wave, por decisão:** parear resposta com questão automaticamente (a resposta é um
+> segundo gesto — recortar e apontar); tela para editar perfis; a tela de diff entre dois scans
+> (o retrato congelado de cada item já guarda o necessário). *Criar capítulos e seções a partir
+> dos títulos*, que estava aqui, entrou pela D45: a aprovação protege o acervo do erro estrutural.
+
 ---
 
 ## 9. Riscos
@@ -1524,7 +1806,7 @@ repositório; nenhuma configuração de infraestrutura hard-coded.
 | **Backup recorrente falhar em silêncio** | Média | D32: backup usa o mesmo escritor da exportação e é coberto pelo teste de round-trip; falha de backup aparece na página de diagnóstico |
 | Árvore grande trava a UI | Baixa | Virtualização na Fase 2, antes de existir volume |
 | ~~Custo de storage em nuvem~~ | **Eliminado** | §2.10: o acervo tem 109 MB |
-| GitLab inacessível esconde trabalho relevante | Baixa | Não bloqueia nenhuma fase; resolver com token se necessário |
+| ~~GitLab inacessível esconde trabalho relevante~~ | **Eliminado** | §2.6: era premissa errada — clone local acessível desde sempre, sem token |
 
 ---
 
@@ -1537,7 +1819,7 @@ render em função serverless · LaTeX em WASM ·
 multiusuário · auth complexa · billing · sincronização distribuída · Local Companion ·
 microserviços · Kubernetes · Redis · vector database · event sourcing · CQRS · multi-tenancy
 complexo · pagamentos · marketplace · colaboração em tempo real · CRDT · TexLab/LSP obrigatório
-(spike apenas, sem bloquear) · OCR de livro inteiro antes do crop unitário · agente em lote antes
+(spike apenas, sem bloquear) · agente em lote antes
 do agente unitário ser confiável · tipos de questão 3–7 (V/F, Resolva, CESPE, Múltipla,
 Somatório), que existem no vocabulário legado mas têm **zero linhas** no acervo.
 
@@ -1549,6 +1831,10 @@ Somatório), que existem no vocabulário legado mas têm **zero linhas** no acer
 - **Estimativa de custo de storage em nuvem** — respondida pelo inventário: 109 MB.
 
 - **Deduplicação como estratégia de economia** — 0,77 MB recuperáveis.
+- **"OCR de livro inteiro antes do crop unitário"** — a condição foi satisfeita, não violada. O
+  crop unitário existe e funciona desde a Fase 15, com revisão obrigatória; o scan da Fase 18 é o
+  passo que a exclusão contemplava para depois dele. Continua fora: OCR de livro inteiro **sem**
+  destino escolhido, sem perfil e sem revisão.
 
 Também fora, por decisão da segunda auditoria §35: Redis obrigatório · filas distribuídas
 complexas · autenticação SaaS completa.
@@ -1580,3 +1866,5 @@ complexas · autenticação SaaS completa.
 | 15 | EPIC 06 | §13.3, §13.4 | D29 |
 | 16 | EPIC 09 | §17, §18 | — |
 | 17 | EPIC 10 | §25, §28 | D21 |
+| **18** | — | §13.1–13.4 (estende), §16 | **D39, D40, D41, D43, D44** |
+| **19** | — | §8.3 (estende) | **D42** ([ADR 0001](../adr/0001-corpo-do-no.md)), D37 |

@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { Banner, Button, Callout, Field, Input, PageHeader, Select } from "@/design-system";
 import { isContainerKind } from "@modules/document-tree/domain/add-placement";
+import { AppShell } from "../../../app-shell";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import { CREATABLE_TYPES } from "@modules/questions/domain/question-blueprint";
 import type { QuestionType } from "@modules/questions/domain/question-type";
@@ -36,6 +37,16 @@ export interface IngestionNode {
 }
 
 export interface IngestionScreenProps {
+  /** A biblioteca dona, para o breadcrumb. Sem ela a tela sabe voltar só para o resumo do livro. */
+  readonly library?: { readonly name: string; readonly slug: string };
+  /** Onde o reconhecimento acontece, em uma frase. Resolvido no servidor. */
+  readonly aviso?: string;
+  /** O PDF que o livro já tem anexado — o caminho mais curto para começar a recortar. */
+  readonly bookSource?: {
+    readonly assetId: string;
+    readonly filename: string;
+    readonly mimeType: string;
+  };
   readonly publicationId: string;
   readonly workspaceId: string;
   readonly title: string;
@@ -61,6 +72,9 @@ interface CreatedInfo {
 }
 
 export function IngestionScreen({
+  library,
+  aviso,
+  bookSource,
   publicationId,
   workspaceId,
   title,
@@ -124,6 +138,9 @@ export function IngestionScreen({
       anchorId: item.anchorId,
       cropAssetId: item.cropAssetId ?? "",
       statementLatex: item.recognizedText ?? "",
+      // A fila entrega o texto como veio; separar aqui gravaria alternativas que ninguém viu. Só
+      // o caminho da revisão, onde a separação é mostrada, preenche isto.
+      options: [],
       run: {
         providerId: "fila",
         model: item.model ?? "desconhecido",
@@ -183,6 +200,7 @@ export function IngestionScreen({
           anchorId: accepted.anchorId,
           cropAssetId: accepted.cropAssetId,
           statementLatex: accepted.statementLatex,
+          ...(accepted.options.length > 0 ? { options: accepted.options } : {}),
           originalLabel: originalLabel.trim() === "" ? null : originalLabel,
           run: accepted.run,
         }),
@@ -223,7 +241,12 @@ export function IngestionScreen({
 
   if (created) {
     return (
-      <main style={{ display: "grid", gap: "var(--space-3)" }}>
+      <Shell
+        {...(library ? { library } : {})}
+        publicationId={publicationId}
+        title={title}
+        fila={queue.length}
+      >
         <PageHeader eyebrow="CAPTURA" title={title} />
         <div style={{ padding: "0 var(--space-4)" }}>
           <Callout tone="ok" title="Questão criada">
@@ -253,16 +276,27 @@ export function IngestionScreen({
             </Button>
           </div>
         </div>
-      </main>
+      </Shell>
     );
   }
 
   return (
-    <main style={{ display: "grid", gap: "var(--space-3)" }}>
+    <Shell
+      {...(library ? { library } : {})}
+      publicationId={publicationId}
+      title={title}
+      fila={queue.length}
+    >
       <PageHeader
         eyebrow="CAPTURA"
         title={title}
-        meta="Suba um PDF ou imagem, recorte a questão, confira o LaTeX e crie a questão."
+        /* O que fazer agora — e agora depende de o livro já ter PDF: mandar "subir um PDF" quem
+           está olhando o PDF do livro já aberto seria a tela pedindo um passo que ela pulou. */
+        meta={
+          bookSource
+            ? "O PDF do livro está aberto: recorte a questão, confira o LaTeX e crie a questão."
+            : "Suba um PDF ou imagem, recorte a questão, confira o LaTeX e crie a questão."
+        }
         {...(count > 0
           ? { actions: <span style={{ color: "var(--text-secondary)" }}>{count} criada(s) nesta sessão</span> }
           : {})}
@@ -277,9 +311,20 @@ export function IngestionScreen({
         }}
       >
         <IngestionPanel
+          {...(aviso ? { aviso } : {})}
+          {...(bookSource ? { bookSource } : {})}
           workspaceId={workspaceId}
           publicationId={publicationId}
           onAccept={setAccepted}
+          /**
+           * O PDF acabou de virar o PDF fonte do livro.
+           *
+           * `router.refresh()` e não um estado local: quem sabe o `bookSource` é o Server
+           * Component desta rota, e o que precisa esquecer o que sabia é o cache do router — sem
+           * isto, voltar ao resumo do livro reaproveitaria o payload em que a pendência “Sem
+           * PDF fonte anexado” ainda existia, sobre um livro que já tem fonte.
+           */
+          onBookSourceAttached={() => router.refresh()}
         />
 
         {queue.length > 0 && (
@@ -360,8 +405,76 @@ export function IngestionScreen({
               Descartar
             </Button>
           </div>
+
+          {/*
+            O que já está guardado e o que ainda não — e é aqui que a versão do protótipo não
+            serve.
+
+            Ele escreve `nada é gravado antes disto`. Neste app isso é **falso**, e falso de
+            propósito: o recorte, a âncora e a transcrição são gravados assim que o modelo
+            responde, justamente para reconhecer dez recortes e fechar a aba não perder as dez
+            (§26). A fila existe por causa disso.
+
+            O que de fato não existe ainda é a **questão** — nada entra na árvore antes deste
+            clique. Dizer isso, e não a frase do protótipo, é o que torna `Descartar` legível: quem
+            descarta não perde o recorte, perde a decisão.
+          */}
+          <span className="lbb-ing-meta" style={{ display: "block", marginTop: "var(--space-3)" }}>
+            o recorte e a transcrição já estão guardados na fila · a questão só nasce com este
+            clique
+          </span>
         </div>
       )}
-    </main>
+    </Shell>
+  );
+}
+
+/**
+ * A captura **dentro do mesmo shell** — rail, breadcrumb, busca e barra de status.
+ *
+ * Esta tela era um `<main>` nu. Sem rail, sem breadcrumb, sem `Ctrl+K`, sem barra: quem chegava
+ * pelo destino `Captura` do rail caía num beco — a única saída era o botão de voltar do navegador.
+ *
+ * É exatamente o defeito que o comentário do `AppShell` descreve como já resolvido *("a Home não
+ * tinha rail nenhum e o usuário chegava numa tela sem saída")*, sobrevivendo numa tela que ninguém
+ * reabriu depois. E o handoff do protótipo é explícito: *"Capture Studio: fila + canvas +
+ * interpretação, **dentro do mesmo shell**"*.
+ *
+ * A barra de status ganha a fila, como no protótipo (`reconhecimento local · fila 6 itens`): numa
+ * tela cujo assunto **é** a fila, o número dela pertence ao lugar onde os números da tela moram.
+ */
+function Shell({
+  library,
+  publicationId,
+  title,
+  fila,
+  children,
+}: {
+  readonly library?: { readonly name: string; readonly slug: string };
+  readonly publicationId: string;
+  readonly title: string;
+  readonly fila: number;
+  readonly children: ReactNode;
+}) {
+  return (
+    <AppShell
+      activeModule="captura"
+      publicationId={publicationId}
+      breadcrumb={[
+        ...(library
+          ? [
+              { label: "Bibliotecas", href: "/bibliotecas" },
+              { label: library.name, href: `/bibliotecas/${library.slug}` },
+            ]
+          : [{ label: "Publicações", href: "/publicacoes" }]),
+        { label: title, href: `/publications/${publicationId}` },
+        { label: "Captura" },
+      ]}
+      statusLeft={
+        fila > 0 ? <span>fila {fila} {fila === 1 ? "item" : "itens"}</span> : undefined
+      }
+    >
+      <main style={{ display: "grid", gap: "var(--space-3)" }}>{children}</main>
+    </AppShell>
   );
 }

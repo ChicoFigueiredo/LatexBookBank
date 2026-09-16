@@ -1,0 +1,1372 @@
+# Divergências entre o protótipo e o implementado
+
+> **Protótipo:** `LatexBookBank Beta Editorial.dc.html` — projeto Claude Design
+> `e62474e6-3359-40ba-b6fb-0fd57640d89d` (3.681 linhas, navegável por estado).
+> **Brief:** `uploads/01_Claude_Design_Ajustes_Finais_LatexBookBank.md` no mesmo projeto.
+> **Levantado em:** 11/08/2026, contra `main`.
+> **Revarrido em:** 12/08/2026, depois de as dez fecharem — e a varredura achou a §11 na primeira
+> janela que ninguém tinha lido. Uma auditoria só não vê tudo, e o ledger não é prova de cobertura:
+> das 3.681 linhas do protótipo, a primeira passada leu cerca de 600.
+
+O protótipo é **contrato visual e comportamental** do Beta Editorial (brief §36). O que ele *não* é,
+por decisão explícita do próprio brief (§21 e §34): contrato de CSS, de largura exata, de HTML ou de
+biblioteca de ícones. A implementação usa `apps/web/src/design-system/`, e é isso que se espera.
+
+Este documento lista o que diverge em **conteúdo, estrutura e comportamento** — não em pixel.
+
+---
+
+## Estado
+
+| # | Área | Severidade | Situação |
+|---|------|-----------|----------|
+| 1 | Criar biblioteca — descrição, duplicata, próximo passo | Alta | ✅ resolvido |
+| 2 | Home · usuário recorrente | Alta | ✅ resolvido |
+| 3 | Biblioteca — tabela de livros | Alta | ✅ resolvido (**estava pela metade** — ver correção) |
+| 4 | Livro · overview — tela inexistente | Alta | ✅ resolvido |
+| 5 | Rail — três destinos ausentes e nenhuma contagem | Média | ✅ resolvido |
+| 6 | Adicionar livro — origens sem explicação | Média | ✅ resolvido (capa e tags fora — ver nota) |
+| 7 | Lixeira global | Média | ✅ resolvido |
+| 8 | Importar/exportar — dry-run, conflitos, backup | Média | ✅ resolvido (`Comparar` fora — ver nota) |
+| 9 | Statusbar — infraestrutura viva | Baixa | ✅ resolvido |
+| 10 | Busca global — rodapé de atalhos | Baixa | ✅ resolvido |
+| 11 | Livro · vazio — estado inexistente | Alta | ✅ resolvido |
+| 12 | Autosave falho — sem insistência e sem garantia | Alta | ✅ resolvido |
+| 13 | Reconhecimento — a espera não prestava contas | Média | ✅ resolvido |
+| 14 | `Ctrl Q` — o atalho que faltava do contrato | Baixa | ✅ resolvido |
+| 15 | Reconhecimento — faltava “Questão completa” | Alta | ✅ resolvido |
+| 16 | Catálogo do Calibre — sem filtros e sem a série | Média | ✅ resolvido |
+| 17 | Render que falha levava o PDF bom junto | Alta | ✅ resolvido |
+| 18 | Recorte sumido parecia questão corrompida | Média | ✅ resolvido |
+| 19 | Duas alternativas coladas num bloco só | Média | ✅ resolvido |
+| 20 | Busca global não dizia de que livro é o resultado | Alta | ✅ resolvido |
+| 21 | O tipo da questão era escolhido uma vez e para sempre | Alta | ✅ resolvido |
+| 22 | A captura era um beco: sem rail, sem volta, sem busca | Alta | ✅ resolvido |
+| 23 | Rótulo da alternativa trocava em silêncio ao gravar | Média | ✅ resolvido |
+| 24 | A captura não dizia se o recorte sai do computador | Alta | ✅ resolvido |
+| 25 | A captura ignorava o PDF que o livro já tinha | Alta | ✅ resolvido |
+| 28 | O PDF nunca saía com gabarito e resolução, e a saída não existia | **Crítica** | ✅ resolvido |
+| 27 | A questão nova não herdava banca nem ano da anterior | Alta | ✅ resolvido |
+| 26 | Não havia como excluir um livro | Alta | ✅ resolvido (`Renomear`/`Duplicar`/`Exportar` fora — ver nota) |
+
+---
+
+## 28. O render não tinha saída — e o PDF nunca levava a resolução — ✅ resolvido
+
+**Protótipo** (1064–1091 e 1168–1172): duas pílulas no cabeçalho do painel, `Aluno` e `Professor`,
+com um resumo em mono do que entra e a frase *“a saída vale para o PNG, para o PDF e para a
+exportação do capítulo — **mudar aqui invalida o PDF já gerado**.”*
+
+Este é diferente de todos os anteriores, e por isso é o primeiro **crítico** da lista.
+
+**O app sabia compilar as duas.** `includeSolution` atravessa a rota, o bundle e todos os plugins
+de tipo; `multiple-choice.ts` monta `\textbf{Gabarito:}` e `\textbf{Resolução.}` a partir dele, e
+uma sonda no domínio confirma que as duas saídas diferem. O editor **nunca pedia**: `useRender`
+mandava `{}` no corpo, então o valor era `false` em toda compilação que o produto já fez.
+
+O efeito é o pior silêncio deste dossiê. Quem escreve a resolução na aba `Resposta` e compila
+recebe um PDF sem ela — e nada na tela diz que existe outra saída. A conclusão razoável de quem usa
+é que o produto não sabe imprimir resolução. O produto sabia desde a Fase 6.
+
+E a segunda metade é de segurança, não de informação: sem marcar de qual saída veio o resultado
+exibido, trocar para `Professor` e baixar o PDF que já estava aberto entrega o **arquivo de aluno**
+para quem tem certeza de estar levando o com gabarito. É o único item da lista em que o defeito não
+é uma tela calada: é um arquivo errado saindo pela porta.
+
+**Agora**: as duas pílulas em linha própria no cabeçalho do render; `Professor` manda
+`includeSolution`; o resultado carrega **sob qual saída foi compilado**, e quando as duas divergem
+o painel diz “Este resultado foi compilado na saída Aluno, e a escolhida agora é Professor. Compile
+de novo antes de baixar.”
+
+Três decisões de forma:
+
+- **A saída viaja com o resultado**, e não é lida do estado atual na hora de exibir. Comparar com o
+  estado atual daria sempre igual — a forma mais convincente de mentir.
+- **Estado de tela, não preferência gravada.** Uma preferência lembrada faria alguém baixar o PDF
+  com gabarito semanas depois sem lembrar de ter escolhido isso.
+- **`Aluno` é o padrão**, porque é o que o app já fazia e é a saída que não vaza gabarito por
+  engano.
+
+### Duas lições de percurso, as duas caras
+
+**A primeira versão do controle ficou invisível.** As pílulas e o resumo entraram ao lado das abas,
+e com `Compilar`, `Tela cheia` e o selo de estado na mesma faixa o resumo em mono era espremido a
+largura zero: presente no DOM, ausente da tela. O e2e reprovou com `Received: hidden`, e o
+protótipo já dizia a resposta — ele empilha duas linhas, e agora o app também.
+
+**A primeira versão do teste teria passado por coincidência.** Ela reaproveitava “a primeira
+questão do acervo”, que era resto de outra rodada: **sem gabarito e sem resolução**. As duas saídas
+produziam o mesmo documento, o mesmo hash de cache — e o log mostrava `cache_hit` com o mesmo hash
+nas duas compilações, que foi o fio que puxou a investigação. Um teste verde não diria nada. O
+fixture agora é próprio: questão criada, resolução escrita, alternativa marcada como correta.
+
+Verificado por reintrodução, nas duas metades: sem `includeSolution` no corpo, a aba `Fonte` não
+tem `Gabarito`; sem o aviso, o e2e não acha “Este resultado é de outra saída”.
+
+---
+
+## 27. A questão nova não herdava nada da anterior — ✅ resolvido
+
+**Protótipo** (2229), no rodapé do seletor de tipo:
+
+> “Herda livro, capítulo e metadados da questão anterior. O tipo pode mudar depois sem perder
+> conteúdo.”
+
+A segunda frase virou a §21. A primeira nunca foi lida como item — parecia descrever o óbvio.
+
+**Livro e capítulo o app já herdava**: são o destino escolhido na árvore. **Metadados, não.** Cada
+questão nascia com `board` e `year` vazios.
+
+O custo não aparece na primeira questão; aparece na quadragésima. Cadastrar uma prova é cadastrar
+quarenta questões da **mesma** banca e do **mesmo** ano — e o app pedia os dois campos quarenta
+vezes, com a resposta na linha de cima da tela.
+
+**Agora**: `createQuestion` acha a questão anterior *na ordem de leitura do livro* e leva banca, ano
+e dificuldade. Três decisões de forma:
+
+- **Por posição, não por recência.** Quem volta ao Capítulo 2 para inserir uma questão esquecida
+  quer a banca do Capítulo 2, não a da que acabou de digitar no Capítulo 9.
+- **Só herda quando há o que herdar.** Sem banca e sem ano não há herança — e aí a dificuldade
+  também não vem junto. Puxar `difficulty` sozinha mudaria um campo que ninguém pediu, sem nada na
+  tela explicando de onde veio: seria repetir o defeito que este dossiê encontra em toda página, e
+  não corrigi-lo.
+- **O menu diz antes do clique.** `herda FUVEST · 2019 da anterior`, no rodapé do `+ Adicionar`.
+  Preencher em silêncio faria quem visse `2019` errado procurar o erro no lugar errado.
+
+Custo zero de consulta: `board`, `year` e `difficulty` já vinham em `TreeQuestionRecord`, e a
+árvore já estava em memória para resolver o destino.
+
+O caso que decidiu o desenho está no quarto teste de `herdar-metadados.test.ts`: **inserir no fim de
+um capítulo**, onde a anterior está *dentro* do irmão de cima e não é o irmão de cima. Comparar
+`sortKey` entre irmãos acertaria todos os outros casos e erraria justamente esse — que é o gesto
+mais comum de quem cadastra uma prova inteira. Por isso a busca monta a árvore com um nó fantasma
+na posição pedida e caminha até ele, reaproveitando `buildTree`/`walkTree`.
+
+Verificado por reintrodução, nas duas metades:
+
+- sem a escrita de `board`/`year`, o e2e falha em `Expected "FUVEST · 2019" / Received null` — e
+  falha na **conferência contra o banco**, porque a resposta da rota continuava dizendo
+  `inherited: FUVEST · 2019` sobre uma escrita que não aconteceu. Era exatamente para isso que a
+  releitura da árvore estava lá;
+- sem `inheritSource` no menu, falha em `element(s) not found`.
+
+### O byte NUL que o `tests/hardening.test.ts` pegou
+
+O marcador do nó fantasma nasceu como `"\0posicao-nova"` — um NUL invisível no meio de um literal,
+que compila, passa no lint e roda. `nenhum .ts/.tsx carrega byte NUL` reprovou o arquivo pelo nome.
+Um teste que nunca tinha reclamado de nada em 1.460 irmãos, e que numa hora paga o preço todo.
+
+---
+
+## Achado fora da lista 2: metade do CSS de layout nunca valeu
+
+`.lbb-acervo{padding:var(--space-6) var(--space-7) var(--space-8)}` parecia certa e **nunca
+funcionou**: a escala é `05,1,2,3,4,5,6,8,10,12` e não tem `7`. Um `var()` indefinido invalida a
+declaração inteira, então o `padding` sumia por completo — todas as telas de acervo renderizaram
+coladas na borda desde que a linha foi escrita, disfarçado pelo recuo próprio do `PageHeader`.
+
+A varredura achou mais quatro do mesmo tipo, todos anteriores a esta rodada: `--text-title`
+(diagnóstico), `--surface-default` (render), além de `--text-body-lg` e `--font-serif`. Os cinco
+estão corrigidos, `--font-serif` virou token de verdade (serifada do sistema, sem fonte remota), e
+`tests/tokens-existem.test.ts` agora recusa qualquer `var(--x)` que não exista.
+
+Efeito colateral honesto: com o recuo passando a valer, o editor caiu para 416px no 1366×768 —
+abaixo do piso de 420px que o projeto declara. O painel do workbench voltou a encostar na borda,
+agora **por decisão**: num workbench o recuo pertence ao editor por dentro, e é onde o protótipo
+também o põe.
+
+---
+
+## Achado fora da lista 3: a outra metade do CSS de layout — as caixas estouravam o pai
+
+O projeto **não tinha reset de `box-sizing`**. Quinze regras escreviam `width:100%` junto com recuo
+horizontal ou borda — `.lbb-input`, `.lbb-select`, `.lbb-combo-input`, `.lbb-tree-row`,
+`.lbb-pal-item`, `.lbb-wb-item`, `.lbb-row` da Home, todo campo de texto do produto — e sob
+`content-box` cada uma media 100% **mais** os dois recuos, estourando o pai pelo tamanho do próprio
+recuo.
+
+O sintoma estava na Home desde sempre e ninguém apontou o dedo: as pendências relevantes têm
+`CTA com seta` no protótipo, e a seta de `Revisar`, `Abrir a fila` e `Começar` **nunca apareceu** —
+ficava fora da caixa, cortada rente à borda direita, com o rótulo colado nela. O código da seta
+estava escrito e correto; o que faltava era largura para ela caber.
+
+É irmão do `var(--space-7)` inexistente acima: decisão de layout que parecia escrita e nunca valeu.
+A cura das duas é a mesma — parar de depender de acerto individual em quinze lugares. O reset
+universal entrou em `tokens.css` (o único CSS da raiz) e `tests/caixa-nao-estoura.test.ts` recusa
+tanto apagá-lo quanto desfazê-lo local com `content-box`, verificado removendo o reset de propósito.
+
+Quatro caixas de tamanho fixo com recuo encolheram para o tamanho que a regra declara, que é o que
+o protótipo desenha: as duas lombadas (`.lbb-cover`, `.lbb-book-cover`), a linha da árvore e o
+`textarea` do montador de avaliação.
+
+---
+
+## 26. Não havia como excluir um livro — ✅ resolvido
+
+O protótipo define o menu `⋯` de cada linha da estante: **`Renomear · Duplicar · Exportar ·
+Excluir`**. O app tinha `Abrir no editor` e `Capturar questões` — navegação, e nenhuma gestão.
+
+E o buraco era maior que um item de menu: **`DELETE` não existia na rota nem no repositório.** Dava
+para apagar a **biblioteca** inteira, com confirmação por nome digitado, e dava para mandar nó e
+questão para a lixeira. Um livro importado por engano — a entrada errada do Calibre, a duplicata que
+só aparece depois — ficava no acervo para sempre, e a única saída era apagar a biblioteca em volta
+dele.
+
+**Segue a cerimônia da biblioteca, e não a da lixeira.** A lixeira é de `DocumentNode` — tem
+`deletedAt` na tabela dos nós e nada equivalente na publicação; fingir uma lixeira de livros
+exigiria coluna nova. E dois gestos igualmente definitivos com cerimônias diferentes ensinariam que
+a cerimônia é decorativa.
+
+O aviso conta **recortes de origem separado das questões**: são a evidência de onde cada questão
+veio (D29), e é o que menos se refaz — texto dá para redigitar, a página recortada do livro não.
+
+As questões saem **explicitamente** no `delete`: `DocumentNode` cascateia da publicação, `Question`
+não. É a mesma armadilha do achado 7, e deixá-la aqui significaria 148 questões vivas e invisíveis
+a cada livro excluído.
+
+### O teste que passava por sorte, de novo
+
+O e2e exercitava o **botão**, e o botão já estava desabilitado — desligando a confirmação no
+domínio, ele continuava verde. Quem manda um `DELETE` por script passa por baixo da tela, e é por
+isso que a confirmação é regra de domínio e não validação de formulário. O teste passou a afirmar
+que a **rota** recusa (400 `confirmation_mismatch`) **e** que nada foi apagado. Com a regra
+desligada, cai.
+
+**Fora, e declarado**: `Renomear`, `Duplicar` e `Exportar` por livro. O `PATCH` da publicação já
+aceita título — falta só a tela; `duplicateSubtree` existe para nó e não para publicação; e a
+exportação existe por biblioteca. São três fatias, e cada uma merece a sua.
+
+---
+
+## 25. A captura ignorava o PDF que o livro já tinha — ✅ resolvido
+
+**Protótipo** (1487): ao lado de “colar captura” e “escolher arquivo”, um terceiro botão —
+**“Usar FME1.pdf (fonte do livro)”**.
+
+**Antes**: a dropzone e nada mais. Para recortar do livro cujo PDF **está no acervo**, a tela
+mandava procurá-lo no computador de novo.
+
+É o caminho mais comum de todos, e o mais absurdo de faltar: a importação do Calibre existe para
+trazer o arquivo **para dentro** do acervo — copia o PDF, guarda no storage, liga à publicação — e
+a tela seguinte abria um explorador de arquivos.
+
+Sem `createObjectURL` aqui, ao contrário do upload: este arquivo não passou pelo navegador, e vem
+da rota do próprio acervo.
+
+**Duas regras do projeto pegaram a primeira versão disto, e as duas estavam certas:**
+
+- O lint recusa `import` do cliente Prisma em componente React (*“Componente React não acessa a
+  camada de banco”*). A consulta virou um read model — a página não deve saber que existe uma
+  tabela `Asset`.
+- `findById` devolve `PublicationSummary`, que não tem `sourcePdfAssetId`. O detalhe tem, e é uma
+  chamada separada de propósito: nem toda tela precisa carregar o livro inteiro.
+
+---
+
+## 24. A captura não dizia se o recorte sai do computador — ✅ resolvido
+
+**Protótipo** (1477), embaixo da dropzone: *“O reconhecimento roda no seu computador. **Nada é
+enviado para fora.**”*
+
+**Antes**: nada. A tela pedia o arquivo e não dizia para onde ele ia.
+
+É a pergunta que alguém prestes a subir a página de um livro protegido tem na cabeça, e o único
+momento em que a resposta muda o que a pessoa faz. Depois de subir, saber não serve para nada.
+
+**A verdade está no host, e não no rótulo do provider.** “Ollama local” é o nome de um perfil de
+configuração, não uma garantia: nada impede apontar `AI_BASE_URL` para um Ollama noutra máquina, e
+aí o recorte sai. O contrário também vale — um “Endpoint compatível” em `localhost` é tão local
+quanto. Perguntar ao perfil daria a resposta errada nos dois casos, e a resposta errada aqui é a
+que este caminho existe para evitar.
+
+Três frases, e cada uma é uma leitura da configuração:
+
+| Estado | O que a tela diz |
+|---|---|
+| host loopback | “roda no seu computador. Nada é enviado para fora.” |
+| host remoto | “é feito por <provider> — o recorte sai do seu computador.” |
+| sem `AI_BASE_URL` | “nenhum modelo de visão configurado — dá para recortar e transcrever à mão.” |
+
+**A de “remota” não é alarme em vermelho.** Mandar o recorte para um serviço é escolha legítima de
+configuração, e pintar de perigo o que o próprio dono configurou seria alarme falso. É informação,
+no momento certo. E ela nomeia o destino: “sai do seu computador” sem dizer para onde é um aviso
+sobre o qual não dá para agir.
+
+**URL que não parseia cai em “remota”.** Entre calar sobre uma garantia e prometer uma que não se
+pode conferir, cala-se.
+
+---
+
+## O que ainda não foi lido do protótipo
+
+O **markup** acabou: 2.658 linhas, varridas até o fim. As ~1.000 restantes são o `<script>` do
+protótipo — a lógica: validações, transições de estado, o que cada botão faz.
+
+É outra leitura, e provavelmente mais densa que a das telas. O markup diz o que aparece; o script
+diz **quando** e **por quê**. `setLibName` já mostra a forma: nome com menos de 3 caracteres é
+`"curto"`, e nome igual a um existente é `"dupe"` — duas regras que a §1 pegou pela mensagem de
+erro na tela, mas que poderiam ter sido lidas direto da fonte.
+
+Duas pistas anotadas na passagem, para virarem item:
+
+- **Passo 3 do Calibre** (2635–2645): a tela de conclusão do protótipo **itemiza** o que aconteceu —
+  `metadados mapeados (7 campos)` · `capa copiada` · `ITA-vol2.pdf copiado (38,2 MB)` · e, em
+  cinza, `nenhum capítulo — a estrutura é sua próxima decisão`. O app diz a garantia em prosa
+  (“o PDF e a capa foram copiados… mesmo que a pasta do Calibre mude de lugar”) e não lista nada.
+  A última linha é a que falta mais: ela nomeia o que **não** aconteceu.
+- **Rodapé do cadastro manual** (2409): “Só o título é obrigatório — o resto você completa quando
+  tiver.” A afirmar contra o formulário.
+- **O menu `+ Adicionar` tem três grupos no protótipo** (3106–3125), e o app tem dois. Falta
+  **Conteúdo** — `Texto`, `Figura`, `Nota` — e falta `Capturar questão aqui · Ctrl V` no grupo das
+  questões. O primeiro é o padrão desta lista outra vez: `CONTENT`, `FIGURE` e `NOTE` **estão** em
+  `NODE_KINDS`, a árvore os desenha, o import legado os traz — e não existe gesto nenhum para
+  criar um. O segundo é sobre destino: capturar a partir da árvore levaria o recorte para o lugar
+  **selecionado**, que é o `addPlacement` que o menu já calcula; hoje a captura entra pelo livro e
+  decide sozinha onde pousar.
+- **A paleta (`Ctrl K`) só navega; a do protótipo também age** (3327–3332). Lá os resultados vêm em
+  quatro grupos — `Questões`, `Publicações`, `Tags` e **`Comandos`** (`Nova questão… Ctrl Q`,
+  `Capturar questão Ctrl+V`). Aqui são dois: `Ir para` e `No acervo`. A paleta é a porta que todo
+  mundo abre primeiro, e ela não faz as duas coisas que mais se quer fazer.
+- **`Hist. de reconhecimento`** (3427–3434): o protótipo dá à questão uma terceira aba de origem
+  com uma linha por passagem do OCR — quando, qual modelo, quanto tempo, que confiança, que modo, e
+  o desfecho (`aceito com 2 correções` · `descartado por você`). O app tem `Origem` e `Histórico`,
+  e **não tem tabela para isso**: nenhum `model` do schema guarda a execução do reconhecimento. É o
+  primeiro item da lista que precisa de migração, e o único que não é “o produto sabia e não
+  disse” — aqui o produto **não sabe**. Vale como decisão de negócio: guardar a proveniência de IA
+  por questão é auditoria, e auditoria é o tipo de coisa que só se pode começar a ter a partir de
+  hoje, nunca retroativamente.
+- ~~**`pdfStale`** (2900–2915)~~ — virou a **§28**, e era pior do que a pista sugeria: não havia
+  PDF de professor a ficar velho, porque não havia saída de professor. O que faltava não era o
+  aviso; era a escolha inteira.
+
+---
+
+## Conferindo o que o handoff diz estar **maduro**
+
+A aba “Auditoria UX” tem seis afirmações do designer sobre o que já está certo. Elas nunca tinham
+sido verificadas — e uma afirmação de maturidade é tão checável quanto uma de lacuna.
+
+A que mais pesa se for falsa: *“Letra da alternativa derivada da posição — o gabarito acompanha a
+alternativa.”* **Confirmada.** `isCorrect` mora na alternativa, `sortKey` é fractional index, e
+`optionLabelAt` deriva a letra do índice. O comentário de `shuffledForDisplay` explica por que:
+*“o legado embaralhava gravando, e era isso que fazia o gabarito seguir a letra em vez da
+alternativa”*. Está certo, e não havia o que fazer.
+
+Conferir e não achar nada é resultado. O que a conferência **rendeu** foi a §23 abaixo, que é
+consequência dela.
+
+---
+
+## 23. O rótulo da alternativa trocava em silêncio — ✅ resolvido
+
+A letra ser derivada da posição é a decisão certa (acima). A consequência aparece com a §15: um
+livro que escreve `A) B) C)` ou `i) ii) iii)` é lido com esses rótulos, **mostrado com esses
+rótulos na revisão**, e gravado como `a) b) c)`.
+
+`CandidateOption` tem `statementLatex` e `isCorrect`, e nada mais — o rótulo do livro é dado de
+trabalho da revisão, não dado guardado. Está coerente: é ele que faz `detectarBlocoUnido` funcionar
+(§19), e some quando o trabalho acaba.
+
+O problema não era o descarte: era a pessoa conferir `A) B)` e receber `a) b)` **sem nunca ver a
+troca**. Agora os dois aparecem lado a lado quando diferem — `A → a` —, e a mudança silenciosa vira
+mudança visível. Iguais, o segundo não aparece.
+
+**Declarado e não feito**: guardar o rótulo do livro na alternativa (`originalLabel` em
+`QuestionOption`, como já existe em `DocumentNode`). Exigiria migração, e o ganho é de citação —
+“a alternativa B do exercício 27” bate com o livro. Vale a discussão, não vale a pressa.
+
+---
+
+## 22. A captura era um beco — ✅ resolvido
+
+O handoff é explícito, na aba **Arquitetura da experiência**:
+
+> **Capture Studio**: fila + canvas + interpretação, **dentro do mesmo shell**.
+
+**Antes**: `/publications/[id]/ingestao` era um `<main>` nu. Sem rail, sem breadcrumb, sem
+`Ctrl+K`, sem barra de status. Quem chegava pelo destino `Captura` do rail caía numa tela cuja
+única saída era o botão de voltar do navegador.
+
+E o mais instrutivo: **é o mesmo defeito que o `AppShell` foi criado para resolver.** O comentário
+dele diz, em tempo passado: *“a Home não tinha rail nenhum e o usuário chegava numa tela sem
+saída”*. A cura existia, estava documentada, e uma tela ficou de fora — porque ninguém a reabriu
+depois de o `AppShell` nascer.
+
+Agora a captura tem os quatro: rail com `Captura` marcada, breadcrumb até a estante, busca global,
+e a barra de status com a fila (`fila 6 itens`), como no protótipo — numa tela cujo assunto **é** a
+fila, o número dela pertence ao lugar onde os números da tela moram.
+
+---
+
+## 21. O tipo da questão era para sempre — ✅ resolvido
+
+**Protótipo** (2226), no rodapé do seletor de tipo: *“Herda livro, capítulo e metadados da questão
+anterior. **O tipo pode mudar depois sem perder conteúdo.**”*
+
+**Antes**: `type` não era campo editável em lugar nenhum — nem no `PATCH`, nem no `QuestionEdit`,
+nem na tela. Escolhido na criação, e para sempre.
+
+Isso fazia o seletor de tipo uma decisão pesada num momento em que a pessoa muitas vezes ainda não
+leu a questão inteira. Na dúvida entre “escolha simples” e “múltipla escolha” — que é a dúvida
+normal ao capturar de um livro —, errar significava recriar a questão e redigitar tudo.
+
+**A parte boa é que a segunda metade da frase já era verdade.** A discursiva **esconde** a aba de
+alternativas (`panesFor`) em vez de excluí-las, e a validação já trata “três corretas numa questão
+de resposta única” como erro (`multiple_correct_options`). Faltava só deixar o campo mudar: trocar
+não apaga nada, e voltar atrás devolve tudo.
+
+E a incoerência que a troca pode criar **não é bloqueada na rota** — vira erro de validação, onde
+ela pertence. A pessoa vê o que ficou errado, em vez de levar uma recusa sem explicação.
+
+**Não entrou**: “herda livro, capítulo e metadados da questão anterior”. É produtividade de quem
+cadastra em série, e é uma decisão de produto de outro tamanho — herdar dificuldade e banca por
+omissão pode carimbar dez questões com o metadado da primeira sem ninguém perceber.
+
+### O teste que passou por sorte, e o que ele ensinou
+
+A primeira versão do e2e media o **sumiço da aba** “Alternativas”. Com o `PATCH` desligado de
+propósito, ele **continuava passando** — depois de um reload há mais de um motivo para uma aba não
+estar ali. Medir o efeito colateral em vez do fato é como um teste passa por sorte.
+
+Agora ele afere o `type` no banco, por `expect.poll`, e só depois confere a aba. Com a ligação
+desligada, cai.
+
+---
+
+## 20. Busca global não dizia de que livro é o resultado — ✅ resolvido
+
+**Protótipo** (2185–2195): cada linha da palete tem o título, **o caminho embaixo dele** e o trecho
+que casou.
+
+**Antes**: título e, na linha de baixo, `banca · ano`. `SearchHit` não tinha localização nenhuma.
+
+Com 1.247 questões em 24 livros — o tamanho declarado do acervo —, quem busca “juros” recebe seis
+enunciados parecidos, e a pergunta é **de qual livro é este**. A banca não responde. E banca e ano
+não somem: continuam existindo onde servem, que é como filtro da busca avançada.
+
+O grupo da palete também passou a ser o livro, em vez do rótulo fixo “No acervo”: a palete agrupa
+pelo valor que recebe, e ver “FME 1” com quatro acertos e “FME 3” com um já é meia resposta antes
+de qualquer clique.
+
+**Só o pai imediato, e não o caminho inteiro.** Subir a árvore por questão seriam cinquenta
+escaladas para uma linha que precisa caber numa palete. Livro e capítulo respondem “de onde é
+isto?”; o endereço completo quem dá é abrir.
+
+O apelido do livro vem antes do título da capa: numa lista com cinco volumes da mesma coleção,
+“Fundamentos de Matemática Elementar” repetido cinco vezes é ruído idêntico, e “FME 1” distingue —
+que é a razão de o apelido existir (achado 4).
+
+---
+
+## Onde o app **discorda** do protótipo de propósito
+
+Este documento é uma lista do que falta. Faltava a lista do que **não vai vir**, e por quê — porque
+uma frase que discorda do desenho é a mais fácil de alguém "corrigir" de volta seis meses depois,
+lendo o protótipo e achando que achou um bug.
+
+### `nada é gravado antes disto` → `o recorte e a transcrição já estão guardados na fila`
+
+O protótipo põe a primeira frase ao lado das ações da revisão da captura. Neste app ela é **falsa**,
+e falsa de propósito: o recorte, a âncora e a transcrição são gravados assim que o modelo responde,
+justamente para reconhecer dez recortes e fechar a aba não perder as dez (§26). A fila de captura
+existe por causa disso, e `e2e/captura.spec.ts` prova que ela sobrevive ao recarregamento.
+
+O que de fato ainda não existe é a **questão**. Dizer isso, e não a frase do protótipo, é o que
+torna `Descartar` legível: quem descarta não perde o recorte, perde a decisão.
+
+### `⇧⏎ abrir ao lado` → `⇧⏎ abrir em nova aba`
+
+Não há painel lateral neste app. O atalho **funciona**, e o rótulo diz o que ele faz. Ver §10.
+
+### `busca no enunciado, tags, banca e ano` → `busca no enunciado e no apelido · tag, banca e ano são filtros`
+
+A busca livre olha `statementLatex` e `nickname`; o resto é filtro estruturado. Ver §10.
+
+### `duplo clique abre direto no editor` (estante) → o menu `⋯` da linha
+
+O protótipo promete duplo clique na estante para pular o resumo e ir ao editor. Detectar duplo
+clique exige **atrasar o clique simples** em ~200 ms para esperar o segundo — quer dizer, piorar a
+ação comum (abrir o resumo) para servir a rara.
+
+O atalho existe sem esse custo: o menu `⋯` de cada linha tem `Abrir no editor`. Dois cliques, zero
+latência no caminho de todo dia.
+
+### `Passo 1 de 3 · catálogo` (Calibre) → uma tela só, que se abre conforme você escolhe
+
+O protótipo faz do Calibre um assistente modal de três passos — catálogo, metadados, resultado. O
+app faz numa página: a lista filtra, e escolher um livro **abre embaixo** o que vai entrar no
+acervo, com o botão de importar ao lado. Nada é copiado antes desse clique, que é a garantia que o
+rodapé do passo 1 promete.
+
+Assistente numerado promete que os três passos são obrigatórios e em ordem. Aqui o segundo passo é
+só uma conferência, e trancá-la num modal tira da tela justamente a lista de onde a escolha saiu —
+quem errou o livro precisa voltar um passo para descobrir isso.
+
+### `Último backup automático há 1 h · 3 cópias mantidas` → o estado real, lido
+
+Frase fixa virou leitura do `backup-status.json`. Ver §8.
+
+**Os quatro têm teste que falha se a frase do protótipo voltar.**
+
+---
+
+## 19. Duas alternativas coladas num bloco só — ✅ resolvido
+
+**Protótipo** (1702–1712): quando o OCR devolve `b) R$ 6.341,21 c) R$ 6.529,67` na mesma linha, a
+revisão marca o bloco em warn, escreve *“duas alternativas em um bloco”* e oferece **`Dividir em
+duas`**.
+
+É o complemento direto da §15. O separador ancora no **início da linha** — regra que existe para
+proteger o enunciado, porque `seja a) o coeficiente` não pode abrir alternativa. Página de prova em
+duas colunas cola as alternativas com frequência, e aí a mesma regra que protege produz um bloco
+com duas dentro.
+
+**A resposta não é dividir sozinho**, e é a mesma razão pela qual o separador recusa mais do que
+aceita: um `c)` no meio de uma alternativa pode ser parte do texto. Perguntar custa um clique;
+errar custa uma prova impressa com a alternativa errada.
+
+A detecção é precisa, e não “qualquer rótulo dentro”: procura **o rótulo que deveria vir a
+seguir**. `b)` contendo `c)` é bloco unido; `b)` contendo `a)` é citação e fica quieto; e se `c)` já
+existe como alternativa própria, não há bloco — dividir criaria dois `c)`.
+
+**A divisão cascateia, e isso é do desenho.** O bloco unido quebra a sequência consecutiva, então o
+`d)` seguinte cai dentro dele. Cortar `b` revela o `d` dentro do `c` novo, que é sinalizado de
+novo: a pessoa desfaz o estrago do OCR um corte por vez, **vendo cada um**.
+
+### Dois defeitos meus que o e2e pegou, e valem mais que a feature
+
+1. **As divisões eram aplicadas uma vez só.** A segunda nunca casava, porque o texto que ela
+   dividia não existia na lista original — o clique não fazia nada e não dizia por quê. Agora
+   aplica até estabilizar, com teto.
+2. **O aceite recomputava do zero.** A tela mostrava quatro alternativas e o banco recebia duas: as
+   divisões eram exibidas e descartadas. É exatamente o “mostra uma coisa e grava outra” que o
+   comentário do próprio código alertava duas telas acima — cometido na linha seguinte.
+
+### O que não entrou: o gabarito adivinhado
+
+O protótipo também prevê `ocrNoAnswer`: *“Possível resposta correta: b) — a marca no material pode
+ser resposta de aluno, não gabarito.”* Fica de fora porque o provider de visão não devolve marcas,
+e porque a regra desta parte do produto já está escrita: **nenhuma alternativa nasce marcada como
+correta**. Sugerir uma sem ter lido marca nenhuma seria adivinhar duas vezes.
+
+---
+
+## 18. Recorte sumido parecia questão corrompida — ✅ resolvido
+
+**Protótipo** (1315–1319), na aba Origem:
+
+> O arquivo do recorte não foi encontrado no acervo. **A questão continua íntegra; só a evidência
+> sumiu.**
+
+**Antes**: o `<img>` do recorte não tinha `onError`. Sumindo o arquivo do storage, o navegador
+desenhava o ícone de imagem rasgada — e quem abre a aba **Origem** de uma questão e vê aquilo
+conclui a coisa errada: que a questão está corrompida.
+
+Não está. O LaTeX, as alternativas e as tags nunca dependeram daquele arquivo. O que se perde é a
+**evidência** — cara, porque é ela que responde "de onde veio isto?" seis meses depois, e é o que a
+D29 protege — mas é uma perda diferente, e confundir as duas faz alguém reescrever uma questão que
+está inteira.
+
+O caso é banal e real: `STORAGE_ROOT` mudou de lugar, um restore de backup trouxe o banco e não os
+arquivos, alguém limpou a pasta. Nos três, a primeira coisa a conferir é para onde o armazenamento
+aponta — e é isso que o Diagnóstico responde, que é para onde o aviso leva.
+
+O botão `Localizar` do protótipo **não** entrou: não existe fluxo de reapontar arquivo neste app, e
+um botão que abre um "em breve" é pior que botão ausente (§81). A saída oferecida é a que existe e
+resolve.
+
+Dois detalhes: o estado é guardado **por id do recorte**, e não como booleano — um `true` herdado
+marcaria como sumido o recorte da questão seguinte, que talvez esteja lá. E é `onError`, e não uma
+checagem prévia: perguntar ao servidor se o arquivo existe seria uma requisição a mais para
+descobrir o que a própria imagem descobre ao carregar.
+
+---
+
+## 17. Render que falha levava o PDF bom junto — ✅ resolvido
+
+**Protótipo** (1243–1245), na faixa vermelha da falha de compilação:
+
+> **O render falhou — o texto continua salvo.** O último PNG válido (14:20) continua na aba PNG; o
+> PDF sob demanda usa sempre a última compilação bem-sucedida.
+
+**Antes**: um selo `falhou` e a lista de diagnósticos. E o resultado que falhou **substituía** o
+anterior no estado do painel — a aba do PDF ficava vazia.
+
+É o pior momento possível para perder o PDF bom: quem acabou de ver uma parede de erro do TeX quer
+justamente comparar o que quebrou com o que funcionava dez segundos antes. Os artefatos do job
+antigo nunca saíram do servidor — são buscados por `jobId`, e nada os apaga. **O que faltava era o
+painel lembrar de qual era.**
+
+A frase é a mesma família do autosave (§12) e da espera do reconhecimento (§13): no instante da
+falha, dizer o que a pessoa **não** perdeu. Aqui ela é dupla e as duas metades são verdade — o
+texto nunca passou pelo render, e o PDF anterior continua lá.
+
+**O log é sempre o da compilação atual**, e não o do último sucesso: é ele que explica a falha, e
+mostrar o log bem-sucedido ao lado de uma falha esconderia a evidência. As abas PDF e PNG mostram o
+último bom; a aba Log mostra o que acabou de acontecer.
+
+**Trocar de questão zera a memória.** Exibir o PDF de outra questão como "o último que deu certo"
+desta seria a pior forma de errar — parece certo e é de outro documento.
+
+Detalhe de implementação que o lint deste projeto obrigou a acertar: a derivação é feita **durante o
+render**, e não num `useEffect`. `setState` em efeito dispara um segundo render em cascata, e o
+valor novo já é conhecido no primeiro.
+
+---
+
+## 16. Catálogo do Calibre — sem filtros e sem a série — ✅ resolvido
+
+**Protótipo** (2500–2537): a barra do catálogo tem busca, **filtro de formato** (`Todos · PDF ·
+EPUB`), **filtro de série** e a contagem de resultados. Cada linha mostra autor **e série**.
+
+**Antes**: busca e nada mais. E `series`/`seriesIndex` vinham do Calibre desde sempre e **não
+apareciam em lugar nenhum** — o padrão desta semana, em escala pequena.
+
+O filtro de formato responde de uma vez o que a lista responde linha a linha. A tela já diz, em
+cada livro, que sem PDF a captura por recorte não funciona; numa biblioteca de 64 livros — o
+tamanho da do usuário, medido na spike — descobrir quais servem exigia varrer as 64.
+
+A série importa por outro motivo: uma coleção como “Fundamentos de Matemática Elementar” tem dez
+volumes, e é por coleção que se procura quando se está trazendo uma delas para o acervo.
+
+**Os dois filtros são derivados do que veio**, e não de uma lista fixa: catálogo sem EPUB não
+mostra o botão EPUB, catálogo sem coleção não mostra o seletor de série. Filtro com uma resposta só
+ensina a pessoa a ignorar controles.
+
+Isso rendeu uma correção de percurso instrutiva: a primeira versão do e2e tentou usar o seletor de
+série numa fixture cujos livros não têm coleção, e ficou pendurada. **A tela estava certa e o teste,
+errado** — o teste passou a afirmar a ausência do seletor, que é a regra de verdade.
+
+Do lado do cliente, sobre o que já foi carregado: a busca por texto é do servidor porque o catálogo
+pode ter milhares de linhas; estreitar o que já está na tela não vale outra viagem.
+
+---
+
+## 15. Reconhecimento — faltava “Questão completa” — ✅ resolvido
+
+O handoff do protótipo tem uma aba **“Auditoria UX”** com a lista do próprio designer do que
+faltava. Seis itens. Cinco já estavam fechados; o quarto não:
+
+> *“Reconhecimento tinha 3 modos técnicos (display/mixed/text); faltava **Questão completa**.”*
+
+E a lacuna era mais funda que a frase. `RecognitionCandidate` tem `options`,
+`createQuestionFromRecognition` sabe gravá-las, a rota `from-recognition` já as aceitava — e
+**nada no app jamais as preencheu**. A ponta receptora estava construída inteira e ninguém
+alimentava.
+
+**O sintoma exato, medido ao desligar a ligação de propósito**: capturar uma questão de múltipla
+escolha criava a questão com **cinco alternativas vazias**. O modelo tinha lido `a) b) c) d) e)` do
+recorte, o app jogava fora, e devolvia cinco caixas em branco para a pessoa redigitar — do mesmo
+recorte que estava na tela ao lado.
+
+Os três modos antigos são **técnicos**: descrevem o formato do recorte. Quem recorta uma questão de
+prova não está pensando em “texto com fórmula”, está pensando em “esta questão”.
+
+**A separação é nossa, não do modelo.** `Questão completa` lê com o mesmo prompt do `mixed`; a
+diferença está no que se faz com o que ele devolveu. É um problema de texto, e
+`separar-alternativas.ts` o resolve com regra explícita e treze testes — em vez de um prompt que às
+vezes obedece. A regra recusa mais do que aceita, de propósito: rótulo no meio da linha, sequência
+fora de ordem (`a) … c)`) e rótulo solto **não** viram alternativa. Errar para mais é pior — uma
+alternativa inventada a partir de prosa entra no acervo com cara de revisada e só aparece na prova
+impressa.
+
+**Nada nasce marcado como correto.** O modelo não sabe o gabarito, e adivinhar entregaria uma
+questão errada com cara de conferida. A tela diz isso, com essas palavras.
+
+**A separação é mostrada antes de gravar**, e é o que torna a fatia honesta: é o princípio do
+próprio módulo — *nenhum caminho leva de “o modelo leu” a “está no acervo” sem um humano ver*.
+Preencher `options` em silêncio criaria cinco alternativas que ninguém conferiu.
+
+---
+
+## Achado fora da lista 9: o backup perdia a ficha catalográfica inteira
+
+O `.lbb` é o backup declarado do produto — a tela de importar diz, com estas palavras, *"o `.lbb`
+exportado é a cópia — guarde um por biblioteca, fora deste computador"*.
+
+Ele carregava do livro: **título, subtítulo e editora.** Só.
+
+Ficavam para trás: `nickname`, `isbn`, `otherIdentifier`, `edition`, `editionYear`, `language`,
+`series`, `volume`, `notes` — **e os autores**. Quem exportasse uma biblioteca e a restaurasse
+recuperava o texto de todas as questões e perdia a catalogação inteira, que é o trabalho mais lento
+de todos e o único que não se refaz de memória.
+
+Achado indo atrás de outra coisa: a lacuna `Duplicata por ISBN` (P2) da aba de lacunas do handoff.
+Ao procurar onde encaixar o ISBN como chave de conflito, o ISBN não estava no formato. Nem ele nem
+mais nove campos.
+
+Provado antes de consertar: cadastrei um livro com a ficha completa, exportei, reimportei, e o
+apelido `FME 1` não estava na estante restaurada.
+
+**A correção é aditiva e `formatVersion` fica em 1, de propósito.** Subir para 2 faria um backup
+novo ser **recusado** por qualquer build anterior — e recusar o backup de alguém para ganhar um
+número é o oposto do que um formato de portabilidade existe para fazer. Os campos são opcionais no
+tipo de leitura, e não só na prática: um `.lbb` de ontem realmente não os tem, e declará-los
+obrigatórios seria o tipo mentindo sobre arquivos antigos.
+
+Os autores renascem **por nome**: `Author` é compartilhado com `name` único, e é o `upsert` por
+nome que faz "Gelson Iezzi" vindo de dois arquivos continuar sendo uma pessoa só — que é a razão de
+aquela tabela existir separada.
+
+Dois guardas, verificados quebrando a ligação de propósito: um de projeção pura (round-trip, e
+mais um que prova que arquivo antigo continua importando) e um contra o banco, porque o defeito
+vivia exatamente entre o `select` do exportador e o `create` do importador — os dois lugares que
+um teste de projeção não alcança.
+
+**A lacuna original — `Duplicata por ISBN` — foi fechada na rodada seguinte**, ver abaixo.
+
+---
+
+## Achado fora da lista 7: o painel do agente levantava exceção ao aplicar o patch
+
+O caminho mais crítico do agente — aplicar a proposta na questão — levantava uma exceção não
+tratada, todas as vezes:
+
+> `Uncaught Error: TextModel got disposed before DiffEditorWidget model got reset`
+
+O painel monta um `DiffEditor` do Monaco por mudança proposta e desmonta todos de uma vez ao
+aplicar. O `@monaco-editor/react` chama `dispose()` nos dois `TextModel` **antes** de tirar o
+modelo do `DiffEditorWidget`, e o Monaco recusa.
+
+Estava no log do servidor a cada execução e **nenhum teste olhava para ele**. É a mesma lição do
+`hidratacao.spec.ts`, um ano depois e noutro lugar: o que ninguém observa falha de vez em quando, e
+o `agente.spec.ts` era um dos que falhavam de vez em quando nas corridas completas desta semana.
+
+A cura é `keepCurrentOriginalModel` e `keepCurrentModifiedModel`, que desligam o descarte
+automático. O custo é um `TextModel` por diff vivo enquanto o painel existe — eles morrem com a
+página, e o painel é pequeno e efêmero. Barato ao lado de uma exceção no gesto de aplicar patch.
+
+**Ordem seguida, e ela importa**: a vigilância de `pageerror` entrou **antes** da correção, o teste
+falhou de forma determinística com a mensagem literal, e só então o `keepCurrent*` entrou. Sem
+reproduzir primeiro, teria sido um palpite com aparência de conserto.
+
+---
+
+## Achado fora da lista 10: a instabilidade da suíte era o servidor de dev envelhecido
+
+### Adendo (12/08, 18h): o servidor novo também falha — o que envelhece é a **rodada**
+
+A regra da iteração 25 era “reinicie o servidor antes de tratar uma rodada cheia como veredito”.
+Nesta rodada o servidor **subiu junto com a suíte** e ainda assim 7 dos 60 testes falharam —
+`atalhos`, `beta-editorial`, `layout`, `lixeira`, `lixeira-global` e dois de `questao`. Todos
+**passam isolados**, rodados logo em seguida.
+
+Então a idade do servidor não era a causa; era a variável mais visível. O que 13 minutos de suíte e
+5 horas de uso têm em comum é o **acúmulo dentro do processo**, e não o relógio. A regra continua
+valendo na prática (servidor novo falha menos), mas a explicação estava errada, e uma explicação
+errada é pior que nenhuma: ela faz parar de procurar.
+
+**Medido nesta rodada**, com amostragem de RSS a cada minuto: o servidor sobe em **157 MB** e chega
+a **1.831 MB em cinco minutos** de suíte — mais de 1,6 GB em ~14 testes. Não é vazamento de horas
+de uso; é de minutos de exercício. As 5 h da iteração 25 só somavam rodadas.
+
+Não foi ligado `retries`. A configuração proíbe, e a razão continua boa: “um teste que passa na
+segunda tentativa é um teste que não diz nada”.
+
+### Adendo 2 (12/08, 20h): não é lentidão, é **travamento com a porta viva**
+
+A rodada seguinte falhou nos **62 testes**, todos em 1 minuto cravado, e sem uma única linha de
+`[WebServer]` no log. O que estava na porta 28080 era um servidor zumbi: `ss` mostrava `LISTEN`, e
+um `curl` ficava 20 segundos sem receber um byte. O Playwright, com `reuseExistingServer: true`,
+adotou aquilo como se fosse o servidor.
+
+É a peça que faltava nas duas explicações anteriores. O processo não fica só **lento** com o uso —
+ele chega a um estado em que **aceita conexão e nunca responde**, e a porta continua de pé. Daí a
+assinatura das rodadas ruins: um bloco de testes falhando em timeout, todos passando isolados
+depois, e nenhum erro no servidor para investigar. Não havia erro; havia silêncio.
+
+Duas consequências práticas:
+
+1. `reuseExistingServer: true` é uma armadilha aqui. Ele confia na porta, e a porta mente.
+2. Matar `next dev` com `SIGTERM` nem sempre resolve — foi preciso `-9`. Um servidor pendurado não
+   processa o sinal, que é a mesma razão de ele não processar a requisição.
+
+O que isto abre, e fica anotado para uma rodada dedicada: reiniciar o servidor **entre arquivos**
+(`playwright.config` não tem esse gancho, mas um `globalSetup` por projeto teria) trocaria 60
+segundos de subida por um veredito que se pode ler.
+
+Durante várias rodadas, corridas completas falharam em **testes diferentes a cada execução** —
+`layout`, `calibre`, `captura`, `questao`, `agente`, `livro-vazio` —, todos passando isolados. Ficou
+registrado como “não sei por quê”, e a rodada seguinte foi gasta em descobrir.
+
+**O que a medição mostrou:**
+
+| | corrida | resultado |
+|---|---|---|
+| servidor com **5 h de uptime e 6,3 GB de RSS** | 58 testes | **6 falhas** |
+| mesmo código, servidor **recém-subido** | 58 testes | **1 falha** |
+| depois de corrigir essa falha (que era do teste) | 58 testes | **58 passam** |
+
+O `playwright.config.ts` usa `reuseExistingServer: true` — sensato em desenvolvimento —, e o efeito
+colateral é que **todas** as corridas de uma sessão longa passam pelo mesmo processo, que vai
+inchando. As seis falhas eram todas de **espera** (timeout, “não apareceu”), nenhuma de conteúdo:
+a assinatura de servidor lento, e não de comportamento quebrado.
+
+**A regra prática**: numa sessão de trabalho longa, reinicie o servidor de dev antes de tratar uma
+corrida completa como veredito. Um vermelho vindo de um processo de cinco horas não é resultado.
+
+**O que continua valendo**: não ligar `retries`. O config diz por quê — *“um teste que passa na
+segunda tentativa é um teste que não diz nada”* —, e esta investigação é o argumento a favor dessa
+regra: foi justamente a recusa em comprar o verde com repetição que obrigou a achar a causa.
+
+**Bônus honesto**: a única falha que sobrou no servidor novo era de um teste escrito na mesma
+rodada. Ele esperava o `pdf.js` renderizar a fixture do Calibre — um PDF-stub de três linhas,
+montado para o `storeAsset` conferir mime e tamanho, não para ser um documento. Media a tolerância
+do `pdf.js` a arquivo inválido em vez do que afirmava. Passou a aferir a fonte escolhida.
+
+---
+
+## Achado fora da lista 8 (do ferramental, não do produto): duas suítes num comando só
+
+Quatro vezes nesta série de rodadas o servidor de desenvolvimento morreu no meio de uma corrida
+completa, com dezenas de `ECONNREFUSED` que **pareciam** falhas de teste e não eram. Perdi tempo
+investigando três delas como se fossem defeito do app.
+
+A causa é o encadeamento: `npx playwright test && npx playwright test` no mesmo comando faz a
+segunda corrida subir o servidor enquanto a primeira ainda derruba o dela. Uma corrida por comando,
+e o problema some — verificado rodando a segunda isolada logo depois de uma que tinha "falhado".
+
+Fica registrado porque o sintoma imita defeito de produto com fidelidade suficiente para enganar
+duas vezes, e porque a lição é a mesma que este documento repete: **antes de acreditar num
+vermelho, confira se o instrumento estava de pé.**
+
+---
+
+## 14. `Ctrl Q` — o único atalho do contrato que não existia — ✅ resolvido
+
+O bloco **Notas de produto (handoff)** do protótipo tem uma tabela de atalhos com onze linhas — o
+contrato de teclado, escrito item a item. Conferir uma tabela linha a linha é mais barato que
+descobrir o buraco pelo usuário, e a conferência achou **um** ausente:
+
+| Atalho | Contrato | App |
+|---|---|---|
+| `Ctrl K` · `Ctrl S` · `Ctrl V` · `Ctrl ⏎` | busca, salvar, colar, renderizar | ✅ |
+| `Ctrl N` · `Ctrl ⇧ N` · `F2` · `Del` | irmão, filho, renomear, excluir | ✅ na linha da árvore |
+| `Ctrl ⇧ A` · `Esc` | agente, fechar | ✅ |
+| **`Ctrl Q`** | **nova questão (abre o seletor de tipo)** | **faltava** |
+
+Global, e não preso à linha da árvore. A distinção é a que `atalhos.spec.ts` já guardava: `F2`,
+`Del` e `Ctrl N` agem **sobre um nó** e por isso vivem na linha; este **cria** um nó, e quem quer
+criar pode estar com o foco em qualquer lugar — inclusive dentro do editor, que é onde a pessoa
+está quando termina uma questão e quer a próxima.
+
+Dois detalhes que não são estética: `preventDefault`, porque `Ctrl Q` fecha o Firefox no Linux e
+perder o editor para o navegador saindo seria pior que não ter o atalho; e `event.code` em vez de
+`event.key`, porque em ABNT2 e AZERTY o `key` da mesma tecla física muda e o atalho passaria a
+depender do layout de quem digita.
+
+### O que a mesma varredura decidiu **não** perseguir
+
+O handoff também traz uma tabela de resoluções com larguras exatas — `1366 × 768: rail 216 · árvore
+264 · editor ≥ 549 · preview 337`. Medido: rail **216** (exato), árvore **280** (16 px a mais).
+
+Não vira divergência, e a razão está no topo deste documento: o protótipo **não é contrato de
+largura exata** (brief §21 e §34). Perseguir 264 seria trocar a regra declarada pelo número mais
+recente que apareceu na tela — e a régua deste documento é conteúdo, estrutura e comportamento.
+
+---
+
+## 13. Reconhecimento — a espera não prestava contas — ✅ resolvido
+
+**Protótipo** (1590–1614): enquanto o modelo lê o recorte, uma lista mostra o que já aconteceu —
+`✓ modelo local carregado`, `✓ recorte salvo como asset (evidência preservada)` — e o que está
+acontecendo agora, com a linha `o editor continua liberado`.
+
+**Antes**: a palavra `reconhecendo…`, em mono, num canto da barra de ações.
+
+É a única espera do produto em que o usuário tem uma pergunta concreta na cabeça: *"se isto falhar,
+perco meu recorte?"*. A resposta é **não**, e sempre foi — o `cropAssetId` nasce antes de o modelo
+ser chamado, e o `catch` devolve um candidato vazio justamente para a transcrição à mão continuar
+possível. A garantia estava no código, estava escrita no comentário do `catch`, e **não chegava a
+quem esperava**. Durante a espera é exatamente quando ela vale.
+
+Os passos aparecem quando passam a ser verdade, e não antes: o primeiro é um fato já consumado no
+momento em que é exibido, e é isso que o separa de uma barra de progresso fingida. `capBusy` do
+protótipo também mostra o nome do modelo e um tempo decorrido; ficaram de fora porque o painel não
+recebe a descrição da IA e o tempo exigiria cronometrar no cliente — a frase que faltava era a da
+garantia, e é ela que entrou.
+
+`e2e/captura.spec.ts` segura a resposta do reconhecedor para que a espera exista tempo bastante de
+ser olhada — um estado transitório só é testável se alguém o segurar. Verificado escondendo o
+bloco de propósito.
+
+---
+
+## 12. Autosave — o salvamento desistia calado — ✅ resolvido
+
+**Protótipo** (706–712): quando o salvamento automático falha, uma faixa em `danger` diz
+*"O salvamento automático falhou. O texto continua aqui e nada foi perdido — tentamos de novo a
+cada 30 s."*, com um botão `Tentar agora`.
+
+**Antes**: o `catch` marcava `error`, um selo de três letras — **"erro"** — acendia num canto da
+barra de abas, e nada mais acontecia. A próxima tecla digitada reagendava o salvamento, então quem
+continuava escrevendo se recuperava sozinho e nunca via o problema. Quem terminava o parágrafo e
+parava — que é o caso normal de quem acabou de escrever alguma coisa — ficava com o texto só na
+tela, e fechava a aba com ele.
+
+Um blip de rede de dois segundos custava o último parágrafo. O sintoma era três letras.
+
+A frase do protótipo faz três trabalhos numa linha, e é por isso que ela é a frase certa: diz que o
+texto não se perdeu — que é a primeira pergunta de quem lê "falhou" —, diz que a máquina continua
+tentando, e diz de quanto em quanto tempo. Sem ela, "erro ao salvar" manda a pessoa decidir sozinha
+se copia o texto para um bloco de notas.
+
+**A insistência é só depois de falha, nunca depois de conflito.** É a §42: conflito nunca
+sobrescreve. Insistir num 409 seria o autosave brigando pela versão de quem está com a tela aberta
+contra quem já gravou — e vencendo por repetição, que é a pior forma de decidir de quem é o texto.
+`e2e/autosave-insiste.spec.ts` derruba a rota de gravação de propósito e guarda as duas metades.
+
+**Nota de teste, aprendida duas vezes**: a primeira versão do spec digitava um carimbo de tempo de
+dezenove caracteres no Monaco, e o editor derrubou um dígito no meio de uma corrida completa —
+chegou `178544027726` ao banco. Cada caractere é uma chance de perder, e a unicidade não era
+necessária: o teste cria a própria questão. Dezenove viraram três. É a mesma lição que
+`questao.spec.ts` já tinha registrado sobre `delay`, num degrau acima: além de digitar devagar,
+digitar **pouco**.
+
+---
+
+## Achado fora da lista 6: o editor descartava a árvore ao ser aberto por navegação
+
+O `e2e/hidratacao.spec.ts` vigiava Home, bibliotecas e publicações — as três telas que o defeito
+original tinha tocado. **Vigiar só onde já deu errado é vigiar o passado.** O editor é a tela mais
+pesada do produto, é onde o usuário passa o dia, e é onde uma árvore descartada custa o texto que
+ele acabou de escrever.
+
+No dia em que o editor entrou na lista, o guarda pegou, na primeira corrida completa:
+
+> A tree hydrated but some attributes of the server rendered HTML didn't match the client
+> properties. **This won't be patched up.**
+
+O atributo, no log do servidor: `aria-describedby="DndDescribedBy-0"` contra `-1`. O `DndContext`
+do dnd-kit gera os ids de acessibilidade a partir de um **contador de módulo**. No servidor ele
+nasce zerado a cada requisição; no cliente, vive enquanto a aba viver. Quem chega ao editor por
+dentro do app, depois de o contador já ter andado, hidrata com um número diferente do que o
+servidor escreveu — e o React responde descartando a árvore.
+
+Mesmo defeito da Home com "há 51 min" contra "há 52 min", mesmo sintoma — tela com aparência de
+pronta e botões que são enfeite — e igualmente intermitente. Abrir o editor direto pela URL
+funcionava, porque aí os dois contadores estavam em zero.
+
+A cura é o `id` fixo, que é exatamente para isso que o dnd-kit o oferece.
+
+**Honestidade sobre a verificação**: os outros guardas deste documento foram checados reintroduzindo
+o defeito de propósito. Este **não foi** — tirar o `id` e rodar o teste sozinho continua passando,
+porque a reprodução depende de o contador do cliente já ter andado, e não consegui construir a
+sequência de navegação que faz isso de forma determinística. O erro é real (o texto do React acima
+é literal, capturado numa corrida completa) e a correção é o mecanismo que a biblioteca documenta
+para SSR — mas o guarda ainda não está provado contra este defeito específico.
+
+---
+
+## 11. Livro · vazio — ✅ resolvido
+
+**Protótipo** (601–642) — o resumo do livro tem **dois** estados, `isBookFull` e `isBookEmpty`, e a
+§4 implementou só o primeiro.
+
+Não é a mesma tela com menos coisa. Um livro cheio responde *"o que falta aqui?"*; um livro vazio
+responde *"por onde começo?"*. O app respondia à primeira pergunta com uma grade de estrutura vazia
+ao lado de uma caixa de fonte — silêncio com aparência de tela pronta, exatamente para quem acabou
+de criar o livro e é quem menos sabe o que fazer em seguida.
+
+Agora: eyebrow `Livro criado agora` em tom ok (só nos primeiros dez minutos — passado isso vira
+ruído e volta a ser o endereço do livro), o estado centralizado com o texto do protótipo, e as
+ações do começo. A faixa de "Precisa da sua atenção" **some** neste estado: ela diria "o livro ainda
+não tem questão nenhuma" a dois centímetros de uma tela inteira dedicada a dizer isso, e repetir o
+aviso é como se ensina a não ler avisos.
+
+**`Criar primeiro capítulo` cria o capítulo.** O caminho fácil seria mandar para o editor e deixar
+a pessoa achar o menu de adicionar — mas o botão promete um capítulo, e quem clica nele está no
+primeiro minuto do livro, que é exatamente quem ainda não sabe onde fica o menu. O capítulo nasce
+ali e o editor abre nele.
+
+**O que não entrou, e por quê**: a quarta ação do protótipo, `Importar estrutura`, e a linha "o
+sumário do PDF pode virar capítulos automaticamente". **Não há leitura de sumário neste app** — a
+varredura por `outline`/`sumário` só acha `outline` de CSS. A frase seria pior que o botão:
+prometeria trabalho automático justamente a quem está decidindo se faz o trabalho à mão.
+`e2e/livro-vazio.spec.ts` falha se alguém colar os dois de volta sem implementar a coisa.
+
+---
+
+## Achado fora da lista 5: a simulação da importação nunca olhou para o destino
+
+`toRuntime(portable, existing, newId)` detecta colisão contra o acervo desde a issue #115, tem
+teste, e está correta. A rota de import a chamava assim:
+
+```ts
+const plan = toRuntime(workspace);   // ← `existing` cai no EMPTY_INDEX
+```
+
+Resultado: **a simulação respondia zero conflitos em qualquer cenário**, e a tela dizia isso com
+todas as letras. É o pior formato de defeito — o que soa como boa notícia. Quem importasse um
+`.lbb` sobre um acervo que já tem os mesmos livros veria “nenhum conflito” e ficaria com tudo
+duplicado, sem aviso, na hora exata em que o aviso importava.
+
+Nada disso era bug de domínio: a regra estava escrita, testada e certa. Faltava alguém perguntar ao
+banco o que já existe — `readExistingIndex()`.
+
+Duas coisas apareceram junto:
+
+- **Uma colisão por chave, não por item.** Um livro que casa por `legacyId` **e** por `legacyUuid`
+  produzia duas colisões. Correto para o domínio, mentira na tela: “2 conflitos” para um livro só
+  faz procurar o segundo livro que não existe. `deduplicarColisoes` agrupa por item.
+- **A frase não dizia nada.** “2 item(ns) já existem no acervo” não tem nome, não tem números e tem
+  o plural de quem desistiu. A do protótipo tem três fatos e uma garantia, e cada um faz trabalho:
+  o nome identifica, os dois números provam que não é o mesmo livro parado no tempo, e a garantia
+  é o que permite clicar em “Importar” sem medo.
+
+### E o que continua em aberto, que é maior: o `.lbb` do próprio app não tem identidade de origem
+
+A idempotência do import se apoia em `legacyId` e `legacyUuid` — **identidade de origem**, vinda do
+sistema legado. Nenhum fluxo do app carimba os dois: nem o cadastro manual, nem a importação do
+Calibre. Só o `prisma-workspace-sink` os preserva, quando já vêm no arquivo.
+
+Consequência: um livro criado no app hoje, exportado e reimportado, **duplica em silêncio** — e não
+há chave por onde detectar. A detecção de conflito, que acaba de passar a funcionar, só enxerga o
+acervo herdado do legado. Para o caso de uso que a tela anuncia (backup e restauração), isso é
+metade da promessa.
+
+O conserto não é técnico, é uma decisão: carimbar identidade estável na publicação nascida no app
+muda o que um `.lbb` significa — de “um despejo” para “uma cópia identificável desta biblioteca”.
+Fica para o CEO. 🤚
+
+---
+
+## Achado fora da lista 4: o apelido do livro existia inteiro e não aparecia em lugar nenhum
+
+`Publication.nickname` está no schema, é normalizado por `parsePublicationDraft`, é validado com
+teto de 120 caracteres, é persistido pelo `PrismaPublicationRepository` e atravessa o exportador
+`.lbb` em `portable-schema.ts`. **Nenhuma tela do produto o escrevia ou o mostrava.**
+
+O app guardava com cuidado um dado que o usuário não tinha como fornecer nem como ler — a §49 pelo
+avesso: aqui não era só endpoint sem jornada, era o caminho inteiro do dado construído e sem as
+duas pontas. Um `POST` com `nickname` funcionava perfeitamente desde sempre; só não havia de onde
+mandá-lo.
+
+Importa porque é assim que um professor chama o livro. Ninguém digita “Fundamentos de Matemática
+Elementar 3” para se referir a ele — digita “FME 3”, e era exatamente essa busca que falhava.
+
+O apelido agora tem as três pontas: campo no cadastro (ao lado do título, 2 para 1, como no
+protótipo 2312–2322), etiqueta mono na estante e no resumo do livro, e entrada no filtro da estante
+— cuja frase de lista vazia passou a nomeá-lo. `e2e/apelido.spec.ts` percorre o circuito fechado,
+porque o defeito não era de nenhuma tela em particular: era de nenhuma delas ter fechado o circuito.
+
+**O que continua sem jornada, pelo mesmo motivo**: `coverAssetId` — o schema guarda, a importação
+do Calibre preenche, e não há como escolher uma capa nem vê-la fora da lombada desenhada.
+
+---
+
+## Achado fora da lista: a Home parava de responder
+
+Perseguindo um E2E que falhava **de vez em quando**, apareceu um defeito que não é de design e é
+pior que qualquer item acima: as telas de acervo formatavam “há N min” com `new Date()` dentro de um
+Client Component — que também roda no servidor. Na virada do minuto o servidor escrevia `há 51 min`
+e a hidratação escrevia `há 52 min`; o React descartava a árvore e **a página inteira deixava de
+reagir a clique**, com aparência de tela pronta.
+
+Vinte e três testes de E2E passavam por cima disso porque nenhum olhava o console, e os que
+clicavam falhavam só quando o run cruzava a virada.
+
+O texto agora é formatado no servidor (tempo relativo não depende de fuso, então nunca houve motivo
+para adiar a conta) e `e2e/hidratacao.spec.ts` vigia as três telas por `pageerror` **e** por console
+— verificado reintroduzindo o defeito de propósito, para não ser um teste que passa por sorte.
+
+---
+
+## 1. Criar biblioteca
+
+**Protótipo** (linhas 2230–2298)
+
+- Eyebrow `Novo contêiner editorial`, título `Criar biblioteca`.
+- Campo **Nome** com hint “Use pelo menos 3 caracteres — o nome aparece na busca e no arquivo
+  exportado.” e erro “Dê um nome à biblioteca para continuar.”
+- Campo **Descrição (opcional)**.
+- Nome repetido é **aviso, não recusa**: “Já existe uma biblioteca com esse nome. Você pode criar
+  assim mesmo.”
+- Rodapé: “fica no seu computador · pode ser exportada como .lbb depois” e “Você pode renomear
+  depois.”
+- Depois de salvar, um **segundo passo** dentro do mesmo diálogo: “Biblioteca criada · Ela está
+  vazia. O próximo passo é trazer um livro.” com `Adicionar primeiro livro`,
+  `Importar do Calibre`, `Abrir biblioteca`.
+
+**Implementado antes**: um campo (nome), duplicata recusada com 409, e navegação direta para a
+biblioteca ao salvar.
+
+**Nota sobre a duplicata.** O domínio recusava nome repetido por decisão registrada em
+`manage-libraries.ts` — duas bibliotecas homônimas seriam indistinguíveis na tela. O protótipo
+inverte isso deliberadamente. Seguimos o protótipo, que é mais novo e é o contrato: a proteção
+contra o engano continua existindo, só mudou de forma — de bloqueio para aviso informado.
+
+---
+
+## 2. Home · usuário recorrente
+
+**Protótipo** (288–392)
+
+- Saudação: eyebrow `Continuar trabalhando` + `Boa tarde, Francisco.`
+- **Cartão de retomada** rico: miniatura da capa (lombada com título e volume), linha mono
+  “última sessão · há 2 h · tudo salvo”, título do livro, caminho completo
+  (`Capítulo 1 · Conjuntos › Exercícios propostos › Questão 27`), três ações
+  (`Continuar no editor` primária, `Capturar questões`, `Ver o livro`) e uma faixa de rodapé com
+  `FME1.pdf · 412 pág.` · `capítulos 9` · `questões 148` · `não validadas 3` (em warn) ·
+  `retomar: Ctrl+Shift+O`.
+- **Pendências relevantes** — lista de *grupos* de pendência, cada linha com ladrilho colorido,
+  contagem grande, título, meta e CTA com seta.
+- **Bibliotecas** em **linhas** (não cards), com estatísticas mono, “há quanto tempo” e uma pílula
+  de estado; cabeçalho com `ver todas` e `Nova biblioteca`.
+
+**Implementado**: `PageHeader` genérico, faixa de retomada simples, um único banner de “questões
+inválidas”, e grades de cards para bibliotecas e livros recentes.
+
+Falta no backend: estatísticas por biblioteca, contagem de capítulos/questões do livro corrente,
+nome e páginas do PDF fonte, e a tipagem das pendências em grupos.
+
+---
+
+## 3. Biblioteca — ✅ resolvido, na segunda vez
+
+### Correção de percurso: esta linha estava marcada como pronta, e não estava
+
+A §3 virou ✅ quando a tabela, a busca por texto e a contagem ficaram de pé. A mesma frase do
+protótipo que pediu a busca pedia mais uma coisa na mesma respiração — **“filtros segmentados”** —
+e ela passou batido por ter sido lida como enfeite da barra, não como item.
+
+O que a falta custava não é cosmético. A busca por texto responde *onde está o livro X*: é a
+pergunta de quem já sabe o que quer. O recorte responde a outra, e é a razão de a estante existir
+em vez de uma lista alfabética: **quais livros precisam de mim**. A pílula de estado responde isso
+por linha; com 24 linhas, montar a lista era varrer a coluna com o dedo na tela e guardar de
+cabeça. O recorte faz de uma vez o que a pílula fazia 24 vezes.
+
+Agora: `Todos · Com pendências · Sem estrutura`, e cada opção **só aparece quando há livro naquele
+estado** — um recorte que sempre devolve vazio é uma promessa que a estante não pode cumprir. Os
+dois filtros se compõem, e o vazio diz qual dos dois esvaziou: “nenhum livro do recorte casa com a
+busca” é diferente de “nenhum livro casa com «grafos»”, e a diferença decide se a pessoa reescreve
+o termo ou olha para cima. `Limpar filtros`, no plural, limpa os dois.
+
+A lição que fica para o resto do dossiê: **uma linha do protótipo pode conter mais de um item.**
+Marcar ✅ por reconhecer o parágrafo é diferente de marcar ✅ por ter conferido cada oração dele.
+
+Guardado por `e2e/estante.spec.ts` — “o recorte separa quem precisa de atenção de quem está
+pronto”. Verificado por reintrodução: com o predicado do recorte devolvendo sempre `true` (o botão
+muda, a lista não), o teste falha em `Expected: 1 / Received: 2`.
+
+**Protótipo** (423–491)
+
+- Cabeçalho com mono `24 livros · 1.247 questões · última atividade há 2 h`.
+- Ação secundária: **exportar a biblioteca (.lbb)** como botão de ícone.
+- Barra de filtro: busca por `título, autor, ISBN…`, filtros segmentados e contagem à direita.
+- **Tabela**, não cards: capa | Título + subtítulo | Autor | Edição | Questões | Estado (pílula com
+  ícone) | Última edição | menu `⋯`.
+- Rodapé: “Clique num livro para ver o resumo; duplo clique abre direto no editor.”
+
+**Implementado antes**: grade de cards com `editora · N nós`. Além da estrutura, `nós` era
+vocabulário interno vazando para a interface — o produto fala em questões.
+
+---
+
+## 4. Livro · overview — ✅ resolvido
+
+**Protótipo** (492–599) — tela que **não existia** no app: `/publications/[id]` abria direto o
+workbench.
+
+- Capa grande, eyebrow `Publicação · <biblioteca>`, título, subtítulo com autores.
+- Grade de metadados em 4 colunas.
+- Ações: `Abrir no editor`, `Capturar questões`, `Abrir fonte (PDF)`, `Metadados`.
+- Seção **“Precisa da sua atenção”** em warn, com as pendências do livro e CTA por linha.
+- **Estrutura**: capítulos com barra de progresso e contagem.
+- **Fonte editorial**: arquivo, páginas, tamanho, origem da importação, `Abrir e recortar`, e
+  **progresso de captura** (`148 / ~410`, “capítulos 1–4 revisados”).
+
+O rail do protótipo separa `Publicações` de `Editor do livro` justamente porque existe essa parada
+intermediária entre escolher um livro e editá-lo.
+
+**O que foi feito.** O editor mudou para `/publications/[id]/editor` e a rota do livro passou a ser
+o resumo. Os quatro blocos existem; a estrutura conta a **subárvore** de cada capítulo (a questão
+mora dois ou três níveis abaixo dele, e contar filhos diretos daria zero em qualquer livro real), e
+a barra tem três tons porque largura sozinha não distingue “quase pronto” de “quase todo errado”.
+O rail ganhou `Editor do livro`, e o breadcrumb do editor ganhou o degrau `Editor` — sem ele o
+título do livro seria o último item e o `Breadcrumb` não o transformaria em link, deixando o resumo
+sem caminho de volta.
+
+**A única coisa que o protótipo pede e o app não entrega: `148 / ~410`.** O `410` é uma estimativa
+por página do PDF, e **a contagem de páginas não está guardada** — o `PdfCropViewer` a deriva no
+cliente e descarta. A Home já tinha tomado essa decisão uma vez. O denominador virou o número real
+de recortes feitos, e a linha de baixo diz até que página o trabalho chegou — que é verdade e é a
+mesma pergunta respondida. Guardar `pageCount` no `Asset` na ingestão resolveria; é trabalho de
+outra fatia.
+
+---
+
+## 5. Rail
+
+| Protótipo | App |
+|---|---|
+| Acervo: Início · Bibliotecas `3` · Publicações `24` · **Editor do livro** | idem ✅ |
+| Produção: Captura `7` (badge warn) · Avaliações | idem ✅ |
+| Sistema: **Importar / exportar** · **Lixeira** | idem, mais Diagnóstico ✅ |
+
+**As contagens vêm de um resumo só** (`readRailSummary`), lido uma vez por requisição no layout raiz
+e distribuído por contexto. O rail é montado por **toda** tela: buscar a contagem onde ela é usada
+seriam oito consultas e oito chances de um número discordar do outro na mesma sessão.
+
+Por contexto e não por `fetch` no cliente, apesar de o segundo ser mais fácil: o número apareceria
+depois da montagem, com o rail pulando de largura no primeiro frame de cada navegação.
+
+Zero não vira badge — `Bibliotecas 0` gasta tinta para dizer que não há nada, e o rail paga esse
+ruído em toda tela. E `Captura` é a única em warn, como no protótipo: as outras são tamanho do
+acervo — informação —, e um número em âmbar que não pede ação nenhuma ensina a ignorar o âmbar.
+
+**Armadilha registrada**: `rail-counts.tsx` é Client Component e importava o `EMPTY_RAIL_SUMMARY`
+do módulo `server-only`. Importar um **valor** (não um tipo) de lá arrasta o Prisma para o bundle do
+cliente, e o Next recusa a página inteira com um 500. O contrato mudou para
+`domain/rail-summary.ts`, sem `server-only`; a consulta ficou na infraestrutura.
+
+`Editor do livro` entrou com a §4: até existir o resumo do livro, ele e `Publicações` apontavam
+para o mesmo lugar, e o destino não tinha o que ser. Como `Captura`, depende de um livro corrente —
+sem ele cai na lista de publicações, porque botão que não leva a lugar nenhum é pior que ausente
+(§81). O `AppShell` passou a aceitar `publicationId` para isso.
+
+Faltam dois destinos (`Importar / exportar`, `Lixeira`) e todas as contagens. `WorkbenchModule` já
+aceita `badge`, então o que falta é a fonte de dados — um resumo único serviria todas as telas.
+
+`Diagnóstico` não está no rail do protótipo mas é frame previsto (brief §31.28); fica.
+
+---
+
+## 6. Adicionar livro — origens — ✅ resolvido
+
+O protótipo (2431–2481) dá **quatro** origens, cada uma com uma frase que explica o que faz:
+
+- *Importar do Calibre* — “Absorve metadados, capa e o arquivo-fonte de um livro já catalogado.”
+- *Cadastrar manualmente* — “Título, autor e editora agora; ISBN, série e capa quando você quiser.”
+- *A partir de um arquivo* — “PDF, imagem ou EPUB como fonte editorial de um livro novo.”
+- *Importar acervo .lbb* — “Traz livros e questões já estruturados — não cria um livro novo.”
+
+**A quarta origem** entrou, e não como tela própria: um livro que nasce de um PDF é um livro
+cadastrado com uma fonte anexada, e o app já sabia fazer as duas coisas. O que faltava era **dizer**
+que são duas e emendá-las — `?fonte=arquivo` avisa na entrada e, ao salvar, troca a ação primária
+de “Abrir no editor” para “Anexar a fonte”. Oferecer o editor a quem está com o PDF na mão é mandar
+guardar o arquivo e voltar depois.
+
+Ela e “Importar acervo .lbb” pareciam a mesma operação com extensões diferentes enquanto nenhuma
+das duas dizia o que fazia. São opostas: uma cria **um** livro, a outra despeja um acervo inteiro e
+não cria livro nenhum.
+
+**O que faltava no cadastro manual era só o apelido — e o apelido é o achado desta rodada. Ver
+abaixo.** Progressive disclosure, “Só o título é obrigatório”, idioma, série e volume já estavam.
+
+**O que deliberadamente não entrou, e por quê:**
+
+- **Capa.** Exige a plumbing de upload de imagem no cadastro (o `AssetDropzone` existe, mas só na
+  ingestão, e ligado a uma publicação que já existe). `coverAssetId` está no schema e continua sem
+  jornada — é a mesma dívida do apelido, um degrau acima.
+- **Tags no livro.** **Não têm suporte no schema**: `Tag` é por workspace e se liga a `Question`
+  via `QuestionTag`. Não há `PublicationTag`. Pôr o campo na tela sem isso seria um campo que
+  aceita texto e o descarta — pior que campo ausente.
+
+---
+
+## 7. Lixeira global — ✅ resolvido
+
+Protótipo (1889–1921): tela de sistema listando o que foi excluído em **todo** o acervo, com o que
+cada item levou junto (“levou 6 questões com ele”), `Restaurar (7 itens)`, contagem
+`2 itens · 8 objetos` e `Esvaziar lixeira`.
+
+**Antes**: diálogo de lixeira **por publicação**, sem visão global e sem esvaziar. Isso responde
+"o que apaguei neste livro" e não responde a pergunta que faz alguém procurar a lixeira: "apaguei
+alguma coisa e não lembro onde" — quem não lembra o livro precisaria abrir os vinte e quatro.
+
+**O que foi feito.** `/lixeira` no rail, com uma linha por **ato de exclusão** e não por linha do
+banco: excluir um grupo apaga sete nós e é uma decisão só. A conta que sustenta
+`Restaurar (7 itens)` é a mesma que o `restoreNode` executa, e é pura e testada — o botão é uma
+promessa numérica, e errá-la significa devolver menos do que se prometeu, com o usuário descobrindo
+isso ao olhar uma árvore incompleta em vez de uma mensagem de erro.
+
+**O defeito que a implementação da §7 obrigou a resolver: `Question` órfã.**
+`DocumentNode.questionId` aponta para `Question` e **não há cascade nesse sentido**. Um "esvaziar"
+ingênuo apagaria só o nó e deixaria a questão viva — invisível em toda tela e contando nos totais
+para sempre. O sintoma seria um número que não fecha, meses depois; a causa, uma linha ausente.
+`emptyGlobalTrash` apaga as duas numa transação e devolve as duas contagens, e é exatamente sobre
+essas contagens que `e2e/lixeira-global.spec.ts` assere.
+
+O `SourceAnchor` **fica**: não é conteúdo da questão, é a marca de onde no PDF ela foi recortada, e
+D29 trata a fonte como imutável e compartilhável — apagá-la destruiria a proveniência de questões
+que continuam vivas.
+
+**Ambiguidade que a tela nova criou, e foi corrigida no produto e não só no teste**: o workbench
+tinha um botão `Lixeira` (por publicação) e o rail passou a ter outro (global). Duas coisas
+diferentes com o mesmo nome na mesma tela é o convite para clicar na errada. A do livro agora se
+chama `Lixeira do livro`.
+
+---
+
+## 8. Importar / exportar — 🟡 parcial
+
+Protótipo (1829–1888): uma tela só, com **simulação da importação (dry-run)** — tamanho do arquivo,
+quantas bibliotecas/publicações/questões, **conflitos detectados** (“‘FME 1’ já existe com 148
+questões — o arquivo traz 152. Nada será sobrescrito sem sua escolha.”), ações `Comparar`,
+`Importar (mantendo os dois)`, `Abortar`, exportação por biblioteca e **backup** (“Último backup
+automático há 1 h · 3 cópias mantidas”, `Restaurar de um backup`).
+
+**Feito**: a tela entrou no rail como “Importar / exportar” — o último destino que faltava (§5). O
+painel do dry-run tem o cabeçalho com nome e tamanho do arquivo, a grade de quatro células com
+`conflitos` em warn, as linhas de conflito com a frase inteira, `Importar (mantendo os dois)` e
+`Abortar`. A exportação por biblioteca passou a morar aqui também — quem chega em “importar e
+exportar” veio pensando em portabilidade, não numa biblioteca específica.
+
+**O defeito que estava por baixo do painel: a simulação nunca olhou o destino.** Ver o achado 5.
+
+**`Comparar` não entrou.** Comparar duas versões de um livro — 148 questões aqui, 152 no arquivo —
+é uma tela de diff que não existe e que não é um botão: é a mesma máquina do `patch-diff` do
+agente apontada para outro alvo. Um botão que abre um “em breve” é pior que botão ausente (§81).
+
+**Backup não existe, e a tela diz isso.** Não há job, não há rotação, não há onde as cópias
+morariam. “Último backup automático há 1 h · 3 cópias mantidas” é a única frase do protótipo que
+este app não pode escrever sem mentir — e uma tela que afirma existir uma rede de segurança
+inexistente é descoberta no dia em que se precisa dela. O cartão diz o que é verdade (`backup
+automático · não implementado`) e qual é o caminho que funciona hoje: exportar `.lbb` e guardar
+fora do computador. `e2e/importar.spec.ts` **falha se alguém colar a frase do protótipo**.
+
+**Correção de percurso da própria rodada**: a primeira versão do cartão de exportar empilhava um
+botão por biblioteca. Com as 72 do banco real, virou uma coluna de setenta e dois botões idênticos
+que empurrou o cartão de backup para fora da tela. Lista longa não é menu de ações — é escolha, e
+escolha tem controle próprio. Virou um `Select` e um botão.
+
+---
+
+## 9. Statusbar — ✅ resolvido
+
+Protótipo: `local-first` · `worker de render: pronto` · `gemma3:12b carregado` · `backup há 1 h`.
+
+**Antes**: `SQLite · local` e uma contagem. O `collectDiagnostics` já media worker, modelo e backup
+— e a página de Diagnóstico era o **único** lugar que via. O terceiro caso da rodada em que o
+produto sabia e não dizia.
+
+Agora a barra diz `local-first · SQLite · render: pronto · ia: qwen3-coder:30b · backup: …`, e o que
+não está `ok` sai em warn. `local-first` vem do servidor e está lá desde o primeiro byte; o resto
+chega por `/api/infra` depois da montagem, porque `probeRenderer` bate na rede com timeout e
+pendurar isso no layout faria **toda** navegação esperar antes do primeiro byte. Enquanto não
+chega, a barra diz `verificando…` — que é verdade, e é diferente de dizer `pronto` por otimismo.
+
+Correção de percurso: a primeira versão pôs `local-first · SQLite` no `AppShell` sem tirar das
+telas, e a barra saiu com “local-first · SQLite   SQLite · local”. O e2e conta quantas vezes
+`SQLite` aparece.
+
+---
+
+## 10. Busca global — ✅ resolvido
+
+Protótipo: rodapé com `↑↓ navegar · ⏎ abrir no lugar certo · ⇧⏎ abrir ao lado` e a legenda “busca no
+enunciado, tags, banca e ano”.
+
+Os atalhos entraram, e `⇧⏎` **funciona** — não era só rótulo: `Command` ganhou `href`, porque abrir
+ao lado exige uma URL e `onSelect` é uma função, com a qual o navegador não tem o que fazer. Diz
+`abrir em nova aba` e não `abrir ao lado` porque é isso que ele faz: não há painel lateral neste
+app, e prometer um seria inventar a tela.
+
+**A legenda diz o que a busca faz, e não o que o protótipo desenha.** A busca livre olha
+`statementLatex` e `nickname`; tag, banca e ano são **filtros estruturados**, não texto livre.
+Prometer “busca em tags, banca e ano” manda procurar defeito na busca quando o resultado vazio é o
+correto. A frase é `busca no enunciado e no apelido · tag, banca e ano são filtros`.
+
+Sem a legenda, uma busca que não acha nada é indistinguível de um acervo que não tem nada — e as
+duas pedem coisas opostas de quem está na frente da tela.

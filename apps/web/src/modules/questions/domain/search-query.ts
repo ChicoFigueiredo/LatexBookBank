@@ -23,6 +23,8 @@ export interface SearchQuery {
   readonly years: readonly number[];
   readonly types: readonly QuestionType[];
   readonly difficulties: readonly Difficulty[];
+  /** Só as questões *a revisar* (D40): rascunho que veio do scan ou do reconhecimento. */
+  readonly toReview: boolean;
   readonly limit: number;
   readonly offset: number;
 }
@@ -38,6 +40,7 @@ export const EMPTY_QUERY: SearchQuery = {
   years: [],
   types: [],
   difficulties: [],
+  toReview: false,
   limit: DEFAULT_LIMIT,
   offset: 0,
 };
@@ -52,6 +55,17 @@ export interface SearchHit {
   readonly year: number | null;
   readonly difficulty: Difficulty;
   readonly tags: readonly string[];
+  /**
+   * Onde a questão mora — "FME 1 › Capítulo 2".
+   *
+   * O protótipo (2190) põe esta linha embaixo do título de cada resultado, e é o que torna a
+   * busca global utilizável: com 1.247 questões em 24 livros, uma lista de enunciados parecidos
+   * sem dizer de qual livro cada um é obriga a abrir os resultados um a um para descobrir.
+   *
+   * `null` para a questão que ainda não está na árvore de nenhum livro — existe, é rara, e um
+   * caminho inventado seria pior que a ausência dele.
+   */
+  readonly where: string | null;
 }
 
 export interface SearchResult {
@@ -96,6 +110,7 @@ export function normalizeQuery(raw: Partial<Record<keyof SearchQuery, unknown>>)
     difficulties: numbers(raw.difficulties).filter((value): value is Difficulty =>
       (DIFFICULTIES as readonly number[]).includes(value),
     ),
+    toReview: raw.toReview === true || raw.toReview === "1" || raw.toReview === "true",
     limit: clamp(raw.limit, DEFAULT_LIMIT, 1, MAX_LIMIT),
     offset: clamp(raw.offset, 0, 0, 100_000),
   };
@@ -109,7 +124,8 @@ export const isEmptyQuery = (query: SearchQuery): boolean =>
   query.institutions.length === 0 &&
   query.years.length === 0 &&
   query.types.length === 0 &&
-  query.difficulties.length === 0;
+  query.difficulties.length === 0 &&
+  !query.toReview;
 
 /**
  * Quantos filtros estão ativos.
@@ -125,7 +141,8 @@ export function activeFilterCount(query: SearchQuery): number {
     query.institutions.length +
     query.years.length +
     query.types.length +
-    query.difficulties.length
+    query.difficulties.length +
+    (query.toReview ? 1 : 0)
   );
 }
 

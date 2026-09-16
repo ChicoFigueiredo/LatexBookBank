@@ -5,6 +5,7 @@ import type {
 } from "@modules/document-tree/domain/document-tree-repository";
 import { isQuestionType, optionLabelAt, type QuestionType } from "@modules/questions/domain/question-type";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
+import { isToReview } from "@modules/questions/domain/to-review";
 import {
   hasProblem,
   statusFor,
@@ -87,6 +88,8 @@ export interface TreeNodeDto {
   readonly status: NodeStatusId | null;
   /** `true` quando o nó entra num filtro de "com problema", **independente** do selo escolhido. */
   readonly hasProblem: boolean;
+  /** Questão que uma máquina escreveu e ninguém conferiu (D40). */
+  readonly toReview: boolean;
 }
 
 const DIFFICULTY_LABELS: Readonly<Record<number, string>> = {
@@ -193,5 +196,11 @@ const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
       : null,
     status: node.question ? statusFor(facts) : null,
     hasProblem: node.question ? hasProblem(facts) : false,
+    toReview: node.question
+      ? isToReview({
+          status: node.question.status ?? "READY",
+          anchorMethod: node.question.sourceAnchor?.extractionMethod ?? null,
+        })
+      : false,
   };
 };

@@ -13,6 +13,11 @@ import { LibraryNotFoundError } from "@modules/workspaces/domain/library";
 import type { LibraryRepository } from "@modules/workspaces/domain/library-repository";
 import type { CatalogEntry, LibraryCatalogProvider } from "@/shared/ports/library-catalog";
 
+import {
+  copyCatalogFilesTo,
+  pdfDoCatalogo,
+  type CatalogAssetWriter,
+} from "./catalog-source";
 import { createPublication } from "./manage-publications";
 
 /**
@@ -50,18 +55,13 @@ export class DuplicatePublicationError extends Error {
   }
 }
 
-/** Grava um arquivo no storage gerenciado e devolve o `Asset` criado. */
-export interface CatalogAssetWriter {
-  store(input: {
-    readonly workspaceId: string;
-    readonly publicationId: string | null;
-    readonly filename: string;
-    readonly mimeType: string;
-    readonly content: Uint8Array;
-    /** `ATTACHMENT` para os formatos que não são fonte de captura — EPUB, MOBI. */
-    readonly kind: "SOURCE_PDF" | "COVER" | "ATTACHMENT";
-  }): Promise<{ readonly id: string }>;
-}
+/**
+ * O escritor de arquivos do catálogo mora em `catalog-source.ts`, junto do passo que o usa.
+ *
+ * Re-exportado daqui porque foi aqui que ele nasceu, e porque os adaptadores e os testes o importam
+ * por este caminho — mover o tipo não vale uma rodada de renomeação em arquivos que não mudaram.
+ */
+export type { CatalogAssetWriter } from "./catalog-source";
 
 /** Liga capa, fonte e origem à publicação recém-criada. */
 export interface PublicationOriginWriter {
@@ -162,36 +162,24 @@ export async function importFromCatalog(
 
   // Os arquivos entram **depois** da publicação: eles são dela, e um asset gravado antes ficaria
   // órfão se a criação falhasse. O storage não é transacional; a ordem é a proteção que há.
-  const pdf = book.files.find((item) => item.file.format === PREFERRED_SOURCE_FORMAT);
-  const sourcePdf = pdf
-    ? await deps.assets.store({
-        workspaceId: library.id,
-        publicationId: publication.id,
-        filename: pdf.file.filename,
-        mimeType: "application/pdf",
-        content: pdf.content,
-        kind: "SOURCE_PDF",
-      })
-    : null;
+  //
+  // A cópia em si é o passo que `attachFromCatalog` divide com este caso de uso (D44): importar é
+  // *criar a publicação e depois anexar a origem a ela*. Capa sempre, porque o livro acabou de
+  // nascer e não tem nenhuma.
+  const copiados = await copyCatalogFilesTo(deps, {
+    workspaceId: library.id,
+    publicationId: publication.id,
+    book,
+    withCover: true,
+  });
 
-  if (pdf === undefined) {
+  if (pdfDoCatalogo(book) === undefined) {
     warnings.push("O catálogo não tem PDF deste livro — a captura por recorte não vai funcionar.");
   }
 
-  const cover = book.cover
-    ? await deps.assets.store({
-        workspaceId: library.id,
-        publicationId: publication.id,
-        filename: book.cover.filename,
-        mimeType: "image/jpeg",
-        content: book.cover.content,
-        kind: "COVER",
-      })
-    : null;
-
   const origem = {
-    coverAssetId: cover?.id ?? null,
-    sourcePdfAssetId: sourcePdf?.id ?? null,
+    coverAssetId: copiados.coverAssetId,
+    sourcePdfAssetId: copiados.sourcePdfAssetId,
     metadataJson: JSON.stringify(originOf(deps.catalog.id, entry, command.now.toISOString())),
     importedAt: command.now,
   };
@@ -212,6 +200,71 @@ export async function importFromCatalog(
     href: `/publications/${publication.id}`,
     warnings,
   };
+}
+
+/**
+ * Importar vários livros do catálogo de uma vez (§ "o Calibre ainda não faz" — beta-editorial.md).
+ *
+ * Não é `Promise.all`: os livros entram **um de cada vez**, de propósito. `deps.existing` consulta
+ * o banco de novo a cada chamada de `importFromCatalog`, e é isso que faz o terceiro livro do lote
+ * enxergar o primeiro como duplicata se os dois forem o mesmo título — em paralelo, os três
+ * consultariam o banco **antes** de qualquer um ter sido escrito, e nenhum veria os outros.
+ *
+ * Um livro que falha não derruba o lote: a pessoa que importa dez livros de um catálogo não quer
+ * perder os nove bons porque o décimo tinha ISBN estranho ou já existe — quer saber qual foi e
+ * seguir com o resto.
+ */
+export interface ImportManyFromCatalogCommand {
+  readonly libraryId: string;
+  readonly externalIds: readonly string[];
+  readonly formats?: readonly string[];
+  readonly force?: boolean;
+  readonly maxYear: number;
+  readonly now: Date;
+}
+
+export type ImportManyOutcome =
+  | { readonly kind: "imported"; readonly result: ImportFromCatalogResult }
+  | { readonly kind: "failed"; readonly message: string };
+
+export interface ImportManyResult {
+  readonly externalId: string;
+  readonly outcome: ImportManyOutcome;
+}
+
+export interface ImportManyFromCatalogReport {
+  readonly results: readonly ImportManyResult[];
+}
+
+export async function importManyFromCatalog(
+  deps: Deps,
+  command: ImportManyFromCatalogCommand,
+): Promise<ImportManyFromCatalogReport> {
+  const results: ImportManyResult[] = [];
+
+  for (const externalId of command.externalIds) {
+    try {
+      const result = await importFromCatalog(deps, {
+        libraryId: command.libraryId,
+        externalId,
+        ...(command.formats !== undefined ? { formats: command.formats } : {}),
+        force: command.force ?? false,
+        maxYear: command.maxYear,
+        now: command.now,
+      });
+      results.push({ externalId, outcome: { kind: "imported", result } });
+    } catch (error) {
+      results.push({
+        externalId,
+        outcome: {
+          kind: "failed",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
+  return { results };
 }
 
 /** O que a tela do catálogo mostra antes de importar. */

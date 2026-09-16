@@ -6,6 +6,7 @@ import { Button, injectCss } from "@/design-system";
 import {
   clampToPage,
   CURSORS,
+  escalaParaCaber,
   handleAt,
   isUsable,
   rectFromDrag,
@@ -14,6 +15,11 @@ import {
   type Point,
 } from "@modules/assets/domain/crop-interaction";
 import { normalizedBoxFrom, type PixelRect } from "@modules/assets/domain/source-anchor";
+import { lerCamadaDeTexto } from "@modules/assets/ui/pdf-text-layer";
+import {
+  segmentarPagina,
+  type QuestaoEstimada,
+} from "@modules/recognition/domain/segmentar-pagina";
 
 /**
  * O visualizador de PDF com recorte.
@@ -33,7 +39,12 @@ import { normalizedBoxFrom, type PixelRect } from "@modules/assets/domain/source
  */
 
 const CSS = `
-.lbb-pdf{display:flex;flex-direction:column;gap:var(--space-2);min-height:0}
+/* \`height:100%\` é o que faz a página **rolar**, e a falta dele era um bug de verdade: sem altura
+   herdada do contêiner, o \`flex:1\` do palco não tinha o que dividir, o palco crescia junto com o
+   canvas e o \`overflow:hidden\` de quem hospeda (ingestão e origem, ambos de altura fixa) cortava o
+   resto da página em silêncio — sem barra de rolagem, sem como chegar na questão de baixo.
+   Achado no dogfooding da prova ProfMat, 2026-09-02. */
+.lbb-pdf{display:flex;flex-direction:column;gap:var(--space-2);min-height:0;height:100%}
 .lbb-pdf-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border-subtle)}
 .lbb-pdf-info{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-secondary)}
 .lbb-pdf-stage{position:relative;overflow:auto;flex:1;min-height:0;background:var(--surface-sunken);display:flex;justify-content:center;padding:var(--space-3)}
@@ -42,6 +53,8 @@ const CSS = `
 .lbb-pdf-rect{position:absolute;border:2px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);pointer-events:none}
 .lbb-pdf-handle{position:absolute;width:10px;height:10px;background:var(--surface);border:2px solid var(--accent);border-radius:2px;pointer-events:none}
 .lbb-pdf-origin{position:absolute;border:2px dashed var(--warn);background:color-mix(in srgb, var(--warn) 10%, transparent);pointer-events:none}
+.lbb-pdf-estimada{position:absolute;border:2px solid var(--info);background:color-mix(in srgb, var(--info) 8%, transparent);pointer-events:none}
+.lbb-pdf-estimada-numero{position:absolute;top:2px;left:2px;padding:1px 5px;border-radius:2px;background:var(--info-surface);color:var(--info-text);border:1px solid var(--info-border);font-family:var(--font-mono);font-size:var(--text-micro);line-height:1.4}
 `;
 
 export interface PdfCropViewerInnerProps {
@@ -76,6 +89,42 @@ export interface PdfCropViewerInnerProps {
     readonly pageNumber: number;
     readonly box: { x: number; y: number; width: number; height: number };
   } | null;
+  /**
+   * Habilita o botão "Estimar questões" na barra — só aparece com isto presente **e** documento
+   * PDF (imagem não tem camada de texto para ler). Quem decide o que fazer com o resultado é a
+   * tela de cima: o visualizador só lê a página e devolve.
+   */
+  readonly onEstimar?: (estimadas: readonly QuestaoEstimada[]) => void;
+  /**
+   * As caixas propostas a desenhar sobre a página atual — mesmo esquema do `highlight`, mas sem
+   * interação: aceitar, ajustar ou descartar uma proposta é gesto de outra tela, ainda por vir.
+   */
+  readonly estimadas?: readonly QuestaoEstimada[];
+  /**
+   * Recortar de uma vez todas as caixas propostas.
+   *
+   * Vive aqui, e não na tela de cima, porque **o canvas está aqui**: a página já foi rasterizada
+   * para ser mostrada, e cada recorte é um `drawImage` sobre ela. Pedir isto de fora significaria
+   * exportar o canvas ou rasterizar de novo no servidor — a mesma imagem, dezenas de vezes.
+   */
+  readonly onCropLote?: (
+    recortes: readonly {
+      readonly numero: number | null;
+      readonly pageNumber: number;
+      readonly box: { x: number; y: number; width: number; height: number };
+      readonly png: Blob;
+    }[],
+  ) => void;
+  /**
+   * O documento não abriu — e quem hospeda precisa saber.
+   *
+   * O visualizador já dizia isso **dentro dele**, o que basta para um arquivo que a pessoa acabou
+   * de escolher: ela vê o motivo e troca. Não basta quando o arquivo foi aberto sozinho (a fonte
+   * do livro, na captura): aí a tela inteira é um visualizador com uma frase de erro, e quem
+   * chegou não pediu por aquele arquivo nem sabe como sair dele. Avisar para fora é o que permite
+   * cair para a área de arrastar em vez de deixar a pessoa num beco.
+   */
+  readonly onLoadError?: (motivo: string) => void;
 }
 
 export default function PdfCropViewerInner({
@@ -85,10 +134,15 @@ export default function PdfCropViewerInner({
   initialScale = 1.2,
   initialPage = 1,
   highlight = null,
+  onEstimar,
+  estimadas,
+  onCropLote,
+  onLoadError,
 }: PdfCropViewerInnerProps) {
   injectCss("lbb-pdf-css", CSS);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const docRef = useRef<{ numPages: number; getPage: (n: number) => Promise<unknown> } | null>(
     null,
   );
@@ -100,10 +154,23 @@ export default function PdfCropViewerInner({
   const [rect, setRect] = useState<PixelRect | null>(null);
   const [hover, setHover] = useState<Handle | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Guarda contra clique duplo enquanto a página e o domínio ainda estão sendo consultados.
+  const [estimando, setEstimando] = useState(false);
 
   const drag = useRef<{ handle: Handle | "new"; origin: Point; base: PixelRect | null } | null>(
     null,
   );
+
+  /**
+   * O aviso de falha por `ref`, e não pelas dependências do efeito.
+   *
+   * Ele é chamado de dentro do efeito que abre o documento. Pô-lo nas dependências faria uma
+   * função nova a cada render **reabrir o PDF** — e um PDF que não abre reabriria em laço.
+   */
+  const avisarFalha = useRef(onLoadError);
+  useEffect(() => {
+    avisarFalha.current = onLoadError;
+  }, [onLoadError]);
 
   /** Imagem é documento de uma página. O recorte não muda: ele opera sobre o canvas. */
   const isImage = mimeType.startsWith("image/");
@@ -144,7 +211,10 @@ export default function PdfCropViewerInner({
         docRef.current = doc as unknown as typeof docRef.current;
         setPdfPageCount(doc.numPages);
       } catch (problem) {
-        if (!cancelled) setError(problem instanceof Error ? problem.message : "PDF não abriu.");
+        if (cancelled) return;
+        const motivo = problem instanceof Error ? problem.message : "PDF não abriu.";
+        setError(motivo);
+        avisarFalha.current?.(motivo);
       }
     })();
 
@@ -175,6 +245,7 @@ export default function PdfCropViewerInner({
         if (cancelled) return;
         if (bitmap === null) {
           setError("A imagem não abriu.");
+          avisarFalha.current?.("A imagem não abriu.");
           return;
         }
 
@@ -215,6 +286,84 @@ export default function PdfCropViewerInner({
     };
     // `pages` entra para o primeiro render acontecer assim que o documento abre.
   }, [pageNumber, scale, pages, isImage, fileUrl]);
+
+  /**
+   * Recortar todas as caixas propostas, na ordem em que aparecem na página.
+   *
+   * Cada `toBlob` é assíncrono, e é por isso que a espera é explícita: entregar a lista pela metade
+   * faria a tela de cima gravar menos recortes do que mostrou, sem dizer nada. Caixa que não vira
+   * PNG (canvas sem contexto, blob nulo) simplesmente não entra — e a contagem que chega do outro
+   * lado é a verdade sobre o que existe, não sobre o que se pediu.
+   */
+  const recortarEstimadas = async () => {
+    const canvas = canvasRef.current;
+    if (canvas === null || estimadas === undefined || onCropLote === undefined) return;
+
+    const recortes: {
+      numero: number | null;
+      pageNumber: number;
+      box: { x: number; y: number; width: number; height: number };
+      png: Blob;
+    }[] = [];
+
+    for (const estimada of estimadas) {
+      const px = {
+        x: estimada.box.x * size.width,
+        y: estimada.box.y * size.height,
+        width: estimada.box.width * size.width,
+        height: estimada.box.height * size.height,
+      };
+      if (!isUsable(px)) continue;
+
+      const cut = document.createElement("canvas");
+      cut.width = Math.round(px.width);
+      cut.height = Math.round(px.height);
+      const context = cut.getContext("2d");
+      if (context === null) continue;
+
+      context.drawImage(
+        canvas,
+        Math.round(px.x),
+        Math.round(px.y),
+        cut.width,
+        cut.height,
+        0,
+        0,
+        cut.width,
+        cut.height,
+      );
+
+      const png = await new Promise<Blob | null>((resolve) => cut.toBlob(resolve, "image/png"));
+      if (png === null) continue;
+
+      // A caixa que sobe é a **proposta**, já normalizada pelo domínio — e não uma reconversão da
+      // versão em pixels, que só acrescentaria erro de arredondamento ao mesmo número.
+      recortes.push({ numero: estimada.numero, pageNumber, box: estimada.box, png });
+    }
+
+    onCropLote(recortes);
+  };
+
+  /**
+   * Medir o palco e aplicar a escala que a conta do domínio devolver.
+   *
+   * O tamanho natural sai de `size / scale`: `size` é o que já foi desenhado, e dividir pela escala
+   * atual devolve a página em 100% — sem guardar outro estado que pudesse divergir do canvas.
+   */
+  const ajustar = useCallback(
+    (modo: "largura" | "pagina") => {
+      const stage = stageRef.current;
+      if (stage === null || scale <= 0) return;
+
+      const alvo = escalaParaCaber(
+        { width: size.width / scale, height: size.height / scale },
+        { width: stage.clientWidth, height: stage.clientHeight },
+        modo,
+      );
+      if (alvo !== null) setScale(alvo);
+    },
+    [scale, size],
+  );
 
   const pointFrom = useCallback((event: React.MouseEvent): Point => {
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -300,6 +449,37 @@ export default function PdfCropViewerInner({
     }, "image/png");
   };
 
+  /**
+   * Lê a camada de texto da página atual e pede ao domínio as questões propostas.
+   *
+   * `lerCamadaDeTexto` chama `getViewport({ scale: 1 })` por dentro — o que sobe para
+   * `segmentarPagina` são pontos do PDF, a mesma unidade em qualquer zoom, e é por isso que a
+   * caixa devolvida (normalizada 0..1) cabe de volta na conta de desenho abaixo sem conversão.
+   *
+   * Página sem nenhuma palavra (PDF escaneado, sem camada de texto) devolve `[]` direto, sem
+   * chamar o domínio: dizer "isto aqui não tem texto, desenhe à mão" é decisão da tela de cima,
+   * não do visualizador.
+   */
+  const estimar = async () => {
+    const doc = docRef.current;
+    if (onEstimar === undefined || doc === null || isImage) return;
+
+    setEstimando(true);
+    try {
+      const page = await doc.getPage(pageNumber);
+      const camada = await lerCamadaDeTexto(page);
+
+      if (camada.palavras.length === 0) {
+        onEstimar([]);
+        return;
+      }
+
+      onEstimar(segmentarPagina(camada));
+    } finally {
+      setEstimando(false);
+    }
+  };
+
   if (error !== null) {
     return (
       <div className="lbb-pdf" style={{ padding: "var(--space-4)" }}>
@@ -340,6 +520,31 @@ export default function PdfCropViewerInner({
         <Button size="sm" variant="ghost" onClick={() => setScale((s) => Math.min(4, s + 0.2))}>
           +
         </Button>
+        {/* Os dois ajustes servem a gestos diferentes: "largura" é para ler e recortar uma questão
+            (o texto fica no maior tamanho legível, e rola-se para descer); "página" é para achar
+            onde a questão está antes de mirar. */}
+        <Button size="sm" variant="ghost" onClick={() => ajustar("largura")}>
+          Ajustar à largura
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => ajustar("pagina")}>
+          Página inteira
+        </Button>
+
+        {/* Só aparece com o retorno prometido **e** com uma camada de texto para ler — imagem não
+            tem uma, então não há o que estimar. */}
+        {onEstimar !== undefined && !isImage && (
+          <Button size="sm" variant="ghost" disabled={estimando} onClick={() => void estimar()}>
+            {estimando ? "Estimando…" : "Estimar questões"}
+          </Button>
+        )}
+
+        {/* O gesto que paga a estimativa: sem ele, ver as caixas na tela não pouparia clique
+            nenhum — seria preciso redesenhar cada uma à mão. */}
+        {onCropLote !== undefined && estimadas !== undefined && estimadas.length > 0 && (
+          <Button size="sm" variant="ghost" onClick={() => void recortarEstimadas()}>
+            Recortar as {estimadas.length}
+          </Button>
+        )}
 
         <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           {rect !== null && (
@@ -358,7 +563,7 @@ export default function PdfCropViewerInner({
         </span>
       </div>
 
-      <div className="lbb-pdf-stage">
+      <div className="lbb-pdf-stage" ref={stageRef}>
         <div
           className="lbb-pdf-holder"
           style={{ cursor }}
@@ -385,6 +590,29 @@ export default function PdfCropViewerInner({
               }}
             />
           )}
+
+          {/* As propostas de "Estimar questões" — mesmo esquema do destaque de origem acima: não
+              são interativas. Aceitar, ajustar ou descartar uma proposta é gesto de outra tela,
+              ainda por vir. */}
+          {estimadas !== undefined &&
+            size.width > 0 &&
+            estimadas.map((estimada, indice) => (
+              <div
+                key={`${estimada.numero ?? "sem-numero"}-${indice}`}
+                className="lbb-pdf-estimada"
+                aria-label="Questão estimada"
+                style={{
+                  left: estimada.box.x * size.width,
+                  top: estimada.box.y * size.height,
+                  width: estimada.box.width * size.width,
+                  height: estimada.box.height * size.height,
+                }}
+              >
+                <span className="lbb-pdf-estimada-numero">
+                  {estimada.numero === null ? "?" : estimada.numero}
+                </span>
+              </div>
+            ))}
 
           {rect !== null && (
             <>

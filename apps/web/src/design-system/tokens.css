@@ -24,6 +24,33 @@
 /* ============================================================
    DEFAULT — Claro / Papel
    ============================================================ */
+/* ============================================================
+   O único reset do projeto — e o defeito que o obrigou a existir.
+
+   Quinze regras espalhadas pelo app escrevem `width:100%` junto com
+   `padding` horizontal ou borda: `.lbb-input`, `.lbb-select`,
+   `.lbb-combo-input`, `.lbb-tree-row`, `.lbb-pal-item`, `.lbb-wb-item`,
+   `.lbb-row` da Home, e por aí. Sem `border-box` cada uma delas
+   **estoura o pai** exatamente pelo tamanho do próprio recuo, e o que
+   se vê é o fim da linha cortado na borda: na Home, as setas de
+   "Revisar", "Abrir a fila" e "Começar" nunca apareceram.
+
+   É irmão do `var(--space-7)` inexistente já registrado nas
+   divergências: uma decisão de layout que parecia escrita e nunca
+   valeu. A cura das duas é a mesma — deixar de depender de acerto
+   individual em quinze lugares.
+
+   Quatro caixas de tamanho fixo com recuo encolhem com isto
+   (`.lbb-cover`, `.lbb-book-cover`, `.lbb-tree-row`, `.lbb-asm-tex`) e
+   passam a medir o que a regra declara, que é o que o protótipo
+   desenha. `tests/caixa-nao-estoura.test.ts` impede a recaída.
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   color-scheme: light;
 
@@ -114,6 +141,9 @@
   /* Mono é estrutural aqui, não decorativa: LaTeX, ids, logs de
      compilação e a statusbar dependem de largura fixa. */
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+  /* “Papel & Tinta”: a lombada de um livro não é sans. Serifada do sistema, sem fonte remota —
+     o produto funciona offline, e uma @font-face do Google seria a única coisa a exigir rede. */
+  --font-serif: Georgia, "Times New Roman", "Source Serif 4", serif;
 
   --text-micro: 10px;
   --text-meta: 11px;

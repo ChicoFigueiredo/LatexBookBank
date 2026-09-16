@@ -10,6 +10,7 @@ import {
   classifyNode,
   mapDifficulty,
   mapNumbering,
+  optionOrder,
   siblingOrder,
   UnknownTipoQuestaoError,
 } from "@modules/legacy-import/domain/legacy-mapping";
@@ -26,11 +27,11 @@ import {
  */
 
 describe("as três gerações de schema", () => {
-  it("dez bibliotecas têm `LatexComplemento`", () => {
+  it("dez bibliotecas têm `latexComplemento`", () => {
     const capabilities = detectCapabilities({
       migrations: ["20240317152417_add_LatexComplemento"],
       tables: ["Questao", "TagConhecimento"],
-      questionColumns: ["IdQuestao", "LatexComplemento"],
+      questionColumns: ["IdQuestao", "latexComplemento"],
     });
 
     expect(capabilities.generation).toBe("latex_complemento");
@@ -65,11 +66,11 @@ describe("as três gerações de schema", () => {
     const capabilities = detectCapabilities({
       migrations: ["20240317152417_add_LatexComplemento"],
       tables: ["Questao"],
-      questionColumns: ["IdQuestao", "LatexEnunciado"],
+      questionColumns: ["IdQuestao", "latexQuestao"],
     });
 
     expect(capabilities.hasComplemento).toBe(false);
-    expect(questionColumnsFor(capabilities)).not.toContain("LatexComplemento");
+    expect(questionColumnsFor(capabilities)).not.toContain("latexComplemento");
   });
 
   it("migração desconhecida degrada para a geração mais antiga", () => {
@@ -98,6 +99,60 @@ describe("as três gerações de schema", () => {
     // Para o relatório poder dizer o que ignorou e por quê, em vez de omitir.
     expect(Object.keys(DELIBERATELY_IGNORED_COLUMNS)).toContain("Ordem");
     expect(DELIBERATELY_IGNORED_COLUMNS["Ordem"]).toMatch(/IdQuestao/);
+  });
+
+  describe("os nomes reais (levantamento de 2026-08-31 contra as 11 bibliotecas)", () => {
+    // Nenhuma biblioteca real tem `Titulo`, `LatexEnunciado`, `Instituicao` ou `NivelCargo` — um
+    // `SELECT` com esses nomes falharia na primeira execução contra o acervo de verdade. O rótulo
+    // vive em `Apelido`; o enunciado, em `latexQuestao`.
+    it("pede `Apelido` e `latexQuestao`, nunca `Titulo` nem `LatexEnunciado`", () => {
+      const columns = questionColumnsFor(
+        detectCapabilities({ migrations: null, tables: [], questionColumns: [] }),
+      );
+
+      expect(columns).toContain("Apelido");
+      expect(columns).toContain("latexQuestao");
+      expect(columns).not.toContain("Titulo");
+      expect(columns).not.toContain("LatexEnunciado");
+    });
+
+    it("banca de concurso pede `Instituição` (com acento) e `Nivel_Cargo` (com underscore)", () => {
+      // Cesgranrio CAIXA e Análise Elon têm essas colunas; Cálculo e ProfMat não têm nenhuma.
+      const columns = questionColumnsFor(
+        detectCapabilities({
+          migrations: null,
+          tables: [],
+          questionColumns: ["IdQuestao", "Banca"],
+        }),
+      );
+
+      expect(columns).toContain("Instituição");
+      expect(columns).toContain("Nivel_Cargo");
+      expect(columns).not.toContain("Instituicao");
+      expect(columns).not.toContain("NivelCargo");
+    });
+
+    it("livro-texto sem `Banca` não pede as colunas de concurso", () => {
+      const columns = questionColumnsFor(
+        detectCapabilities({ migrations: null, tables: [], questionColumns: ["IdQuestao"] }),
+      );
+
+      expect(columns).not.toContain("Banca");
+      expect(columns).not.toContain("Instituição");
+      expect(columns).not.toContain("Cargo");
+      expect(columns).not.toContain("Nivel_Cargo");
+    });
+
+    it("`hasBanca` é independente de geração — o ProfMat real tem a migração mais nova sem banca", () => {
+      const capabilities = detectCapabilities({
+        migrations: ["20240317152417_add_LatexComplemento"],
+        tables: ["Questao"],
+        questionColumns: ["IdQuestao", "latexComplemento"],
+      });
+
+      expect(capabilities.generation).toBe("latex_complemento");
+      expect(capabilities.hasBanca).toBe(false);
+    });
   });
 });
 
@@ -164,6 +219,40 @@ describe("a ordem vem de `IdQuestao`, nunca de `Ordem`", () => {
     const groups = siblingOrder(rows);
     expect(groups.get(null)).toHaveLength(1);
     expect(groups.get(1)).toHaveLength(2);
+  });
+});
+
+describe("a ordem das alternativas vem de `Ordem`, agrupada por questão", () => {
+  // Diferente do nó: aqui `Ordem` é real (a=1, b=2, ...), não vestigial em zero.
+  it("alternativas saem na ordem de `Ordem`, não na de inserção", () => {
+    const rows = [
+      { IdQuestao: 1, Ordem: 3 },
+      { IdQuestao: 1, Ordem: 1 },
+      { IdQuestao: 1, Ordem: 2 },
+    ];
+
+    const ordered = optionOrder(rows).get(1) ?? [];
+    expect(ordered.map((entry) => entry.row.Ordem)).toEqual([1, 2, 3]);
+  });
+
+  it("cada questão tem a própria sequência de alternativas", () => {
+    const rows = [
+      { IdQuestao: 1, Ordem: 1 },
+      { IdQuestao: 1, Ordem: 2 },
+      { IdQuestao: 2, Ordem: 1 },
+    ];
+
+    const groups = optionOrder(rows);
+    expect(groups.get(1)).toHaveLength(2);
+    expect(groups.get(2)).toHaveLength(1);
+  });
+
+  it("as `sortKey` saem crescentes e únicas dentro do grupo", () => {
+    const rows = Array.from({ length: 5 }, (_, i) => ({ IdQuestao: 1, Ordem: i }));
+    const keys = (optionOrder(rows).get(1) ?? []).map((entry) => entry.sortKey);
+
+    expect([...keys].sort()).toEqual(keys);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
 

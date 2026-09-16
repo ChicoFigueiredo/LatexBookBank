@@ -26,6 +26,7 @@ const query = (over: Partial<SearchQuery> = {}): SearchQuery => ({
   years: [],
   types: [],
   difficulties: [],
+  toReview: false,
   limit: 20,
   offset: 0,
   ...over,
@@ -88,5 +89,14 @@ describe("os critérios pedidos continuam valendo", () => {
     const tagConditions = conditions(query({ tags: ["a", "b"] })).filter((c) => "tags" in c);
 
     expect(tagConditions).toHaveLength(2);
+  });
+
+  it("*a revisar* é rascunho com âncora de máquina (D40)", () => {
+    const review = conditions(query({ toReview: true })).find((c) => "status" in c);
+
+    expect(review?.["status"]).toBe("DRAFT");
+    expect(JSON.stringify(review)).toContain('"startsWith":"scan:"');
+    expect(JSON.stringify(review)).toContain('"startsWith":"recognition:"');
+    expect(conditions(query()).some((c) => "status" in c)).toBe(false);
   });
 });

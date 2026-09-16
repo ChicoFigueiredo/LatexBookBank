@@ -30,7 +30,9 @@ const models = [...code.matchAll(/^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm)].map(([, 
 }));
 
 /** Tabelas de junção: identidade composta, sem `id` nem timestamps próprios. */
-const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag"]);
+// `DocumentNodeAnchor` (D50) é junção com dois atributos — ordem e papel —, e a data dela seria a
+// do nó: "quando esta âncora entrou" não é pergunta que a aba Origem faz.
+const JOIN_TABLES = new Set(["PublicationAuthor", "QuestionTag", "DocumentNodeAnchor"]);
 
 /**
  * Imutáveis por design (D29): registram `createdAt` e nunca `updatedAt`.
@@ -48,6 +50,8 @@ const IMMUTABLE_MODELS = new Set([
   "RenderJob",
   "AgentRun",
   "Revision",
+  // O cache de página de uma execução do scan: o que o leitor viu naquela vez (D51).
+  "ScanPage",
   // Uma variante é uma **impressão**. Editá-la depois faria a prova no papel e a do banco
   // discordarem — e a discordância só apareceria na correção.
   "AssessmentVariant",
@@ -77,7 +81,7 @@ const NO_TIMESTAMPS = new Set([
   "AssessmentVariantOptionMap",
 ]);
 
-describe("o schema tem os 25 modelos esperados", () => {
+describe("o schema tem os 29 modelos esperados", () => {
   it("nenhum foi perdido nem acrescentado sem passar por aqui", () => {
     expect(models.map((m) => m.name).sort()).toEqual([
       "AgentRun",
@@ -90,6 +94,7 @@ describe("o schema tem os 25 modelos esperados", () => {
       "Asset",
       "Author",
       "DocumentNode",
+      "DocumentNodeAnchor",
       "DocumentTemplate",
       "LatexIconMenu",
       "LatexSnippet",
@@ -102,6 +107,9 @@ describe("o schema tem os 25 modelos esperados", () => {
       "QuestionTag",
       "RenderJob",
       "Revision",
+      "ScanItem",
+      "ScanPage",
+      "ScanRun",
       "SourceAnchor",
       "Tag",
       "Workspace",

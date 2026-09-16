@@ -72,7 +72,7 @@ describe("RenderPanel", () => {
   });
 
   it("mostra o PDF pela rota de artefato, nunca por `storageKey`", () => {
-    const { container } = show({ kind: "done", outcome: outcome() });
+    const { container } = show({ kind: "done", outcome: outcome(), saida: "aluno" });
     const object = container.querySelector("object");
 
     expect(object?.getAttribute("data")).toBe("/api/render-jobs/job-1/artifacts/main.pdf");
@@ -80,18 +80,19 @@ describe("RenderPanel", () => {
 
   it("marca o cache hit", () => {
     // Sem isso, um render instantâneo pareceria falha de atualização.
-    show({ kind: "done", outcome: outcome({ cacheHit: true }) });
+    show({ kind: "done", outcome: outcome({ cacheHit: true }), saida: "aluno" });
     expect(screen.getByText("cache")).toBeTruthy();
   });
 
   it("mostra a duração quando compilou de verdade", () => {
-    show({ kind: "done", outcome: outcome() });
+    show({ kind: "done", outcome: outcome(), saida: "aluno" });
     expect(screen.getByText("1234 ms")).toBeTruthy();
   });
 
   it("erro de TeX aparece com a linha, não como stack trace", () => {
     show({
       kind: "done",
+      saida: "aluno",
       outcome: outcome({
         success: false,
         diagnostics: [
@@ -109,6 +110,7 @@ describe("RenderPanel", () => {
     // lista virar ruído, que é o mesmo que não ter lista.
     show({
       kind: "done",
+      saida: "aluno",
       outcome: outcome({
         diagnostics: [
           { severity: "error", message: "Erro de verdade", line: 3, file: null },
@@ -133,7 +135,7 @@ describe("RenderPanel", () => {
   });
 
   it("a aba PNG desenha as páginas sobre fundo de papel", () => {
-    const view = show({ kind: "done", outcome: outcome() });
+    const view = show({ kind: "done", outcome: outcome(), saida: "aluno" });
     fireEvent.click(view.getByRole("tab", { name: "PNG" }));
 
     const image = view.container.querySelector("img");
@@ -153,7 +155,7 @@ describe("RenderPanel", () => {
   it("a aba Log mostra o log cru — ele vem no resultado, não do nada", () => {
     // A aba existia e sempre dizia "sem log": a rota guardava o `stdout` e não o devolvia. Um
     // painel que nunca tem conteúdo passa por decisão de design em vez de defeito.
-    const view = show({ kind: "done", outcome: outcome() });
+    const view = show({ kind: "done", outcome: outcome(), saida: "aluno" });
     fireEvent.click(view.getByRole("tab", { name: "Log" }));
 
     expect(screen.getByText(/This is pdfTeX/)).toBeTruthy();
@@ -188,6 +190,7 @@ describe("RenderPanel — os gestos que faltavam", () => {
     // chamá-lo de outro é o tipo de mentira que só aparece quando alguém compara com o PDF.
     const view = show({
       kind: "done",
+      saida: "aluno",
       outcome: outcome({ sourceLatex: "enunciado\n\\begin{enumerate}\n\\item a" }),
     });
     fireEvent.click(view.getByRole("tab", { name: "Fonte" }));
@@ -218,7 +221,7 @@ describe("RenderPanel — os gestos que faltavam", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
 
     try {
-      const view = show({ kind: "done", outcome: outcome({ sourceLatex: "corpo compilado" }) });
+      const view = show({ kind: "done", outcome: outcome({ sourceLatex: "corpo compilado" }), saida: "aluno" });
       fireEvent.click(view.getByRole("tab", { name: "Fonte" }));
       fireEvent.click(screen.getByRole("button", { name: /Copiar LaTeX/ }));
 
@@ -231,7 +234,7 @@ describe("RenderPanel — os gestos que faltavam", () => {
   });
 
   it("tela cheia é um estado anunciado, e `Esc` sai dela", () => {
-    show({ kind: "done", outcome: outcome() });
+    show({ kind: "done", outcome: outcome(), saida: "aluno" });
 
     const botao = screen.getByRole("button", { name: "Tela cheia" });
     expect(botao.getAttribute("aria-pressed")).toBe("false");
@@ -249,7 +252,7 @@ describe("RenderPanel — os gestos que faltavam", () => {
     const onGoTo = vi.fn();
     render(
       <RenderPanel
-        status={{ kind: "done", outcome: comDiagnostico() }}
+        status={{ kind: "done", outcome: comDiagnostico(), saida: "aluno" }}
         onRender={() => {}}
         sourceLatex=""
         onGoToDiagnostic={onGoTo}
@@ -271,6 +274,7 @@ describe("RenderPanel — os gestos que faltavam", () => {
       <RenderPanel
         status={{
           kind: "done",
+          saida: "aluno",
           outcome: outcome({
             success: false,
             diagnostics: [
@@ -293,6 +297,7 @@ describe("RenderPanel — os gestos que faltavam", () => {
       <RenderPanel
         status={{
           kind: "done",
+          saida: "aluno",
           outcome: comDiagnostico({
             diagnostics: [
               { severity: "error", message: "Pacote ausente.", line: null, file: null },
@@ -307,5 +312,52 @@ describe("RenderPanel — os gestos que faltavam", () => {
 
     expect(screen.getByText("—")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Ir para/ })).toBeNull();
+  });
+});
+
+describe("a saída do render, no painel", () => {
+  it("**avisa** quando o resultado na tela é de outra saída", () => {
+    // O item mais grave da varredura, e o único que não é informação faltando: sem este aviso,
+    // trocar para Professor e baixar o PDF que já estava aberto entrega o arquivo de aluno, sem
+    // gabarito, para quem tem certeza de estar levando a versão com ele.
+    render(
+      <RenderPanel
+        status={{ kind: "done", saida: "aluno", outcome: outcome() }}
+        onRender={() => {}}
+        sourceLatex=""
+        saida="professor"
+        onSaidaChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Este resultado é de outra saída")).toBeTruthy();
+  });
+
+  it("cala quando o resultado é da saída escolhida", () => {
+    render(
+      <RenderPanel
+        status={{ kind: "done", saida: "professor", outcome: outcome() }}
+        onRender={() => {}}
+        sourceLatex=""
+        saida="professor"
+        onSaidaChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText("Este resultado é de outra saída")).toBeNull();
+  });
+
+  it("sem controle de saída, o painel não inventa aviso nenhum", () => {
+    // É o caso da prévia do agente: lá não há escolha a oferecer, e um aviso sobre uma escolha
+    // que a tela não tem seria conselho impossível de seguir.
+    render(
+      <RenderPanel
+        status={{ kind: "done", saida: "aluno", outcome: outcome() }}
+        onRender={() => {}}
+        sourceLatex=""
+      />,
+    );
+
+    expect(screen.queryByText("Este resultado é de outra saída")).toBeNull();
   });
 });

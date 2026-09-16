@@ -26,14 +26,23 @@ interface Saved {
 
 export function NewPublicationScreen({
   library,
+  fromFile = false,
 }: {
   readonly library: { readonly id: string; readonly name: string; readonly slug: string };
+  /**
+   * Veio pela origem "a partir de um arquivo".
+   *
+   * Não muda o formulário — muda o que vem **depois** dele. Um livro que nasce de um PDF ainda é
+   * um livro cadastrado; a diferença é que o próximo passo dele não é o editor, é anexar a fonte.
+   */
+  readonly fromFile?: boolean;
 }) {
   useAcervoStyles();
   const router = useRouter();
 
   const [form, setForm] = useState({
     title: "",
+    nickname: "",
     subtitle: "",
     authors: "",
     publisher: "",
@@ -111,20 +120,47 @@ export function NewPublicationScreen({
         <div className="lbb-acervo">
           <PageHeader eyebrow="LIVRO CADASTRADO" title={saved.title} />
           <Callout tone="ok" title="Livro criado">
-            Ele já está na biblioteca {library.name}. O próximo passo é dar estrutura ou capturar a
-            primeira questão.
+            {fromFile
+              ? `Ele já está na biblioteca ${library.name}. Falta a metade que você veio fazer: anexar o arquivo que serve de fonte.`
+              : `Ele já está na biblioteca ${library.name}. O próximo passo é dar estrutura ou capturar a primeira questão.`}
           </Callout>
+          {/*
+            A ordem das ações muda com a origem. Quem veio por "a partir de um arquivo" tem o
+            arquivo na mão agora — oferecer o editor primeiro seria mandá-lo guardar o arquivo e
+            voltar depois.
+          */}
           <div className="lbb-acervo-actions">
-            <Button variant="primary" icon="list-tree" href={`/publications/${saved.id}`}>
-              Abrir no editor
-            </Button>
-            <Button
-              variant="secondary"
-              icon="scan-text"
-              href={`/publications/${saved.id}/ingestao`}
-            >
-              Capturar primeira questão
-            </Button>
+            {fromFile ? (
+              <>
+                <Button
+                  variant="primary"
+                  icon="file-text"
+                  href={`/publications/${saved.id}/ingestao`}
+                >
+                  Anexar a fonte
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon="list-tree"
+                  href={`/publications/${saved.id}/editor`}
+                >
+                  Abrir no editor
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="primary" icon="list-tree" href={`/publications/${saved.id}/editor`}>
+                  Abrir no editor
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon="scan-text"
+                  href={`/publications/${saved.id}/ingestao`}
+                >
+                  Capturar primeira questão
+                </Button>
+              </>
+            )}
             <Button variant="ghost" href={`/bibliotecas/${library.slug}`}>
               Voltar à biblioteca
             </Button>
@@ -145,9 +181,13 @@ export function NewPublicationScreen({
     >
       <div className="lbb-acervo" style={{ maxWidth: "52rem" }}>
         <PageHeader
-          eyebrow="CADASTRO MANUAL"
+          eyebrow={fromFile ? "LIVRO A PARTIR DE UM ARQUIVO" : "CADASTRO MANUAL"}
           title="Adicionar livro"
-          meta="Dá para começar só com o título e completar o resto depois."
+          meta={
+            fromFile
+              ? "Primeiro o livro, depois o arquivo: são dois passos, e este é o primeiro. Só o título é obrigatório."
+              : "Dá para começar só com o título e completar o resto depois."
+          }
         />
 
         {error && (
@@ -156,14 +196,34 @@ export function NewPublicationScreen({
           </Banner>
         )}
 
-        <div className="lbb-form-grid">
-          <div className="lbb-form-wide">
+        {/*
+          Título e apelido lado a lado, como no protótipo (2312–2322), e nessa proporção: o título
+          é o da capa e ninguém o digita para se referir ao livro; o apelido é como o livro é
+          chamado no dia a dia — "FME 3" —, e é curto por definição.
+        */}
+        <div className="lbb-form-grid lbb-form-2-1">
+          <div>
             <Field label="Título" required {...(errorFor("title") ? { error: errorFor("title") } : {})}>
               <Input
                 autoFocus
                 value={form.title}
                 placeholder="Fundamentos de Matemática Elementar"
                 onChange={(event) => set("title")(event.target.value)}
+              />
+            </Field>
+          </div>
+
+          <div>
+            <Field
+              label="Apelido"
+              optional
+              hint="Como você chama este livro. Aparece na estante e na busca."
+              {...(errorFor("nickname") ? { error: errorFor("nickname") } : {})}
+            >
+              <Input
+                value={form.nickname}
+                placeholder="FME 3"
+                onChange={(event) => set("nickname")(event.target.value)}
               />
             </Field>
           </div>

@@ -205,3 +205,427 @@ test("da imagem colada à questão com origem", async ({ page }) => {
     expect(provenance.extractionModel).toBe("dublê-de-visão");
   });
 });
+
+/**
+ * **A espera do reconhecimento presta contas** (protótipo, 1590–1614).
+ *
+ * A tela dizia `reconhecendo…` — uma palavra num canto — durante a única espera do produto em que
+ * o usuário tem uma pergunta concreta na cabeça: *"se isto falhar, perco meu recorte?"*.
+ *
+ * A resposta é **não**, e sempre foi: o `cropAssetId` nasce antes de o modelo ser chamado, e o
+ * `catch` devolve um candidato vazio justamente para a transcrição à mão continuar possível. A
+ * garantia estava no código e até no comentário — e nunca chegava a quem esperava.
+ *
+ * O teste segura a resposta do reconhecedor para que a espera exista o tempo suficiente de ser
+ * olhada. Sem isso, o bloco existiria por dois frames e nenhum teste o veria.
+ */
+test("enquanto o modelo lê, a tela diz o que já está garantido", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  // Inicializado com um no-op, e não com `null`: o TypeScript não enxerga a atribuição feita
+  // dentro do callback do `Promise` e estreita o tipo para `null`, tornando a chamada inválida.
+  let liberar: () => void = () => {};
+  const presa = new Promise<void>((resolve) => {
+    liberar = resolve;
+  });
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    // Segura até o teste ter conferido a espera. É o que torna um estado transitório observável.
+    await presa;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ...CANDIDATO, cropAssetId: id }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await recortar(page);
+
+  const espera = page.locator(".lbb-ing-progress");
+  await expect(espera).toBeVisible();
+
+  // O passo já consumado, e o que está acontecendo agora. O primeiro é um fato no momento em que
+  // aparece — não uma barra de progresso fingida.
+  await expect(espera).toContainText("recorte guardado como evidência");
+  await expect(espera).toContainText("lendo texto e matemática");
+
+  // E a frase que responde a pergunta de quem espera, durante a espera.
+  await expect(espera).toContainText(
+    "se o reconhecimento falhar, o recorte fica — dá para transcrever à mão",
+  );
+
+  liberar();
+
+  // Terminada a leitura, a prestação de contas sai: ela é da espera, e a espera acabou.
+  await expect(page.getByLabel("LaTeX reconhecido")).toHaveValue(CANDIDATO.result.latex);
+  await expect(espera).toHaveCount(0);
+});
+
+/**
+ * **Questão completa** — o modo que o handoff listou como faltando.
+ *
+ * *"Reconhecimento tinha 3 modos técnicos (display/mixed/text); faltava Questão completa."* E a
+ * lacuna era mais funda que a frase: `RecognitionCandidate` tem `options`,
+ * `createQuestionFromRecognition` sabe gravá-las, a rota `from-recognition` já as aceitava — e
+ * **nada no app jamais as preencheu**. A ponta receptora estava pronta e ninguém alimentava.
+ *
+ * O que faltava entre "o modelo leu a página" e "a questão existe com cinco alternativas" não era
+ * modelo: era a separação, que é problema de texto e agora tem regra explícita e testada.
+ *
+ * A separação é **mostrada antes de gravar**, e este teste guarda isso: é o princípio do módulo —
+ * nenhum caminho leva de "o modelo leu" a "está no acervo" sem um humano ver. Cinco alternativas
+ * criadas em silêncio só apareceriam na prova impressa.
+ */
+test("“Questão completa” separa as alternativas, mostra a separação, e grava as duas partes", async ({
+  page,
+}) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  const LIDO = [
+    `Um capital de R\\$ 5.000,00 rende a 2\\% ao mês. Qual o montante? ${marca}`,
+    "a) R\\$ 5.612,25",
+    "b) R\\$ 6.341,21",
+    "c) R\\$ 6.529,67",
+  ].join("\n");
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    // O modo que chega ao provider é `mixed`: `questao` é nosso, e a diferença está no que se faz
+    // com o que ele devolveu — não no que se pede a ele.
+    expect(corpo).toContain("mixed");
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        cropAssetId: id,
+        editedLatex: null,
+        state: "candidate",
+        result: {
+          latex: LIDO,
+          confidence: 0.91,
+          alternatives: [],
+          providerId: "fake",
+          model: "fake-vision",
+          durationMs: 10,
+        },
+      }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await page.getByRole("button", { name: "Questão completa" }).click();
+  await recortar(page);
+
+  await test.step("a separação aparece antes de qualquer gravação", async () => {
+    const split = page.locator(".lbb-ing-split");
+    await expect(split).toBeVisible();
+    await expect(split).toContainText("3 alternativas separadas do enunciado");
+
+    // E a tela diz o que **não** faz: adivinhar o gabarito. Uma correta marcada por engano passa
+    // por revisada, que é o erro caro.
+    await expect(split).toContainText("nenhuma nasce marcada como correta");
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(3);
+  });
+
+  await test.step("aceitar grava enunciado e alternativas, sem repetir o bloco", async () => {
+    await page.getByRole("button", { name: "Conferi — usar este LaTeX" }).click();
+
+    /*
+     * **Uma divergência deliberada do protótipo**, e por isso guardada.
+     *
+     * Ele escreve, ao lado das ações: `nada é gravado antes disto`. Neste app é **falso**, e falso
+     * de propósito — o recorte, a âncora e a transcrição são gravados assim que o modelo responde,
+     * justamente para reconhecer dez recortes e fechar a aba não perder as dez (§26). A fila
+     * existe por causa disso, e outro teste deste arquivo prova que ela sobrevive ao recarregar.
+     *
+     * O que de fato não existe ainda é a **questão**. Dizer isso é o que torna `Descartar`
+     * legível: quem descarta não perde o recorte, perde a decisão.
+     *
+     * Este teste falha se alguém colar a frase do protótipo por cima — que é o risco de uma frase
+     * que discorda do desenho de propósito.
+     */
+    await expect(
+      page.getByText("o recorte e a transcrição já estão guardados na fila"),
+    ).toBeVisible();
+    await expect(page.getByText("nada é gravado antes disto")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /Criar questão/ }).click();
+
+    await expect(page.getByText(/Questão criada/i)).toBeVisible({ timeout: 20_000 });
+
+    const tree = await page.request.get(`/api/publications/${publicationId}/tree`);
+    const { nodes } = (await tree.json()) as {
+      nodes: {
+        question: { statementLatex: string; options: { statementLatex: string }[] } | null;
+      }[];
+    };
+
+    const criada = nodes.find((node) => node.question !== null)?.question;
+    expect(criada?.options).toHaveLength(3);
+
+    // O enunciado ficou **sem** as alternativas: deixá-las nos dois lugares imprimiria o bloco de
+    // opções duas vezes na mesma questão.
+    expect(criada?.statementLatex).toContain(marca);
+    expect(criada?.statementLatex).not.toContain("5.612,25");
+  });
+});
+
+/**
+ * **Duas alternativas coladas num bloco** — o caso `ocrMerged` do protótipo (1702–1712).
+ *
+ * Acontece de verdade: página em duas colunas, e o OCR devolve `b) … c) …` na mesma linha. A regra
+ * que protege o enunciado — âncora no início da linha — é justamente a que produz o bloco unido.
+ *
+ * A resposta não é dividir sozinho. Um `c)` no meio de uma alternativa pode ser parte do texto, e
+ * dividir por conta própria criaria uma alternativa inventada com cara de revisada. Perguntar custa
+ * um clique; errar custa uma prova impressa com a alternativa errada.
+ */
+test("bloco com duas alternativas é sinalizado, e a divisão é um gesto — não um palpite", async ({
+  page,
+}) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  // O `c)` colado no fim do `b)`, que é exatamente o que a página de duas colunas produz.
+  const LIDO = [
+    `Quanto rende o capital? ${marca}`,
+    "a) R\\$ 5.612,25",
+    "b) R\\$ 6.341,21 c) R\\$ 6.529,67",
+    "d) R\\$ 6.712,10",
+  ].join("\n");
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        cropAssetId: id,
+        editedLatex: null,
+        state: "candidate",
+        result: {
+          latex: LIDO,
+          confidence: 0.88,
+          alternatives: [],
+          providerId: "fake",
+          model: "fake-vision",
+          durationMs: 10,
+        },
+      }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await page.getByRole("button", { name: "Questão completa" }).click();
+  await recortar(page);
+
+  const split = page.locator(".lbb-ing-split");
+  await expect(split).toBeVisible();
+
+  await test.step("o bloco unido aparece em aviso, e nada foi dividido sozinho", async () => {
+    /*
+     * **Duas** alternativas, e não quatro. O bloco unido quebra a sequência: com o `c)` colado
+     * dentro do `b)`, o que a lista tem é `a` e `b` — e o `d)` seguinte, que não sucede `b`, cai
+     * dentro do `b` junto com o resto.
+     *
+     * É consequência direta da regra de sequência consecutiva, e é o comportamento certo: o
+     * separador não inventa uma sequência que o texto não tem. O que ele faz é **mostrar** o
+     * problema onde ele está.
+     */
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(2);
+    await expect(split.getByText("duas alternativas em um bloco")).toBeVisible();
+    await expect(split.locator('.lbb-ing-alt[data-tone="warn"]')).toHaveCount(1);
+  });
+
+  await test.step("a divisão cascateia: cada corte revela o próximo", async () => {
+    // Cortar `b` em `b` + `c` deixa o `d)` dentro do `c` — e o aviso reaparece ali. A pessoa
+    // desfaz o estrago do OCR um corte por vez, vendo cada um.
+    await split.getByRole("button", { name: "Dividir em duas" }).click();
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(3);
+    await expect(split.getByText("duas alternativas em um bloco")).toBeVisible();
+
+    await split.getByRole("button", { name: "Dividir em duas" }).click();
+    await expect(split.locator(".lbb-ing-alt")).toHaveCount(4);
+    await expect(split.getByText("duas alternativas em um bloco")).toHaveCount(0);
+    await expect(split).toContainText("4 alternativas separadas do enunciado");
+  });
+
+  await test.step("e o resultado é o que vai para o banco", async () => {
+
+    await page.getByRole("button", { name: "Conferi — usar este LaTeX" }).click();
+    await page.getByRole("button", { name: /Criar questão/ }).click();
+    await expect(page.getByText(/Questão criada/i)).toBeVisible({ timeout: 20_000 });
+
+    const tree = await page.request.get(`/api/publications/${publicationId}/tree`);
+    const { nodes } = (await tree.json()) as {
+      nodes: { question: { options: { label: string; statementLatex: string }[] } | null }[];
+    };
+
+    const criada = nodes.find((node) => node.question !== null)?.question;
+    expect(criada?.options).toHaveLength(4);
+    expect(criada?.options.map((o) => o.statementLatex.trim())).toContain("R\\$ 6.529,67");
+  });
+});
+
+/**
+ * **A captura mora dentro do mesmo shell** — e não num beco.
+ *
+ * A tela era um `<main>` nu: sem rail, sem breadcrumb, sem `Ctrl+K`, sem barra de status. Quem
+ * chegava pelo destino `Captura` do rail caía numa tela cuja única saída era o botão de voltar do
+ * navegador.
+ *
+ * É o mesmo defeito que o comentário do `AppShell` descreve como resolvido — *"a Home não tinha
+ * rail nenhum e o usuário chegava numa tela sem saída"* — sobrevivendo numa tela que ninguém
+ * reabriu depois. E o handoff do protótipo é explícito: *"Capture Studio: fila + canvas +
+ * interpretação, dentro do mesmo shell"*.
+ */
+test("a captura tem rail, caminho de volta e busca — não é um beco", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+
+  await test.step("o rail existe, e marca Captura como o lugar onde se está", async () => {
+    const rail = page.getByRole("navigation", { name: "Módulos" });
+    await expect(rail).toBeVisible();
+    await expect(rail.getByRole("button", { name: /^Captura/ })).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+  });
+
+  await test.step("o breadcrumb volta ao livro, que é de onde se veio", async () => {
+    const volta = page.locator(`a[href="/publications/${publicationId}"]`);
+    await expect(volta).toHaveCount(1);
+
+    await volta.click();
+    await expect(page).toHaveURL(new RegExp(`/publications/${publicationId}$`));
+  });
+
+  await test.step("e a busca global abre daqui, como em qualquer outra tela", async () => {
+    await page.goto(`/publications/${publicationId}/ingestao`);
+    await page.keyboard.press("Control+k");
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+  });
+});
+
+/**
+ * **A troca de rótulo é visível, e não silenciosa.**
+ *
+ * O app deriva a letra da **posição** em todo lugar (`optionLabelAt`), e é a decisão certa: é o que
+ * faz o gabarito acompanhar a alternativa quando ela é movida, em vez de seguir a letra. O handoff
+ * lista isso entre o que já está maduro, e a conferência confirmou.
+ *
+ * A consequência aparece com a §15: um livro que escreve `A) B)` ou `i) ii)` é lido com esses
+ * rótulos, mostrado com esses rótulos na revisão, e **gravado com `a) b)`**. Mostrar só o do livro
+ * faria a pessoa conferir uma coisa e receber outra, sem nunca ver a troca.
+ */
+test("rótulo do livro que difere do derivado aparece com a troca à vista", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  // Maiúsculas, como muito livro escreve — e como o app **não** grava.
+  const LIDO = [
+    `Qual o valor de x? ${marca}`,
+    "A) dois",
+    "B) três",
+    "C) quatro",
+  ].join("\n");
+
+  await page.route("**/api/recognition", async (route) => {
+    const corpo = route.request().postData() ?? "";
+    const id = /name="cropAssetId"\r?\n\r?\n([^\r\n]+)/.exec(corpo)?.[1] ?? "";
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        cropAssetId: id,
+        editedLatex: null,
+        state: "candidate",
+        result: {
+          latex: LIDO,
+          confidence: 0.9,
+          alternatives: [],
+          providerId: "fake",
+          model: "fake-vision",
+          durationMs: 10,
+        },
+      }),
+    });
+  });
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator(".lbb-pdf-holder")).toBeVisible();
+
+  await page.getByRole("button", { name: "Questão completa" }).click();
+  await recortar(page);
+
+  const split = page.locator(".lbb-ing-split");
+  await expect(split).toBeVisible();
+
+  // O do livro **e** o que vai ser gravado, lado a lado.
+  await expect(split.locator(".lbb-ing-alt").first()).toContainText("A");
+  await expect(split.locator(".lbb-ing-alt-derivada").first()).toContainText("a");
+  await expect(split.locator(".lbb-ing-alt-derivada")).toHaveCount(3);
+});
+
+/**
+ * **Onde o recorte vai ser lido, no momento de escolher o arquivo.**
+ *
+ * O protótipo (1477) escreve, embaixo da dropzone: *"O reconhecimento roda no seu computador. Nada
+ * é enviado para fora."* A tela não dizia nada — e é a pergunta que alguém prestes a subir a
+ * página de um livro protegido tem na cabeça, no único momento em que a resposta muda o que a
+ * pessoa faz.
+ *
+ * A frase sai do **host** da `AI_BASE_URL`, e não do nome do provider: "Ollama local" é o nome de
+ * um perfil de configuração, não uma garantia — nada impede apontá-lo para outra máquina.
+ */
+test("a captura diz onde o reconhecimento acontece antes de subir o arquivo", async ({ page }) => {
+  const marca = `${Date.now()}`;
+  const publicationId = await criarLivroVazio(page, marca);
+
+  await page.goto(`/publications/${publicationId}/ingestao`);
+
+  // Uma das três frases possíveis, e cada uma é uma leitura da configuração — não um texto fixo.
+  await expect(
+    page.getByText(
+      /roda no seu computador|sai do seu computador|Nenhum modelo de visão configurado/,
+    ),
+  ).toBeVisible();
+
+  /*
+   * E a garantia forte só aparece quando é verdade. Este ambiente aponta a IA para um host que
+   * **não** é loopback, então a promessa de que nada sai daqui não pode estar na tela — se
+   * estivesse, seria exatamente a mentira que este caminho existe para evitar.
+   */
+  const infra = await page.request.get("/api/infra");
+  const { ai } = (await infra.json()) as { ai: { health: string } };
+
+  if (ai.health !== "ok") {
+    await expect(page.getByText("Nada é enviado para fora")).toHaveCount(0);
+  }
+});

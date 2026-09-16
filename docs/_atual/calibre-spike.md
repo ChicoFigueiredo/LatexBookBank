@@ -22,7 +22,7 @@ depois, como conveniência — nunca como requisito.
 
 | Tabela                | Para quê                                             |
 | --------------------- | ---------------------------------------------------- |
-| `books`               | título, `sort`, `pubdate`, `isbn`, `path`, `uuid`, `has_cover` |
+| `books`               | título, `sort`, `pubdate`, `path`, `uuid`, `has_cover` |
 | `data`                | um registro por **formato**: `format`, `name`, `uncompressed_size` |
 | `authors` + link      | autores, com ordem                                   |
 | `publishers` + link   | editora                                              |
@@ -33,6 +33,19 @@ depois, como conveniência — nunca como requisito.
 
 Lê-se **somente leitura**, e por cópia: abrir o arquivo do usuário em modo escrita arriscaria
 corromper a biblioteca dele se o Calibre estiver aberto ao mesmo tempo.
+
+> **Correção de 2026-09-10.** A linha de `books` dizia `isbn`, e essa coluna **não existe** no
+> Calibre atual — o identificador foi generalizado em `identifiers`, que esta mesma tabela já
+> listava duas linhas abaixo. O provider seguiu a linha errada e passou a consultar
+> `books.isbn`. Contra a biblioteca de 64 livros usada aqui, funcionou; contra o acervo real de
+> 3.260 (`user_version` 27), a consulta morre com `no such column: isbn` e **o catálogo não
+> abre** — não é o ISBN que fica nulo, é a tela inteira que falha. As fixtures dos testes
+> copiavam o mesmo schema, então nada disso aparecia. Corrigido em `calibre-catalog-provider.ts`
+> (lê de `identifiers`), e as fixtures agora declaram o schema que o usuário tem.
+>
+> A lição não é sobre o Calibre. É que a spike foi rodada contra uma biblioteca que **não era a
+> do autor**, e a fixture do teste foi derivada dela — um teste verde afirmando o contrário do
+> que acontece na máquina de quem usa.
 
 ### 3. Quais formatos?
 

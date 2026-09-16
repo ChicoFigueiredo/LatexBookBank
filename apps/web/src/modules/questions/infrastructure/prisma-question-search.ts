@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 
+import { caminhoDe } from "@modules/questions/domain/search-location";
 import { buildWhere } from "./prisma-question-search-where";
 import { isQuestionType, isDifficulty } from "@modules/questions/domain/question-type";
 import type {
@@ -54,6 +55,22 @@ export class PrismaQuestionSearch implements QuestionSearchService {
         year: true,
         difficulty: true,
         tags: { select: { tag: { select: { name: true } } } },
+        /*
+         * Onde a questão mora — o `crumb` do protótipo (2190).
+         *
+         * Duas junções e nada mais: a publicação e o **pai imediato** do nó. O caminho inteiro
+         * (livro › capítulo › seção › grupo) exigiria subir a árvore por questão, e com cinquenta
+         * resultados isso é cinquenta escaladas para uma linha que precisa caber numa palete.
+         * Livro e capítulo respondem "de onde é isto?"; o resto é endereço, e o endereço quem dá
+         * é abrir.
+         */
+        node: {
+          select: {
+            title: true,
+            publication: { select: { title: true, nickname: true } },
+            parent: { select: { title: true, originalLabel: true, kind: true } },
+          },
+        },
       },
     });
 
@@ -78,6 +95,11 @@ function toHit(row: {
   year: number | null;
   difficulty: number;
   tags: { tag: { name: string } }[];
+  node: {
+    title: string | null;
+    publication: { title: string; nickname: string | null };
+    parent: { title: string | null; originalLabel: string | null; kind: string } | null;
+  } | null;
 }): SearchHit {
   return {
     id: row.id,
@@ -91,6 +113,7 @@ function toHit(row: {
     year: row.year,
     difficulty: isDifficulty(row.difficulty) ? row.difficulty : 5,
     tags: row.tags.map((link) => link.tag.name),
+    where: caminhoDe(row.node),
   };
 }
 

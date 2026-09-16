@@ -61,6 +61,42 @@ export async function writeImportedWorkspace(
     let options = 0;
     let storedAssets = 0;
 
+    /**
+     * O PDF fonte e os PDFs das âncoras (v2): um asset por hash e por livro, gravado uma vez. A
+     * âncora do destino aponta para ele — a origem de cada questão atravessa o backup inteira.
+     */
+    const sourceAssetBySha = new Map<string, string>();
+    const sourceAsset = async (publicationId: string, sha256: string): Promise<string | null> => {
+      const key = `${publicationId}:${sha256}`;
+      const known = sourceAssetBySha.get(key);
+      if (known) return known;
+      const asset = bySha.get(sha256);
+      if (asset === undefined) {
+        missingAssets.add(sha256);
+        return null;
+      }
+      const stored = await storage.put({
+        workspaceId: workspace.id,
+        content: asset.bytes,
+        mimeType: mimeFor(asset.extension),
+      });
+      const created = await client.asset.create({
+        data: {
+          workspaceId: workspace.id,
+          publicationId,
+          kind: "SOURCE_PDF",
+          storageKey: stored.storageKey,
+          mimeType: mimeFor(asset.extension),
+          sha256: stored.sha256,
+          sizeBytes: stored.sizeBytes,
+        },
+        select: { id: true },
+      });
+      storedAssets += 1;
+      sourceAssetBySha.set(key, created.id);
+      return created.id;
+    };
+
     for (const publication of plan.workspace.publications) {
       const createdPublication = await client.publication.create({
         data: {
@@ -68,6 +104,15 @@ export async function writeImportedWorkspace(
           title: publication.title,
           subtitle: publication.subtitle,
           publisher: publication.publisher,
+          nickname: publication.nickname,
+          isbn: publication.isbn,
+          otherIdentifier: publication.otherIdentifier,
+          edition: publication.edition,
+          editionYear: publication.editionYear,
+          language: publication.language,
+          series: publication.series,
+          volume: publication.volume,
+          notes: publication.notes,
           legacyId: publication.legacyId,
           legacyUuid: publication.legacyUuid,
           metadataJson: publication.metadataJson,
@@ -75,6 +120,40 @@ export async function writeImportedWorkspace(
         },
         select: { id: true },
       });
+
+      if (publication.sourcePdfAssetSha256) {
+        const sourceId = await sourceAsset(createdPublication.id, publication.sourcePdfAssetSha256);
+        if (sourceId) {
+          await client.publication.update({
+            where: { id: createdPublication.id },
+            data: { sourcePdfAssetId: sourceId },
+          });
+        }
+      }
+
+      /**
+       * Os autores renascem **por nome**, e não por id.
+       *
+       * `Author` é compartilhado por todo o acervo e tem `name` único: o id do banco de origem não
+       * significa nada aqui, e trazê-lo colidiria com um autor homônimo já existente. `upsert` por
+       * nome é o que faz "Gelson Iezzi" importado de dois arquivos diferentes continuar sendo uma
+       * pessoa só — que é a razão de a tabela existir separada.
+       *
+       * A ordem é preservada em `position`: quem assina primeiro assina primeiro, e a estante
+       * mostra "Iezzi e outros" a partir dela.
+       */
+      for (const [posicao, nome] of publication.authors.entries()) {
+        const autor = await client.author.upsert({
+          where: { name: nome },
+          create: { name: nome },
+          update: {},
+          select: { id: true },
+        });
+
+        await client.publicationAuthor.create({
+          data: { publicationId: createdPublication.id, authorId: autor.id, position: posicao },
+        });
+      }
 
       // Duas passadas: os nós são criados sem pai, e o `parentId` é ligado depois. Uma passada só
       // exigiria que o pai viesse antes do filho no arquivo — o que é verdade hoje e seria uma
@@ -120,9 +199,11 @@ export async function writeImportedWorkspace(
                 sortKey: option.sortKey,
                 statementLatex: option.statementLatex,
                 solutionLatex: option.solutionLatex,
+                originalLatex: option.originalLatex,
                 isCorrect: option.isCorrect,
                 weight: option.weight,
                 legacyId: option.legacyId,
+                legacyMarcacao: option.legacyMarcacao,
               },
             });
             options += 1;
@@ -174,10 +255,49 @@ export async function writeImportedWorkspace(
             numberingStyle: node.numberingStyle,
             originalLabel: node.originalLabel,
             legacyId: node.legacyId,
+            bodyLatex: node.bodyLatex,
             questionId,
           },
           select: { id: true },
         });
+
+        // As âncoras renascem em ordem; a primeira responde pela coluna antiga do nó e da questão.
+        let order = 0;
+        let primary: string | null = null;
+        for (const anchor of node.anchors) {
+          const assetId = await sourceAsset(createdPublication.id, anchor.sha256);
+          if (!assetId) continue;
+          const createdAnchor = await client.sourceAnchor.create({
+            data: {
+              publicationId: createdPublication.id,
+              sourceAssetId: assetId,
+              pageNumber: anchor.pageNumber,
+              xNormalized: anchor.box.x,
+              yNormalized: anchor.box.y,
+              widthNormalized: anchor.box.width,
+              heightNormalized: anchor.box.height,
+              sourceText: anchor.sourceText,
+              extractionMethod: anchor.extractionMethod,
+              extractionModel: anchor.extractionModel,
+            },
+            select: { id: true },
+          });
+          await client.documentNodeAnchor.create({
+            data: {
+              documentNodeId: createdNode.id,
+              sourceAnchorId: createdAnchor.id,
+              sortOrder: order++,
+              role: anchor.role,
+            },
+          });
+          primary ??= createdAnchor.id;
+        }
+        if (primary) {
+          await client.documentNode.update({ where: { id: createdNode.id }, data: { sourceAnchorId: primary } });
+          if (questionId) {
+            await client.question.update({ where: { id: questionId }, data: { sourceAnchorId: primary } });
+          }
+        }
 
         nodeIdByRef.set(node.id, createdNode.id);
         nodes += 1;

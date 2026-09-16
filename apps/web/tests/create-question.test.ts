@@ -101,7 +101,14 @@ describe("criar questão", () => {
       { publicationId: "p1", type: "MULTIPLE_CHOICE", placement: { kind: "lastChild", parentId: "n1" } },
     );
 
-    expect(created).toEqual({ questionId: "q1", nodeId: "n-novo", publicationId: "p1" });
+    // `inherited: null` — a árvore do teste não tem questão anterior com banca. Ver
+    // `herdar-metadados.test.ts` para a herança em si.
+    expect(created).toEqual({
+      questionId: "q1",
+      nodeId: "n-novo",
+      publicationId: "p1",
+      inherited: null,
+    });
     expect(creator.received?.parentId).toBe("n1");
     expect(creator.received?.sortKey).toBeTruthy();
   });

@@ -133,6 +133,44 @@ export function siblingOrder<T extends LegacyRow>(
   return result;
 }
 
+export interface LegacyOptionRow {
+  readonly IdQuestao: number;
+  readonly Ordem: number;
+}
+
+/**
+ * A ordem das alternativas, agrupada por questão.
+ *
+ * Diferente de `siblingOrder`: aqui `Ordem` é a ordem real (a=1, b=2, ...), não o `Ordem` de
+ * `Questao`, que vale 0 em quase toda linha. Confiar em `IdQuestao_Itens` (inserção) embaralharia
+ * quando alguém reordenou alternativas no app legado sem recriar as linhas.
+ */
+export function optionOrder<T extends LegacyOptionRow>(
+  rows: readonly T[],
+): ReadonlyMap<number, readonly { row: T; sortKey: string }[]> {
+  const byQuestion = new Map<number, T[]>();
+
+  for (const row of rows) {
+    const siblings = byQuestion.get(row.IdQuestao) ?? [];
+    siblings.push(row);
+    byQuestion.set(row.IdQuestao, siblings);
+  }
+
+  const result = new Map<number, { row: T; sortKey: string }[]>();
+
+  for (const [questionId, siblings] of byQuestion) {
+    const ordered = [...siblings].sort((a, b) => a.Ordem - b.Ordem);
+    const keys = generateNKeysBetween(null, null, ordered.length);
+
+    result.set(
+      questionId,
+      ordered.map((row, index) => ({ row, sortKey: keys[index] as string })),
+    );
+  }
+
+  return result;
+}
+
 /* ───────────────────────────── fontes de figura ───────────────────────────── */
 
 /**

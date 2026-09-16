@@ -4,6 +4,7 @@ import {
   CatalogEntryNotFoundError,
   DuplicatePublicationError,
   importFromCatalog,
+  importManyFromCatalog,
   type CatalogAssetWriter,
   type PublicationOriginWriter,
 } from "@modules/publications/application/import-from-catalog";
@@ -83,6 +84,7 @@ const LIBRARY: LibrarySummary = {
   id: "lib-1",
   name: "Acervo",
   slug: "acervo",
+  description: null,
   publicationCount: 0,
   updatedAt: new Date(0),
 };
@@ -95,9 +97,25 @@ const libraries: LibraryRepository = {
   existsByName: async () => false,
   create: async () => LIBRARY,
   rename: async () => LIBRARY,
+  // Importar do Calibre não exclui nada; estão aqui só porque a porta os exige.
+  contentsOf: async () => ({ publicationCount: 0, questionCount: 0, assetCount: 0 }),
+  listAssetKeys: async () => [],
+  delete: async () => false,
 };
 
 class FakePublications implements PublicationRepository {
+  // A importação do Calibre não exclui nada — o dublê declara os três e recusa, para que um
+  // caminho que passe a chamá-los apareça no teste em vez de passar batido com um `noop`.
+  contentsOf(): never {
+    throw new Error("não usado neste caminho");
+  }
+  listAssetKeys(): never {
+    throw new Error("não usado neste caminho");
+  }
+  delete(): never {
+    throw new Error("não usado neste caminho");
+  }
+
   written: PublicationWrite[] = [];
 
   listByWorkspaceSlug = async (): Promise<readonly PublicationSummary[]> => [];
@@ -305,5 +323,98 @@ describe("importar do catálogo", () => {
     await expect(importar([entrada()], [], { externalId: "sumiu" })).rejects.toThrow(
       CatalogEntryNotFoundError,
     );
+  });
+});
+
+describe("importação em lote — beta-editorial.md, 'o que o Calibre ainda não faz'", () => {
+  const importarVarios = async (
+    entries: readonly CatalogEntry[],
+    externalIds: readonly string[],
+    existing: readonly ExistingPublication[] = [],
+  ) => {
+    const publications = new FakePublications();
+    const assets = new FakeAssets();
+    const origin = new FakeOrigin();
+
+    // `existing` precisa consultar `publications.written` **ao vivo**, não uma foto do início —
+    // senão o segundo livro do lote nunca veria o primeiro como duplicata, e o teste que prova
+    // isso passaria por acidente mesmo com paralelismo indevido no código.
+    const catalog = new FakeCatalog(entries);
+
+    const report = await importManyFromCatalog(
+      {
+        catalog,
+        libraries,
+        publications,
+        assets,
+        origin,
+        existing: async () => [
+          ...existing,
+          ...publications.written.map((write, index) => ({
+            id: `pub-${index + 1}`,
+            title: write.title,
+            isbn: write.isbn,
+            authors: write.authors,
+            externalId: null,
+          })),
+        ],
+      },
+      { libraryId: "lib-1", externalIds, maxYear: 2027, now: NOW },
+    );
+
+    return { report, publications, assets };
+  };
+
+  it("importa vários livros de uma vez, um de cada vez", async () => {
+    const { report, publications } = await importarVarios(
+      [
+        entrada({ externalId: "uuid-1" }),
+        entrada({ externalId: "uuid-2", title: "Outro Livro", isbn: "9780000000001" }),
+      ],
+      ["uuid-1", "uuid-2"],
+    );
+
+    expect(report.results).toHaveLength(2);
+    expect(report.results.every((r) => r.outcome.kind === "imported")).toBe(true);
+    expect(publications.written.map((w) => w.title)).toEqual(["Conjuntos e Funções", "Outro Livro"]);
+  });
+
+  it("um livro ruim não derruba o lote — os outros entram", async () => {
+    const { report, publications } = await importarVarios(
+      [
+        entrada({ externalId: "uuid-1" }),
+        entrada({ externalId: "uuid-2", title: "Outro Livro", isbn: "9780000000001" }),
+      ],
+      ["uuid-1", "sumiu", "uuid-2"],
+    );
+
+    expect(report.results.map((r) => r.outcome.kind)).toEqual(["imported", "failed", "imported"]);
+    expect(publications.written).toHaveLength(2);
+
+    const falha = report.results[1];
+    if (falha?.outcome.kind !== "failed") throw new Error("esperava falha");
+    expect(falha.outcome.message).toContain("não está mais no catálogo");
+  });
+
+  it("o segundo livro do lote enxerga o primeiro como duplicata — não é `Promise.all`", async () => {
+    // Dois livros iguais no mesmo lote: em paralelo, os dois consultariam `existing` antes de
+    // qualquer escrita, e nenhum veria o outro. Sequencial é o que faz o segundo recusar.
+    const { report, publications } = await importarVarios(
+      [entrada({ externalId: "uuid-1" }), entrada({ externalId: "uuid-2" })],
+      ["uuid-1", "uuid-2"],
+    );
+
+    expect(report.results[0]?.outcome.kind).toBe("imported");
+    expect(report.results[1]?.outcome.kind).toBe("failed");
+    expect(publications.written).toHaveLength(1);
+
+    const falha = report.results[1];
+    if (falha?.outcome.kind !== "failed") throw new Error("esperava falha");
+    expect(falha.outcome.message).toMatch(/já foi importado|ISBN/);
+  });
+
+  it("lote vazio devolve relatório vazio, sem erro", async () => {
+    const { report } = await importarVarios([], []);
+    expect(report.results).toEqual([]);
   });
 });

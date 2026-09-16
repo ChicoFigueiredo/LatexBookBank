@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { assetLatexName } from "@modules/assets/domain/asset-latex-name";
 
 import { UploadRejectedError } from "@modules/assets/domain/asset-ingestion";
+import { registerUploadedAsset } from "@modules/assets/application/register-uploaded-asset";
 import { inferKind, storeAsset } from "@modules/assets/application/store-asset";
 import { isAssetKind } from "@modules/assets/domain/asset-kind";
-import { createAsset } from "@modules/assets/infrastructure/prisma-asset-writer";
+import { PrismaAssetWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
 import { env as appEnv } from "@/shared/config/env";
 import { StorageKeyEscapeError } from "@/shared/ports";
@@ -56,11 +57,21 @@ export async function POST(request: Request) {
     );
 
     const questionId = form.get("questionId");
-    const asset = await createAsset({
-      ...record,
-      workspaceId,
-      questionId: typeof questionId === "string" && questionId !== "" ? questionId : null,
-    });
+    // O livro de onde o upload partiu. Opcional na rota — `/api/assets` é o upload do produto
+    // inteiro — mas é ele que decide se este PDF vira o PDF fonte do livro. A regra mora no
+    // `registerUploadedAsset`; aqui só se lê o campo do formulário.
+    const publicationId = form.get("publicationId");
+
+    const asset = await registerUploadedAsset(
+      { assets: new PrismaAssetWriter() },
+      {
+        record,
+        workspaceId,
+        questionId: typeof questionId === "string" && questionId !== "" ? questionId : null,
+        publicationId:
+          typeof publicationId === "string" && publicationId !== "" ? publicationId : null,
+      },
+    );
 
     // Projeção campo a campo, e **não** `...record`: o `StoredAssetRecord` carrega a
     // `storageKey`, e o espalhamento a mandava para o browser em toda resposta de upload. A D26 diz
@@ -79,6 +90,9 @@ export async function POST(request: Request) {
         kind: record.kind,
         width: record.width,
         height: record.height,
+        // A tela precisa saber que o livro deixou de estar sem fonte: é o que dispara a
+        // revalidação, para o resumo não continuar mostrando a pendência já resolvida.
+        becameBookSource: asset.becameBookSource,
       },
       { status: 201 },
     );

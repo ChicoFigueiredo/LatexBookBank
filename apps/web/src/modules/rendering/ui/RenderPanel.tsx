@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Badge, Banner, Button, Tabs } from "@/design-system";
+import { Badge, Banner, Button, Segmented, Tabs } from "@/design-system";
 import type { RenderDiagnostic } from "@latexbookbank/render-contract";
+import {
+  avisoDeSaidaVencida,
+  nomeDoArquivo,
+  resumoDaSaida,
+  SAIDAS,
+  type SaidaDoRender,
+} from "@modules/rendering/domain/saida-do-render";
 import {
   locateBodyLine,
   type RenderSourceField,
@@ -56,7 +63,12 @@ export interface DiagnosticTarget {
 export type RenderStatus =
   | { readonly kind: "idle" }
   | { readonly kind: "running" }
-  | { readonly kind: "done"; readonly outcome: RenderOutcomeView }
+  | {
+      readonly kind: "done";
+      readonly outcome: RenderOutcomeView;
+      /** Sob qual saída este resultado foi compilado. Ver `saida-do-render`. */
+      readonly saida: SaidaDoRender;
+    }
   /** Worker fora do ar ou não configurado — **não** é erro do documento. */
   | { readonly kind: "unavailable"; readonly message: string }
   | { readonly kind: "error"; readonly message: string };
@@ -73,6 +85,21 @@ export interface RenderPanelProps {
    * continua listado, só não vira botão. Um botão que não leva a lugar nenhum é pior que texto.
    */
   readonly onGoToDiagnostic?: (target: DiagnosticTarget) => void;
+  /**
+   * Qual questão este painel está mostrando.
+   *
+   * Serve a uma coisa só: esquecer a última compilação boa ao trocar de questão. Exibir o PDF de
+   * outra questão como "o último que deu certo" é a pior forma de errar — parece certo e é de
+   * outro documento.
+   */
+  readonly questionKey?: string;
+  /**
+   * A saída escolhida agora, e como trocá-la.
+   *
+   * Ausente na prévia do agente, que não tem escolha a oferecer: lá o painel é só o resultado.
+   */
+  readonly saida?: SaidaDoRender;
+  readonly onSaidaChange?: (saida: SaidaDoRender) => void;
 }
 
 type PanelTab = "pdf" | "png" | "log" | "source";
@@ -100,12 +127,75 @@ const FIELD_LABEL: Record<RenderSourceField, string> = {
 const artifactUrl = (jobId: string, name: string): string =>
   `/api/render-jobs/${encodeURIComponent(jobId)}/artifacts/${encodeURIComponent(name)}`;
 
-export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }: RenderPanelProps) {
+export function RenderPanel({
+  status,
+  onRender,
+  sourceLatex,
+  onGoToDiagnostic,
+  questionKey,
+  saida,
+  onSaidaChange,
+}: RenderPanelProps) {
   const [tab, setTab] = useState<PanelTab>("pdf");
   const [expanded, setExpanded] = useState(false);
   const render = useCallback(() => onRender(), [onRender]);
 
   const outcome = status.kind === "done" ? status.outcome : null;
+
+  /**
+   * A última compilação que deu certo — e por que ela precisa sobreviver à seguinte que falhar.
+   *
+   * O protótipo (1244) promete: *"O último PNG válido continua na aba PNG; o PDF sob demanda usa
+   * sempre a última compilação bem-sucedida."* Não era verdade aqui. Uma compilação que falha
+   * substitui o resultado anterior no estado do painel, e a aba do PDF fica vazia — a pessoa
+   * perde de vista o PDF bom que tinha há dez segundos, no exato momento em que quer comparar o
+   * que quebrou com o que funcionava.
+   *
+   * Os artefatos do job antigo continuam no servidor: eles são buscados por `jobId`, e nada os
+   * apaga. O que faltava era o painel lembrar de qual era.
+   */
+  const [ultimoBom, setUltimoBom] = useState<RenderOutcomeView | null>(null);
+  /** A saída sob a qual `ultimoBom` foi compilado — anda junto com ele, e não com a tela. */
+  const [saidaDoUltimoBom, setSaidaDoUltimoBom] = useState<SaidaDoRender | null>(null);
+  const [chaveVista, setChaveVista] = useState(questionKey);
+
+  /*
+   * Ajuste **durante o render**, e não num efeito.
+   *
+   * É o padrão que o React documenta para estado derivado de props, e é o que o lint deste projeto
+   * exige: `setState` dentro de `useEffect` dispara um segundo render em cascata, e aqui o valor
+   * novo já é conhecido no primeiro. O React descarta este render e refaz antes de pintar, sem
+   * frame intermediário.
+   */
+  if (chaveVista !== questionKey) {
+    // Trocar de questão zera a memória: o PDF de outra questão exibido como "o último bom" desta
+    // seria a pior forma de errar — parece certo e é de outro documento.
+    setChaveVista(questionKey);
+    setUltimoBom(null);
+    setSaidaDoUltimoBom(null);
+  } else if (outcome?.success === true && ultimoBom !== outcome) {
+    setUltimoBom(outcome);
+    setSaidaDoUltimoBom(status.kind === "done" ? status.saida : null);
+  }
+
+  const falhou = outcome !== null && !outcome.success;
+  /** O que a aba do PDF mostra: o resultado atual quando prestou, senão o último que prestou. */
+  const exibido = falhou ? ultimoBom : outcome;
+
+  /*
+   * A saída do que está na tela — do último bom quando é ele que aparece, do resultado atual
+   * quando é ele. Comparar com a saída escolhida agora é o que produz o aviso.
+   */
+  const saidaExibida =
+    exibido === null
+      ? null
+      : falhou
+        ? saidaDoUltimoBom
+        : status.kind === "done"
+          ? status.saida
+          : null;
+
+  const avisoDeSaida = saida === undefined ? null : avisoDeSaidaVencida(saida, saidaExibida);
 
   // O corpo de verdade quando existe; o enunciado da tela enquanto não se compilou nada. A
   // diferença aparece assim que a questão tem alternativas — elas entram no documento e não no
@@ -144,7 +234,7 @@ export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }:
               position: "fixed" as const,
               inset: 0,
               zIndex: 60,
-              background: "var(--surface-default)",
+              background: "var(--surface)",
             }
           : {}),
       }}
@@ -191,6 +281,53 @@ export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }:
         </div>
       </div>
 
+      {/*
+        A saída — `Aluno` · `Professor` (protótipo, 1064–1091).
+
+        Numa linha só dela, e não ao lado das abas, porque foi o que o protótipo fez e por uma
+        razão que o primeiro e2e provou: com `Compilar`, `Tela cheia` e o selo de estado na mesma
+        faixa, o resumo em mono era espremido a zero — presente no DOM, invisível na tela. É a
+        forma mais convincente de não dizer nada.
+
+        E fica **no cabeçalho do render**, não nas preferências: é decisão por compilação, e
+        precisa estar à vista no momento em que se aperta Compilar. Escondida num menu de ajustes,
+        ninguém descobre que a resolução podia sair no PDF.
+      */}
+      {saida !== undefined && onSaidaChange !== undefined && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-2)",
+            padding: "var(--space-2) var(--space-3)",
+            borderBottom: "1px solid var(--border-default)",
+            minWidth: 0,
+          }}
+        >
+          <Segmented
+            options={SAIDAS.map((opcao) => ({ id: opcao.id, label: opcao.label, showLabel: true }))}
+            value={saida}
+            onChange={(id) => onSaidaChange(id as SaidaDoRender)}
+            aria-label="O que entra no render"
+          />
+          <span
+            style={{
+              flex: "1 1 auto",
+              minWidth: 0,
+              fontFamily: "var(--font-mono)",
+              fontSize: "var(--text-micro)",
+              color: "var(--text-muted)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={resumoDaSaida(saida)}
+          >
+            {resumoDaSaida(saida)}
+          </span>
+        </div>
+      )}
+
       {status.kind === "unavailable" && (
         <div style={{ padding: "var(--space-3)" }}>
           {/* `warn` e não `danger`: não há nada errado com o documento, e pintar de vermelho
@@ -205,6 +342,44 @@ export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }:
         <div style={{ padding: "var(--space-3)" }}>
           <Banner tone="danger" title="Falha ao compilar">
             {status.message}
+          </Banner>
+        </div>
+      )}
+
+      {/*
+        A garantia, no instante da falha (protótipo, 1243–1245).
+
+        Um render que falha devolve uma parede de erro do TeX, e a primeira pergunta de quem a lê
+        não é sobre o `\hbox`: é "perdi alguma coisa?". A resposta é **não** em duas frentes, e as
+        duas são verdade — o texto nunca passou pelo render, e o PDF anterior continua no servidor,
+        buscável pelo `jobId` do job que deu certo.
+
+        É a mesma frase que faltava no autosave e na espera do reconhecimento: durante a falha é
+        quando ela vale.
+      */}
+      {falhou && (
+        <div style={{ padding: "var(--space-3) var(--space-3) 0" }}>
+          <Banner tone="danger" title="O render falhou — o texto continua salvo">
+            {ultimoBom
+              ? "A última compilação que deu certo continua nas abas PDF e PNG, e é ela que vale até esta passar."
+              : "Nada foi compilado com sucesso ainda nesta sessão, então não há PDF anterior para mostrar."}
+          </Banner>
+        </div>
+      )}
+
+      {/*
+        O resultado na tela é de outra saída (protótipo, 1168–1172).
+
+        O item mais grave desta rodada, e o único que não é informação faltando: sem este aviso,
+        trocar para `Professor` e baixar o PDF que já estava aberto entrega o arquivo **de aluno**,
+        sem gabarito, para quem tem certeza de estar levando a versão com ele.
+
+        Fica em `warn` e não em `danger` porque nada quebrou — o arquivo é bom, só é o outro.
+      */}
+      {avisoDeSaida !== null && (
+        <div style={{ padding: "var(--space-3) var(--space-3) 0" }}>
+          <Banner tone="warn" title="Este resultado é de outra saída">
+            {avisoDeSaida}
           </Banner>
         </div>
       )}
@@ -228,12 +403,18 @@ export function RenderPanel({ status, onRender, sourceLatex, onGoToDiagnostic }:
           <p style={{ color: "var(--text-secondary)" }}>Compilando com o TeX…</p>
         ) : outcome === null ? (
           <EmptyHint />
-        ) : tab === "pdf" ? (
-          <PdfView outcome={outcome} />
-        ) : tab === "png" ? (
-          <PngView outcome={outcome} />
-        ) : (
+        ) : tab === "log" ? (
+          // O log é **sempre** o da compilação atual: é ele que explica a falha, e mostrar o log
+          // da compilação bem-sucedida ao lado de uma falha seria esconder a evidência.
           <LogView outcome={outcome} />
+        ) : exibido === null ? (
+          <EmptyHint />
+        ) : tab === "pdf" ? (
+          <PdfView outcome={exibido} saida={saidaExibida} questionKey={questionKey} />
+        ) : tab === "png" ? (
+          <PngView outcome={exibido} />
+        ) : (
+          <LogView outcome={exibido} />
         )}
       </div>
     </div>
@@ -376,23 +557,74 @@ function Diagnostics({
   );
 }
 
-function PdfView({ outcome }: { readonly outcome: RenderOutcomeView }) {
+function PdfView({
+  outcome,
+  saida,
+  questionKey,
+}: {
+  readonly outcome: RenderOutcomeView;
+  readonly saida: SaidaDoRender | null;
+  readonly questionKey: string | undefined;
+}) {
   const pdf = outcome.artifacts.find((artifact) => artifact.kind === "RENDER_PDF");
   if (!pdf) return <p style={{ color: "var(--text-secondary)" }}>Esta compilação não gerou PDF.</p>;
 
+  const href = artifactUrl(outcome.jobId, pdf.name);
+
   return (
-    // `<object>` e não `<iframe>`: o fallback fica dentro do elemento e aparece sozinho onde o
-    // navegador não tem leitor de PDF, sem precisar detectar nada.
-    <object
-      data={artifactUrl(outcome.jobId, pdf.name)}
-      type="application/pdf"
-      style={{ width: "100%", height: "100%", minHeight: "24rem", border: 0 }}
-      aria-label="PDF compilado"
-    >
-      <a href={artifactUrl(outcome.jobId, pdf.name)}>
-        Baixar o PDF ({Math.round(pdf.sizeBytes / 1024)} KB)
-      </a>
-    </object>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+      {/*
+        `Baixar` de verdade (protótipo, 1160), e não só o fallback do `<object>`.
+
+        O link existia — dentro do `<object>`, que é onde ele **desaparece** assim que o navegador
+        tem leitor de PDF, ou seja, sempre. Baixar era clicar com o botão direito no visualizador
+        embutido e torcer pelo nome do arquivo.
+
+        E o nome carrega a saída: dois PDFs da mesma questão na pasta de downloads com o mesmo
+        nome são indistinguíveis exatamente quando a diferença importa — um tem o gabarito.
+      */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--space-2)",
+          marginBottom: "var(--space-2)",
+        }}
+      >
+        <Button
+          size="sm"
+          variant="secondary"
+          href={href}
+          {...(saida !== null && questionKey !== undefined
+            ? { download: nomeDoArquivo(questionKey, saida, "pdf") }
+            : { download: pdf.name })}
+        >
+          Baixar o PDF ({Math.round(pdf.sizeBytes / 1024)} KB)
+        </Button>
+        {saida !== null && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "var(--text-micro)",
+              color: "var(--text-muted)",
+            }}
+          >
+            saída {saida}
+          </span>
+        )}
+      </div>
+
+      {/* `<object>` e não `<iframe>`: o fallback fica dentro do elemento e aparece sozinho onde o
+          navegador não tem leitor de PDF, sem precisar detectar nada. */}
+      <object
+        data={href}
+        type="application/pdf"
+        style={{ flex: 1, width: "100%", minHeight: "24rem", border: 0 }}
+        aria-label="PDF compilado"
+      >
+        <a href={href}>Baixar o PDF ({Math.round(pdf.sizeBytes / 1024)} KB)</a>
+      </object>
+    </div>
   );
 }
 

@@ -117,6 +117,32 @@ test("do catálogo do Calibre a um livro do acervo", async ({ page }) => {
     await expect(page.getByText("1 PDF")).toBeVisible();
   });
 
+  await test.step("o filtro por formato responde de uma vez o que a lista responde linha a linha", async () => {
+    /*
+     * A tela já diz, em cada linha, que sem PDF a captura por recorte não funciona. Numa
+     * biblioteca de 64 livros — o tamanho da do usuário, medido na spike — descobrir quais servem
+     * exigia varrer as 64. O protótipo (2505) põe `Todos · PDF · EPUB` na barra, e é isso.
+     */
+    await expect(page.getByText("2 resultados")).toBeVisible();
+
+    await page.getByRole("button", { name: "PDF", exact: true }).click();
+    await expect(page.getByText("1 resultado", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(TITULO_SEM_PDF) })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "EPUB", exact: true }).click();
+    await expect(page.getByRole("button", { name: new RegExp(TITULO_PDF) })).toHaveCount(0);
+
+    /*
+     * O seletor de série **não** aparece nesta fixture, e é o certo: nenhum dos dois livros tem
+     * coleção, e um filtro com uma resposta só ensina a pessoa a ignorar controles. A primeira
+     * versão deste teste tentou usá-lo e ficou pendurada — a tela estava certa e o teste, errado.
+     */
+    await expect(page.getByLabel("Filtrar por série")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Todos", exact: true }).click();
+    await expect(page.getByText("2 resultados")).toBeVisible();
+  });
+
   await test.step("o livro sem PDF avisa antes do clique", async () => {
     // Sem PDF a captura por recorte não funciona, e dizer isso na lista poupa a importação
     // inteira.
@@ -142,8 +168,48 @@ test("do catálogo do Calibre a um livro do acervo", async ({ page }) => {
     await expect(page.getByText("Livro no acervo")).toBeVisible({ timeout: 20_000 });
     await page.getByRole("link", { name: "Abrir o livro" }).click();
 
-    // Depois de importado, é um livro normal do LatexBookBank — o Calibre é só a origem.
-    await expect(page.getByText("Este livro ainda não tem estrutura")).toBeVisible();
+    // Depois de importado, é um livro normal do LatexBookBank — o Calibre é só a origem, e o
+    // destino é o resumo do livro, como o de qualquer outro. Um livro recém-importado cai no
+    // estado `LIVRO · vazio`, que diz o que há **e** por onde começar — mais do que a árvore
+    // vazia dizia, e mais do que a faixa de pendências dizia antes dele existir.
+    await expect(page.getByRole("heading", { name: TITULO_PDF })).toBeVisible();
+    await expect(page.getByText("Este livro ainda não tem capítulos nem questões")).toBeVisible();
+
+    // E a fonte veio junto do Calibre, então "Abrir PDF fonte" é uma das saídas oferecidas.
+    await expect(page.getByRole("link", { name: "Abrir PDF fonte" })).toBeVisible();
+  });
+
+  await test.step("e a captura **abre** no PDF que veio junto, em vez de pedir um arquivo", async () => {
+    /*
+     * O protótipo (1487) punha "Usar FME1.pdf (fonte do livro)" ao lado de colar e escolher
+     * arquivo, e este teste esperava esse botão. Era pouco: a importação do Calibre existe para
+     * trazer o PDF **para dentro do acervo**, e a tela ainda recebia quem chegava com "Trazer
+     * arquivo — arraste um PDF", com o arquivo certo escondido num botão que era preciso
+     * descobrir. Agora a sessão de captura já nasce com ele, e o botão virou a volta para quem
+     * desviou.
+     */
+    await page.getByRole("link", { name: "Abrir PDF fonte" }).click();
+
+    // O que o servidor afirma sobre esta sessão: ela já tem arquivo, e o gesto seguinte é
+    // recortar. Sem clique nenhum entre chegar e isto.
+    await expect(page.getByText("O PDF do livro está aberto")).toBeVisible({ timeout: 20_000 });
+
+    /*
+     * Pelo arquivo **em uso**, e não pelo visualizador renderizado.
+     *
+     * A primeira versão esperava o `.lbb-pdf-holder`, e isso pede ao pdf.js que renderize o PDF
+     * desta fixture — que é um stub de três linhas, montado para o `storeAsset` conferir mime e
+     * tamanho, não para ser um documento. Passou uma vez e falhou depois: o teste media a
+     * capacidade do pdf.js de tolerar um arquivo inválido, e não o que ele afirma.
+     *
+     * Com um stub, os dois desfechos são legítimos: o arquivo aparece em uso na barra, ou o
+     * pdf.js o recusa e a tela cai para a área de arrastar **dizendo qual arquivo não abriu**.
+     * O que nenhum dos dois pode ser é o que havia antes — pedir upload calada, com o PDF do
+     * livro escondido atrás de um clique.
+     */
+    const emUso = page.locator(".lbb-ing-actions").getByText(/\.pdf/);
+    const naoAbriu = page.getByText("O arquivo não abriu");
+    await expect(emUso.or(naoAbriu).first()).toBeVisible({ timeout: 20_000 });
   });
 
   await test.step("reimportar o mesmo livro é recusado, com saída", async () => {

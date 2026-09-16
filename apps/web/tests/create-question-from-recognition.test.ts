@@ -156,8 +156,10 @@ describe("criar questão a partir do reconhecimento", () => {
     expect(creator.received?.statementLatex).toBe("Calcule $x^2$");
     expect(creator.received?.originalLabel).toBe("27");
     expect(creator.received?.options).toHaveLength(2);
-    // §73: depois de criar, é preciso poder selecionar, navegar e abrir o editor.
-    expect(result.href).toBe("/publications/p1?node=n1");
+    // §73: depois de criar, é preciso poder selecionar, navegar e abrir o editor. O editor mudou
+    // de `/publications/:id` para `/publications/:id/editor` quando o overview do livro passou a
+    // ocupar a rota do livro — aqui o destino é o editor, e não o resumo.
+    expect(result.href).toBe("/publications/p1/editor?node=n1");
   });
 
   it("registra a execução do reconhecedor **antes** de criar a questão", async () => {

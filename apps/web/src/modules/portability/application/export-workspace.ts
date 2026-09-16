@@ -37,7 +37,29 @@ export interface RuntimePublication {
   readonly legacyUuid: string | null;
   readonly metadataJson: string | null;
   readonly coverAssetSha256: string | null;
+  /** A ficha catalográfica — ver `PortablePublication` para o porquê de ela ter faltado. */
+  readonly nickname: string | null;
+  readonly isbn: string | null;
+  readonly otherIdentifier: string | null;
+  readonly edition: string | null;
+  readonly editionYear: number | null;
+  readonly language: string | null;
+  readonly series: string | null;
+  readonly volume: string | null;
+  readonly notes: string | null;
+  readonly authors: readonly string[];
+  readonly sourcePdfAssetSha256: string | null;
   readonly nodes: readonly RuntimeNode[];
+}
+
+export interface RuntimeAnchor {
+  readonly sha256: string;
+  readonly pageNumber: number;
+  readonly box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly role: string;
+  readonly sourceText: string | null;
+  readonly extractionMethod: string | null;
+  readonly extractionModel: string | null;
 }
 
 export interface RuntimeNode {
@@ -50,6 +72,8 @@ export interface RuntimeNode {
   readonly originalLabel: string | null;
   readonly legacyId: number | null;
   readonly question: RuntimeQuestion | null;
+  readonly bodyLatex: string;
+  readonly anchors: readonly RuntimeAnchor[];
 }
 
 export interface RuntimeQuestion {
@@ -81,9 +105,12 @@ export interface RuntimeOption {
   readonly sortKey: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly originalLatex: string | null;
   readonly isCorrect: boolean;
   readonly weight: number | null;
   readonly legacyId: number | null;
+  /** A letra `a`–`e` do legado. Só para auditoria do import — nunca identidade nem renderização. */
+  readonly legacyMarcacao: string | null;
 }
 
 /**
@@ -127,10 +154,21 @@ function toPublication(publication: RuntimePublication, mint: RefMinter): Portab
     title: publication.title,
     subtitle: publication.subtitle,
     publisher: publication.publisher,
+    nickname: publication.nickname,
+    isbn: publication.isbn,
+    otherIdentifier: publication.otherIdentifier,
+    edition: publication.edition,
+    editionYear: publication.editionYear,
+    language: publication.language,
+    series: publication.series,
+    volume: publication.volume,
+    notes: publication.notes,
+    authors: publication.authors,
     legacyId: publication.legacyId,
     legacyUuid: publication.legacyUuid,
     metadataJson: publication.metadataJson,
     coverAsset: publication.coverAssetSha256,
+    sourcePdfAsset: publication.sourcePdfAssetSha256,
     nodes: publication.nodes.map((node) => toNode(node, refById, mint)),
   };
 }
@@ -146,6 +184,16 @@ function toNode(node: RuntimeNode, refById: Map<string, string>, mint: RefMinter
     originalLabel: node.originalLabel,
     legacyId: node.legacyId,
     question: node.question === null ? null : toQuestion(node.question, mint),
+    bodyLatex: node.bodyLatex,
+    anchors: node.anchors.map((anchor) => ({
+      asset: anchor.sha256,
+      pageNumber: anchor.pageNumber,
+      box: anchor.box,
+      role: anchor.role,
+      sourceText: anchor.sourceText,
+      extractionMethod: anchor.extractionMethod,
+      extractionModel: anchor.extractionModel,
+    })),
   };
 }
 
@@ -182,8 +230,10 @@ function toOption(option: RuntimeOption, mint: RefMinter): PortableOption {
     sortKey: option.sortKey,
     statementLatex: option.statementLatex,
     solutionLatex: option.solutionLatex,
+    originalLatex: option.originalLatex,
     isCorrect: option.isCorrect,
     weight: option.weight,
     legacyId: option.legacyId,
+    legacyMarcacao: option.legacyMarcacao,
   };
 }

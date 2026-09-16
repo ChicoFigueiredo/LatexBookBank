@@ -1,4 +1,5 @@
 import { listPublicationCatalog } from "@modules/publications/infrastructure/prisma-publication-catalog";
+import { relativeTime } from "@/shared/format/relative-time";
 
 import { PublicationsScreen } from "./publications-screen";
 
@@ -12,12 +13,13 @@ export const dynamic = "force-dynamic";
 
 export default async function PublicationsPage() {
   const catalog = await listPublicationCatalog();
+  const agora = new Date();
 
   return (
     <PublicationsScreen
       publications={catalog.map((entry) => ({
         ...entry,
-        updatedAt: entry.updatedAt.toISOString(),
+        updatedLabel: relativeTime(entry.updatedAt, agora),
       }))}
     />
   );

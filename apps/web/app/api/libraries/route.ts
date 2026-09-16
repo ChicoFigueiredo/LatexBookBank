@@ -23,7 +23,10 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await readJson(request);
-    const library = await createLibrary(new PrismaLibraryRepository(), { name: body["name"] });
+    const library = await createLibrary(new PrismaLibraryRepository(), {
+      name: body["name"],
+      description: body["description"],
+    });
 
     return NextResponse.json({ library }, { status: 201 });
   } catch (error) {

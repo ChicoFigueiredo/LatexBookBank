@@ -34,7 +34,7 @@ test.describe("o caminho da questão", () => {
     expect(publicationId).not.toBe("");
 
     // ── abrir publicação ────────────────────────────────────────────────
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     const arvore = page.getByRole("tree");
     await expect(arvore).toBeVisible();
 
@@ -107,7 +107,7 @@ test.describe("o caminho da questão", () => {
   test("render compila e o resultado aparece na tela", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
     await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
 
@@ -176,7 +176,7 @@ test.describe("o caminho da questão", () => {
     // porque lá não existe um editor para travar.
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     // O render fica pendurado de propósito: se a edição depende dele, é agora que trava.
@@ -208,7 +208,7 @@ test.describe("o caminho da questão", () => {
   test("o preview rápido aparece sem passar pelo servidor", async ({ page }) => {
     const publicationId = await primeiraPublicacao(page);
 
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     // O aviso é permanente e é parte do contrato com quem lê: preview rápido **pode** diferir.
@@ -233,7 +233,7 @@ test.describe("o caminho da questão", () => {
     page.on("pageerror", (error) => erros.push(String(error)));
 
     const publicationId = await primeiraPublicacao(page);
-    await page.goto(`/publications/${publicationId}?node=${alvo}`);
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
     const editor = page.getByRole("group", { name: /Editor LaTeX/ });
@@ -244,5 +244,171 @@ test.describe("o caminho da questão", () => {
     await page.waitForTimeout(2_000);
 
     expect(erros, erros.join(" | ")).toEqual([]);
+  });
+
+  /**
+   * **Um render que falha não leva o PDF bom junto** (protótipo, 1243–1245).
+   *
+   * O protótipo promete, na faixa de falha: *"O último PNG válido continua na aba PNG; o PDF sob
+   * demanda usa sempre a última compilação bem-sucedida."* Não era verdade aqui — o resultado que
+   * falhou substituía o anterior no estado do painel, e a aba do PDF ficava vazia.
+   *
+   * É o pior momento possível para perder o PDF bom: a pessoa quer justamente comparar o que
+   * quebrou com o que funcionava dez segundos antes. Os artefatos do job antigo nunca saíram do
+   * servidor — o que faltava era o painel lembrar de qual era.
+   */
+  test("render que falha mantém o último PDF bom, e diz que o texto está salvo", async ({ page }) => {
+    const publicationId = await primeiraPublicacao(page);
+
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
+    await abrirPrimeiraQuestao(page);
+
+    await page.getByRole("tab", { name: "PDF compilado" }).click();
+
+    await test.step("uma compilação que dá certo", async () => {
+      await page.getByRole("button", { name: /Compilar/i }).first().click();
+      // Pelo `<object>`, e não pelo `<a>` dentro dele: aquele link é o fallback de quem não tem
+      // leitor de PDF, e no Chromium ele nunca aparece.
+      await expect(page.locator('object[aria-label="PDF compilado"]')).toBeVisible({
+        timeout: 60_000,
+      });
+    });
+
+    await test.step("a seguinte falha — e o PDF anterior continua ali", async () => {
+      // A falha vem do servidor, com a forma de uma compilação que rodou e não passou: é o caso
+      // que o painel confundia com "não há nada compilado".
+      await page.route("**/questions/*/render", async (route) => {
+        await route.fulfill({
+          status: 200,
+          json: {
+            jobId: "job-falho",
+            state: "FAILED",
+            success: false,
+            cacheHit: false,
+            durationMs: 42,
+            diagnostics: [{ severity: "error", message: "! Extra }, or forgotten $.", line: 4 }],
+            artifacts: [],
+          },
+        });
+      });
+
+      await page.getByRole("button", { name: /Compilar/i }).first().click();
+
+      // A garantia, no instante da falha — a mesma frase que faltava no autosave e na espera do
+      // reconhecimento.
+      await expect(page.getByText("O render falhou — o texto continua salvo")).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(
+        page.getByText("A última compilação que deu certo continua nas abas PDF e PNG"),
+      ).toBeVisible();
+
+      // E ele está **na tela**, não só prometido na frase.
+      await expect(page.locator('object[aria-label="PDF compilado"]')).toBeVisible();
+    });
+
+    await test.step("mas o log é o da falha — a evidência não pode ser escondida", async () => {
+      await page.getByRole("tab", { name: /Log/i }).click();
+      // Sem `tabpanel`: o painel de render usa `Tabs` para trocar o conteúdo mas não envolve o
+      // corpo num `role="tabpanel"`. O que importa aqui é o texto do erro estar na tela.
+      await expect(page.getByText("Extra }", { exact: false }).first()).toBeVisible();
+    });
+  });
+
+  /**
+   * **O tipo pode mudar depois, sem perder conteúdo** (protótipo, 2226).
+   *
+   * Era escolhido na criação e era para sempre. Isso fazia o seletor de tipo uma decisão pesada num
+   * momento em que a pessoa muitas vezes ainda não leu a questão inteira: na dúvida entre "escolha
+   * simples" e "múltipla escolha", errar significava recriar e redigitar tudo.
+   *
+   * O que este teste prova é a segunda metade da frase, que é a que importa: virar discursiva e
+   * voltar devolve as alternativas. Elas nunca foram apagadas — a discursiva as **esconde** —, e
+   * é isso que torna a troca uma decisão barata em vez de um caminho sem volta.
+   */
+  test("trocar o tipo não perde as alternativas", async ({ page }) => {
+    const publicationId = await primeiraPublicacao(page);
+
+    await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
+    await abrirPrimeiraQuestao(page);
+
+    await page.getByRole("tab", { name: "Metadados" }).click();
+
+    const seletor = page.getByLabel("Tipo da questão");
+    await expect(seletor).toBeVisible();
+    const original = await seletor.inputValue();
+
+    // Quantas alternativas existem antes — é o número que precisa voltar.
+    const antes = await page.request.get(`/api/publications/${publicationId}/tree`);
+    const { nodes: nodesAntes } = (await antes.json()) as {
+      nodes: { question: { id: string; options: unknown[] } | null }[];
+    };
+    const questao = nodesAntes.find((node) => node.question !== null)?.question;
+    const quantasAntes = questao?.options.length ?? 0;
+    expect(quantasAntes, "a questão de teste precisa ter alternativas").toBeGreaterThan(0);
+
+    await test.step("virar discursiva esconde a aba, e não apaga nada", async () => {
+      await seletor.selectOption("DISCURSIVE");
+
+      /*
+       * O tipo **no banco**, e não a aba na tela.
+       *
+       * A primeira versão media só o sumiço da aba "Alternativas", e o guarda não mordia: com o
+       * `PATCH` desligado de propósito o teste continuava passando, porque depois do reload há
+       * mais de um motivo para a aba não estar ali. Medir o efeito colateral em vez do fato é
+       * como um teste passa por sorte.
+       */
+      await expect
+        .poll(
+          async () => {
+            const resposta = await page.request.get(`/api/publications/${publicationId}/tree`);
+            const { nodes } = (await resposta.json()) as {
+              nodes: { question: { id: string; type: string } | null }[];
+            };
+            return nodes.find((node) => node.question?.id === questao?.id)?.question?.type;
+          },
+          { timeout: 20_000 },
+        )
+        .toBe("DISCURSIVE");
+
+      await expect(page.getByRole("tab", { name: "Alternativas" })).toHaveCount(0);
+
+      const durante = await page.request.get(`/api/publications/${publicationId}/tree`);
+      const { nodes } = (await durante.json()) as {
+        nodes: { question: { id: string; options: unknown[] } | null }[];
+      };
+      const agora = nodes.find((node) => node.question?.id === questao?.id)?.question;
+
+      // A prova: no banco elas continuam lá, escondidas e não excluídas.
+      expect(agora?.options).toHaveLength(quantasAntes);
+    });
+
+    await test.step("e voltar devolve a aba com as mesmas alternativas", async () => {
+      await page.getByRole("tab", { name: "Metadados" }).click();
+      await page.getByLabel("Tipo da questão").selectOption(original);
+
+      await expect
+        .poll(
+          async () => {
+            const resposta = await page.request.get(`/api/publications/${publicationId}/tree`);
+            const { nodes } = (await resposta.json()) as {
+              nodes: { question: { id: string; type: string } | null }[];
+            };
+            return nodes.find((node) => node.question?.id === questao?.id)?.question?.type;
+          },
+          { timeout: 20_000 },
+        )
+        .toBe(original);
+
+      await expect(page.getByRole("tab", { name: "Alternativas" })).toBeVisible();
+
+      const depois = await page.request.get(`/api/publications/${publicationId}/tree`);
+      const { nodes } = (await depois.json()) as {
+        nodes: { question: { id: string; options: unknown[] } | null }[];
+      };
+      expect(
+        nodes.find((node) => node.question?.id === questao?.id)?.question?.options,
+      ).toHaveLength(quantasAntes);
+    });
   });
 });

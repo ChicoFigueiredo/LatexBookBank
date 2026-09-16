@@ -17,7 +17,7 @@ import type { RuntimeWorkspace } from "./export-workspace";
 
 export interface ImportCollision {
   readonly kind: "publication" | "question";
-  readonly by: "legacyId" | "legacyUuid";
+  readonly by: "legacyId" | "legacyUuid" | "isbn";
   readonly value: string | number;
   readonly existingId: string;
 }
@@ -38,13 +38,41 @@ export interface ExistingIndex {
   /** `legacyId` de publicação → id no destino. */
   readonly publicationsByLegacyId: ReadonlyMap<number, string>;
   readonly publicationsByLegacyUuid: ReadonlyMap<string, string>;
+  /**
+   * ISBN normalizado → id no destino. A chave que funciona para livro nascido **no app**.
+   *
+   * `legacyId` e `legacyUuid` são identidade de origem, e só existem em quem veio do sistema
+   * legado. Um livro cadastrado aqui hoje, exportado e reimportado, não colidia por chave nenhuma
+   * — duplicava em silêncio, e a simulação dizia "0 conflitos" com toda a razão e nenhuma
+   * utilidade.
+   *
+   * O ISBN é o identificador que a própria pessoa digitou, e ele **significa** "é este livro" fora
+   * deste banco e fora deste produto. Usá-lo não muda o que um `.lbb` é: continua sendo um despejo
+   * sem identidade sintética — o que muda é que agora dá para reconhecer o livro pelo número que
+   * está na contracapa dele.
+   */
+  readonly publicationsByIsbn: ReadonlyMap<string, string>;
   readonly questionsByLegacyId: ReadonlyMap<number, string>;
 }
 
 export const EMPTY_INDEX: ExistingIndex = {
   publicationsByLegacyId: new Map(),
   publicationsByLegacyUuid: new Map(),
+  publicationsByIsbn: new Map(),
   questionsByLegacyId: new Map(),
+};
+
+/**
+ * O ISBN sem o que é enfeite de impressão.
+ *
+ * `978-85-357-0011-4` e `9788535700114` são o mesmo livro, e a ficha catalográfica escreve dos dois
+ * jeitos. Comparar sem normalizar deixaria passar a duplicata mais óbvia que existe.
+ */
+export const normalizeIsbn = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+
+  const limpo = value.replace(/[\s-]/g, "").toUpperCase();
+  return limpo === "" ? null : limpo;
 };
 
 /**
@@ -73,6 +101,14 @@ export function toRuntime(
         });
       }
     }
+    const isbn = normalizeIsbn(publication.isbn);
+    if (isbn !== null) {
+      const found = existing.publicationsByIsbn.get(isbn);
+      if (found !== undefined) {
+        collisions.push({ kind: "publication", by: "isbn", value: isbn, existingId: found });
+      }
+    }
+
     if (publication.legacyUuid !== null) {
       const found = existing.publicationsByLegacyUuid.get(publication.legacyUuid);
       if (found !== undefined) {
@@ -90,10 +126,23 @@ export function toRuntime(
       title: publication.title,
       subtitle: publication.subtitle,
       publisher: publication.publisher,
+      // A ficha catalográfica atravessa inteira: era ela que sumia no ida-e-volta do backup.
+      // `?? null` porque arquivo gravado antes destes campos não os traz, e ausente é `null`.
+      nickname: publication.nickname ?? null,
+      isbn: publication.isbn ?? null,
+      otherIdentifier: publication.otherIdentifier ?? null,
+      edition: publication.edition ?? null,
+      editionYear: publication.editionYear ?? null,
+      language: publication.language ?? null,
+      series: publication.series ?? null,
+      volume: publication.volume ?? null,
+      notes: publication.notes ?? null,
+      authors: publication.authors ?? [],
       legacyId: publication.legacyId,
       legacyUuid: publication.legacyUuid,
       metadataJson: publication.metadataJson,
       coverAssetSha256: publication.coverAsset,
+      sourcePdfAssetSha256: publication.sourcePdfAsset ?? null,
       nodes: publication.nodes.map((node) => {
         const question = node.question;
 
@@ -118,6 +167,16 @@ export function toRuntime(
           numberingStyle: node.numberingStyle,
           originalLabel: node.originalLabel,
           legacyId: node.legacyId,
+          bodyLatex: node.bodyLatex ?? "",
+          anchors: (node.anchors ?? []).map((anchor) => ({
+            sha256: anchor.asset,
+            pageNumber: anchor.pageNumber,
+            box: anchor.box,
+            role: anchor.role,
+            sourceText: anchor.sourceText,
+            extractionMethod: anchor.extractionMethod,
+            extractionModel: anchor.extractionModel,
+          })),
           question:
             question === null
               ? null
@@ -147,9 +206,11 @@ export function toRuntime(
                     sortKey: option.sortKey,
                     statementLatex: option.statementLatex,
                     solutionLatex: option.solutionLatex,
+                    originalLatex: option.originalLatex ?? null,
                     isCorrect: option.isCorrect,
                     weight: option.weight,
                     legacyId: option.legacyId,
+                    legacyMarcacao: option.legacyMarcacao ?? null,
                   })),
                 },
         };

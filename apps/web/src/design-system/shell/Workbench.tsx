@@ -30,6 +30,7 @@ const CSS = `
 .lbb-wb-item-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lbb-wb-item-badge{font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
 .lbb-wb-item[data-active="true"] .lbb-wb-item-badge{color:var(--accent-text)}
+.lbb-wb-item-badge[data-tone="warn"]{color:var(--warn-text);font-weight:var(--weight-medium)}
 .lbb-wb-rail-foot{border-top:1px solid var(--border-subtle);padding:8px}
 
 .lbb-wb-sidebar{flex-shrink:0;background:var(--surface);border-right:1px solid var(--border-default);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
@@ -69,6 +70,14 @@ export interface WorkbenchModule {
   readonly label: string;
   readonly icon?: IconName;
   readonly badge?: ReactNode;
+  /**
+   * Tom do badge. Só `warn`, e de propósito.
+   *
+   * O rail aparece em toda tela, então um número em âmbar que não pede ação nenhuma ensina a
+   * ignorar o âmbar exatamente onde ele precisaria funcionar. Tamanho de acervo é informação e
+   * fica neutro; fila esperando alguém é trabalho parado e é o que ganha o tom.
+   */
+  readonly badgeTone?: "warn";
   readonly group?: string;
 }
 
@@ -84,6 +93,8 @@ export interface WorkbenchProps {
   readonly breadcrumb?: readonly BreadcrumbItem[];
   readonly actions?: ReactNode;
   readonly searchLabel?: string;
+  /** A frase de escopo do rodapé da paleta. Repassada tal e qual — quem sabe é a tela. */
+  readonly searchScopeHint?: string;
   readonly commands?: readonly Command[];
   /** Repassado à paleta: permite buscar no acervo enquanto se digita (Fase 12). */
   readonly onCommandQueryChange?: (query: string) => void;
@@ -133,6 +144,7 @@ export function Workbench({
   breadcrumb = [],
   actions,
   searchLabel = "Buscar…",
+  searchScopeHint,
   commands = [],
   onCommandQueryChange,
   sidebar,
@@ -243,7 +255,9 @@ export function Workbench({
                         {entry.icon && <Icon name={entry.icon} />}
                         <span className="lbb-wb-item-label">{entry.label}</span>
                         {entry.badge != null && (
-                          <span className="lbb-wb-item-badge">{entry.badge}</span>
+                          <span className="lbb-wb-item-badge" data-tone={entry.badgeTone}>
+                            {entry.badge}
+                          </span>
                         )}
                       </button>
                     );
@@ -397,6 +411,7 @@ export function Workbench({
           onClose={() => setPaletteOpen(false)}
           commands={commands}
           {...(onCommandQueryChange ? { onQueryChange: onCommandQueryChange } : {})}
+          {...(searchScopeHint ? { scopeHint: searchScopeHint } : {})}
         />
       </div>
     </TooltipProvider>

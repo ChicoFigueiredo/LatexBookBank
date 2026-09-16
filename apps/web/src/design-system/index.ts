@@ -65,3 +65,4 @@ export { CommandPalette, type CommandPaletteProps, type Command } from "./shell/
 export { Tooltip, TooltipProvider, type TooltipProps } from "./overlays/Tooltip";
 export { Popover, type PopoverProps } from "./overlays/Popover";
 export { ContextMenu, type ContextMenuProps, type ContextMenuItem } from "./overlays/ContextMenu";
+export { MenuButton, type MenuButtonProps, type MenuButtonItem } from "./overlays/MenuButton";

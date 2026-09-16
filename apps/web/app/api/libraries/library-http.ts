@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { InvalidPublicationError } from "@modules/publications/domain/publication-draft";
+import {
+  InvalidPublicationError,
+  PublicationConfirmationMismatchError,
+} from "@modules/publications/domain/publication-draft";
 import { PublicationNotFoundError } from "@modules/publications/application/manage-publications";
 import {
   DuplicateLibraryError,
   InvalidLibraryNameError,
+  LibraryConfirmationMismatchError,
   LibraryNotFoundError,
 } from "@modules/workspaces/domain/library";
 
@@ -31,6 +35,23 @@ export function toLibraryErrorResponse(error: unknown): NextResponse {
     return NextResponse.json(
       { error: "duplicate_library", message: error.message, field: "name" },
       { status: 409 },
+    );
+  }
+
+  // 400 e não 409: o que falta é um campo correto no pedido, e a correção é digitar de novo — não
+  // há estado do servidor a mudar antes de tentar outra vez.
+  if (error instanceof LibraryConfirmationMismatchError) {
+    return NextResponse.json(
+      { error: "confirmation_mismatch", message: error.message, field: "confirmation" },
+      { status: 400 },
+    );
+  }
+
+  // Mesma resposta da biblioteca, e pela mesma razão: o que falta é um campo correto no pedido.
+  if (error instanceof PublicationConfirmationMismatchError) {
+    return NextResponse.json(
+      { error: "confirmation_mismatch", message: error.message, field: "confirmation" },
+      { status: 400 },
     );
   }
 

@@ -1,0 +1,1229 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import {
+  ArtifactStatus,
+  type ArtifactStatusId,
+  Banner,
+  Button,
+  ContextMenu,
+  EmptyState,
+  Input,
+  Chip,
+  Select,
+  Modal,
+  PageHeader,
+  Tree,
+  Workbench,
+  filterTree,
+  useStoredState,
+  type Command,
+  type ContextMenuItem,
+  type IconName,
+  type TreeNode,
+} from "@/design-system";
+import type { AiSetupDescription } from "@modules/agents/domain/ai-setup";
+import {
+  attach,
+  clearContext,
+  detach,
+  EMPTY_CONTEXT,
+  ContextTooLargeError,
+  selectionItem,
+  type AgentContext,
+} from "@modules/agents/domain/agent-context";
+import type { AgentMode } from "@modules/agents/domain/agent-run";
+import type { Change } from "@modules/agents/domain/patch-diff";
+import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
+import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
+import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
+import { isContainerKind, placementForAdd } from "@modules/document-tree/domain/add-placement";
+import { fonteDaAnterior } from "@modules/questions/domain/herdar-metadados";
+import type { SearchHit } from "@modules/questions/domain/search-query";
+import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
+import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
+import { sameTag } from "@modules/questions/domain/tag";
+
+import { InfraStatusBar } from "../../../infra-status";
+import { useRailCounts } from "../../../rail-counts";
+import { railHref, railModules } from "../../../rail";
+import { AddMenu } from "./add-menu";
+import { TrashDialog } from "./trash-dialog";
+import { NodeBodyEditor } from "./node-body-editor";
+import { QuestionEditor } from "./question-editor";
+import { DraggableTreeRow, TreeDnd } from "./tree-dnd";
+import { useTreeEditing } from "./use-tree-editing";
+
+/**
+ * Primeira tela montada sobre o workbench (D14): rail de módulos, árvore na sidebar, questão no
+ * main e o painel do agente no aside — fechado, com o FAB `✦`.
+ *
+ * Continua sendo demonstração: edição, render e agente chegam nas Fases 3, 6 e 8. O que esta
+ * tela prova agora é a **geometria** — que as seis zonas existem, redimensionam, persistem e
+ * conversam entre si.
+ */
+
+/**
+ * De estado da árvore para selo do design system.
+ *
+ * Um mapa e não `status as ArtifactStatusId`: os dois vocabulários coincidem hoje em quatro
+ * nomes e não são a mesma lista. O cast passaria despercebido no dia em que um deles crescer.
+ */
+const STATUS_TO_ARTIFACT: Readonly<Record<NodeStatusId, ArtifactStatusId>> = {
+  unsaved: "draft",
+  render_failed: "render_failed",
+  invalid: "invalid",
+  unvalidated: "unvalidated",
+  valid: "valid",
+  render_done: "render_done",
+};
+
+const KIND_ICONS: Readonly<Record<string, IconName>> = {
+  BOOK: "book-open",
+  PART: "library",
+  CHAPTER: "book-open",
+  SECTION: "list-tree",
+  SUBSECTION: "list-tree",
+  CONTENT: "file-text",
+  QUESTION_GROUP: "list-tree",
+  QUESTION: "circle-help",
+  FIGURE: "image",
+  NOTE: "file-text",
+};
+
+/**
+ * Reconstrói o aninhamento a partir de `depth`.
+ *
+ * O DTO não expõe `parentId` de propósito — é uma coluna do schema, e a auditoria §40 proíbe que
+ * vaze para a apresentação. `depth` basta: a lista já vem em pré-ordem, então uma pilha
+ * reconstrói a hierarquia sem que a UI precise saber como o pai é guardado.
+ */
+function nest(flat: readonly TreeNodeDto[], unsavedId: string | null = null): TreeNode[] {
+  const roots: TreeNode[] = [];
+  const stack: { depth: number; children: TreeNode[] }[] = [{ depth: -1, children: roots }];
+
+  for (const dto of flat) {
+    while (stack.length > 1 && (stack[stack.length - 1]?.depth ?? -1) >= dto.depth) stack.pop();
+
+    const children: TreeNode[] = [];
+
+    // "Não salvo" só o cliente sabe, e por isso entra aqui e não no DTO: é estado da sessão, não
+    // da linha. Vence os outros porque é o único que se perde ao clicar em outro nó.
+    const status = dto.question?.id === unsavedId && unsavedId !== null ? "unsaved" : dto.status;
+
+    const node: TreeNode = {
+      id: dto.id,
+      label: dto.title,
+      ...(KIND_ICONS[dto.kind] ? { icon: KIND_ICONS[dto.kind] as IconName } : {}),
+      ...(dto.question ? { badge: `${dto.question.options.length}` } : {}),
+      ...(status !== null && status !== undefined
+        ? {
+            status: (
+              <ArtifactStatus
+                status={STATUS_TO_ARTIFACT[status]}
+                size="sm"
+                // Só o ícone: numa árvore de 297 nós, o rótulo por extenso empurraria o título
+                // da questão para fora da coluna. O nome vai no `aria-label` e no `title` —
+                // ícone sozinho é enigma para quem usa leitor de tela.
+                label=""
+                aria-label={NODE_STATUS_LABELS[status]}
+                title={NODE_STATUS_LABELS[status]}
+              />
+            ),
+          }
+        : {}),
+      children,
+    };
+
+    stack[stack.length - 1]?.children.push(node);
+    stack.push({ depth: dto.depth, children });
+  }
+
+  return roots;
+}
+
+export interface PublicationWorkbenchProps {
+  readonly publicationId: string;
+  /** O workspace dono. Resolvido no servidor: a tag é por workspace, e o cliente não escolhe. */
+  readonly workspaceId: string;
+  readonly publicationTitle: string;
+  readonly publisher: string | null;
+  readonly nodes: readonly TreeNodeDto[];
+  /** Nó pedido pela URL (`?node=`) — busca global e "Continuar" da Home chegam por aqui. */
+  readonly requestedNodeId?: string;
+  /**
+   * Rótulos da IA configurada, resolvidos no servidor. `null` quando não há nenhuma.
+   *
+   * Só rótulos atravessam: a chave fica do lado de lá, e o teste de fronteira prova que fica.
+   */
+  readonly ai: AiSetupDescription | null;
+}
+
+export function PublicationWorkbench({
+  publicationId,
+  workspaceId,
+  publicationTitle,
+  publisher,
+  nodes,
+  requestedNodeId,
+  ai,
+}: PublicationWorkbenchProps) {
+  /**
+   * O nó corrente sobrevive à sessão.
+   *
+   * Fica aqui e não dentro da `Tree` porque a seleção é do **workbench**: o editor, o breadcrumb
+   * e o painel do agente dependem dela. A árvore persiste o que é dela — quais ramos estão
+   * abertos.
+   */
+  const [selectedId, setSelectedId] = useStoredState<string | null>(
+    `lbb:tree:${publicationTitle}:selected`,
+    nodes[0]?.id ?? null,
+  );
+
+  /**
+   * O nó pedido pela URL vence o guardado.
+   *
+   * Quem chega pela busca global ou pelo "Continuar" da Home nomeou o destino; abrir no nó da
+   * sessão anterior seria ignorar o gesto que trouxe a pessoa até aqui. Uma vez só, no mount: se
+   * o efeito rodasse a cada render, clicar em outro nó da árvore voltaria sozinho para este.
+   */
+  useEffect(() => {
+    if (requestedNodeId && nodes.some((node) => node.id === requestedNodeId)) {
+      setSelectedId(requestedNodeId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedNodeId]);
+
+  const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState("");
+  // Tags selecionadas, por nome. Nome e não id porque é o que o DTO da árvore carrega — e é
+  // `matchesAllTags` que sabe que "funcao" e "Função" são a mesma coisa.
+  const [tagFilter, setTagFilter] = useState<readonly string[]>([]);
+  // A questão com alteração pendente no editor. Vive aqui e não no DTO porque é estado da
+  // **sessão**, não da linha: recarregar a página o perde, e é justamente por isso que ele é o
+  // indicador mais urgente enquanto existe.
+  const [unsavedQuestionId, setUnsavedQuestionId] = useState<string | null>(null);
+  const [problemOnly, setProblemOnly] = useState(false);
+  // *A revisar* (D40): o que o scan ou o reconhecimento escreveu e ninguém conferiu ainda.
+  const [toReviewOnly, setToReviewOnly] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+
+  /**
+   * O contexto do agente — montado por gesto, nunca por dedução.
+   *
+   * Vive no workbench e não dentro do painel porque quem tem os dados para anexar é esta tela: o
+   * nó corrente, o editor, o render. O painel só mostra e remove.
+   *
+   * **Não** persiste entre sessões, ao contrário de quase tudo aqui. Reabrir o app amanhã com um
+   * trecho de outra questão pendurado no contexto, sem lembrar de tê-lo anexado, é exatamente o
+   * tipo de surpresa que o contexto explícito existe para impedir.
+   */
+  const [agentContext, setAgentContext] = useState<AgentContext>(EMPTY_CONTEXT);
+  const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentTurns, setAgentTurns] = useState<readonly AgentTurn[]>([]);
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentMode, setAgentMode] = useState<AgentMode>("ASK");
+
+  /**
+   * Resultados da busca no acervo, para a paleta (`Ctrl+K`).
+   *
+   * A busca acontece **no servidor** a cada tecla, e não sobre a árvore em memória: a árvore é de
+   * uma publicação, e quem aperta `Ctrl+K` procurando "juros" quer a questão esteja ela onde
+   * estiver. Filtrar em memória responderia rápido a pergunta errada.
+   */
+  const [found, setFound] = useState<readonly { id: string; title: string; hint: string }[]>([]);
+  const router = useRouter();
+  const counts = useRailCounts();
+
+  /**
+   * `Ctrl Q` — nova questão, abrindo o seletor de tipo (handoff: tabela de atalhos).
+   *
+   * Era o único dos onze atalhos do contrato que não existia. Global e não preso à linha da
+   * árvore, ao contrário de `F2`, `Del` e `Ctrl N`: aqueles agem **sobre um nó** e por isso vivem
+   * na linha — a §`atalhos.spec.ts` guarda essa distinção. Este cria um nó novo, e quem quer criar
+   * pode estar com o foco em qualquer lugar da tela.
+   *
+   * `preventDefault` porque `Ctrl Q` fecha o Firefox no Linux. Perder o editor para o navegador
+   * saindo seria bem pior que não ter o atalho.
+   */
+  const [addOpen, setAddOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+      // `code` e não `key`: em teclado ABNT2 e AZERTY o `key` da mesma tecla física muda, e o
+      // atalho passaria a depender do layout de quem digita.
+      if (event.code !== "KeyQ") return;
+
+      event.preventDefault();
+      setAddOpen(true);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  /**
+   * A proposta pendente — uma de cada vez.
+   *
+   * Revisar duas propostas concorrentes sobre a mesma questão é revisar um diff contra um estado
+   * que a outra vai mudar. Quando o agente propõe mais de uma coisa no mesmo turno, a primeira é
+   * a que vale, e as outras voltam se ele for perguntado de novo.
+   */
+  const [proposal, setProposal] = useState<{
+    summary: string;
+    warnings: readonly string[];
+    changes: readonly Change[];
+    patch: unknown;
+  } | null>(null);
+
+  /** Anexa recusando com mensagem em vez de estourar o teto em silêncio. */
+  const attachToAgent = useCallback((item: Parameters<typeof attach>[1]) => {
+    setAgentContext((current) => {
+      try {
+        setAgentError(null);
+        return attach(current, item);
+      } catch (problem) {
+        setAgentError(
+          problem instanceof ContextTooLargeError ? problem.message : "Não deu para anexar.",
+        );
+        return current;
+      }
+    });
+  }, []);
+
+  const allNodes = useMemo(() => nest(nodes, unsavedQuestionId), [nodes, unsavedQuestionId]);
+
+  const searchArchive = useCallback((text: string) => {
+    // Menos de três letras não busca: "a" casaria com o acervo inteiro, e a resposta seria uma
+    // lista que não ajuda a escolher.
+    if (text.trim().length < 3) {
+      setFound([]);
+      return;
+    }
+
+    void fetch(`/api/search?q=${encodeURIComponent(text.trim())}&limit=8`)
+      .then((response) => response.json() as Promise<{ hits?: SearchHit[] }>)
+      .then((payload) =>
+        setFound(
+          (payload.hits ?? []).map((hit) => ({
+            id: hit.id,
+            title: hit.title === "(sem apelido)" ? hit.excerpt.slice(0, 60) : hit.title,
+            hint: [hit.board, hit.year].filter(Boolean).join(" · ") || hit.type,
+          })),
+        ),
+      )
+      .catch(() => setFound([]));
+  }, []);
+
+  /** `kind` não está no `TreeNode` do DS — o mapa de id para tipo faz a ponte. */
+  const kindById = useMemo(() => new Map(nodes.map((node) => [node.id, node.kind])), [nodes]);
+
+  const kindsPresent = useMemo(() => [...new Set(nodes.map((node) => node.kind))].sort(), [nodes]);
+
+  const tagsById = useMemo(
+    () => new Map(nodes.map((node) => [node.id, node.question?.tags ?? []])),
+    [nodes],
+  );
+
+  /**
+   * As tags presentes, com a contagem do **conjunto visível**.
+   *
+   * Do visível e não do acervo: o número serve para decidir se vale clicar naquela tag agora, e
+   * um total global diria "300" numa publicação onde três questões a têm.
+   */
+  const tagsPresent = useMemo(
+    () => countTags(nodes.filter((node) => node.question !== null).map((node) => node.question!)),
+    [nodes],
+  );
+
+  const problemById = useMemo(
+    () => new Map(nodes.map((node) => [node.id, node.hasProblem])),
+    [nodes],
+  );
+
+  const reviewById = useMemo(() => new Map(nodes.map((node) => [node.id, node.toReview])), [nodes]);
+
+  const filtering =
+    query.trim() !== "" || kindFilter !== "" || tagFilter.length > 0 || problemOnly || toReviewOnly;
+
+  const filtered = useMemo(() => {
+    // Os dois filtros num predicado só: `filterTree` aceita um, e encadear duas passagens
+    // recortaria a árvore duas vezes — a segunda sobre galhos que a primeira já podou.
+    const byKind = (node: TreeNode) => kindFilter === "" || kindById.get(node.id) === kindFilter;
+    const byTag = (node: TreeNode) => matchesAllTags(tagsById.get(node.id) ?? [], tagFilter);
+    // Do DTO e não do selo escolhido: a questão inválida **sendo editada** aparece como "não
+    // salva", e derivar o filtro do rótulo a esconderia justamente do filtro que a procura.
+    const byProblem = (node: TreeNode) => !problemOnly || problemById.get(node.id) === true;
+    const byReview = (node: TreeNode) => !toReviewOnly || reviewById.get(node.id) === true;
+
+    return filterTree(allNodes, {
+      query,
+      ...(kindFilter !== "" || tagFilter.length > 0 || problemOnly || toReviewOnly
+        ? {
+            predicate: (node: TreeNode) =>
+              byKind(node) && byTag(node) && byProblem(node) && byReview(node),
+          }
+        : {}),
+    });
+  }, [
+    allNodes,
+    query,
+    kindFilter,
+    kindById,
+    tagFilter,
+    tagsById,
+    problemOnly,
+    problemById,
+    toReviewOnly,
+    reviewById,
+  ]);
+
+  const treeNodes = filtering ? filtered.nodes : allNodes;
+  // Um nó guardado pode ter sido excluído entre sessões: cair no primeiro é melhor que abrir
+  // vazio sem explicar por quê.
+  const selected = nodes.find((n) => n.id === selectedId) ?? nodes[0] ?? null;
+
+  /**
+   * Manda a pergunta e o contexto para o servidor, que tem a chave e as tools.
+   *
+   * A pergunta do usuário entra na conversa **antes** da resposta chegar: uma requisição que
+   * demora vinte segundos com a tela em branco parece travada, e a pergunta na tela é o que diz
+   * que ela foi recebida.
+   */
+  const askAgent = useCallback(
+    async (prompt: string) => {
+      const mine = `u-${prompt.length}-${agentTurns.length}`;
+      setAgentTurns((turns) => [...turns, { id: mine, role: "user", text: prompt }]);
+      setAgentBusy(true);
+      setAgentError(null);
+
+      try {
+        const response = await fetch("/api/agents/ask", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            mode: agentMode,
+            questionId: selected?.question?.id ?? null,
+            context: agentContext.items,
+          }),
+        });
+
+        const payload = (await response.json()) as {
+          answer?: string;
+          message?: string;
+          toolCalls?: AgentTurn["toolCalls"];
+          usage?: AgentTurn["usage"];
+          error?: string | null;
+          proposals?: {
+            patch: unknown;
+            summary: string;
+            warnings: readonly string[];
+            changes: readonly Change[];
+          }[];
+        };
+
+        if (!response.ok) {
+          // A pergunta do usuário fica na tela. Perder o que ele escreveu por causa de um
+          // endpoint fora do ar seria cobrar dele o preço da nossa configuração.
+          setAgentError(payload.message ?? "O agente não respondeu.");
+          return;
+        }
+
+        // Só propostas que de fato mudam alguma coisa: um patch que reescreve o campo com o
+        // mesmo texto viraria uma tela de revisão sem conteúdo.
+        const first = payload.proposals?.find((entry) => entry.changes.length > 0);
+        if (first) setProposal(first);
+
+        setAgentTurns((turns) => [
+          ...turns,
+          {
+            id: `a-${mine}`,
+            role: "assistant",
+            text: payload.answer ?? payload.error ?? "(sem resposta)",
+            ...(payload.toolCalls ? { toolCalls: payload.toolCalls } : {}),
+            ...(payload.usage ? { usage: payload.usage } : {}),
+          },
+        ]);
+      } catch {
+        setAgentError("Não deu para falar com o servidor.");
+      } finally {
+        setAgentBusy(false);
+      }
+    },
+    [agentContext, agentMode, agentTurns.length, selected],
+  );
+
+  /**
+   * Compila o antes e o depois de uma linha de LaTeX, para a revisão.
+   *
+   * Duas compilações em paralelo: o worker aguenta, e serializá-las dobraria a espera de quem só
+   * quer ver se a mudança quebrou a questão.
+   */
+  const previewChange = useCallback(
+    async (change: { id: string; before: string; after: string }) => {
+      const questionId = selected?.question?.id;
+      const field = change.id.startsWith("field:") ? change.id.slice("field:".length) : null;
+      if (!questionId || field === null) throw new Error("Esta linha não é um campo de texto.");
+
+      const compile = async (value: string) => {
+        const response = await fetch("/api/agents/candidate-render", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questionId, field, value }),
+        });
+        const payload = (await response.json()) as {
+          png?: string | null;
+          success?: boolean;
+          diagnostics?: { severity: string; message: string }[];
+          message?: string;
+        };
+
+        return {
+          png: payload.png ?? null,
+          success: payload.success ?? false,
+          diagnostics: payload.diagnostics ?? [
+            { severity: "error", message: payload.message ?? "" },
+          ],
+        };
+      };
+
+      const [before, after] = await Promise.all([compile(change.before), compile(change.after)]);
+      return { before, after };
+    },
+    [selected],
+  );
+
+  /** Aplica só o que foi marcado. O servidor recalcula o diff e recusa se nada sobrou. */
+  const applyProposal = useCallback(
+    async (approvedChangeIds: readonly string[]) => {
+      const questionId = selected?.question?.id;
+      if (!questionId || !proposal) return;
+
+      setAgentBusy(true);
+      try {
+        const response = await fetch("/api/agents/patches/apply", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questionId, approvedChangeIds, patch: proposal.patch }),
+        });
+        const payload = (await response.json()) as {
+          message?: string;
+          revisionNumber?: number;
+          stale?: string[];
+        };
+
+        if (!response.ok) {
+          setAgentError(payload.message ?? "Não deu para aplicar.");
+          return;
+        }
+
+        setProposal(null);
+        setAgentTurns((turns) => [
+          ...turns,
+          {
+            id: `sys-${turns.length}`,
+            role: "assistant",
+            text:
+              `Aplicado. Revisão ${payload.revisionNumber} guarda o estado anterior.` +
+              (payload.stale?.length
+                ? ` ${payload.stale.length} mudança(s) já não existiam e foram ignoradas.`
+                : ""),
+          },
+        ]);
+        // A árvore **e** o editor: sem o refresh, a tela mostraria o estado velho. O editor
+        // volta pelo `key` (ver `NodeDetail`), que muda junto com a versão que o servidor mandou.
+        router.refresh();
+      } catch {
+        setAgentError("Não deu para falar com o servidor.");
+      } finally {
+        setAgentBusy(false);
+      }
+    },
+    [proposal, router, selected],
+  );
+
+  const titleOf = useCallback(
+    (nodeId: string) => nodes.find((n) => n.id === nodeId)?.title ?? "este nó",
+    [nodes],
+  );
+
+  /**
+   * O título do pai, para o menu dizer onde o item vai entrar.
+   *
+   * O DTO não expõe `parentId` (auditoria §40), e não precisa: a lista vem em pré-ordem, então o
+   * pai é o nó anterior de profundidade menor. `null` quando o nó está na raiz.
+   */
+  const parentTitleOf = useCallback(
+    (nodeId: string): string | null => {
+      const index = nodes.findIndex((n) => n.id === nodeId);
+      if (index < 0) return null;
+
+      const depth = nodes[index]?.depth ?? 0;
+      for (let i = index - 1; i >= 0; i--) {
+        if ((nodes[i]?.depth ?? 0) < depth) return nodes[i]?.title ?? null;
+      }
+      return null;
+    },
+    [nodes],
+  );
+
+  /**
+   * Vizinhos imediatos na ordem visível, para o Alt+↑/↓.
+   *
+   * "Irmão" aqui é quem tem a mesma profundidade **e** o mesmo pai. Como o DTO não expõe
+   * `parentId` (auditoria §40), o pai é o nó anterior de profundidade menor — a lista vem em
+   * pré-ordem, então isso é exato.
+   */
+  const siblingOrderOf = useCallback(
+    (nodeId: string) => {
+      const index = nodes.findIndex((n) => n.id === nodeId);
+      const node = nodes[index];
+      if (!node) return {};
+
+      const parentAt = (i: number): number => {
+        for (let j = i - 1; j >= 0; j--)
+          if ((nodes[j]?.depth ?? 0) < (nodes[i]?.depth ?? 0)) return j;
+        return -1;
+      };
+      const parent = parentAt(index);
+
+      const siblings = nodes
+        .map((n, i) => ({ n, i }))
+        .filter(({ n, i }) => n.depth === node.depth && parentAt(i) === parent)
+        .map(({ n }) => n.id);
+
+      const at = siblings.indexOf(nodeId);
+      return {
+        ...(at > 0 ? { previous: siblings[at - 1] as string } : {}),
+        ...(at >= 0 && at < siblings.length - 1 ? { next: siblings[at + 1] as string } : {}),
+      };
+    },
+    [nodes],
+  );
+
+  /**
+   * O nó e tudo abaixo dele, na ordem visível.
+   *
+   * A lista vem em pré-ordem, então a descendência é o bloco contíguo logo depois do nó, enquanto
+   * a profundidade for maior. Sem `parentId` no DTO (auditoria §40), é assim que se conhece o
+   * ramo — e é o que permite recusar o drop dentro dele **antes** de largar.
+   */
+  const subtreeOf = useCallback(
+    (nodeId: string): readonly string[] => {
+      const start = nodes.findIndex((n) => n.id === nodeId);
+      if (start === -1) return [];
+
+      const baseDepth = nodes[start]?.depth ?? 0;
+      const ids = [nodeId];
+      for (let i = start + 1; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (!node || node.depth <= baseDepth) break;
+        ids.push(node.id);
+      }
+      return ids;
+    },
+    [nodes],
+  );
+
+  const editing = useTreeEditing({
+    publicationId,
+    titleOf,
+    siblingOrderOf,
+    onSelect: setSelectedId,
+  });
+
+  /**
+   * O destino do próximo item — contêiner recebe dentro, folha recebe ao lado.
+   *
+   * A decisão mora no domínio (`placementForAdd`) e não aqui: o menu, o menu de contexto e o
+   * destino de uma captura aprovada precisam responder igual, e três telas decidindo por conta
+   * própria divergem no primeiro caso de borda.
+   */
+  const addPlacement = placementForAdd(selected ? { id: selected.id, kind: selected.kind } : null);
+
+  /*
+   * De quem a próxima questão herda banca e ano.
+   *
+   * `nodes` já vem em ordem de exibição e com `depth` — é tudo de que `fonteDaAnterior` precisa. O
+   * valor é previsão: quem grava é o servidor, que resolve a mesma pergunta sobre a árvore de
+   * verdade em `createQuestion`.
+   */
+  const inheritSource = fonteDaAnterior(
+    nodes,
+    selected ? nodes.findIndex((node) => node.id === selected.id) : null,
+  );
+
+  const destinationLabel = selected
+    ? isContainerKind(selected.kind)
+      ? selected.title
+      : (parentTitleOf(selected.id) ?? publicationTitle)
+    : null;
+
+  const menuFor = useCallback(
+    (nodeId: string): readonly (readonly ContextMenuItem[])[] => [
+      [
+        {
+          id: "child",
+          label: "Novo nó filho",
+          icon: "plus",
+          shortcut: "Ctrl+Shift+N",
+          onSelect: () => editing.handleCommand({ kind: "createChild", nodeId }),
+        },
+        {
+          id: "sibling",
+          label: "Novo irmão",
+          icon: "plus",
+          shortcut: "Ctrl+N",
+          onSelect: () => editing.handleCommand({ kind: "createSibling", nodeId }),
+        },
+      ],
+      [
+        {
+          id: "rename",
+          label: "Renomear",
+          icon: "pencil",
+          shortcut: "F2",
+          onSelect: () => editing.handleCommand({ kind: "rename", nodeId }),
+        },
+        {
+          id: "duplicate",
+          label: "Duplicar",
+          icon: "history",
+          shortcut: "Ctrl+D",
+          onSelect: () => editing.handleCommand({ kind: "duplicate", nodeId }),
+        },
+      ],
+      [
+        {
+          id: "delete",
+          label: "Excluir",
+          icon: "circle-x",
+          shortcut: "Del",
+          tone: "danger",
+          onSelect: () => editing.handleCommand({ kind: "delete", nodeId }),
+        },
+      ],
+    ],
+    [editing],
+  );
+
+  const commands: readonly Command[] = useMemo(
+    () => [
+      ...nodes.map((node) => ({
+        id: node.id,
+        label: node.title,
+        icon: KIND_ICONS[node.kind] ?? "file-text",
+        hint: node.kind,
+        group: "Ir para",
+        onSelect: () => setSelectedId(node.id),
+      })),
+      // Grupo próprio: os nós desta publicação e as questões do acervo respondem a perguntas
+      // diferentes, e misturá-los faria "Ir para" mentir sobre o que a seleção faz.
+      ...found
+        .filter((hit) => !nodes.some((node) => node.question?.id === hit.id))
+        .map((hit) => ({
+          id: `found-${hit.id}`,
+          label: hit.title,
+          icon: "search" as const,
+          hint: hit.hint,
+          group: "No acervo",
+          // Agora **navega**: `/questoes/[id]` resolve publicação e nó e redireciona para cá com o
+          // nó selecionado. Resultado que aparece na lista e não abre é resultado que não deveria
+          // estar na lista (§31).
+          onSelect: () => router.push(`/questoes/${hit.id}`),
+        })),
+    ],
+    [found, nodes, router, setSelectedId],
+  );
+
+  /**
+   * O título do livro agora **volta** para o resumo, e "Editor" virou um degrau.
+   *
+   * Não é decoração: o `Breadcrumb` só transforma em link o que não é o último item — o último é
+   * a página onde se está. Enquanto o livro era o último degrau, ele não podia ser clicável, e a
+   * tela de resumo ficaria sem caminho de volta a partir do editor. Nomear o editor é o que torna
+   * o livro um degrau intermediário — e é verdade, porque agora são duas páginas.
+   */
+  const breadcrumb = [
+    { label: "Publicações", href: "/publicacoes" },
+    { label: publicationTitle, href: `/publications/${publicationId}` },
+    { label: "Editor", ...(selected ? { href: `/publications/${publicationId}/editor` } : {}) },
+    ...(selected ? [{ label: selected.title }] : []),
+  ];
+
+  return (
+    <Workbench
+      modules={railModules(counts)}
+      activeModule="editor"
+      onModuleSelect={(id) => router.push(railHref(id, publicationId))}
+      breadcrumb={breadcrumb}
+      commands={commands}
+      onCommandQueryChange={searchArchive}
+      searchLabel="Buscar nós e questões…"
+      sidebarTitle="Árvore"
+      sidebar={
+        <>
+          <div
+            style={{
+              display: "flex",
+              // Quatro controles não cabem na largura da árvore: a linha quebra em vez de esconder
+              // o último filtro atrás da borda.
+              flexWrap: "wrap",
+              gap: "var(--space-2)",
+              marginBottom: "var(--space-2)",
+            }}
+          >
+            <Input
+              size="sm"
+              placeholder="Filtrar a árvore…"
+              aria-label="Filtrar a árvore"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <Select
+              size="sm"
+              aria-label="Filtrar por tipo"
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value)}
+              style={{ width: "9rem" }}
+            >
+              <option value="">Todos os tipos</option>
+              {kindsPresent.map((kind) => (
+                <option key={kind} value={kind}>
+                  {kind}
+                </option>
+              ))}
+            </Select>
+            <Button
+              size="sm"
+              variant={problemOnly ? "primary" : "ghost"}
+              aria-pressed={problemOnly}
+              // Render quebrado **ou** questão inválida: são as duas coisas que impedem a prova
+              // de sair, e separá-las em dois filtros faria procurar duas vezes pelo mesmo motivo.
+              title="Só questões com render quebrado ou validação falhando"
+              onClick={() => setProblemOnly((current) => !current)}
+            >
+              Com problema
+            </Button>
+            <Button
+              size="sm"
+              variant={toReviewOnly ? "primary" : "ghost"}
+              aria-pressed={toReviewOnly}
+              title="Só as questões que o scan ou o reconhecimento escreveu e ninguém conferiu"
+              onClick={() => setToReviewOnly((current) => !current)}
+            >
+              A revisar
+            </Button>
+          </div>
+
+          {tagsPresent.length > 0 && (
+            <div
+              style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: "0 var(--space-3)" }}
+              role="group"
+              aria-label="Filtrar por tag"
+            >
+              {tagsPresent.map((tag) => {
+                const on = tagFilter.some((name) => sameTag(name, tag.name));
+
+                // Selecionar a segunda tag **estreita**: `matchesAllTags` exige todas. Com "ou",
+                // a segunda ampliaria o resultado — o contrário do que se acabou de pedir.
+                const toggle = () =>
+                  setTagFilter((current) =>
+                    on
+                      ? current.filter((name) => !sameTag(name, tag.name))
+                      : [...current, tag.name],
+                  );
+
+                return (
+                  <Chip
+                    key={tag.name}
+                    selected={on}
+                    // O `Chip` é um `span`: sem estes três, o filtro por tag só existiria para
+                    // quem usa mouse — e `aria-pressed` é o que diz ao leitor de tela que ele
+                    // está ligado, coisa que a cor de fundo sozinha não conta.
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={on}
+                    style={{ cursor: "pointer" }}
+                    onClick={toggle}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      toggle();
+                    }}
+                  >
+                    {tag.name} · {tag.count}
+                  </Chip>
+                );
+              })}
+            </div>
+          )}
+
+          {filtering && (
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-meta)",
+                color: "var(--text-muted)",
+                padding: "0 var(--space-1) var(--space-2)",
+              }}
+            >
+              {filtered.matchCount === 0
+                ? "nenhum resultado"
+                : `${filtered.matchCount} de ${nodes.length}`}
+            </div>
+          )}
+
+          {treeNodes.length === 0 ? (
+            filtering ? (
+              <EmptyState
+                icon="search"
+                title="Nada encontrado"
+                description="Ajuste o texto ou limpe o filtro de tipo."
+              />
+            ) : (
+              <EmptyState
+                icon="list-tree"
+                title="Este livro ainda não tem estrutura"
+                // O empty state do design (§6): não é constatação, é o começo do trabalho. E não
+                // obriga a montar uma árvore antes de começar — capturar direto é caminho legítimo,
+                // e o destino se decide na revisão.
+                description="Comece por um capítulo, ou vá direto à captura da primeira questão."
+                action={
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      icon="plus"
+                      onClick={() =>
+                        void editing.create({ kind: "lastChild", parentId: null }, "CHAPTER")
+                      }
+                    >
+                      Criar primeiro capítulo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="scan-text"
+                      href={`/publications/${publicationId}/ingestao`}
+                    >
+                      Capturar primeira questão
+                    </Button>
+                  </div>
+                }
+              />
+            )
+          ) : (
+            <TreeDnd subtreeOf={subtreeOf} onMove={editing.move}>
+              <Tree
+                nodes={treeNodes}
+                selected={selected?.id}
+                onSelect={setSelectedId}
+                onCommand={editing.handleCommand}
+                editingId={editing.editingId}
+                onEditCommit={editing.rename}
+                onEditCancel={editing.cancelEditing}
+                wrapItem={(node, row) => (
+                  <ContextMenu key={node.id} groups={menuFor(node.id)}>
+                    <DraggableTreeRow nodeId={node.id}>{row}</DraggableTreeRow>
+                  </ContextMenu>
+                )}
+                // Raízes abertas na primeira visita: uma árvore que abre com uma linha só não
+                // mostra que existe conteúdo embaixo. Depois disso o que vale é o que ficou salvo.
+                defaultExpanded={treeNodes.map((node) => node.id)}
+                storageKey={`lbb:tree:${publicationTitle}`}
+                aria-label={`Árvore de ${publicationTitle}`}
+                // Filtrando, os expandidos passam a ser controlados: são os ancestrais dos
+                // resultados. Sem isso, o filtro mostraria só as raízes e pareceria vazio.
+                {...(filtering ? { expanded: filtered.expanded } : {})}
+              />
+            </TreeDnd>
+          )}
+        </>
+      }
+      actions={
+        <>
+          {/*
+            "Lixeira do livro", e não "Lixeira": desde que a lixeira do acervo entrou no rail,
+            existem duas — e duas coisas diferentes com o mesmo nome na mesma tela é o convite
+            para clicar na errada. Esta filtra por publicação; a do rail mostra tudo.
+          */}
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="archive"
+            onClick={() => setTrashOpen(true)}
+            title="O que foi excluído deste livro. A lixeira do acervo inteiro fica no rail."
+          >
+            Lixeira do livro
+          </Button>
+          <AddMenu
+            disabled={editing.busy}
+            destinationLabel={destinationLabel}
+            inheritSource={inheritSource}
+            open={addOpen}
+            onOpenChange={setAddOpen}
+            onCreateStructure={(kind) => void editing.create(addPlacement, kind)}
+            onCreateQuestion={(type) => void editing.createQuestion(addPlacement, type)}
+          />
+        </>
+      }
+      asideTitle="Agente"
+      aside={
+        <AgentPanel
+          context={agentContext}
+          onDetach={(id) => setAgentContext(detach(agentContext, id))}
+          onClear={() => setAgentContext(clearContext())}
+          providerLabel={ai?.providerLabel ?? null}
+          model={ai?.model ?? null}
+          error={agentError}
+          turns={agentTurns}
+          busy={agentBusy}
+          proposal={proposal}
+          mode={agentMode}
+          onModeChange={setAgentMode}
+          onApplyProposal={(ids) => void applyProposal(ids)}
+          onRejectProposal={() => setProposal(null)}
+          {...(ai && selected?.question
+            ? {
+                onPreviewChange: previewChange,
+              }
+            : {})}
+          onRequestRevision={(feedback) => {
+            // A proposta sai da tela e o feedback vira a próxima pergunta: revisar uma proposta
+            // que o agente já foi convidado a substituir é revisar o que vai ser descartado.
+            setProposal(null);
+            void askAgent(feedback);
+          }}
+          {...(ai ? { onSend: (prompt: string) => void askAgent(prompt) } : {})}
+        />
+      }
+      statusLeft={
+        <>
+          <span>local-first · SQLite</span>
+          <span>
+            {nodes.length} {nodes.length === 1 ? "nó" : "nós"}
+          </span>
+          {/* No editor a infraestrutura importa mais que em qualquer outra tela: é daqui que se
+              manda renderizar, e é aqui que saber do worker antes de clicar poupa o timeout. */}
+          <InfraStatusBar />
+        </>
+      }
+      /**
+       * O que está selecionado, não em que fase o projeto está.
+       *
+       * Dizia "Fase 1 · shell" — número de fase do planejamento, na barra de status, desde a
+       * primeira versão desta tela. É a mesma coisa que a #197 tirou dos estados vazios: quem usa
+       * o produto não tem como saber o que é a Fase 1, e a informação nunca foi para ele.
+       */
+      statusRight={
+        <span>{selected ? `${selected.kind.toLowerCase()} · ${selected.title}` : "nada selecionado"}</span>
+      }
+    >
+      <>
+        {editing.error && (
+          <div style={{ padding: "var(--space-4) var(--space-4) 0" }}>
+            <Banner tone="danger" title={editing.error.title} onDismiss={editing.dismissError}>
+              {editing.error.message}
+            </Banner>
+          </div>
+        )}
+
+        {selected ? (
+          <NodeDetail
+            node={selected}
+            publisher={publisher}
+            publicationId={publicationId}
+            workspaceId={workspaceId}
+            onDirtyChange={setUnsavedQuestionId}
+            {...(ai
+              ? { onAttachSelection: (selection) => attachToAgent(selectionItem(selection)) }
+              : {})}
+          />
+        ) : null}
+
+        <TrashDialog
+          publicationId={publicationId}
+          open={trashOpen}
+          onClose={() => setTrashOpen(false)}
+        />
+
+        <Modal
+          open={editing.pendingDelete !== null}
+          onClose={editing.cancelDelete}
+          // Descartar por clique fora não serve para confirmação de exclusão: o gesto ambíguo
+          // vira "não fiz nada" na cabeça do usuário, e aqui o "não" precisa ser explícito.
+          closeOnScrim={false}
+          eyebrow="EXCLUIR"
+          title={`Excluir “${editing.pendingDeleteTitle ?? ""}”?`}
+          footer={
+            <>
+              <Button variant="ghost" onClick={editing.cancelDelete}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={() => void editing.confirmDelete()}>
+                Excluir
+              </Button>
+            </>
+          }
+        >
+          A exclusão é lógica e leva junto <strong>tudo que está abaixo deste nó</strong>. Restaurar
+          este nó traz a descendência de volta junto.
+        </Modal>
+      </>
+    </Workbench>
+  );
+}
+
+function NodeDetail({
+  node,
+  publisher,
+  publicationId,
+  workspaceId,
+  onDirtyChange,
+  onAttachSelection,
+}: {
+  node: TreeNodeDto;
+  publisher: string | null;
+  publicationId: string;
+  workspaceId: string;
+  /** Sobe o id da questão com alteração pendente, ou `null`. É o indicador "não salva". */
+  onDirtyChange: (questionId: string | null) => void;
+  /** Ausente quando não há IA configurada — sem endpoint, o botão de anexar não faz sentido. */
+  onAttachSelection?: (selection: EditorSelection) => void;
+}) {
+  return (
+    <>
+      <PageHeader
+        eyebrow={node.originalLabel ? `${node.kind} · ${node.originalLabel}` : node.kind}
+        title={node.title}
+        status={<ArtifactStatus status={node.question ? "unvalidated" : "draft"} size="sm" />}
+        meta={
+          node.question
+            ? [node.question.difficultyLabel, node.question.source].filter(Boolean).join(" · ")
+            : (publisher ?? undefined)
+        }
+        actions={
+          node.question && node.toReview ? (
+            /*
+              Conferir (D40): a questão veio do scan ou do reconhecimento, e ninguém a leu contra o
+              PDF. `READY` a tira do filtro *a revisar*. Pela mesma versão do texto: conferir uma
+              versão velha seria aprovar o que a pessoa não viu.
+            */
+            <Button
+              size="sm"
+              variant="primary"
+              icon="check"
+              onClick={() => {
+                void fetch(`/api/publications/${publicationId}/questions/${node.question?.id}`, {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ expectedVersion: node.question?.version, status: "READY" }),
+                }).then(() => window.location.reload());
+              }}
+            >
+              Conferido
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {/*
+        Sem recuo lateral, e isto é decisão e não descuido.
+        
+        No 1366×768 cada pixel aqui sai da largura do editor, e o piso declarado para ele é 420px
+        (`e2e/layout.spec.ts`) — largura de uma linha de LaTeX sem quebra no meio de um comando.
+        Com 16px de cada lado sobram 416. Num workbench o recuo pertence ao editor **por dentro**,
+        que é onde o protótipo também o coloca; o painel encosta na borda de propósito.
+        
+        A regra valia por acidente até agora: o `var(--space-7)` que estava aqui não existe, então
+        o CSS descartava a declaração inteira e o padding era zero sem ninguém ter escolhido isso.
+      */}
+      <div style={{ padding: "0 0 var(--space-8)", maxWidth: "min(100%, 96rem)" }}>
+        {node.question ? (
+          <>
+            <div
+              style={{
+                height: "34rem",
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-md)",
+                overflow: "hidden",
+              }}
+            >
+              <QuestionEditor
+                /**
+                 * A `key` leva a **versão do servidor**, e é isso que faz o editor recarregar
+                 * quando um patch do agente muda a questão por baixo dele: o estado é semeado no
+                 * mount, então sem remontar o texto na tela continuaria o de antes — e quem
+                 * seguisse digitando estaria editando sobre uma base que já mudou.
+                 *
+                 * Não remonta ao digitar: o autosave grava, mas **não** refaz o render do
+                 * servidor, então este `version` só muda quando algo de fora mexeu na questão.
+                 * Fosse a cada gravação, o Monaco perderia o cursor no meio da frase.
+                 */
+                key={`${node.question.id}:${node.question.version}`}
+                publicationId={publicationId}
+                workspaceId={workspaceId}
+                onDirtyChange={onDirtyChange}
+                questionId={node.question.id}
+                questionType={node.question.type}
+                /*
+                  A troca muda a **forma** da questão — some ou volta uma aba inteira —, então
+                  recarregar não é enfeite: sem isso a árvore e o painel continuam mostrando o
+                  tipo velho.
+
+                  `location.reload` e não `router.refresh`: a mesma escolha que o
+                  `restoreRevision` do editor já fez, e pelo mesmo motivo — a troca mexe em
+                  alternativas e abas que esta tela semeia no mount, e um estado meio atualizado é
+                  pior que um recarregado.
+                */
+                onTypeChange={(type) => {
+                  void fetch(`/api/publications/${publicationId}/questions/${node.question?.id}`, {
+                    method: "PATCH",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      expectedVersion: node.question?.version,
+                      type,
+                    }),
+                  }).then(() => window.location.reload());
+                }}
+                initialVersion={node.question.version}
+                initial={{
+                  statementLatex: node.question.statementLatex,
+                  solutionLatex: node.question.solutionLatex,
+                  complementLatex: node.question.complementLatex,
+                }}
+                {...(onAttachSelection ? { onAttachSelection } : {})}
+                options={node.question.options.map((option) => ({
+                  statementLatex: option.statementLatex,
+                  isCorrect: option.isCorrect,
+                }))}
+              />
+            </div>
+          </>
+        ) : (
+          /*
+            O capítulo e a seção têm corpo agora (D42, ADR 0001): a teoria que o livro traz antes
+            dos exercícios — escrita aqui ou vinda do scan. O estado vazio que dizia "o conteúdo
+            fica nas questões" deixou de ser verdade.
+          */
+          <div
+            key={node.id}
+            style={{
+              height: "34rem",
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)",
+              overflow: "hidden",
+            }}
+          >
+            <NodeBodyEditor publicationId={publicationId} nodeId={node.id} />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

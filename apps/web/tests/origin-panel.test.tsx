@@ -79,6 +79,40 @@ describe("a cadeia de proveniência", () => {
     expect(crop.getAttribute("src")).toBe("/api/assets/crop-1/content");
   });
 
+  /**
+   * O recorte que não abre não é a questão quebrada (protótipo, 1315–1319).
+   *
+   * Sem isto o navegador desenhava o ícone de imagem rasgada, e quem abre a aba **Origem** e vê
+   * aquilo conclui a coisa errada: que a questão está corrompida. Não está — o LaTeX, as
+   * alternativas e as tags nunca dependeram deste arquivo.
+   *
+   * O caso é banal e real: `STORAGE_ROOT` mudou de lugar, um restore trouxe o banco e não os
+   * arquivos, alguém limpou a pasta. Nos três, o que a pessoa precisa ler é que a perda é da
+   * evidência, e não do trabalho.
+   */
+  it("recorte que não abre diz que a questão continua íntegra", async () => {
+    withOrigin();
+    render(<OriginPanel questionId="q1" />);
+
+    const crop = (await waitFor(() =>
+      screen.getByAltText("Recorte de origem"),
+    )) as HTMLImageElement;
+
+    // O arquivo sumiu do storage: a imagem falha ao carregar, que é como o navegador conta.
+    fireEvent.error(crop);
+
+    expect(await screen.findByText(/O recorte não foi encontrado no acervo/)).toBeTruthy();
+    expect(screen.getByText(/A questão continua íntegra/)).toBeTruthy();
+
+    // E some a imagem rasgada — deixá-la ao lado do aviso seria dizer as duas coisas ao mesmo
+    // tempo, e a rasgada fala mais alto.
+    expect(screen.queryByAltText("Recorte de origem")).toBeNull();
+
+    // A saída é onde a resposta está: o Diagnóstico diz para onde o armazenamento aponta, que é a
+    // primeira coisa a conferir nas três causas.
+    expect(screen.getByRole("link", { name: /diagnóstico/i })).toBeTruthy();
+  });
+
   it("questão digitada à mão não é erro — é uma tela que explica", async () => {
     serve({ provenance: null, actions: [] });
     render(<OriginPanel questionId="q1" />);

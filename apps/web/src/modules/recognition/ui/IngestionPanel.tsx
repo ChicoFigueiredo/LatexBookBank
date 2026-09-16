@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 
-import { Badge, Banner, Button, injectCss, Segmented } from "@/design-system";
+import { Badge, Banner, Button, Icon, injectCss, Segmented } from "@/design-system";
 import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
+import { optionLabelAt } from "@modules/questions/domain/question-type";
+import {
+  detectarBlocoUnido,
+  separarAlternativas,
+  type AlternativaLida,
+} from "@modules/recognition/domain/separar-alternativas";
+import type { QuestaoEstimada } from "@modules/recognition/domain/segmentar-pagina";
 import {
   accept,
   candidateFrom,
@@ -29,12 +36,28 @@ import type { MathRecognitionResult } from "@/shared/ports";
 
 const CSS = `
 .lbb-ing{display:grid;gap:var(--space-4);padding:var(--space-4);min-height:0}
-.lbb-ing-viewer{height:32rem;border:1px solid var(--border-default);border-radius:var(--radius-md);overflow:hidden}
+/* A altura acompanha a janela, e não um número fixo: recortar exige **ver** a questão inteira, e
+   32rem cravados desperdiçavam meia tela num monitor grande — a página ficava cortada no meio da
+   questão seguinte com espaço em branco sobrando embaixo (dogfooding da prova ProfMat, 2026-09-02).
+   Enquanto se recorta, nada disputa espaço: a área de revisão só nasce depois do recorte. O piso de
+   24rem protege a janela baixa, e o teto de 60rem evita a página virar um monólito em 4K. */
+.lbb-ing-viewer{height:clamp(24rem,calc(100vh - 16rem),60rem);border:1px solid var(--border-default);border-radius:var(--radius-md);overflow:hidden}
 .lbb-ing-review{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);align-items:start}
 .lbb-ing-crop{border:1px solid var(--border-default);border-radius:var(--radius-md);padding:var(--space-2);background:var(--surface-paper);display:grid;place-items:center;min-height:8rem}
 .lbb-ing-latex{width:100%;min-height:8rem;padding:8px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-raised);color:var(--text-primary);font-family:var(--font-mono);font-size:var(--text-body-sm)}
 .lbb-ing-latex:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-1px}
 .lbb-ing-meta{font-family:var(--font-mono);font-size:var(--text-micro);color:var(--text-secondary)}
+.lbb-ing-split{display:flex;flex-direction:column;gap:5px;padding:var(--space-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
+.lbb-ing-alt{display:flex;align-items:center;gap:9px;font-size:var(--text-body-sm);color:var(--text-primary)}
+/* O bloco unido é aviso, não erro: o texto está todo lá, só precisa de um corte. */
+.lbb-ing-alt[data-tone="warn"]{padding:6px 8px;border:1px solid var(--warn-border);border-radius:var(--radius-sm);background:var(--warn-surface)}
+.lbb-ing-alt-label{flex-shrink:0;font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted);white-space:nowrap}
+/* O rótulo derivado, quando difere do livro: a mudança fica à vista em vez de acontecer calada. */
+.lbb-ing-alt-derivada{color:var(--warn-text)}
+.lbb-ing-progress{display:flex;flex-direction:column;gap:6px;padding:var(--space-3) var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised)}
+.lbb-ing-step{display:flex;align-items:center;gap:8px;font-size:var(--text-body-sm);color:var(--text-primary)}
+/* O que já aconteceu fica verde; o que está acontecendo fica em texto normal. */
+.lbb-ing-step[data-done="true"]{color:var(--ok-text)}
 .lbb-ing-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 `;
 
@@ -49,6 +72,14 @@ export interface AcceptedRecognition {
   readonly anchorId: string;
   readonly cropAssetId: string;
   readonly statementLatex: string;
+  /**
+   * As alternativas separadas do enunciado, quando o recorte era uma questão inteira.
+   *
+   * `RecognitionCandidate` tem `options` e `createQuestionFromRecognition` sabe gravá-las desde
+   * sempre — **nada no app jamais as preencheu**. A ponta receptora estava pronta e ninguém
+   * alimentava, e é o que o handoff do protótipo listou como "faltava Questão completa".
+   */
+  readonly options: readonly { readonly label: string; readonly statementLatex: string }[];
   readonly run: {
     readonly providerId: string;
     readonly model: string;
@@ -61,21 +92,81 @@ export interface AcceptedRecognition {
 }
 
 export interface IngestionPanelProps {
+  /**
+   * Onde o reconhecimento acontece — e a frase que a tela mostra por causa disso.
+   *
+   * Resolvida no servidor: a `AI_BASE_URL` não atravessa para o cliente, e não deveria. O que
+   * atravessa é a conclusão.
+   */
+  readonly aviso?: string;
+  /**
+   * O PDF que o livro já tem — o PDF fonte anexado, resolvido no servidor.
+   *
+   * Presente, ele **é** o arquivo desta sessão de captura: o painel abre nele, sem clique
+   * nenhum. O protótipo (1487) oferecia “Usar FME1.pdf (fonte do livro)” ao lado de colar e
+   * escolher arquivo, e isso ainda era pouco — o caminho mais comum de todos ficava como terceira
+   * opção, atrás de um convite a subir um arquivo que o app já tinha. O botão continua existindo
+   * (ver o ramo sem fonte aberta), mas como volta, não como entrada.
+   *
+   * Ausente, nada muda: a área de arrastar é a primeira coisa da tela.
+   */
+  readonly bookSource?: {
+    readonly assetId: string;
+    readonly filename: string;
+    readonly mimeType: string;
+  };
   readonly workspaceId: string;
   readonly publicationId: string;
   readonly questionId?: string | null;
   /** Chamado quando o usuário confere e aceita o candidato. */
   readonly onAccept: (accepted: AcceptedRecognition) => void;
+  /**
+   * Chamado quando o upload acabou de virar o PDF fonte do livro.
+   *
+   * O painel não chama `router.refresh()` sozinho porque o que precisa ser revalidado não é dele:
+   * é o `bookSource` que o Server Component da rota resolve, e o resumo do livro, que até agora
+   * continuava mostrando a pendência “Sem PDF fonte anexado” já resolvida.
+   */
+  readonly onBookSourceAttached?: () => void;
+}
+
+/** Aplica as divisões aceitas até nenhuma mais casar. Ver o comentário no consumidor. */
+function aplicarDivisoes(
+  options: readonly AlternativaLida[],
+  divididos: ReadonlyMap<string, readonly AlternativaLida[]>,
+): readonly AlternativaLida[] {
+  let atual = options;
+
+  for (let passada = 0; passada < 5; passada += 1) {
+    const proxima = atual.flatMap((opcao) => divididos.get(opcao.statementLatex) ?? [opcao]);
+    if (proxima.length === atual.length) return proxima;
+    atual = proxima;
+  }
+
+  return atual;
 }
 
 /** Os quatro do contrato de reconhecimento, com o rótulo que a tela usa. */
-type RecognitionMode = "display" | "inline" | "mixed" | "text";
+type RecognitionMode = "questao" | "display" | "inline" | "mixed" | "text";
 
+/**
+ * O que se pede ao modelo — e o quarto é o que faltava.
+ *
+ * Os três primeiros são **técnicos**: descrevem o formato do recorte. O handoff do protótipo os
+ * chama assim, e aponta a lacuna: quem recorta uma questão de prova não está pensando em "texto
+ * com fórmula", está pensando em "esta questão". `Questão completa` lê o recorte como os outros e
+ * **separa enunciado de alternativas** — a diferença não está no modelo, está no que se faz com o
+ * que ele devolveu.
+ */
 const MODES: readonly { readonly id: RecognitionMode; readonly label: string }[] = [
+  { id: "questao", label: "Questão completa" },
   { id: "display", label: "Fórmula" },
   { id: "mixed", label: "Texto com fórmula" },
   { id: "text", label: "Só texto" },
 ];
+
+/** `questao` não existe no provider: ele lê como `mixed`, e a separação é nossa, aqui. */
+const MODO_DO_PROVIDER = (modo: RecognitionMode): string => (modo === "questao" ? "mixed" : modo);
 
 interface SourceState {
   readonly assetId: string;
@@ -83,13 +174,42 @@ interface SourceState {
   readonly filename: string;
   /** O visualizador precisa saber: PDF abre pelo `pdf.js`, imagem vai direto ao canvas (#185). */
   readonly mimeType: string;
+  /**
+   * De onde saiu o arquivo aberto.
+   *
+   * Muda o que a tela diz quando ele não abre: um upload recém-escolhido tem dono óbvio, a fonte
+   * do livro foi aberta sozinha e precisa se explicar.
+   */
+  readonly origin: "book" | "upload";
 }
 
+/** O que a tela mostra enquanto o arquivo do livro ainda está chegando. */
+type BookSource = NonNullable<IngestionPanelProps["bookSource"]>;
+
+/**
+ * O PDF do livro **como fonte desta sessão de captura**.
+ *
+ * Uma função só, usada pelo valor inicial do estado e pelo botão que volta para a fonte depois de
+ * um desvio — a URL do conteúdo tem um único lugar onde é montada.
+ */
+const fonteDoLivro = (bookSource: BookSource): SourceState => ({
+  assetId: bookSource.assetId,
+  // A rota do servidor, e não `createObjectURL`: este arquivo não passou pelo navegador — ele já
+  // está no acervo, e é de lá que ele vem.
+  url: `/api/assets/${bookSource.assetId}/content`,
+  filename: bookSource.filename,
+  mimeType: bookSource.mimeType,
+  origin: "book",
+});
+
 export function IngestionPanel({
+  aviso,
+  bookSource,
   workspaceId,
   publicationId,
   questionId = null,
   onAccept,
+  onBookSourceAttached,
 }: IngestionPanelProps) {
   injectCss("lbb-ing-css", CSS);
 
@@ -101,7 +221,25 @@ export function IngestionPanel({
    * que encontrar — e perder o resto (#193).
    */
   const [mode, setMode] = useState<RecognitionMode>("display");
-  const [source, setSource] = useState<SourceState | null>(null);
+  /**
+   * Que arquivo esta sessão de captura está usando — e ele **já vem escolhido** quando o livro tem
+   * fonte.
+   *
+   * Quem sabe qual é o arquivo do livro é o servidor: o Server Component desta rota resolve o
+   * `sourcePdfAssetId` e devolve `null` quando o asset não existe mais. O que a tela fazia com
+   * essa resposta era desenhar um convite para subir **outro** arquivo, com o certo escondido num
+   * botão ao lado: o app sabia qual era o PDF e ainda assim mandava procurar no disco.
+   *
+   * Por isso o valor inicial vem do `bookSource` no primeiro render, e não de um efeito que
+   * "clica no botão" depois de montar: um efeito faria a tela piscar a área de arrastar antes de
+   * se corrigir, e a decisão de qual arquivo abrir passaria a morar em dois lugares.
+   *
+   * Sem fonte no livro, `null` — e a área de arrastar continua sendo a primeira coisa da tela,
+   * exatamente como antes.
+   */
+  const [source, setSource] = useState<SourceState | null>(() =>
+    bookSource ? fonteDoLivro(bookSource) : null,
+  );
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [cropAssetId, setCropAssetId] = useState<string | null>(null);
   // A âncora é o dado; o crop é a imagem dela. Guardá-la aqui é o que permite criar a questão com
@@ -109,7 +247,71 @@ export function IngestionPanel({
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<RecognitionCandidate | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * O que já aconteceu enquanto o modelo lê (protótipo, 1590–1614).
+   *
+   * A tela dizia `reconhecendo…` — uma palavra num canto — durante a única espera do produto em
+   * que o usuário tem uma pergunta concreta: *"se isto falhar, perco meu recorte?"*. A resposta é
+   * **não**, está no código (`cropAssetId` é criado antes de o modelo ser chamado) e até no
+   * comentário do `catch` — e nunca chegava a quem esperava.
+   *
+   * Nenhum dos passos é decorativo: os dois primeiros são fatos já consumados no momento em que
+   * aparecem, e é o que os torna uma garantia em vez de uma barra de progresso fingida.
+   */
+  const [progresso, setProgresso] = useState<readonly string[]>([]);
+  /**
+   * As divisões que a pessoa aceitou — por texto do bloco, não por índice.
+   *
+   * O índice muda quando uma divisão acontece antes dele na lista; o texto do bloco é o que
+   * identifica *aquele* bloco. Guardar por índice faria a segunda divisão apagar a primeira.
+   */
+  const [divididos, setDivididos] = useState<ReadonlyMap<string, readonly AlternativaLida[]>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
+  /**
+   * O arquivo que estava aberto não abriu — e a tela voltou para a área de arrastar.
+   *
+   * Separado do `error` porque o desfecho é outro: `error` é uma falha **sobre** o que se estava
+   * fazendo (o upload, o recorte, o modelo) e a tela continua onde estava; este aqui é a tela
+   * mudando de estado, e a frase precisa dizer o que aconteceu com o arquivo que sumiu de vista.
+   */
+  const [naoAbriu, setNaoAbriu] = useState<string | null>(null);
+  /**
+   * As caixas que a estimativa propôs para a página atual, e o andamento do lote.
+   *
+   * O lote **não cria questão**: ele para em recorte salvo e transcrição guardada, que é onde a
+   * fila de captura (§26) já sabe esperar. É a regra do módulo — "o OCR propõe, o domínio
+   * editorial só persiste depois da revisão" — e num lote ela pesa mais, não menos: um erro de
+   * segmentação viraria trinta questões erradas de uma vez.
+   */
+  const [estimadas, setEstimadas] = useState<readonly QuestaoEstimada[] | undefined>(undefined);
+  const [lote, setLote] = useState<{ feitos: number; total: number; falhas: number } | null>(null);
+
+  /** Fecha o arquivo aberto e devolve a área de arrastar. O recorte em revisão sai junto. */
+  const fecharFonte = () => {
+    setSource(null);
+    setCandidate(null);
+    setCropUrl(null);
+  };
+
+  /**
+   * O arquivo aberto não abriu de verdade — cai para a área de arrastar, dizendo o motivo.
+   *
+   * O caso concreto é o asset que sumiu do storage: a linha continua no banco, o servidor manda a
+   * fonte, e o `pdf.js` recebe um 404. Sem isto a captura ficava sendo um visualizador com uma
+   * frase de erro dentro, sem nenhuma outra coisa para fazer.
+   */
+  const fonteNaoAbriu = (motivo: string) => {
+    if (source === null) return;
+
+    setNaoAbriu(
+      source.origin === "book"
+        ? `Não deu para abrir ${source.filename}, o PDF fonte do livro: ${motivo}`
+        : `Não deu para abrir ${source.filename}: ${motivo}`,
+    );
+    fecharFonte();
+  };
 
   const upload = async (file: File) => {
     setBusy("subindo");
@@ -118,14 +320,26 @@ export function IngestionPanel({
       const form = new FormData();
       form.set("file", file);
       form.set("workspaceId", workspaceId);
+      // O livro vai junto — e é o que faltava. Sem ele o `Asset` nascia com `publicationId` nulo,
+      // `Publication.sourcePdfAssetId` continuava nulo, e o PDF que alguém acabou de subir pela
+      // pendência "Sem PDF fonte anexado" sumia do livro em silêncio: a tela mostrava o
+      // arquivo, dava para recortar, e na visita seguinte a pendência estava lá de novo.
+      form.set("publicationId", publicationId);
 
       const response = await fetch("/api/assets", { method: "POST", body: form });
-      const payload = (await response.json()) as { id?: string; message?: string };
+      const payload = (await response.json()) as {
+        id?: string;
+        becameBookSource?: boolean;
+        message?: string;
+      };
 
       if (!response.ok || payload.id === undefined) {
         setError(payload.message ?? "O arquivo não foi aceito.");
         return;
       }
+
+      // O livro deixou de estar sem fonte agora. Quem revalida é quem tem o router.
+      if (payload.becameBookSource === true) onBookSourceAttached?.();
 
       // `URL.createObjectURL` e não uma rota de download: o arquivo já está na memória do
       // navegador, e buscá-lo de volta do servidor seria pagar duas vezes pelo mesmo byte.
@@ -136,9 +350,11 @@ export function IngestionPanel({
         // O tipo vem do **arquivo escolhido**, e não do que o servidor devolveu: é o mesmo blob
         // que o `createObjectURL` acabou de publicar, então é ele que o visualizador vai desenhar.
         mimeType: file.type,
+        origin: "upload",
       });
       setCandidate(null);
       setCropUrl(null);
+      setNaoAbriu(null);
     } catch {
       setError("Não deu para falar com o servidor.");
     } finally {
@@ -184,12 +400,81 @@ export function IngestionPanel({
       //
       // A âncora vai **explícita**: `setAnchorId` acabou de ser chamado e o estado ainda não
       // chegou nesta closure. Ler o estado aqui mandaria `null` e o servidor não guardaria nada.
+      // O recorte já está guardado neste ponto — e é isso que a lista vai dizer, no momento em
+      // que passa a ser verdade e não antes.
+      setProgresso(["recorte guardado como evidência"]);
       await recognize(crop.png, payload.cropAssetId, mode, payload.anchorId);
     } catch {
       setError("Não deu para falar com o servidor.");
     } finally {
       setBusy(null);
     }
+  };
+
+  /**
+   * O lote: salvar cada recorte proposto e mandar reconhecer, um de cada vez.
+   *
+   * **Em série, de propósito.** O reconhecedor local é um modelo de visão numa GPU só; disparar
+   * trinta chamadas juntas não as torna paralelas, só troca "demora" por "estoura a memória e
+   * falha tudo". Em série, o que já foi reconhecido está guardado quando a trigésima falhar.
+   *
+   * Falha de uma não derruba as outras — o recorte dela já está salvo e a fila de captura (§26) a
+   * mostra esperando, que é exatamente o estado verdadeiro: recortada, ainda não transcrita.
+   *
+   * Nada aqui cria questão. O lote termina em transcrição guardada, e quem promove cada uma a
+   * questão é a pessoa, uma a uma, com o recorte à vista — a regra do módulo, que num lote pesa
+   * mais e não menos.
+   */
+  const recortarLote = async (
+    recortes: readonly {
+      readonly numero: number | null;
+      readonly pageNumber: number;
+      readonly box: { x: number; y: number; width: number; height: number };
+      readonly png: Blob;
+    }[],
+  ) => {
+    if (source === null || recortes.length === 0) return;
+
+    setError(null);
+    setLote({ feitos: 0, total: recortes.length, falhas: 0 });
+    let falhas = 0;
+
+    for (const [indice, recorte] of recortes.entries()) {
+      try {
+        const form = new FormData();
+        form.set("image", recorte.png, "crop.png");
+        form.set("sourceAssetId", source.assetId);
+        form.set("publicationId", publicationId);
+        form.set("pageNumber", String(recorte.pageNumber));
+        for (const [chave, valor] of Object.entries(recorte.box)) form.set(chave, String(valor));
+
+        const salvo = await fetch("/api/assets/crop", { method: "POST", body: form });
+        const guardado = (await salvo.json()) as { cropAssetId?: string; anchorId?: string };
+        if (!salvo.ok || !guardado.cropAssetId) {
+          falhas += 1;
+          continue;
+        }
+
+        // O reconhecimento é a parte cara e a que pode não existir (modelo fora do ar). O recorte
+        // já está salvo neste ponto, então falhar aqui custa a transcrição, nunca o recorte.
+        const pedido = new FormData();
+        pedido.set("image", recorte.png, "crop.png");
+        pedido.set("cropAssetId", guardado.cropAssetId);
+        pedido.set("mode", MODO_DO_PROVIDER("questao"));
+        if (guardado.anchorId !== undefined) pedido.set("anchorId", guardado.anchorId);
+
+        const lido = await fetch("/api/recognition", { method: "POST", body: pedido });
+        if (!lido.ok) falhas += 1;
+      } catch {
+        falhas += 1;
+      }
+
+      setLote({ feitos: indice + 1, total: recortes.length, falhas });
+    }
+
+    // A estimativa sai da tela quando o lote acaba: as caixas já viraram recorte guardado, e
+    // mantê-las desenhadas convidaria a recortar as mesmas questões de novo.
+    setEstimadas(undefined);
   };
 
   const recognize = async (
@@ -199,11 +484,12 @@ export function IngestionPanel({
     anchor: string | null = anchorId,
   ) => {
     setBusy("reconhecendo");
+    setProgresso((atual) => [...atual, "lendo texto e matemática"]);
     try {
       const form = new FormData();
       form.set("image", png, "crop.png");
       form.set("cropAssetId", assetId);
-      form.set("mode", modo);
+      form.set("mode", MODO_DO_PROVIDER(modo));
       // A âncora vai junto para o servidor **guardar** o que o modelo leu. É o que faz reconhecer
       // dez recortes e fechar a aba não perder as dez transcrições (§26).
       if (anchor !== null) form.set("anchorId", anchor);
@@ -223,8 +509,40 @@ export function IngestionPanel({
       setCandidate(payload as RecognitionCandidate);
     } catch {
       setError("Não deu para falar com o servidor.");
+    } finally {
+      setProgresso([]);
+      // Recorte novo, divisões novas: uma divisão aceita para o bloco anterior não vale para este,
+      // e o mapa por texto casaria por acaso se dois recortes tivessem a mesma alternativa.
+      setDivididos(new Map());
     }
   };
+
+  /**
+   * A separação é derivada do texto **revisado**, e recalculada a cada tecla.
+   *
+   * Não guardada em estado: corrigir o LaTeX e ver as alternativas continuarem as antigas seria a
+   * tela mostrando uma coisa e gravando outra. Só vale no modo `Questão completa` — nos outros o
+   * recorte não é uma questão inteira, e separar seria inventar estrutura em cima de uma fórmula.
+   */
+  const bruto =
+    candidate !== null && mode === "questao"
+      ? separarAlternativas(currentLatex(candidate))
+      : null;
+
+  /**
+   * As alternativas com as divisões já aceitas — e aplicadas **até estabilizar**.
+   *
+   * Uma passada só não basta, e o e2e pegou: cortar `b)` em `b` + `c` deixa o `d)` dentro do novo
+   * `c`, e a divisão seguinte é sobre um texto que **não existia** na lista original. Aplicar uma
+   * vez casava só o primeiro corte; do segundo em diante o clique não fazia nada.
+   *
+   * O teto existe porque o mapa é dado de entrada da própria função: uma divisão cujo resultado
+   * contivesse a chave dela mesma laçaria para sempre. Cinco é folgado — uma questão tem cinco
+   * alternativas, e cada corte resolve uma.
+   */
+  const separado = bruto ? { ...bruto, options: aplicarDivisoes(bruto.options, divididos) } : null;
+
+  const unidos = separado ? detectarBlocoUnido(separado.options) : [];
 
   return (
     <div className="lbb-ing">
@@ -234,31 +552,110 @@ export function IngestionPanel({
         </Banner>
       )}
 
+      {naoAbriu !== null && (
+        <Banner tone="warn" title="O arquivo não abriu" onDismiss={() => setNaoAbriu(null)}>
+          {naoAbriu} Suba um arquivo aqui para continuar capturando.
+        </Banner>
+      )}
+
+      {busy !== null && progresso.length > 0 && (
+        <div className="lbb-ing-progress" role="status">
+          {progresso.map((passo, indice) => (
+            <div key={passo} className="lbb-ing-step" data-done={indice < progresso.length - 1}>
+              <Icon name={indice < progresso.length - 1 ? "check" : "scan-text"} size={13} />
+              {passo}
+              {indice === progresso.length - 1 && "…"}
+            </div>
+          ))}
+          {/*
+            A frase que responde a pergunta de quem espera, e é literalmente verdade: o
+            `cropAssetId` nasce antes da chamada ao modelo, e o `catch` devolve um candidato vazio
+            justamente para a transcrição à mão continuar possível. Dizer isso durante a espera é
+            mais barato que descobrir depois — e é a diferença entre esperar e torcer.
+          */}
+          <span className="lbb-ing-meta">
+            se o reconhecimento falhar, o recorte fica — dá para transcrever à mão
+          </span>
+        </div>
+      )}
+
       {source === null ? (
-        <AssetDropzone
-          onFile={(file) => void upload(file)}
-          disabled={busy !== null}
-          listenToPaste
-          label="Arraste um PDF ou imagem, clique para escolher, ou cole com Ctrl+V"
-        />
+        <>
+          <AssetDropzone
+            onFile={(file) => void upload(file)}
+            disabled={busy !== null}
+            listenToPaste
+            label="Arraste um PDF ou imagem, clique para escolher, ou cole com Ctrl+V"
+          />
+          {/*
+            Onde o recorte vai ser lido, **no momento de escolher o arquivo**.
+
+            O protótipo (1477) escreve "o reconhecimento roda no seu computador; nada é enviado
+            para fora", e a tela não dizia nada. É a pergunta que alguém prestes a subir a página
+            de um livro protegido tem na cabeça, e é o único momento em que a resposta muda o que
+            a pessoa faz.
+
+            A frase é derivada do host da `AI_BASE_URL`, e não do nome do provider: "Ollama local"
+            é um perfil de configuração, não uma garantia.
+          */}
+          {/*
+            O caminho de volta para a fonte do livro.
+
+            Ele deixou de ser a porta de entrada — a captura já abre nela — e virou o retorno de
+            quem desviou: clicou em "Usar outro arquivo" e mudou de ideia, ou viu o PDF do livro
+            não abrir. Sem ele, sair da fonte seria uma porta de mão única.
+          */}
+          {bookSource && (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="file-text"
+                disabled={busy !== null}
+                onClick={() => {
+                  setNaoAbriu(null);
+                  setSource(fonteDoLivro(bookSource));
+                }}
+              >
+                Usar {bookSource.filename} (fonte do livro)
+              </Button>
+            </div>
+          )}
+
+          {aviso && (
+            <span className="lbb-ing-meta" style={{ textAlign: "center", display: "block" }}>
+              {aviso}
+            </span>
+          )}
+        </>
       ) : (
         <>
           <div className="lbb-ing-actions">
             <Badge tone="neutral">{source.filename}</Badge>
+            {/* Quem chegou e encontrou um PDF já aberto merece saber **qual** é, e por quê. */}
+            {source.origin === "book" && (
+              <span className="lbb-ing-meta">PDF fonte do livro</span>
+            )}
             {busy !== null && <span className="lbb-ing-meta">{busy}…</span>}
             <Button
               size="sm"
               variant="ghost"
               style={{ marginLeft: "auto" }}
-              onClick={() => {
-                setSource(null);
-                setCandidate(null);
-                setCropUrl(null);
-              }}
+              onClick={fecharFonte}
             >
-              Trocar arquivo
+              Usar outro arquivo
             </Button>
           </div>
+
+          {/*
+            A frase da localidade **antes de qualquer reconhecimento**, e não só na dropzone.
+
+            Ela morava no ramo de escolher arquivo, o único que existia antes de reconhecer. Agora
+            a captura abre direto no visualizador quando o livro tem fonte, e o primeiro
+            reconhecimento acontece sem passar pela dropzone: deixá-la só lá faria a pergunta
+            "isto sai do meu computador?" ficar sem resposta exatamente para quem nunca a vê.
+          */}
+          {aviso && <span className="lbb-ing-meta">{aviso}</span>}
 
           {/* A escolha vem **antes** do recorte, e não depois: ela muda o que se pede ao modelo, e
               descobrir a opção só ao ver o resultado errado custa uma rodada do modelo de visão. */}
@@ -274,11 +671,49 @@ export function IngestionPanel({
             />
           </div>
 
+          {estimadas !== undefined && lote === null && (
+            <Banner
+              tone={estimadas.length > 0 ? "info" : "warn"}
+              title={
+                estimadas.length > 0
+                  ? `${estimadas.length} questão(ões) estimada(s) nesta página`
+                  : "Nenhuma questão reconhecível nesta página"
+              }
+              onDismiss={() => setEstimadas(undefined)}
+            >
+              {estimadas.length > 0
+                ? "Confira as caixas na página. “Recortar as N” salva todas e manda reconhecer — nenhuma vira questão sem você aprovar."
+                : "A estimativa lê a camada de texto do PDF. Página escaneada, ou sem os marcadores de questão, não dá para estimar — o recorte à mão continua valendo."}
+            </Banner>
+          )}
+
+          {lote !== null && (
+            <Banner
+              tone={lote.feitos < lote.total ? "info" : lote.falhas > 0 ? "warn" : "ok"}
+              title={
+                lote.feitos < lote.total
+                  ? `Recortando e reconhecendo ${lote.feitos} de ${lote.total}…`
+                  : `${lote.total - lote.falhas} de ${lote.total} na fila de captura`
+              }
+              {...(lote.feitos >= lote.total ? { onDismiss: () => setLote(null) } : {})}
+            >
+              {lote.feitos < lote.total
+                ? "Um de cada vez: o reconhecedor local é uma GPU só, e em série o que já foi lido fica guardado se o resto falhar."
+                : lote.falhas > 0
+                  ? `${lote.falhas} não foi/foram transcrita(s) — o recorte está salvo e a fila mostra esperando, então é só mandar reconhecer de novo.`
+                  : "Todas transcritas e esperando revisão na fila. Nenhuma virou questão ainda."}
+            </Banner>
+          )}
+
           <div className="lbb-ing-viewer">
             <PdfCropViewer
               fileUrl={source.url}
               mimeType={source.mimeType}
               onCrop={(crop) => void saveCrop(crop)}
+              onLoadError={fonteNaoAbriu}
+              onEstimar={setEstimadas}
+              {...(estimadas !== undefined ? { estimadas } : {})}
+              onCropLote={(recortes) => void recortarLote(recortes)}
             />
           </div>
         </>
@@ -308,6 +743,97 @@ export function IngestionPanel({
               {candidate.result.model} · {candidate.result.durationMs} ms · {candidate.state}
             </span>
 
+            {/*
+              O que vai ser gravado, **antes** de gravar.
+
+              É o princípio deste módulo aplicado a um passo novo: nenhum caminho leva de "o modelo
+              leu" a "está no acervo" sem um humano ver. Preencher `options` em silêncio criaria
+              cinco alternativas que ninguém conferiu, e a diferença entre quatro e cinco só
+              apareceria na prova impressa.
+            */}
+            {separado !== null && (
+              <div className="lbb-ing-split" role="status">
+                {separado.options.length === 0 ? (
+                  <span className="lbb-ing-meta">
+                    Nenhum bloco de alternativas reconhecido — isto entra como enunciado inteiro.
+                    Um rótulo solto ou fora de ordem não vira alternativa de propósito.
+                  </span>
+                ) : (
+                  <>
+                    <span className="lbb-ing-meta">
+                      {separado.options.length} alternativas separadas do enunciado · nenhuma nasce
+                      marcada como correta — o gabarito é seu, no editor
+                    </span>
+                    {separado.options.map((opcao, indice) => {
+                      const unido = unidos.find((bloco) => bloco.indice === indice);
+
+                      return (
+                        <div
+                          key={`${opcao.label}-${indice}`}
+                          className="lbb-ing-alt"
+                          data-tone={unido ? "warn" : undefined}
+                        >
+                          {/*
+                            O rótulo do livro e, quando difere, o que vai ser gravado.
+
+                            O app deriva a letra da **posição** em todo lugar (`optionLabelAt`), e
+                            é a decisão certa: é o que faz o gabarito acompanhar a alternativa
+                            quando ela é movida, em vez de seguir a letra. Mas um livro que escreve
+                            `A) B)` ou `i) ii)` vira `a) b)` ao gravar — e mostrar só o rótulo do
+                            livro aqui faria a pessoa conferir uma coisa e receber outra, sem nunca
+                            ver a troca acontecer.
+
+                            Os dois lado a lado transformam a mudança silenciosa numa mudança
+                            visível. Iguais, o segundo não aparece.
+                          */}
+                          <span className="lbb-ing-alt-label">
+                            {opcao.label}
+                            {opcao.label !== optionLabelAt(indice) && (
+                              <span className="lbb-ing-alt-derivada">
+                                {" → "}
+                                {optionLabelAt(indice)}
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ flex: 1 }}>{opcao.statementLatex}</span>
+
+                          {/*
+                            O bloco unido é **sinalizado**, e não dividido sozinho (protótipo,
+                            1702–1712). O OCR de página em duas colunas cola `b) … c) …` na mesma
+                            linha com frequência, e a regra que protege o enunciado — âncora no
+                            início da linha — é justamente a que produz o bloco. Dividir por conta
+                            própria criaria uma alternativa a partir de um `c)` que talvez seja
+                            parte do texto: perguntar custa um clique, errar custa uma prova
+                            impressa com a alternativa errada.
+                          */}
+                          {unido && (
+                            <>
+                              <span className="lbb-ing-meta" style={{ color: "var(--warn-text)" }}>
+                                duas alternativas em um bloco
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  setDivididos((atual) => {
+                                    const proximo = new Map(atual);
+                                    proximo.set(opcao.statementLatex, unido.partes);
+                                    return proximo;
+                                  })
+                                }
+                              >
+                                Dividir em duas
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="lbb-ing-actions">
               <Button
                 size="sm"
@@ -324,10 +850,26 @@ export function IngestionPanel({
                     return;
                   }
 
+                  /*
+                    O que está **na tela**, e não um recálculo.
+
+                    A primeira versão chamava `separarAlternativas` de novo aqui, e o resultado
+                    ignorava as divisões que a pessoa tinha acabado de aceitar: a tela mostrava
+                    quatro alternativas e o banco recebia duas. É o defeito que o comentário do
+                    `separado` alerta duas telas acima, cometido na linha seguinte.
+                  */
+                  const partido = separado;
+
                   onAccept({
                     anchorId,
                     cropAssetId: reviewed.cropAssetId,
-                    statementLatex: currentLatex(reviewed),
+                    // O enunciado **sem** as alternativas quando elas foram separadas: deixá-las
+                    // nos dois lugares criaria a questão com o bloco de opções repetido dentro do
+                    // próprio enunciado.
+                    statementLatex: partido?.options.length
+                      ? partido.statementLatex
+                      : currentLatex(reviewed),
+                    options: partido?.options ?? [],
                     run: {
                       providerId: reviewed.result.providerId,
                       model: reviewed.result.model,

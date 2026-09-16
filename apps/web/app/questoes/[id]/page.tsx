@@ -21,5 +21,5 @@ export default async function QuestionPage({ params }: { params: Promise<{ id: s
   const location = await findQuestionLocation(id);
   if (!location) notFound();
 
-  redirect(`/publications/${location.publicationId}?node=${location.nodeId}`);
+  redirect(`/publications/${location.publicationId}/editor?node=${location.nodeId}`);
 }

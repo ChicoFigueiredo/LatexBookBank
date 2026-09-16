@@ -106,3 +106,41 @@ test.describe("atalhos com o editor focado", () => {
     await page.keyboard.press("Escape");
   });
 });
+
+/**
+ * **`Ctrl Q` — nova questão** (handoff: tabela de atalhos).
+ *
+ * Era o único dos onze atalhos do contrato que não existia. A varredura o achou numa tabela do
+ * bloco de notas de produto do protótipo, que lista as teclas uma a uma — e conferir uma tabela
+ * item a item é mais barato que descobrir o buraco pelo usuário.
+ *
+ * Global, e não preso à linha da árvore. A distinção é a mesma que os testes acima guardam: `F2`,
+ * `Del` e `Ctrl N` agem **sobre um nó** e por isso vivem na linha; este **cria** um nó, e quem
+ * quer criar pode estar com o foco em qualquer lugar — inclusive dentro do editor, que é onde a
+ * pessoa está quando termina uma questão e quer a próxima.
+ */
+test.describe("Ctrl Q abre o seletor de tipo", () => {
+  test("com o foco no editor, que é de onde se pede a próxima questão", async ({ page }) => {
+    await abrirQuestao(page);
+    await focarEditor(page);
+
+    await page.keyboard.press("Control+q");
+
+    const menu = page.getByRole("menu", { name: "Adicionar à publicação" });
+    await expect(menu).toBeVisible();
+
+    // O seletor de **tipo**, que é o que o contrato pede — não um "adicionar" genérico.
+    await expect(menu.getByRole("menuitem", { name: /Escolha simples/ })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: /Discursiva/ })).toBeVisible();
+  });
+
+  test("e Esc fecha, como todo o resto do produto", async ({ page }) => {
+    await abrirQuestao(page);
+
+    await page.keyboard.press("Control+q");
+    await expect(page.getByRole("menu", { name: "Adicionar à publicação" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu", { name: "Adicionar à publicação" })).toHaveCount(0);
+  });
+});

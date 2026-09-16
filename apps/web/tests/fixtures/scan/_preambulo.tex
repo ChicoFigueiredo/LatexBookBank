@@ -1,0 +1,14 @@
+% Preâmbulo comum das fixtures do scan (D48). Fontes Latin Modern com T1, para que a camada de
+% texto traga os acentos como caracteres, e babel em português, para que \chapter imprima
+% "Capítulo" como um livro brasileiro imprime.
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\setlist[enumerate,2]{label=\alph*)}
+\makeatletter\@ifundefined{c@chapter}{\newcounter{exemplo}}{\newcounter{exemplo}[chapter]}\makeatother
+\newenvironment{exemplo}{\par\medskip\refstepcounter{exemplo}\noindent\textbf{Exemplo \theexemplo.}\ }{\par\medskip}
+\newcommand{\blocoexercicios}[1][Exercícios]{\section*{#1}}

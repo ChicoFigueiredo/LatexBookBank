@@ -1,10 +1,10 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import { assetLatexName, type AssetForLatex } from "@modules/assets/domain/asset-latex-name";
-import { isAssetKind, isSourceAsset } from "@modules/assets/domain/asset-kind";
 import { asStorageKey, type StorageProvider } from "@/shared/ports";
 import type { RenderBundle } from "@latexbookbank/render-contract";
+
+import { citedAssets } from "../domain/cited-assets";
 
 /**
  * As figuras que a questão referencia, prontas para viajar no bundle.
@@ -16,10 +16,7 @@ import type { RenderBundle } from "@latexbookbank/render-contract";
  *
  * **Só o que o LaTeX cita.** Mandar todos os assets da questão engordaria cada compilação com
  * arquivos que o documento não usa — e o PDF de origem de um recorte tem megabytes. O filtro é o
- * próprio corpo: se o nome não aparece nele, o arquivo não vai.
- *
- * Derivado nunca entra: `RENDER_PNG` é saída de compilação, e reenviá-lo como entrada seria pedir
- * ao worker que compilasse o próprio resultado.
+ * próprio corpo (`citedAssets`): se o nome não aparece nele, o arquivo não vai.
  *
  * Ver spec §13 · D35 · issue #173.
  */
@@ -53,21 +50,7 @@ export async function loadQuestionAssets(
   const manifest: RenderBundle["assets"][number][] = [];
   const bytes = new Map<string, Uint8Array>();
 
-  for (const row of rows) {
-    if (!isAssetKind(row.kind) || !isSourceAsset(row.kind)) continue;
-
-    const named: AssetForLatex = {
-      sha256: row.sha256,
-      mimeType: row.mimeType,
-      originalFilename: row.originalFilename,
-    };
-    const name = assetLatexName(named);
-
-    // O corpo é quem decide. Um `indexOf` basta: o nome carrega o hash do conteúdo, então ele não
-    // aparece por acidente em texto nenhum.
-    if (!sourceLatex.includes(name)) continue;
-    if (bytes.has(name)) continue;
-
+  for (const { name, asset: row } of citedAssets(rows, sourceLatex)) {
     try {
       const content = await storage.get(asStorageKey(row.storageKey));
 

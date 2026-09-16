@@ -36,6 +36,16 @@ export interface AppEnv {
    * máquina que é o ambiente primário (D21).
    */
   readonly aiToolCalling: boolean;
+  /**
+   * Raiz da biblioteca Calibre desta máquina — a pasta que contém `metadata.db`.
+   *
+   * É o valor que a tela de importação oferece quando não há nada guardado no navegador, e o que
+   * ela propõe quando o caminho guardado deixou de existir. Fica aqui, e não no código, porque é
+   * endereço de máquina: o acervo já mudou de lugar duas vezes (`/mnt/t` → `/mnt/bak` na
+   * reinstalação, e o Calibre para `/mnt/e/Livros`), e de cada vez o conserto tem que ser uma
+   * linha de configuração, não um commit.
+   */
+  readonly calibreLibraryRoot: string | null;
 }
 
 class EnvError extends Error {
@@ -96,6 +106,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     aiApiKey: get("AI_API_KEY"),
     aiModel: get("AI_MODEL"),
     aiToolCalling: get("AI_TOOL_CALLING") === "true",
+    calibreLibraryRoot: get("CALIBRE_LIBRARY_ROOT"),
   };
 }
 

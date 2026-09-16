@@ -1,5 +1,5 @@
 import { readHomeOverview } from "@modules/workspaces/infrastructure/prisma-home-overview";
-import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
+import { relativeTime } from "@/shared/format/relative-time";
 
 import { HomeScreen } from "./home-screen";
 
@@ -21,32 +21,54 @@ import { HomeScreen } from "./home-screen";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [libraries, overview] = await Promise.all([
-    new PrismaLibraryRepository().list(),
-    readHomeOverview(),
-  ]);
+  const overview = await readHomeOverview();
+
+  // Um relógio só, aqui, para a página inteira. Formatar no cliente fazia servidor e hidratação
+  // discordarem na virada do minuto — e uma hidratação abortada deixa a Home sem reagir a clique.
+  const agora = new Date();
 
   return (
     <HomeScreen
-      libraries={libraries.map((library) => ({
-        id: library.id,
-        name: library.name,
-        slug: library.slug,
-        publicationCount: library.publicationCount,
+      greeting={saudacao(agora)}
+      libraries={overview.libraries.map((library) => ({
+        ...library,
+        updatedLabel: relativeTime(library.updatedAt, agora),
       }))}
       continueWhere={
         overview.continueWhere
           ? {
               ...overview.continueWhere,
-              updatedAt: overview.continueWhere.updatedAt.toISOString(),
+              updatedLabel: relativeTime(overview.continueWhere.updatedAt, agora),
+              sourceLabel: overview.continueWhere.source
+                ? `${overview.continueWhere.source.filename} · ${megabytes(overview.continueWhere.source.sizeBytes)}`
+                : null,
             }
           : null
       }
+      pending={overview.pending}
       recent={overview.recent.map((entry) => ({
         ...entry,
-        updatedAt: entry.updatedAt.toISOString(),
+        updatedLabel: relativeTime(entry.updatedAt, agora),
       }))}
-      invalidCount={overview.invalidCount}
     />
   );
 }
+
+/**
+ * "Bom dia" / "Boa tarde" / "Boa noite".
+ *
+ * Decidido aqui e não no cliente pelo mesmo motivo dos rótulos de tempo: o relógio consultado duas
+ * vezes é o relógio que discorda de si mesmo. Sem nome junto — o produto é local e de uma pessoa
+ * só, e não há cadastro de quem está do outro lado para saudar pelo nome.
+ */
+function saudacao(agora: Date): string {
+  const hora = agora.getHours();
+  if (hora < 12) return "Bom dia";
+  if (hora < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+const megabytes = (bytes: number): string =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;

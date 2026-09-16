@@ -111,7 +111,9 @@ const pdflatex = await probe("pdflatex", ["--version"]);
 record(
   "pdflatex (host)",
   pdflatex ? "ok" : "warn",
-  pdflatex ? firstLine(pdflatex) : "ausente — fallback opcional, não bloqueia",
+  pdflatex
+    ? firstLine(pdflatex)
+    : "ausente — o produto renderiza no worker, mas a suíte de `services/renderer` compila contra o pdflatex real: `sudo scripts/instalar-ambiente.sh`",
   OPTIONAL,
 );
 
@@ -119,7 +121,9 @@ const pdftocairo = await probe("pdftocairo", ["-v"]);
 record(
   "pdftocairo (host)",
   pdftocairo ? "ok" : "warn",
-  pdftocairo ? firstLine(pdftocairo) : "ausente — fallback opcional, não bloqueia",
+  pdftocairo
+    ? firstLine(pdftocairo)
+    : "ausente — instale com `sudo scripts/instalar-ambiente.sh`",
   OPTIONAL,
 );
 

@@ -39,6 +39,12 @@ model Workspace {
   name String
   slug String @unique
 
+  /// Descrição livre, opcional (protótipo do Beta Editorial, diálogo "Criar biblioteca").
+  ///
+  /// Nula e vazia são a mesma coisa para quem lê, e guardar as duas obrigaria toda leitura a
+  /// tratar dos dois casos — o caso de uso normaliza `""` para `null` antes de gravar.
+  description String?
+
   /// `IdBiblio` de `padrao.knowchicoconfig`.
   legacyId         Int?    @unique
   /// Pasta de origem, guardada só para auditoria do import.
@@ -54,6 +60,7 @@ model Workspace {
   agentRuns    AgentRun[]
   assessments  Assessment[]
   templates    DocumentTemplate[]
+  scanRuns     ScanRun[]
 
   @@map("workspaces")
 }
@@ -89,6 +96,8 @@ model Publication {
 
   coverAssetId     String?
   sourcePdfAssetId String?
+  /// O perfil de captura que o livro usa (D41) — `book-v1`, `exam-enem-v1`. O scan o propõe.
+  captureProfileId String?
 
   /// `idPublication` legado — chave de idempotência do import.
   legacyId        Int?
@@ -102,10 +111,11 @@ model Publication {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  authors PublicationAuthor[]
-  nodes   DocumentNode[]
-  anchors SourceAnchor[]
-  assets  Asset[]
+  authors  PublicationAuthor[]
+  nodes    DocumentNode[]
+  anchors  SourceAnchor[]
+  assets   Asset[]
+  scanRuns ScanRun[]
 
   @@unique([workspaceId, legacyId])
   @@index([workspaceId])
@@ -168,11 +178,25 @@ model DocumentNode {
   /// Rótulo original do livro — "I", "1", "II". Informação editorial insubstituível.
   originalLabel  String?
 
+  /// O corpo do nó estrutural: a teoria, as definições e os exemplos da seção, em LaTeX
+  /// (D42, ADR 0001). Vazio é "sem corpo" — um nó de questão nunca tem.
+  bodyLatex String @default("")
+
   questionId String?   @unique
   question   Question? @relation(fields: [questionId], references: [id])
 
+  /// A âncora **principal**, mantida em sincronia com a primeira de `anchors` (D50, ADR 0003).
+  /// Fica enquanto a aba Origem, a fila de captura e o `.lbb` v1 a leem; a arquitetura nova lê
+  /// `anchors`.
   sourceAnchorId String?
   sourceAnchor   SourceAnchor? @relation(fields: [sourceAnchorId], references: [id])
+
+  /// Todas as âncoras do nó, em ordem de leitura e com papel. Um exercício que vira a página tem
+  /// duas; uma questão do ENEM que desce a coluna e sobe na outra, também.
+  anchors DocumentNodeAnchor[]
+
+  /// Os itens de proposta que a aprovação transformou neste nó (D53).
+  scanItems ScanItem[]
 
   /// Exclusão lógica. `collapsed` NÃO está aqui: estado de UI vive em localStorage, porque
   /// `IsExpanded`/`IsSelected` no banco foi antipadrão do legado.
@@ -351,6 +375,7 @@ model Asset {
 
   anchorsAsSource SourceAnchor[] @relation("AnchorSource")
   anchorsAsCrop   SourceAnchor[] @relation("AnchorCrop")
+  scanRuns        ScanRun[]      @relation("ScanRunSource")
 
   @@index([renderJobId])
   @@index([workspaceId, kind])
@@ -393,11 +418,188 @@ model SourceAnchor {
 
   createdAt DateTime @default(now())
 
-  nodes     DocumentNode[]
-  questions Question[]
+  nodes       DocumentNode[]
+  questions   Question[]
+  nodeAnchors DocumentNodeAnchor[]
 
   @@index([publicationId, pageNumber])
   @@map("source_anchors")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Scan estrutural (Wave G, D45–D53)
+//
+// A proposta vive **fora** do acervo: nada aqui é nó, questão ou âncora. Revisar mexe só nestas
+// tabelas; aprovar é o único caminho para o acervo, e grava em `ScanItem.documentNodeId` o que
+// criou. Apagar uma execução não apaga nada aprovado.
+// ---------------------------------------------------------------------------------------------
+
+/// Uma execução do scan: o que foi varrido, com que perfil e modelos, e onde parou (§39, §47).
+model ScanRun {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  publicationId String
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  /// O PDF fonte varrido. Nunca é alterado (§50); a execução só lê.
+  sourceAssetId String
+  sourceAsset   Asset       @relation("ScanRunSource", fields: [sourceAssetId], references: [id])
+
+  profileId      String
+  profileVersion Int
+  engineVersion  String
+  /// Intervalo, destino e opções, em JSON normalizado — é o que entra na chave.
+  settingsJson   String
+  /// sha256 de (asset, perfil@versão, motor, configuração). A mesma chave reabre a execução (D53).
+  runKey         String
+
+  /// `ScanRunState`: QUEUED · EXTRACTING · ANALYZING_LAYOUT · STRUCTURING · SEMANTIC_REVIEW ·
+  /// READY_FOR_REVIEW · APPROVED · FAILED · CANCELLED
+  state           String  @default("QUEUED")
+  cancelRequested Boolean @default(false)
+
+  pageFrom     Int
+  pageTo       Int
+  /// O ponto de parada: a última página lida e gravada. Retomar começa na seguinte.
+  lastPageRead Int @default(0)
+
+  aiProviderId   String?
+  aiModel        String?
+  mathProviderId String?
+  mathModel      String?
+  aiCalls        Int     @default(0)
+  mathCalls      Int     @default(0)
+
+  metricsJson  String?
+  warningsJson String?
+  pageOffset   Int?
+  error        String?
+
+  /// O laço grava a cada página. Uma execução "em andamento" sem batimento recente foi
+  /// interrompida — o servidor reiniciou —, e a tela oferece retomar.
+  heartbeatAt DateTime?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pages ScanPage[]
+  items ScanItem[]
+
+  @@index([publicationId, createdAt])
+  @@index([runKey])
+  @@map("scan_runs")
+}
+
+/// O cache de uma página dentro da execução (§51): o que o leitor viu, para não reabrir o PDF.
+/// Imutável e descartável junto com a execução.
+model ScanPage {
+  id    String  @id @default(uuid())
+  runId String
+  run   ScanRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  pageNumber   Int
+  width        Float
+  height       Float
+  hasTextLayer Boolean
+  /// `RawPage` serializada: trechos de texto, imagens e desenhos.
+  rawJson      String
+
+  createdAt DateTime @default(now())
+
+  @@unique([runId, pageNumber])
+  @@map("scan_pages")
+}
+
+/// Um elemento da proposta (D45, D51). Guarda o que o scan propôs **e** o que a pessoa corrigiu.
+model ScanItem {
+  id    String  @id @default(uuid())
+  runId String
+  run   ScanRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  /// Chave estável dentro da execução; o pai é referido por ela.
+  key       String
+  parentKey String?
+  /// Ordem de leitura. Reordenar é reescrever os números.
+  sortOrder Int
+
+  /// `ScanKind`: PART · CHAPTER · SECTION · SUBSECTION · CONTENT · EXAMPLE · EXERCISE_GROUP ·
+  /// EXERCISE · QUESTION · ITEM · SUBITEM · FIGURE · NOTE
+  kind          String
+  originalLabel String?
+  number        String?
+  title         String?
+  pageNumber    Int
+  printedPage   String?
+
+  /// As âncoras propostas: `[{pageNumber, box, role}]`, em ordem.
+  regionsJson String
+
+  /// O texto e o LaTeX como vieram da camada de texto ou do modelo…
+  text          String
+  latex         String?
+  /// …e como a pessoa os deixou. Nulo é "ninguém mexeu" (§45).
+  reviewedText  String?
+  reviewedLatex String?
+  needsMath     Boolean @default(false)
+
+  confidence          Float
+  confidencePartsJson String
+  evidenceJson        String
+  diagnosticJson      String?
+  metadataJson        String
+
+  /// `ReviewState`: AUTO_ACCEPTABLE · NEEDS_REVIEW · APPROVED · REJECTED
+  reviewState String
+
+  /// O que o scan propôs, congelado — tipo, pai, título, âncoras, texto, confiança (§59). Nunca
+  /// reescrito: é contra ele que um dia se mede o perfil.
+  proposedJson String
+  /// `ScanItemOrigin`: SCAN · MANUAL · SPLIT · MERGE
+  origin       String @default("SCAN")
+
+  /// A decisão da IA de desempate, validada (§27), e o reconhecimento matemático (§22).
+  aiDecisionJson String?
+  mathResultJson String?
+
+  /// O nó que a aprovação criou ou reaproveitou.
+  documentNodeId String?
+  documentNode   DocumentNode? @relation(fields: [documentNodeId], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([runId, key])
+  @@index([runId, sortOrder])
+  @@index([documentNodeId])
+  @@map("scan_items")
+}
+
+/// A ligação ordenada entre um nó e as suas âncoras (D50, ADR 0003).
+///
+/// Do nó, e não da questão: todo nó de questão tem exatamente uma questão, e duas tabelas seriam
+/// duas verdades para o mesmo elemento. A questão encontra as suas âncoras pelo nó.
+///
+/// A âncora não é copiada: a mesma `SourceAnchor` pode servir a mais de um nó (uma cópia de
+/// questão aponta para o mesmo recorte, D29).
+model DocumentNodeAnchor {
+  documentNodeId String
+  documentNode   DocumentNode @relation(fields: [documentNodeId], references: [id], onDelete: Cascade)
+  sourceAnchorId String
+  sourceAnchor   SourceAnchor @relation(fields: [sourceAnchorId], references: [id], onDelete: Cascade)
+
+  /// Ordem de leitura, a partir de 0. Lista curta, reescrita inteira: não precisa de fractional
+  /// index como a árvore.
+  sortOrder Int
+  /// `AnchorRole`: PRIMARY · CONTINUATION · ILLUSTRATION · ANSWER · SOLUTION · FOOTNOTE
+  role      String @default("PRIMARY")
+
+  @@id([documentNodeId, sourceAnchorId])
+  @@index([sourceAnchorId])
+  @@map("document_node_anchors")
 }
 
 // ---------------------------------------------------------------------------------------------

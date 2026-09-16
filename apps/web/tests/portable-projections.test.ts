@@ -28,10 +28,24 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
       title: "Juros e Descontos",
       subtitle: "3ª edição",
       publisher: "Cesgranrio",
+      // A ficha catalográfica inteira. Ela **não atravessava**: o `.lbb` levava título, subtítulo
+      // e editora, e o backup devolvia o livro sem ISBN, edição, volume, série nem autores — o
+      // trabalho de quem cataloga, perdido no caminho de ida e volta que a tela chama de "a cópia".
+      nickname: "JD 3",
+      isbn: "978-85-357-0011-4",
+      otherIdentifier: "CDD 332.8",
+      edition: "3ª",
+      editionYear: 2019,
+      language: "pt-BR",
+      series: "Concursos",
+      volume: "2",
+      notes: "exemplar anotado",
+      authors: ["Iezzi, Gelson", "Murakami, Carlos"],
       legacyId: 7,
       legacyUuid: "legacy-uuid-1",
       metadataJson: '{"series":"concursos"}',
       coverAssetSha256: "aa11",
+      sourcePdfAssetSha256: "bb22",
       nodes: [
         {
           id: "uuid-node-1",
@@ -43,6 +57,18 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           originalLabel: "I",
           legacyId: 100,
           question: null,
+          bodyLatex: "Juros simples incidem só sobre o capital.",
+          anchors: [
+            {
+              sha256: "bb22",
+              pageNumber: 12,
+              box: { x: 0.1, y: 0.2, width: 0.8, height: 0.05 },
+              role: "PRIMARY",
+              sourceText: "Capítulo I — Juros Simples",
+              extractionMethod: "scan:book-v1@1",
+              extractionModel: null,
+            },
+          ],
         },
         {
           id: "uuid-node-2",
@@ -53,6 +79,8 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           numberingStyle: "ARABIC",
           originalLabel: "1",
           legacyId: 101,
+          bodyLatex: "",
+          anchors: [],
           question: {
             id: "uuid-q-1",
             type: "MULTIPLE_CHOICE",
@@ -80,18 +108,22 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
                 sortKey: "a0",
                 statementLatex: "\\SI{1020}{\\real}",
                 solutionLatex: "",
+                originalLatex: null,
                 isCorrect: false,
                 weight: null,
                 legacyId: 1,
+                legacyMarcacao: "a",
               },
               {
                 id: "uuid-o-2",
                 sortKey: "a1",
                 statementLatex: "\\SI{1060}{\\real}",
                 solutionLatex: "",
+                originalLatex: null,
                 isCorrect: true,
                 weight: 1,
                 legacyId: 2,
+                legacyMarcacao: "b",
               },
             ],
           },
@@ -146,6 +178,62 @@ describe("runtime → portable", () => {
 });
 
 describe("round-trip das projeções", () => {
+  /**
+   * A ficha catalográfica sobrevive ao backup.
+   *
+   * Este era o buraco: `toPortable` carregava título, subtítulo e editora, e o `.lbb` — que a tela
+   * de importar chama de "a cópia" — devolvia o livro sem apelido, ISBN, edição, ano, idioma,
+   * série, volume, notas nem autores. Quem exportasse uma biblioteca e a restaurasse recuperava os
+   * textos das questões e perdia a catalogação inteira, que é o trabalho mais lento de todos.
+   */
+  it("preserva a ficha catalográfica inteira, autores inclusive", () => {
+    const [livro] = roundTrip(runtime()).publications;
+
+    expect(livro).toMatchObject({
+      nickname: "JD 3",
+      isbn: "978-85-357-0011-4",
+      otherIdentifier: "CDD 332.8",
+      edition: "3ª",
+      editionYear: 2019,
+      language: "pt-BR",
+      series: "Concursos",
+      volume: "2",
+      notes: "exemplar anotado",
+    });
+
+    // Na ordem em que assinam: quem assina primeiro assina primeiro, e é dela que a estante tira
+    // "Iezzi e outros".
+    expect(livro?.authors).toEqual(["Iezzi, Gelson", "Murakami, Carlos"]);
+  });
+
+  it("arquivo gravado antes destes campos continua importando", () => {
+    // O `.lbb` de ontem não tem a ficha. Ausente vira `null`, e o import não recusa — recusar o
+    // backup de alguém por ele ser antigo é o oposto do que um formato de portabilidade faz.
+    const portable = toPortable(runtime());
+    const antigo = {
+      ...portable,
+      // A ficha é removida do arquivo para simular o `.lbb` de ontem. `Omit` em vez de
+      // desestruturação porque o lint recusa dez variáveis declaradas e não usadas — e ele está
+      // certo: o que interessa aqui é o que **fica**, não o que sai.
+      publications: portable.publications.map((publicacao) => {
+        const copia: Record<string, unknown> = { ...publicacao };
+        for (const campo of [
+          "nickname", "isbn", "otherIdentifier", "edition", "editionYear",
+          "language", "series", "volume", "notes", "authors",
+        ]) {
+          delete copia[campo];
+        }
+        return copia as unknown as (typeof portable.publications)[number];
+      }),
+    };
+
+    const [livro] = toRuntime(antigo).workspace.publications;
+
+    expect(livro?.title).toBe("Juros e Descontos");
+    expect(livro?.isbn).toBeNull();
+    expect(livro?.authors).toEqual([]);
+  });
+
   it("**projetar o resultado de novo dá o mesmo arquivo**", () => {
     // A identidade que importa não é entre os dois runtimes: os ids mudam de propósito, e a
     // projeção ordena tags e assets. É entre os dois **portables** — se a ida e a volta não
@@ -233,6 +321,7 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
     const plan = toRuntime(toPortable(runtime()), {
       publicationsByLegacyId: new Map([[7, "id-existente"]]),
       publicationsByLegacyUuid: new Map(),
+      publicationsByIsbn: new Map(),
       questionsByLegacyId: new Map(),
     });
 
@@ -244,10 +333,58 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
     });
   });
 
+  it("**ISBN** também colide — a chave que funciona para livro nascido no app", () => {
+    /*
+     * `legacyId` e `legacyUuid` são identidade de **origem**: só existem em quem veio do sistema
+     * legado. Um livro cadastrado no app hoje, exportado e reimportado, não colidia por chave
+     * nenhuma — duplicava em silêncio, e a simulação dizia "0 conflitos" com toda a razão e
+     * nenhuma utilidade.
+     *
+     * O ISBN é o identificador que a pessoa digitou, e significa "é este livro" fora deste banco.
+     */
+    const plan = toRuntime(toPortable(runtime()), {
+      publicationsByLegacyId: new Map(),
+      publicationsByLegacyUuid: new Map(),
+      // Sem hífen no índice, com hífen no arquivo: é assim que a ficha catalográfica escreve, e
+      // comparar sem normalizar deixaria passar a duplicata mais óbvia que existe.
+      publicationsByIsbn: new Map([["9788535700114", "id-mesmo-livro"]]),
+      questionsByLegacyId: new Map(),
+    });
+
+    expect(plan.collisions).toContainEqual({
+      kind: "publication",
+      by: "isbn",
+      value: "9788535700114",
+      existingId: "id-mesmo-livro",
+    });
+  });
+
+  it("livro sem ISBN e sem chave legada não colide — e está certo", () => {
+    // Não há nada que diga que é o mesmo livro. Inventar uma colisão a partir do título faria o
+    // painel acusar conflito entre dois volumes diferentes da mesma coleção.
+    const semChaves = runtime();
+    const publicacao = semChaves.publications[0];
+    const plan = toRuntime(
+      toPortable({
+        ...semChaves,
+        publications: [{ ...publicacao!, legacyId: null, legacyUuid: null, isbn: null }],
+      }),
+      {
+        publicationsByLegacyId: new Map(),
+        publicationsByLegacyUuid: new Map(),
+        publicationsByIsbn: new Map([["9788535700114", "outro"]]),
+        questionsByLegacyId: new Map(),
+      },
+    );
+
+    expect(plan.collisions).toEqual([]);
+  });
+
   it("questão com o mesmo `legacyId` também é relatada", () => {
     const plan = toRuntime(toPortable(runtime()), {
       publicationsByLegacyId: new Map(),
       publicationsByLegacyUuid: new Map(),
+      publicationsByIsbn: new Map(),
       questionsByLegacyId: new Map([[101, "q-existente"]]),
     });
 
@@ -262,6 +399,7 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
     const plan = toRuntime(toPortable(runtime()), {
       publicationsByLegacyId: new Map([[7, "id-existente"]]),
       publicationsByLegacyUuid: new Map(),
+      publicationsByIsbn: new Map(),
       questionsByLegacyId: new Map(),
     });
 

@@ -178,3 +178,25 @@ function isbn13CheckDigit(isbn: string): boolean {
   for (let i = 0; i < 13; i++) sum += Number(isbn[i]) * (i % 2 === 0 ? 1 : 3);
   return sum % 10 === 0;
 }
+
+/**
+ * O título digitado bate com o do livro?
+ *
+ * Mesma regra que `matchesLibraryName`, e pelo mesmo motivo: excluir um livro é a segunda operação
+ * sem volta do produto, e a confirmação por nome digitado é o que separa o clique distraído em "Ok"
+ * de uma decisão. Espaço extra é digitação, não discordância — por isso o `replace` antes de
+ * comparar; caixa e acento **não** são, e por isso a comparação é exata no resto.
+ */
+export function matchesPublicationTitle(typed: unknown, title: string): boolean {
+  if (typeof typed !== "string") return false;
+
+  return typed.trim().replace(/\s+/g, " ") === title;
+}
+
+/** Recusa a exclusão quando o título digitado não confere. */
+export class PublicationConfirmationMismatchError extends Error {
+  constructor(readonly expected: string) {
+    super(`Digite o título do livro exatamente como está escrito: “${expected}”.`);
+    this.name = "PublicationConfirmationMismatchError";
+  }
+}

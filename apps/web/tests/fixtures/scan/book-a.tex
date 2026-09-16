@@ -1,0 +1,43 @@
+% Livro A — capítulo, seção, texto, exemplo e exercício (prompt 03, §52).
+\documentclass[11pt,oneside]{book}
+\input{_preambulo}
+\begin{document}
+\chapter{Funções}
+\section{Funções lineares}
+Uma função $f\colon \mathbb{R}\to\mathbb{R}$ é linear quando existe $a$ real tal que
+$f(x) = ax$ para todo $x$. O gráfico de uma função linear é uma reta que passa pela origem.
+Esta seção apresenta as propriedades básicas dessas funções e alguns exemplos.
+
+\begin{exemplo}
+A função $f(x) = 3x$ é linear, e $f(2) = 6$.
+\end{exemplo}
+
+Toda função linear satisfaz $f(x+y) = f(x) + f(y)$, o que se verifica diretamente da definição.
+
+\subsection{Domínio}
+O domínio de uma função linear é o conjunto dos números reais.
+
+\begin{exemplo}
+Para $g(x) = -x$, temos $g(-4) = 4$.
+\end{exemplo}
+
+\blocoexercicios
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item Mostre que $f(x) = 5x$ é linear.
+\item Calcule:
+  \begin{enumerate}
+  \item $f(1)$ para $f(x) = 2x$;
+  \item $f(-3)$ para $f(x) = 7x$.
+  \end{enumerate}
+\item Explique por que $h(x) = x + 1$ não é linear.
+\end{enumerate}
+
+\section{Funções quadráticas}
+Uma função quadrática tem a forma $f(x) = ax^2 + bx + c$, com $a \neq 0$.
+
+\blocoexercicios
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item Encontre as raízes de $x^2 - 5x + 6$.
+\item Determine o vértice da parábola $y = x^2 - 4x$.
+\end{enumerate}
+\end{document}

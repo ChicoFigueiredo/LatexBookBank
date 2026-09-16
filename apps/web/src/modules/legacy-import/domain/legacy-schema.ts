@@ -22,10 +22,17 @@ export type SchemaGeneration = (typeof SCHEMA_GENERATIONS)[number];
 
 export interface LegacyCapabilities {
   readonly generation: SchemaGeneration;
-  /** `Questao.LatexComplemento` — o terceiro campo de texto da questão. */
+  /** `Questao.latexComplemento` — o terceiro campo de texto da questão. */
   readonly hasComplemento: boolean;
   /** Tabela `TagConhecimento`, ausente na geração intermediária. */
   readonly hasTagConhecimento: boolean;
+  /**
+   * `Questao.Banca` (e `Instituição`/`Cargo`/`Nivel_Cargo` junto). Presente nas bibliotecas de
+   * banca de concurso (Cesgranrio, Análise Elon), ausente nas de livro-texto (Cálculo, ProfMat) —
+   * **não** é a mesma coisa que geração: o ProfMat real tem a migração mais recente sem ter banca.
+   * Ver levantamento de 2026-08-31 contra as 11 bibliotecas reais.
+   */
+  readonly hasBanca: boolean;
   /** `__EFMigrationsHistory`, ausente nas duas bibliotecas mais antigas. */
   readonly hasMigrationsTable: boolean;
 }
@@ -56,10 +63,14 @@ export function detectCapabilities(probe: SchemaProbe): LegacyCapabilities {
 
   // A coluna manda. A migração só decide quando as colunas não desempatam.
   const hasComplemento =
-    probe.questionColumns.includes("LatexComplemento") ||
+    probe.questionColumns.includes("latexComplemento") ||
     (probe.questionColumns.length === 0 && migrations.includes(LATEX_COMPLEMENTO));
 
   const hasTagConhecimento = probe.tables.includes("TagConhecimento");
+
+  // Independente da geração: o ProfMat real prova que dá para ter a migração mais recente sem ter
+  // banca de concurso (é biblioteca de livro-texto). Só a coluna decide.
+  const hasBanca = probe.questionColumns.includes("Banca");
 
   const generation: SchemaGeneration = !hasMigrationsTable
     ? "pre_migrations"
@@ -71,7 +82,7 @@ export function detectCapabilities(probe: SchemaProbe): LegacyCapabilities {
           // quebrar — ler menos campos nunca corrompe, ler campos que não existem sim.
           "pre_migrations";
 
-  return { generation, hasComplemento, hasTagConhecimento, hasMigrationsTable };
+  return { generation, hasComplemento, hasTagConhecimento, hasBanca, hasMigrationsTable };
 }
 
 /**
@@ -86,17 +97,23 @@ export function questionColumnsFor(capabilities: LegacyCapabilities): readonly s
     "IdQuestao",
     "IdQuestao_Pai",
     "TipoQuestao",
-    "Titulo",
-    "LatexEnunciado",
-    "LatexResposta",
-    ...(capabilities.hasComplemento ? ["LatexComplemento"] : []),
+    // O elo com a tabela `Publication` — o livro de verdade dentro da biblioteca. Uma subárvore
+    // inteira (raiz e todos os descendentes) pertence a um único `idPublication`, confirmado por
+    // consulta recursiva nas bibliotecas reais em 2026-08-31.
+    "idPublication",
+    // Não existe `Titulo` no schema real — `Apelido` é o campo com o rótulo (confirmado contra as
+    // 11 bibliotecas em 2026-08-31; um `SELECT Titulo` teria falhado na primeira execução real).
+    "Apelido",
+    "latexQuestao",
+    "latexResposta",
+    "latexOrigin",
+    ...(capabilities.hasComplemento ? ["latexComplemento"] : []),
     "Dificuldade",
     "Numeracao",
     "Numeracao_Original",
-    "Banca",
-    "Instituicao",
-    "Cargo",
-    "NivelCargo",
+    // `Instituição` (com acento) e `Nivel_Cargo` (com underscore) — não `Instituicao`/`NivelCargo`.
+    // Só entram quando a biblioteca é de banca de concurso; livro-texto não tem essas colunas.
+    ...(capabilities.hasBanca ? ["Banca", "Instituição", "Cargo", "Nivel_Cargo"] : []),
     "Ano",
     // `Ordem` **não** entra: ela vale 0 em praticamente todas as linhas, e um `SELECT` que a traz
     // convida alguém a ordenar por ela um dia. A ordem vem de `IdQuestao` (planejamento §2.4).
@@ -105,9 +122,28 @@ export function questionColumnsFor(capabilities: LegacyCapabilities): readonly s
   ];
 }
 
+/**
+ * Colunas reais de `Questao` sem decisão de mapeamento — diferente de
+ * `DELIBERATELY_IGNORED_COLUMNS`, que é "decidiu descartar". Lista vazia por enquanto: o
+ * levantamento de 2026-08-31 contra as 11 bibliotecas reais checou `Nivel`, `Publicacao`, `Path`,
+ * `VideoLink` e `Editora` (as cinco candidatas que sobravam) e não achou **nenhum** dado real —
+ * `Editora` e `Publicacao` vazias em toda biblioteca checada, `Path`/`VideoLink` idem, e `Nivel`
+ * bate exatamente com a profundidade da árvore (230 de 230 na Cesgranrio CAIXA) — redundante,
+ * mesma razão de `Ordem` abaixo. As cinco entraram em `DELIBERATELY_IGNORED_COLUMNS`.
+ *
+ * Deixado como array (não removido) para o próximo leitor real ter onde registrar uma pendência
+ * genuína, se aparecer.
+ */
+export const FIELDS_PENDING_MAPPING_DECISION: readonly string[] = [];
+
 /** As colunas que existem no legado e que o import **descarta de propósito**, para o relatório. */
 export const DELIBERATELY_IGNORED_COLUMNS: Readonly<Record<string, string>> = {
   Ordem: "vale 0 em praticamente todas as linhas; a ordem real é a de IdQuestao",
+  Nivel: "bate exatamente com a profundidade da árvore (230 de 230 checadas) — redundante",
+  Publicacao: "vazia em toda biblioteca checada (2026-08-31)",
+  Path: "vazia em toda biblioteca checada (2026-08-31)",
+  VideoLink: "vazia em toda biblioteca checada (2026-08-31)",
+  Editora: "vazia em toda biblioteca checada (2026-08-31) — não é a editora da Publication",
   Correta: "vestigial no nível da questão — o gabarito está em Questao_Itens.Correta",
   IsExpanded: "estado de UI; no produto novo vive em localStorage",
   IsSelected: "estado de UI; no produto novo vive em localStorage",

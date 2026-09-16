@@ -28,6 +28,10 @@ export class PrismaQuestionCreator implements QuestionCreator {
           difficulty: input.blueprint.difficulty,
           statementLatex: input.statementLatex ?? "",
           solutionLatex: input.solutionLatex ?? "",
+          // Banca e ano herdados da questão anterior, quando havia uma. `??` e não spread
+          // condicional: `null` é o valor certo para "a anterior também não tinha".
+          board: input.board ?? null,
+          year: input.year ?? null,
           ...(input.sourceAnchorId ? { sourceAnchorId: input.sourceAnchorId } : {}),
           options: {
             create: input.blueprint.optionSortKeys.map((sortKey, index) => ({
@@ -56,6 +60,19 @@ export class PrismaQuestionCreator implements QuestionCreator {
         },
         select: { id: true },
       });
+
+      // A âncora também entra na lista do nó, como principal (D50): é por ela que a arquitetura
+      // nova lê a origem, e a coluna acima fica só para quem ainda não migrou.
+      if (input.sourceAnchorId) {
+        await tx.documentNodeAnchor.create({
+          data: {
+            documentNodeId: node.id,
+            sourceAnchorId: input.sourceAnchorId,
+            sortOrder: 0,
+            role: "PRIMARY",
+          },
+        });
+      }
 
       return {
         questionId: question.id,
