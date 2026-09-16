@@ -170,6 +170,10 @@ model DocumentNode {
   /// Rótulo original do livro — "I", "1", "II". Informação editorial insubstituível.
   originalLabel  String?
 
+  /// O corpo do nó estrutural: a teoria, as definições e os exemplos da seção, em LaTeX
+  /// (D42, ADR 0001). Vazio é "sem corpo" — um nó de questão nunca tem.
+  bodyLatex String @default("")
+
   questionId String?   @unique
   question   Question? @relation(fields: [questionId], references: [id])
 

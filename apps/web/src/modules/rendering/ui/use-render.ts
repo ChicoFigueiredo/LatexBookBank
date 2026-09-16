@@ -24,6 +24,11 @@ export interface UseRenderOptions {
    * e é a saída que não pode vazar gabarito por engano.
    */
   readonly saida?: SaidaDoRender;
+  /**
+   * Para onde pedir a compilação. A questão por padrão; o corpo do nó (ADR 0001) usa a rota dele,
+   * com o mesmo formato de resposta.
+   */
+  readonly endpoint?: string;
 }
 
 /** Traduz a resposta HTTP no estado que o painel entende. */
@@ -59,6 +64,7 @@ export function useRender({
   questionId,
   profileId,
   saida = "aluno",
+  endpoint,
 }: UseRenderOptions): {
   readonly status: RenderStatus;
   readonly render: () => void;
@@ -76,7 +82,7 @@ export function useRender({
         run: async (signal) => {
           setStatus({ kind: "running" });
           const response = await fetch(
-            `/api/publications/${publicationId}/questions/${questionId}/render`,
+            endpoint ?? `/api/publications/${publicationId}/questions/${questionId}/render`,
             {
               method: "POST",
               headers: { "content-type": "application/json" },
@@ -104,7 +110,7 @@ export function useRender({
       }),
     // `saida` entra nas dependências: trocar de saída precisa produzir um coalescer novo, senão um
     // pedido pendente da saída anterior comita por cima do que foi pedido agora.
-    [publicationId, questionId, profileId, saida],
+    [publicationId, questionId, profileId, saida, endpoint],
   );
 
   const render = useCallback(() => void coalescer.request(), [coalescer]);
