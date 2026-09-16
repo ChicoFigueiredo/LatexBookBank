@@ -108,9 +108,15 @@ O arquivo editável de onde uma figura sai: gnuplot, pgf, Asymptote, GeoGebra, t
 de dados, svg ou eps. Guardada para que a figura possa ser reeditada na origem.
 
 **Âncora de origem** (`SourceAnchor`):
-O ponto de um asset fonte de onde uma questão veio: página e retângulo em coordenadas
-normalizadas de 0 a 1, independentes de resolução. O recorte é derivado dela.
+Um retângulo de uma página de um asset fonte, em coordenadas normalizadas de 0 a 1,
+independentes de resolução. O recorte é derivado dela. Um nó ou uma questão pode ter **várias**
+âncoras, em ordem e cada uma com um papel: um exercício que vira a página, ou uma questão que
+passa da coluna esquerda para a direita, continua sendo um só, com duas ou três âncoras.
 _Avoid_: bounding box, região, coordenadas
+
+**Papel da âncora**:
+O que uma âncora é para o nó a que pertence: principal, continuação, ilustração, resposta,
+resolução ou nota de rodapé. A ordem das âncoras é a ordem de leitura.
 
 **Recorte** (`crop`):
 A imagem extraída de uma âncora de origem. É o que se reconhece, insere como figura ou abre para
@@ -133,15 +139,31 @@ texto do PDF. Sugestão, nunca questão criada sem confirmação.
 _Avoid_: segmentação (em texto de tela), detecção
 
 **Scan**:
-Varrer um trecho do livro de uma vez: estimar, recortar, reconhecer e criar as questões a
-revisar no destino escolhido. É a estimativa em lote, com perfil.
-_Avoid_: captura automática, importação do PDF, OCR do livro
+Varrer um trecho do livro de uma vez, com um perfil de captura, e devolver uma proposta de scan:
+a estrutura que o app entendeu, com as âncoras de cada elemento. Nada entra no acervo até a
+proposta ser aprovada. Uma **execução do scan** é uma varredura registrada: perfil e versão,
+modelos usados, início, fim e o que achou.
+_Avoid_: captura automática, importação do PDF, OCR do livro, digitalização
+
+**Proposta de scan**:
+O que um scan entendeu de um livro, antes de virar acervo: partes, capítulos, seções, exemplos,
+exercícios e questões, cada um com tipo, rótulo, âncoras, confiança e diagnóstico. Fica separada
+do acervo; revisá-la não mexe em livro nenhum, e aprová-la cria os nós e as questões *a revisar*.
+Guarda o que o scan propôs ao lado do que a pessoa corrigiu.
+_Avoid_: sugestão, rascunho, importação, resultado do OCR
 
 **Perfil de captura**:
-As regras que dizem ao scan como um livro é organizado: como uma questão começa, onde a teoria
-acaba e os exercícios começam, onde ficam as respostas. Uma prova de concurso e um livro-texto
-têm perfis diferentes.
-_Avoid_: perfil (sem qualificar; confunde com Perfil LaTeX), template de scan, preset
+As regras que dizem ao scan como um livro é organizado: como uma questão começa, como se
+reconhece um capítulo, onde a teoria acaba e os exercícios começam, onde ficam as respostas.
+Uma prova de concurso, uma prova do ENEM e um livro-texto têm perfis diferentes. Os perfis
+vivem no código, com nome e versão; o livro lembra qual usa.
+_Avoid_: perfil (sem qualificar; confunde com Perfil LaTeX), template de scan, preset, plugin
+(é o mecanismo, não o conceito)
+
+**Mobília**:
+O que se repete nas páginas sem ser conteúdo: cabeçalho corrido, número de página, nome do
+livro, código de barras, marca d'água. O scan a reconhece pela repetição e a deixa de fora.
+_Avoid_: cabeçalho e rodapé (é só parte dela), ruído
 
 **A revisar**:
 Uma questão criada pelo scan que ninguém leu ainda. Carrega o recorte e a âncora, e o LaTeX é o

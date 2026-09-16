@@ -997,6 +997,108 @@ na ingestão e caía no guarda-chuva "Asset fonte" do glossário, que inclui fig
 
 ---
 
+#### D45 — O scan devolve uma **proposta**; a aprovação é em lote — *revisa a D39*
+
+*Decidida em 2026-09-16, ao avaliar o [prompt 03](../prompts/) do módulo de scan estrutural.*
+
+A D39 foi pensada para questões num nó que já existe. O scan estrutural propõe também a
+**árvore** — partes, capítulos, seções, exemplos — e criar essa árvore direto no acervo é caro de
+desfazer: um perfil mal calibrado espalha centenas de nós pela biblioteca.
+
+**A decisão:** o scan grava uma *proposta de scan*, separada do acervo. Na revisão da proposta a
+pessoa corrige a **estrutura** (tipo, pai, âncoras) e aprova em lote o que tem confiança alta;
+nada de baixa confiança fica escondido. Aprovar materializa nós e questões em `DRAFT`, com o
+LaTeX como o modelo ou a camada de texto devolveram — e a partir daí vale a D40: o LaTeX se
+revisa no editor, com o *Ver fonte* da D43. O que a D39 queria evitar — o pedágio por item —
+continua evitado; o que ela não previa — errar a árvore — deixa de contaminar o acervo.
+
+A proposta guarda o que o scan propôs **e** o que a pessoa corrigiu, lado a lado, para que um
+dia se possa medir perfil contra revisão. Um novo scan gera uma nova proposta; nunca sobrescreve
+nem apaga conteúdo aprovado.
+
+#### D46 — Perfil de captura é código com ganchos opcionais — *estende a D41*
+
+Os oito campos da D41 continuam, como configuração. O que dado não expressa — validar a sequência
+A–E do ENEM, dizer que hierarquia é válida, reconhecer um marco de área — vira **gancho
+opcional** do perfil. Registro explícito, sem descoberta automática; perfil tem `id` e versão,
+e a execução do scan grava ambos. Continua sem tela de edição.
+
+Três perfis de saída: **`exam-v1`** (a segmentação de hoje extraída sem mudar resultado — os 30 de
+30 do ENA são o teste de regressão), **`exam-enem-v1`** (o conhecimento do segmentador do TRI:
+linha como âncora, divisor de colunas pelos cabeçalhos, sequência A–E na mesma margem, marcos de
+área e de língua) e **`book-v1`**.
+
+O motor genérico não é fronteira nova: vive dentro do módulo, fora de `shared/ports`, e usa
+`AiProvider`, `MathRecognitionProvider` e `StorageProvider` como já existem.
+
+#### D47 — A revisão da proposta tem tela própria, em três áreas — *a D43 vale no editor*
+
+A D43 recusou a terceira coluna **no editor**, por medida. A revisão de uma proposta é outra
+tela, de largura inteira: estrutura à esquerda, PDF com as âncoras marcadas ao centro,
+propriedades à direita. Não disputa espaço com o editor nem com o painel do agente.
+
+Selecionar um elemento abre a página e marca **todas** as suas âncoras, navegáveis; clicar numa
+marca seleciona o elemento. Depois de aprovada, a questão continua ligada às marcas no PDF — o
+*Ver fonte* do editor mostra todas as âncoras dela e permite acrescentar ou retirar uma.
+
+#### D48 — Fixtures sintéticas no repositório, corpus real fora dele
+
+Como no segmentador do TRI: os testes usam PDFs gerados (livro com capítulos, seções, exemplos e
+exercícios; exercício que vira a página; páginas de 2, 1 e 2 colunas; fórmulas; prova no formato
+ENEM), versionados. O corpus real — *Curso de Análise*, cadernos do ENEM, ENA — é de consumo
+pessoal e fica fora do git, com caminho em `.env.local`; o teste que depende dele é pulado quando
+ele não existe, e os números do corpus vão para `source-scanning-validation.md`.
+
+#### D49 — O scan roda no servidor, página a página, e retoma de onde parou
+
+O texto do PDF só era lido no navegador, e o lote era um laço de React: fechar a aba perdia o
+que faltava. O scan lê o PDF **no servidor**, com o pdf.js para Node, num laço dentro do próprio
+processo que grava um ponto de parada a cada página. Fechar a aba não interrompe; reiniciar o
+servidor deixa a execução *interrompida*, e *Retomar* continua da última página gravada.
+Cancelar é um estado, não uma exceção: o que já foi lido fica. Um worker separado, como o
+renderer, fica para quando houver motivo — o domínio não muda com isso.
+
+#### D50 — As âncoras são do nó, em ordem e com papel — [ADR 0003](../adr/0003-ancoras-do-no.md)
+
+Uma tabela de ligação nó ↔ âncora, com ordem e papel. A questão acha as suas pelo nó.
+`sourceAnchorId` continua como âncora principal, escrito na mesma transação, até a aba Origem e a
+fila de captura migrarem.
+
+#### D51 — A proposta vive em três tabelas, e as âncoras nascem na aprovação
+
+`ScanRun` (a execução: perfil e versão, motor, modelos, configuração e sua chave, estado,
+ponto de parada, métricas), `ScanPage` (o cache da página dentro da execução) e `ScanItem` (cada
+elemento proposto, com o que o scan propôs congelado ao lado do que a pessoa corrigiu). Nenhuma
+`SourceAnchor` nasce antes da aprovação: proposta descartada não deixa âncora órfã.
+
+#### D52 — Determinismo primeiro; a IA só desempata, e a transcrição é sob medida
+
+Sem modelo configurado, o scan faz tudo o que é determinístico. Com modelo, a IA recebe só os
+itens ambíguos ou de baixa confiança, em lote, e a resposta passa por Zod antes de tocar a
+proposta. O texto vem da camada do PDF; o reconhecimento matemático entra só quando a região tem
+matemática que o texto nativo não representa, ou quando a pessoa pede *reprocessar*.
+Parear respostas do fim do livro continua fora (Wave G).
+
+#### D53 — Aprovar escreve sob um destino, e nada é criado duas vezes
+
+A aprovação escreve sob um nó de destino (a raiz do livro, por padrão) e reaproveita o capítulo
+que já existe com mesmo rótulo e título. A mesma combinação de PDF, perfil, versão e
+configuração abre a execução existente; *novo scan* cria outra. Um item cujas âncoras coincidem
+com as de um nó já aprovado (mesma página, sobreposição ≥ 80%) aparece como *já no acervo* e não
+é recriado. Aprovação parcial pode; o filho só é aprovado com o pai aprovado ou já no acervo.
+O mapeamento de tipos está no [ADR 0002](../adr/0002-tipos-do-scan-no-acervo.md).
+
+#### D54 — O módulo `scan`, em inglês, e a Wave G com épico próprio
+
+O código mora em `modules/scan/`, com as quatro camadas; a leitura de página (linhas, colunas,
+mobília) é do motor, e a segmentação de hoje vira o perfil `exam-v1`, chamado pelo
+`recognition`. Identificadores em **inglês**, como o schema e a maior parte do código — por
+decisão do autor, ainda que a segmentação recente esteja em português. A Wave G ganha épico no
+GitHub; a Fase 18 é reescrita pela D45, a 19 continua, e nascem a **20** (revisão e aprovação da
+proposta) e a **21** (IA, matemática e validação), cada uma com as suas issues de trabalho.
+
+---
+
 ## 4. Arquitetura
 
 ### 4.1 Topologia — modo local (o MVP)
