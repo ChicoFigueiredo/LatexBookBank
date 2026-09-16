@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge, Banner, Button, Field, Select, Tabs, useStoredState } from "@/design-system";
+import {
+  Badge,
+  Banner,
+  Button,
+  Divider,
+  Field,
+  Select,
+  Tabs,
+  useStoredState,
+} from "@/design-system";
 import { QuestionSourcePane } from "@modules/scan/ui/QuestionSourcePane";
 import {
   diffSnapshots,
@@ -59,6 +68,17 @@ const AUTOSAVE_DELAY_MS = 1200;
  * intervenção, lento para não martelar um servidor que já está fora.
  */
 const RETRY_DELAY_MS = 30_000;
+
+/**
+ * As colunas do editor, em px. O editor nunca fica mais estreito que `EDITOR_MIN_W`: é onde se
+ * digita, e é ele que cede por último. As outras duas têm o mesmo piso — abaixo dele o preview
+ * quebra fórmulas e o PDF vira selo.
+ */
+const EDITOR_MIN_W = 360;
+const COLUMN_MIN_W = 320;
+const DEFAULT_PREVIEW_W = 560;
+const DEFAULT_SOURCE_W = 520;
+const PALETTE_W = 280;
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
@@ -163,6 +183,22 @@ export function QuestionEditor({
    */
   const [sourceOpen, setSourceOpen] = useStoredState(`lbb:ver-fonte:${publicationId}`, false);
   const [hasSource, setHasSource] = useState(false);
+
+  // As três colunas — conteúdo, preview e fonte — têm divisórias móveis. As larguras são
+  // preferência da pessoa, não do livro: guardadas uma vez, valem em todo editor de questão.
+  const [previewW, setPreviewW] = useStoredState("lbb:editor-questao:preview-w", DEFAULT_PREVIEW_W);
+  const [sourceW, setSourceW] = useStoredState("lbb:editor-questao:source-w", DEFAULT_SOURCE_W);
+  const columns = useRef<HTMLDivElement | null>(null);
+  const [columnsW, setColumnsW] = useState(0);
+  useEffect(() => {
+    const element = columns.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setColumnsW(entry.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     let cancelled = false;
     void fetch(`/api/questions/${questionId}/anchors`)
@@ -178,6 +214,23 @@ export function QuestionEditor({
     };
   }, [questionId]);
   const showingSource = sourceOpen && hasSource;
+
+  // A largura guardada é o pedido; a efetiva cabe no que há. Numa janela estreita, ou com a
+  // palette aberta, as colunas da direita encolhem antes de esmagar o editor — e ao voltar ao
+  // espaço de antes, cada uma recupera o tamanho que a pessoa escolheu.
+  const fixedW = paletteOpen ? PALETTE_W : 0;
+  const room = Math.max(0, columnsW - fixedW - EDITOR_MIN_W);
+  const openColumns = (previewOpen ? 1 : 0) + (showingSource ? 1 : 0);
+  // O piso vale enquanto cabe. Quando nem os pisos cabem — três colunas numa janela de 1200 px —,
+  // as duas da direita dividem o que sobra em vez de uma delas sair pela borda da tela.
+  const floor =
+    columnsW > 0 && openColumns > 0
+      ? Math.min(COLUMN_MIN_W, Math.max(120, room / openColumns))
+      : COLUMN_MIN_W;
+  const sourceMax = showingSource ? Math.max(floor, room - (previewOpen ? floor : 0)) : 0;
+  const sourceEffective = showingSource ? Math.min(sourceW, sourceMax) : 0;
+  const previewMax = Math.max(floor, room - sourceEffective);
+  const previewEffective = previewOpen ? Math.min(previewW, previewMax) : 0;
 
   /**
    * O histórico é carregado **ao abrir a aba**, não junto com a questão.
@@ -545,6 +598,17 @@ export function QuestionEditor({
           >
             Preview
           </Button>
+          {hasSource && (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="file-text"
+              aria-pressed={showingSource}
+              onClick={() => setSourceOpen(!sourceOpen)}
+            >
+              Ver fonte
+            </Button>
+          )}
           {onAttachSelection && (
             <Button
               size="sm"
@@ -599,8 +663,8 @@ export function QuestionEditor({
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+      <div ref={columns} style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <div style={{ flex: 1, minWidth: EDITOR_MIN_W, minHeight: 0 }}>
           {pane === "options" ? (
             <OptionsPane
               publicationId={publicationId}
@@ -639,7 +703,9 @@ export function QuestionEditor({
                     onChange={(event) => onTypeChange?.(event.target.value as QuestionType)}
                   >
                     <option value="MULTIPLE_CHOICE">Escolha simples · uma correta</option>
-                    <option value="MULTIPLE_CORRECT">Múltipla escolha · uma ou mais corretas</option>
+                    <option value="MULTIPLE_CORRECT">
+                      Múltipla escolha · uma ou mais corretas
+                    </option>
                     <option value="DISCURSIVE">Discursiva · sem alternativas</option>
                   </Select>
                 </Field>
@@ -669,109 +735,138 @@ export function QuestionEditor({
           )}
         </div>
 
-        {/* O preview divide o centro com o editor (D14/§11). É a metade direita do "Main", e
-            fica aberto por padrão porque é o feedback que justifica a fase inteira. */}
+        {/* O preview divide o centro com o editor (D14/§11), e fica aberto por padrão porque é
+            o feedback que justifica a fase inteira. A divisória à esquerda dele redimensiona a
+            coluna: arrastar para a esquerda cresce. */}
         {previewOpen && (
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              borderLeft: "1px solid var(--border-default)",
-            }}
-          >
+          <>
+            <Divider
+              value={previewW}
+              min={floor}
+              max={Math.max(floor, previewMax)}
+              defaultValue={DEFAULT_PREVIEW_W}
+              onChange={setPreviewW}
+              invert
+              label="Redimensionar o preview"
+            />
             <div
               style={{
+                width: previewEffective,
+                flexShrink: 0,
+                minWidth: 0,
+                minHeight: 0,
+                overflow: "hidden",
                 display: "flex",
-                gap: "var(--space-1)",
-                padding: "var(--space-2) var(--space-3) 0",
+                flexDirection: "column",
+                borderLeft: "1px solid var(--border-default)",
               }}
             >
-              {/* Aproximado e autoritativo lado a lado, na mesma coluna: são a mesma pergunta
-                  ("como isto vai ficar?") respondida com precisão e custo diferentes. */}
-              <Tabs
-                tabs={[
-                  { id: "rapido", label: "Preview rápido" },
-                  { id: "render", label: "PDF compilado" },
-                  { id: "validacao", label: "Validação" },
-                  { id: "historico", label: "Histórico" },
-                  { id: "origem", label: "Origem" },
-                ]}
-                value={rightTab}
-                onChange={(id) => {
-                  const next = id as RightTab;
-                  setRightTab(next);
-                  if (next === "historico" && revisions === null) void loadHistory();
+              <div
+                style={{
+                  display: "flex",
+                  gap: "var(--space-1)",
+                  padding: "var(--space-2) var(--space-3) 0",
                 }}
-                aria-label="Modo de visualização"
-              />
-              {hasSource && (
-                <Button
-                  size="sm"
-                  variant={showingSource ? "primary" : "ghost"}
-                  icon="file-text"
-                  aria-pressed={showingSource}
-                  onClick={() => setSourceOpen(!sourceOpen)}
-                >
-                  Ver fonte
-                </Button>
-              )}
-            </div>
+              >
+                {/* Aproximado e autoritativo lado a lado, na mesma coluna: são a mesma pergunta
+                  ("como isto vai ficar?") respondida com precisão e custo diferentes. */}
+                <Tabs
+                  tabs={[
+                    { id: "rapido", label: "Preview rápido" },
+                    { id: "render", label: "PDF compilado" },
+                    { id: "validacao", label: "Validação" },
+                    { id: "historico", label: "Histórico" },
+                    { id: "origem", label: "Origem" },
+                  ]}
+                  value={rightTab}
+                  onChange={(id) => {
+                    const next = id as RightTab;
+                    setRightTab(next);
+                    if (next === "historico" && revisions === null) void loadHistory();
+                  }}
+                  aria-label="Modo de visualização"
+                />
+              </div>
 
-            <div style={{ flex: 1, minHeight: 0 }}>
-              {showingSource ? (
-                <QuestionSourcePane questionId={questionId} />
-              ) : rightTab === "origem" ? (
-                // A aba estava bloqueada pela Fase 14: a âncora já guardava a página e a caixa,
-                // e não havia porta para navegá-las.
-                <OriginPanel
-                  questionId={questionId}
-                  onAction={(action, provenance) => {
-                    if (action === "insert-figure") insertFigure(provenance);
-                  }}
-                />
-              ) : rightTab === "validacao" ? (
-                <ValidationPane
-                  publicationId={publicationId}
-                  questionId={questionId}
-                  disabled={blocked}
-                />
-              ) : rightTab === "historico" ? (
-                <HistoryPanel
-                  revisions={revisions ?? []}
-                  changes={revisionChanges}
-                  selected={selectedRevision}
-                  onSelect={(number) => void selectRevision(number)}
-                  onRestore={(number) => void restoreRevision(number)}
-                  busy={blocked}
-                />
-              ) : rightTab === "rapido" ? (
-                <PreviewPane
-                  source={{
-                    statementLatex: draft.statementLatex,
-                    solutionLatex: draft.solutionLatex,
-                    complementLatex: draft.complementLatex,
-                    options,
-                  }}
-                />
-              ) : (
-                <RenderPanel
-                  status={renderStatus}
-                  onRender={compile}
-                  // A memória do "último render bom" é por questão: trocar de nó precisa esquecê-la.
-                  questionKey={questionId}
-                  // Só até a primeira compilação: dali em diante a aba Fonte mostra o corpo que o
-                  // servidor realmente montou, com as alternativas dentro.
-                  sourceLatex={draft.statementLatex}
-                  onGoToDiagnostic={goToDiagnostic}
-                  saida={saida}
-                  onSaidaChange={setSaida}
-                />
-              )}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                {rightTab === "origem" ? (
+                  // A aba estava bloqueada pela Fase 14: a âncora já guardava a página e a caixa,
+                  // e não havia porta para navegá-las.
+                  <OriginPanel
+                    questionId={questionId}
+                    onAction={(action, provenance) => {
+                      if (action === "insert-figure") insertFigure(provenance);
+                    }}
+                  />
+                ) : rightTab === "validacao" ? (
+                  <ValidationPane
+                    publicationId={publicationId}
+                    questionId={questionId}
+                    disabled={blocked}
+                  />
+                ) : rightTab === "historico" ? (
+                  <HistoryPanel
+                    revisions={revisions ?? []}
+                    changes={revisionChanges}
+                    selected={selectedRevision}
+                    onSelect={(number) => void selectRevision(number)}
+                    onRestore={(number) => void restoreRevision(number)}
+                    busy={blocked}
+                  />
+                ) : rightTab === "rapido" ? (
+                  <PreviewPane
+                    source={{
+                      statementLatex: draft.statementLatex,
+                      solutionLatex: draft.solutionLatex,
+                      complementLatex: draft.complementLatex,
+                      options,
+                    }}
+                  />
+                ) : (
+                  <RenderPanel
+                    status={renderStatus}
+                    onRender={compile}
+                    // A memória do "último render bom" é por questão: trocar de nó precisa esquecê-la.
+                    questionKey={questionId}
+                    // Só até a primeira compilação: dali em diante a aba Fonte mostra o corpo que o
+                    // servidor realmente montou, com as alternativas dentro.
+                    sourceLatex={draft.statementLatex}
+                    onGoToDiagnostic={goToDiagnostic}
+                    saida={saida}
+                    onSaidaChange={setSaida}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          </>
+        )}
+
+        {/* A fonte é a terceira coluna, e só existe com *Ver fonte* ligado (D43): o PDF do livro
+            aberto na âncora, ao lado do LaTeX e do preview — os três lados da mesma questão. */}
+        {showingSource && (
+          <>
+            <Divider
+              value={sourceW}
+              min={floor}
+              max={Math.max(floor, sourceMax)}
+              defaultValue={DEFAULT_SOURCE_W}
+              onChange={setSourceW}
+              invert
+              label="Redimensionar a fonte"
+            />
+            <div
+              style={{
+                width: sourceEffective,
+                flexShrink: 0,
+                minWidth: 0,
+                minHeight: 0,
+                overflow: "hidden",
+                borderLeft: "1px solid var(--border-default)",
+              }}
+            >
+              <QuestionSourcePane questionId={questionId} />
+            </div>
+          </>
         )}
 
         {/* Painel, não overlay: a palette é ferramenta de trabalho contínuo, e um popover que
@@ -780,7 +875,7 @@ export function QuestionEditor({
           <aside
             aria-label="Símbolos LaTeX"
             style={{
-              width: 280,
+              width: PALETTE_W,
               flexShrink: 0,
               minHeight: 0,
               borderLeft: "1px solid var(--border-default)",
