@@ -13,6 +13,8 @@ import {
   useStoredState,
 } from "@/design-system";
 import { QuestionSourcePane } from "@modules/scan/ui/QuestionSourcePane";
+
+import { useEditorColumns } from "./editor-columns";
 import {
   diffSnapshots,
   type RevisionChange,
@@ -69,22 +71,8 @@ const AUTOSAVE_DELAY_MS = 1200;
  */
 const RETRY_DELAY_MS = 30_000;
 
-/**
- * As colunas do editor, em px.
- *
- * `EDITOR_MIN_W` é o piso declarado no checklist e conferido em `e2e/layout.spec.ts`: 420 px é
- * uma linha de LaTeX sem quebra no meio de um comando. As colunas da direita cedem **antes**
- * dele, e só param no `COLUMN_HARD_MIN` — daí para baixo o editor também cede, porque uma coluna
- * de 100 px não é um painel estreito, é um painel inútil.
- */
-const EDITOR_MIN_W = 420;
-const EDITOR_HARD_MIN = 200;
-const COLUMN_HARD_MIN = 160;
-const DEFAULT_PREVIEW_W = 560;
-const DEFAULT_SOURCE_W = 520;
+/** A palette de símbolos é painel fixo: fica fora do rateio das colunas. */
 const PALETTE_W = 280;
-/** A divisória tem 7 px com −3 px de margem de cada lado: ocupa 1 px de layout. */
-const DIVIDER_W = 1;
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
@@ -190,21 +178,6 @@ export function QuestionEditor({
   const [sourceOpen, setSourceOpen] = useStoredState(`lbb:ver-fonte:${publicationId}`, false);
   const [hasSource, setHasSource] = useState(false);
 
-  // As três colunas — conteúdo, preview e fonte — têm divisórias móveis. As larguras são
-  // preferência da pessoa, não do livro: guardadas uma vez, valem em todo editor de questão.
-  const [previewW, setPreviewW] = useStoredState("lbb:editor-questao:preview-w", DEFAULT_PREVIEW_W);
-  const [sourceW, setSourceW] = useStoredState("lbb:editor-questao:source-w", DEFAULT_SOURCE_W);
-  const columns = useRef<HTMLDivElement | null>(null);
-  const [columnsW, setColumnsW] = useState(0);
-  useEffect(() => {
-    const element = columns.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setColumnsW(entry.contentRect.width);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
   useEffect(() => {
     let cancelled = false;
     void fetch(`/api/questions/${questionId}/anchors`)
@@ -221,36 +194,13 @@ export function QuestionEditor({
   }, [questionId]);
   const showingSource = sourceOpen && hasSource;
 
-  // A largura guardada é o pedido; a efetiva cabe no que há. Numa janela estreita, ou com a
-  // palette aberta, as colunas da direita encolhem antes de esmagar o editor — e ao voltar ao
-  // espaço de antes, cada uma recupera o tamanho que a pessoa escolheu.
-  const fixedW = paletteOpen ? PALETTE_W : 0;
-  const openColumns = (previewOpen ? 1 : 0) + (showingSource ? 1 : 0);
-  const available = Math.max(0, columnsW - fixedW - openColumns * DIVIDER_W);
-  const desiredPreview = previewOpen ? previewW : 0;
-  const desiredSource = showingSource ? sourceW : 0;
-  const desired = desiredPreview + desiredSource;
-
-  /*
-    O rateio. A largura guardada é o **pedido** da pessoa; a efetiva é o que cabe hoje, nesta
-    janela, com esta palette aberta. As três colunas somadas preenchem a área toda: sobrar branco
-    à direita seria desperdiçar tela, e transbordar esconderia a fonte atrás da borda.
-
-    Quem cede é a direita, até `COLUMN_HARD_MIN`; abaixo disso o editor também cede. Encolher é
-    proporcional: duas colunas apertadas encolhem juntas, e não uma até sumir enquanto a outra
-    fica intacta. Nada disso é gravado — ao voltar à janela de antes, cada coluna recupera o
-    tamanho pedido.
-  */
-  const editorFloor =
-    available - EDITOR_MIN_W >= openColumns * COLUMN_HARD_MIN
-      ? EDITOR_MIN_W
-      : Math.max(EDITOR_HARD_MIN, available - openColumns * COLUMN_HARD_MIN);
-  const rightTotal = Math.max(0, Math.min(desired, available - editorFloor));
-  // Antes da primeira medida não há o que ratear: usar o pedido evita as colunas piscarem em zero.
-  const scale = columnsW === 0 ? 1 : desired > 0 ? rightTotal / desired : 0;
-  const previewEffective = Math.round(desiredPreview * scale);
-  const sourceEffective = Math.round(desiredSource * scale);
-  const slack = Math.max(0, available - editorFloor - previewEffective - sourceEffective);
+  const [columnsBox, setColumnsBox] = useState<HTMLDivElement | null>(null);
+  const columns = useEditorColumns({
+    container: columnsBox,
+    previewOpen,
+    sourceOpen: showingSource,
+    fixedWidth: paletteOpen ? PALETTE_W : 0,
+  });
 
   /**
    * O histórico é carregado **ao abrir a aba**, não junto com a questão.
@@ -683,7 +633,7 @@ export function QuestionEditor({
         </div>
       )}
 
-      <div ref={columns} style={{ flex: 1, minHeight: 0, display: "flex" }}>
+      <div ref={setColumnsBox} style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           {pane === "options" ? (
             <OptionsPane
@@ -760,18 +710,10 @@ export function QuestionEditor({
             coluna: arrastar para a esquerda cresce. */}
         {previewOpen && (
           <>
-            <Divider
-              value={previewEffective}
-              min={COLUMN_HARD_MIN}
-              max={Math.max(COLUMN_HARD_MIN, previewEffective + slack)}
-              defaultValue={DEFAULT_PREVIEW_W}
-              onChange={setPreviewW}
-              invert
-              label="Redimensionar o preview"
-            />
+            <Divider {...columns.previewDivider} />
             <div
               style={{
-                width: previewEffective,
+                width: columns.previewWidth,
                 flexShrink: 0,
                 minWidth: 0,
                 minHeight: 0,
@@ -865,18 +807,10 @@ export function QuestionEditor({
             aberto na âncora, ao lado do LaTeX e do preview — os três lados da mesma questão. */}
         {showingSource && (
           <>
-            <Divider
-              value={sourceEffective}
-              min={COLUMN_HARD_MIN}
-              max={Math.max(COLUMN_HARD_MIN, sourceEffective + slack)}
-              defaultValue={DEFAULT_SOURCE_W}
-              onChange={setSourceW}
-              invert
-              label="Redimensionar a fonte"
-            />
+            <Divider {...columns.sourceDivider} />
             <div
               style={{
-                width: sourceEffective,
+                width: columns.sourceWidth,
                 flexShrink: 0,
                 minWidth: 0,
                 minHeight: 0,
