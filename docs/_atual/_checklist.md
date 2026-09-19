@@ -1811,9 +1811,43 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
   *(#221)*
 - [ ] Desempate por IA medido com o modelo local sobre um livro real
 
+### Fase 22 — O exemplo como galho *(D56, [ADR 0004](../adr/0004-o-exemplo-vira-no.md))*
+
+- [ ] `EXAMPLE` no `NodeKind`, no validador e no comentário do schema
+- [ ] As telas que conhecem tipo: ícone na árvore, menu de criar, lixeira, lista de tipos com corpo
+- [ ] `book-v1` captura o exemplo **até a próxima fronteira**, com a resolução junto
+- [ ] A aprovação cria o nó de exemplo em vez de anexar ao corpo da seção
+- [ ] A árvore mostra rótulo e começo do texto ("Exemplo 3 — Sejam A e B…")
+- [ ] **Aceite:** varrer o *Curso de Análise* propõe os 107 exemplos como nós, e aprovar não deixa
+  texto de exemplo no corpo da seção
+
+### Fase 23 — Reimportar *(D57, [ADR 0006](../adr/0006-a-importacao-e-apagavel.md))*
+
+- [ ] Coluna de proveniência no `DocumentNode`, com índice e migração aditiva
+- [ ] Apagar a importação manda para a **lixeira** o que a execução criou
+- [ ] O editado à mão depois da aprovação é preservado, contado e listado
+- [ ] A execução antiga sai junto — páginas e proposta
+- [ ] Confirmação com os números antes de apagar
+- [ ] As duas opções na tela: só a proposta, ou proposta e acervo
+- [ ] **Aceite:** importar o FME, apagar e importar de novo devolve o livro ao estado anterior, sem
+  resíduo e sem perder o que foi editado no meio
+
+### Fase 24 — Figuras *(D58, [ADR 0005](../adr/0005-figura-vetorial-quando-o-pdf-a-tem.md))*
+
+- [ ] Agrupar traços e imagens numa figura, absorvendo o texto de dentro da caixa
+- [ ] Recorte vetorial em PDF (`pdf-lib`) e bitmap embutido para foto; PNG de tela sempre
+- [ ] A figura vira asset e âncora de papel *ilustração*
+- [ ] `figure` com `\includegraphics[width=…]` e `\caption`, na posição do livro
+- [ ] Legenda do livro reconhecida e tirada do corpo
+- [ ] Destino por perfil: corpo no `book-v1`, enunciado nos perfis de prova
+- [ ] Redesenhar a caixa da figura arrastando, na revisão
+- [ ] **Aceite:** nas páginas medidas do FME as figuras saem vetoriais, na posição e com legenda;
+  nenhuma letra de diagrama sobra solta no corpo
+
 > **Fora desta wave, por decisão:** parear resposta com questão automaticamente · tela para
 > editar perfis · a tela de diff entre dois scans (§61 — o retrato congelado já guarda o que é
-> preciso para ela).
+> preciso para ela) · reconstruir SVG a partir dos operadores do PDF (ADR 0005) · migrar exemplos
+> já aprovados como texto (ADR 0004 — reimportar resolve).
 
 ---
 
@@ -2160,7 +2194,7 @@ Verificar em toda revisão de fase:
 Revisão fase a fase do plano contra este checklist, procurando **o que o plano pede e o checklist
 não registra**. Foi o inverso da auditoria anterior, que procurava trabalho feito e não marcado.
 
-**Nada do plano está ausente daqui.** As 21 fases têm bloco correspondente, e os aceites de cada
+**Nada do plano está ausente daqui.** As 26 fases têm bloco correspondente, e os aceites de cada
 uma aparecem como item marcável. O que a revisão achou foram quatro **divergências**, que agora
 estão escritas onde alguém vai procurá-las:
 

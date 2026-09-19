@@ -39,9 +39,17 @@ profundidade arbitrária. A árvore é dos nós; o conteúdo da questão não é
 _Avoid_: item, pasta, capítulo (quando o tipo não importa)
 
 **Corpo do nó**:
-A teoria, as definições e os exemplos que uma seção do livro carrega, vindos do PDF. É leitura,
-não exercício: não tem tipo, alternativas nem gabarito. Decidido em 2026-09-10; ainda não existe.
+A teoria e as definições que uma seção do livro carrega, vindas do PDF. É leitura, não exercício:
+não tem tipo, alternativas nem gabarito. Todo nó que não é questão pode ter corpo, com histórico
+de revisões. Os **exemplos** saíram dele: viraram nós próprios.
 _Avoid_: texto (ambíguo com o texto da questão), conteúdo do capítulo, prosa
+
+**Exemplo**:
+O exemplo resolvido de um livro — "Exemplo 3", com o enunciado e a resolução juntos. É um nó da
+árvore, dentro da seção a que pertence, com corpo próprio e sem filhos. Vai **até a próxima
+fronteira**: o próximo exemplo, o próximo título ou o bloco de exercícios. Não é questão: não tem
+alternativas, não se responde e não entra numa avaliação.
+_Avoid_: exercício (é o que se responde), questão, problema resolvido
 
 **Questão** (`Question`):
 O conteúdo que um nó de tipo questão carrega: enunciado, resolução, complemento, metadados e,
@@ -102,6 +110,15 @@ _Avoid_: vincular, associar, ligar, importar (que é criar livro novo)
 Saída reconstruível: PDF, PNG ou SVG de render. Descartável; apagar e recompilar dá o mesmo
 resultado.
 _Avoid_: cache (é o mecanismo, não o asset)
+
+**Figura**:
+Uma ilustração do livro extraída do PDF fonte: o diagrama, o gráfico, o esquema. Sai com a
+melhor qualidade que o arquivo tem — **vetorial** quando é traço, no formato do próprio PDF, e o
+**bitmap original** quando é foto —, e leva junto o que estiver dentro da sua caixa, inclusive as
+letras desenhadas sobre o diagrama. Entra no LaTeX na posição em que aparece no livro, com a
+legenda do livro, e guarda a âncora de onde veio.
+_Avoid_: imagem (é o arquivo, não o papel), ilustração, gráfico, recorte (que é de uma âncora
+qualquer, não da figura)
 
 **Fonte de figura**:
 O arquivo editável de onde uma figura sai: gnuplot, pgf, Asymptote, GeoGebra, tpx, tex, tabela
@@ -174,6 +191,18 @@ _Avoid_: aprovar (é o passo seguinte), confirmar
 Levar para o acervo os itens aceitos da proposta de scan — e, em lote, os sugeridos —, sob um nó
 de destino. É o único caminho da proposta para o acervo, e não cria nada duas vezes.
 _Avoid_: importar, publicar, aplicar
+
+**Importação**:
+Tudo que uma execução do scan criou no acervo: os nós, as questões, os corpos, as figuras e as
+âncoras. É o que se pode apagar de uma vez para começar de novo. O que a execução apenas
+**reaproveitou** — um capítulo que já existia e só recebeu corpo — não faz parte dela.
+_Avoid_: ingestão (é o upload), aprovação (é o gesto que a cria), scan (é a varredura)
+
+**Reimportar**:
+Apagar uma importação e varrer o livro de novo. O que foi criado vai para a lixeira, o que você
+editou à mão depois é preservado, e a execução antiga sai com ela. É o gesto de quem está
+afinando o perfil de captura e quer o livro inteiro outra vez.
+_Avoid_: reprocessar (é de um item só), novo scan (que só refaz a proposta), sincronizar
 
 **A revisar**:
 Uma questão que uma máquina escreveu — o scan ou o reconhecimento — e ninguém leu ainda. Carrega
