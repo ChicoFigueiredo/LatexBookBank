@@ -42,7 +42,7 @@ import { locateBodyLine } from "@modules/rendering/domain/build-render-bundle";
 import type { DiagnosticTarget } from "@modules/rendering/ui/RenderPanel";
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
-import { PreviewPane } from "@modules/preview/ui/PreviewPane";
+import { PreviewPane, type PreviewField } from "@modules/preview/ui/PreviewPane";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
 import type { SaidaDoRender } from "@modules/rendering/domain/saida-do-render";
 import { useRender } from "@modules/rendering/ui/use-render";
@@ -84,6 +84,19 @@ export interface QuestionEditorOption {
 
 /** As três respostas para "como isto está?": aproximada, autoritativa e histórica. */
 type RightTab = "rapido" | "render" | "validacao" | "historico" | "origem";
+
+/** O campo do editor e o campo do preview são a mesma coisa com dois nomes (D55). */
+const PREVIEW_FIELD: Readonly<Record<QuestionFieldId, PreviewField>> = {
+  statementLatex: "statement",
+  solutionLatex: "solution",
+  complementLatex: "complement",
+};
+
+const FIELD_OF_PREVIEW: Readonly<Record<PreviewField, QuestionFieldId>> = {
+  statement: "statementLatex",
+  solution: "solutionLatex",
+  complement: "complementLatex",
+};
 
 /**
  * O que ocupa o centro: um campo de texto, as alternativas ou os metadados.
@@ -467,13 +480,34 @@ export function QuestionEditor({
   const pendingLine = useRef<number | null>(null);
   /** Mesmo mecanismo, para o snippet de figura: ele também pode precisar trocar de aba antes. */
   const pendingSnippet = useRef<string | null>(null);
+  /** E para o clique no preview (D55), que também pode chegar de um campo que não está aberto. */
+  const pendingOffset = useRef<number | null>(null);
   const [revealTick, setRevealTick] = useState(0);
+
+  /**
+   * Onde o cursor está, **por campo** (D55).
+   *
+   * Por campo, e não um número só: o deslocamento é contado dentro de um texto, e reaproveitá-lo
+   * ao trocar de aba acenderia um bloco que não tem nada a ver. Guardar um por campo também faz
+   * voltar à Resposta reacender o bloco onde a pessoa estava.
+   */
+  const [cursors, setCursors] = useState<Partial<Record<QuestionFieldId, number>>>({});
+  const noteCursor = useCallback(
+    (offset: number) => setCursors((current) => ({ ...current, [field]: offset })),
+    [field],
+  );
 
   const flushReveal = useCallback(() => {
     const snippet = pendingSnippet.current;
     if (snippet !== null) {
       pendingSnippet.current = null;
       editor.current?.insertSnippet(snippet);
+    }
+
+    const offset = pendingOffset.current;
+    if (offset !== null) {
+      pendingOffset.current = null;
+      editor.current?.goToOffset(offset);
     }
 
     const line = pendingLine.current;
@@ -496,6 +530,19 @@ export function QuestionEditor({
    * para um arquivo que nunca chega — e o `pdflatex` diria "File not found", mandando procurar
    * defeito no texto de quem escreveu.
    */
+  /**
+   * O caminho de volta do preview (D55): clicar num bloco abre o campo dele e põe o cursor no
+   * trecho. Troca de aba quando precisa — clicar na resolução enquanto se edita o enunciado é
+   * justamente o caso em que isto vale a pena.
+   */
+  const goToPreviewBlock = useCallback((previewField: PreviewField, offset: number) => {
+    const target = FIELD_OF_PREVIEW[previewField];
+    setPane(target);
+    setField(target);
+    pendingOffset.current = offset;
+    setRevealTick((tick) => tick + 1);
+  }, []);
+
   const insertFigure = useCallback((provenance: Provenance) => {
     if (provenance.cropLatexName === null) return;
 
@@ -689,6 +736,7 @@ export function QuestionEditor({
             <LatexEditor
               value={draft[field]}
               onChange={handleChange}
+              onCursorOffset={noteCursor}
               onSave={() => void save()}
               onRender={compile}
               markers={markers}
@@ -783,6 +831,14 @@ export function QuestionEditor({
                       complementLatex: draft.complementLatex,
                       options,
                     }}
+                    // Só enquanto um campo de texto está aberto: nas abas de alternativas, tags e
+                    // metadados não há cursor no LaTeX para acender coisa nenhuma.
+                    cursor={
+                      isField(pane)
+                        ? { field: PREVIEW_FIELD[field], offset: cursors[field] ?? 0 }
+                        : null
+                    }
+                    onPick={goToPreviewBlock}
                   />
                 ) : (
                   <RenderPanel

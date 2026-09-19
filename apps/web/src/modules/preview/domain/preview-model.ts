@@ -24,12 +24,27 @@ export type PreviewInline =
 
 export type PreviewStyle = "bold" | "italic" | "underline" | "code";
 
-export type PreviewBlock =
+/**
+ * De onde o bloco veio, no LaTeX que o gerou — em índices do texto **original**, com comentários
+ * e tudo.
+ *
+ * É o que liga as duas metades da tela: o cursor no editor acende o bloco no preview, e clicar no
+ * bloco leva o cursor de volta. Opcional porque nem todo bloco sabe dizer: um item de lista com
+ * rótulo (`\item[a)]`) tem o rótulo costurado ao texto, e aí a conta de posição deixaria de
+ * valer — melhor não afirmar do que apontar para o lugar errado.
+ */
+export interface SourceRange {
+  readonly from: number;
+  readonly to: number;
+}
+
+export type PreviewBlock = (
   | { readonly kind: "paragraph"; readonly inlines: readonly PreviewInline[] }
   | { readonly kind: "displayMath"; readonly latex: string }
   | { readonly kind: "list"; readonly ordered: boolean; readonly items: readonly PreviewItem[] }
   | { readonly kind: "image"; readonly path: string; readonly widthFraction: number | null }
-  | { readonly kind: "box"; readonly blocks: readonly PreviewBlock[] };
+  | { readonly kind: "box"; readonly blocks: readonly PreviewBlock[] }
+) & { readonly range?: SourceRange };
 
 export interface PreviewItem {
   readonly blocks: readonly PreviewBlock[];

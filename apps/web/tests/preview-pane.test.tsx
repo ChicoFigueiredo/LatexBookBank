@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { PREVIEW_DISCLAIMER } from "@modules/preview/domain/preview-model";
@@ -132,5 +132,73 @@ describe("PreviewPane", () => {
     // preview parecer completo quando não está.
     render(<PreviewPane source={{ ...source, statementLatex: "\\includegraphics{g.png}" }} />);
     expect(screen.getByText(/figura: g\.png/)).toBeTruthy();
+  });
+});
+
+/**
+ * O cursor e o clique (D55): as duas metades da tela apontando uma para a outra.
+ *
+ * O que se afirma é o que a pessoa vê — qual bloco está aceso — e o que ela consegue fazer —
+ * clicar num bloco e receber de volta a posição no LaTeX. A classe entra nas consultas porque é
+ * ela que o destaque usa; o texto do bloco diz qual é.
+ */
+describe("PreviewPane: cursor e clique", () => {
+  const texto = "Primeiro parágrafo.\n\nSegundo parágrafo.";
+  const aceso = (): string | null =>
+    document.querySelector('.lbb-pv-src[data-active="true"]')?.textContent ?? null;
+
+  it("acende o bloco onde o cursor está", () => {
+    const { rerender } = render(
+      <PreviewPane
+        source={{ ...source, statementLatex: texto }}
+        cursor={{ field: "statement", offset: 3 }}
+      />,
+    );
+    expect(aceso()).toBe("Primeiro parágrafo.");
+
+    rerender(
+      <PreviewPane
+        source={{ ...source, statementLatex: texto }}
+        cursor={{ field: "statement", offset: 25 }}
+      />,
+    );
+    expect(aceso()).toBe("Segundo parágrafo.");
+  });
+
+  it("no vão entre parágrafos, mantém o bloco anterior — não pisca", () => {
+    // Deslocamento 20: a linha em branco, que não pertence a parágrafo nenhum.
+    render(
+      <PreviewPane
+        source={{ ...source, statementLatex: texto }}
+        cursor={{ field: "statement", offset: 20 }}
+      />,
+    );
+    expect(aceso()).toBe("Primeiro parágrafo.");
+  });
+
+  it("não acende nada quando o cursor está noutro campo", () => {
+    render(
+      <PreviewPane
+        source={{ ...source, statementLatex: texto, solutionLatex: "A resposta." }}
+        cursor={{ field: "solution", offset: 0 }}
+      />,
+    );
+    expect(aceso()).toBe("A resposta.");
+  });
+
+  it("clicar num bloco devolve o campo e onde ele começa", () => {
+    const picks: [string, number][] = [];
+    render(
+      <PreviewPane
+        source={{ ...source, statementLatex: texto }}
+        onPick={(field, offset) => picks.push([field, offset])}
+      />,
+    );
+
+    const segundo = [...document.querySelectorAll(".lbb-pv-src")].find(
+      (element) => element.textContent === "Segundo parágrafo.",
+    );
+    fireEvent.click(segundo!);
+    expect(picks).toEqual([["statement", 21]]);
   });
 });

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Divider, Tabs, useStoredState } from "@/design-system";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
-import { LatexEditor } from "@modules/latex/ui/LatexEditor";
+import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
 import { useRender } from "@modules/rendering/ui/use-render";
@@ -56,6 +56,9 @@ export function NodeBodyEditor({
   const [rightTab, setRightTab] = useState<RightTab>("rapido");
   const [sourceOpen, setSourceOpen] = useStoredState(`lbb:ver-fonte:${publicationId}`, false);
   const [page, setPage] = useState(1);
+  /** O cursor no corpo, para acender o bloco correspondente no preview (D55). */
+  const [cursorOffset, setCursorOffset] = useState(0);
+  const editor = useRef<LatexEditorApi | null>(null);
   const version = useRef<string>("");
   const draftRef = useRef("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -215,6 +218,10 @@ export function NodeBodyEditor({
             onChange={onChange}
             onSave={() => void save()}
             onRender={render}
+            onCursorOffset={setCursorOffset}
+            onReady={(api) => {
+              editor.current = api;
+            }}
           />
         </div>
         <Divider {...columns.previewDivider} />
@@ -251,6 +258,9 @@ export function NodeBodyEditor({
                   complementLatex: "",
                   options: [],
                 }}
+                // O corpo é um campo só: o cursor está sempre no "enunciado" do modelo.
+                cursor={{ field: "statement", offset: cursorOffset }}
+                onPick={(_field, offset) => editor.current?.goToOffset(offset)}
               />
             ) : rightTab === "render" ? (
               <RenderPanel

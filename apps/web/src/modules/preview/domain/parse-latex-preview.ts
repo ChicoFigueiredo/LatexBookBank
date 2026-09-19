@@ -1,4 +1,10 @@
-import type { PreviewBlock, PreviewInline, PreviewItem, PreviewStyle } from "./preview-model";
+import type {
+  PreviewBlock,
+  PreviewInline,
+  PreviewItem,
+  PreviewStyle,
+  SourceRange,
+} from "./preview-model";
 
 /**
  * LaTeX → `PreviewBlock[]`, para o preview rápido.
@@ -69,11 +75,28 @@ const ESCAPED_LITERALS = new Set(["%", "$", "{", "}", "&", "_", "#", "\\"]);
  * dois faria metade de uma questão de porcentagem desaparecer.
  */
 export function stripComments(source: string): string {
+  return stripCommentsWithMap(source).text;
+}
+
+/**
+ * O mesmo, com o caminho de volta.
+ *
+ * Tirar comentário encurta o texto, então todo índice de quem analisa passa a apontar para o
+ * lugar errado no original — e é o original que o editor mostra. O mapa diz, para cada caractere
+ * do texto limpo, de onde ele veio; a última posição é uma sentinela com o fim do original, para
+ * que o fim de um bloco também tenha resposta.
+ */
+export function stripCommentsWithMap(source: string): {
+  readonly text: string;
+  readonly map: readonly number[];
+} {
   let out = "";
+  const map: number[] = [];
   for (let i = 0; i < source.length; i += 1) {
     const char = source[i];
     if (char === "\\" && i + 1 < source.length) {
       out += char + source[i + 1];
+      map.push(i, i + 1);
       i += 1;
       continue;
     }
@@ -84,11 +107,14 @@ export function stripComments(source: string): string {
       // colaria dois parágrafos que o autor separou.
       i = newline;
       out += "\n";
+      map.push(newline);
       continue;
     }
     out += char;
+    map.push(i);
   }
-  return out;
+  map.push(source.length);
+  return { text: out, map };
 }
 
 /** Índice logo depois do `}` que fecha o grupo aberto em `start`, contando aninhamento. */
@@ -142,6 +168,8 @@ function parseWidthFraction(options: string): number | null {
 interface EnvironmentMatch {
   readonly name: string;
   readonly body: string;
+  /** Índice do primeiro caractere do corpo — é por ele que a posição de origem continua valendo. */
+  readonly bodyStart: number;
   /** Índice logo depois do `\end{...}`. */
   readonly next: number;
 }
@@ -161,34 +189,58 @@ function readEnvironment(source: string, index: number): EnvironmentMatch | null
   for (let hit = marker.exec(source); hit !== null; hit = marker.exec(source)) {
     depth += hit[1] === "begin" ? 1 : -1;
     if (depth === 0) {
-      return { name, body: source.slice(bodyStart, hit.index), next: hit.index + hit[0].length };
+      return {
+        name,
+        body: source.slice(bodyStart, hit.index),
+        bodyStart,
+        next: hit.index + hit[0].length,
+      };
     }
   }
 
   // `\begin` sem `\end` é erro de digitação, e acontece o tempo todo enquanto se escreve. Tratar
   // o resto do texto como corpo mostra o que já foi escrito, em vez de esconder tudo.
-  return { name, body: source.slice(bodyStart), next: source.length };
+  return { name, body: source.slice(bodyStart), bodyStart, next: source.length };
+}
+
+/** Um item de lista e onde ele começa no corpo — `exact` é falso quando o rótulo foi costurado. */
+interface SplitItem {
+  readonly text: string;
+  readonly start: number;
+  readonly exact: boolean;
 }
 
 /** Divide o corpo de uma lista nos `\item`, ignorando `\item` de listas aninhadas. */
-function splitItems(body: string): string[] {
-  const items: string[] = [];
+function splitItems(body: string): SplitItem[] {
+  const items: SplitItem[] = [];
   let current: string | null = null;
+  let start = 0;
+  let exact = true;
   let depth = 0;
+
+  const close = (): void => {
+    if (current !== null) items.push({ text: current, start, exact });
+  };
 
   for (let i = 0; i < body.length; i += 1) {
     if (body.startsWith("\\begin", i)) depth += 1;
     else if (body.startsWith("\\end", i)) depth -= 1;
 
     if (depth === 0 && body.startsWith("\\item", i)) {
-      if (current !== null) items.push(current);
+      close();
       current = "";
+      exact = true;
       i += "\\item".length - 1;
+      start = i + 1;
       // `\item[rótulo]` do `description`: o rótulo entra no texto do item.
       const optional = readOptional(body, i + 1);
       if (optional) {
         current = optional.content;
+        // O texto do item deixou de ser uma fatia do corpo: contar posições nele apontaria para
+        // o lugar errado, então o item inteiro passa a ser a unidade que se sabe localizar.
+        exact = false;
         i = optional.next - 1;
+        start = i + 1;
       }
       continue;
     }
@@ -196,7 +248,7 @@ function splitItems(body: string): string[] {
     if (current !== null) current += body[i];
   }
 
-  if (current !== null) items.push(current);
+  close();
   return items;
 }
 
@@ -384,32 +436,68 @@ function paragraphOf(text: string): PreviewBlock[] {
  * desalinharia a leitura sem ganho nenhum.
  */
 export function parseLatexPreview(source: string): readonly PreviewBlock[] {
-  const text = stripComments(source);
+  const { text, map } = stripCommentsWithMap(source);
+  return parseBlocks(text, 0, (index) => map[index] ?? source.length);
+}
+
+/**
+ * Traduz um índice do texto sem comentários para o original. `null` quando a tradução não vale —
+ * um item de lista com rótulo costurado —, e aí os blocos saem sem origem.
+ */
+type Locate = ((index: number) => number) | null;
+
+const rangeOf = (at: Locate, base: number, from: number, to: number): SourceRange | undefined =>
+  at === null ? undefined : { from: at(base + from), to: at(base + to) };
+
+const withRange = (block: PreviewBlock, range: SourceRange | undefined): PreviewBlock =>
+  range === undefined ? block : { ...block, range };
+
+/**
+ * O laço de verdade. `base` é onde esta fatia começa no texto sem comentários — a recursão dos
+ * ambientes analisa pedaços, e é `base` que mantém cada bloco sabendo apontar para o original.
+ */
+function parseBlocks(text: string, base: number, at: Locate): readonly PreviewBlock[] {
   const blocks: PreviewBlock[] = [];
   let buffer = "";
+  let bufferStart = 0;
 
-  const flush = (): void => {
-    blocks.push(...paragraphOf(buffer));
+  const flush = (end: number): void => {
+    const range = rangeOf(at, base, bufferStart, end);
+    for (const block of paragraphOf(buffer)) blocks.push(withRange(block, range));
     buffer = "";
   };
 
   let i = 0;
   while (i < text.length) {
+    if (buffer === "") bufferStart = i;
+
     if (text.startsWith("$$", i)) {
       const end = text.indexOf("$$", i + 2);
       const stop = end === -1 ? text.length : end;
-      flush();
-      blocks.push({ kind: "displayMath", latex: text.slice(i + 2, stop).trim() });
-      i = end === -1 ? text.length : end + 2;
+      const next = end === -1 ? text.length : end + 2;
+      flush(i);
+      blocks.push(
+        withRange(
+          { kind: "displayMath", latex: text.slice(i + 2, stop).trim() },
+          rangeOf(at, base, i, next),
+        ),
+      );
+      i = next;
       continue;
     }
 
     if (text.startsWith("\\[", i)) {
       const end = text.indexOf("\\]", i + 2);
       const stop = end === -1 ? text.length : end;
-      flush();
-      blocks.push({ kind: "displayMath", latex: text.slice(i + 2, stop).trim() });
-      i = end === -1 ? text.length : end + 2;
+      const next = end === -1 ? text.length : end + 2;
+      flush(i);
+      blocks.push(
+        withRange(
+          { kind: "displayMath", latex: text.slice(i + 2, stop).trim() },
+          rangeOf(at, base, i, next),
+        ),
+      );
+      i = next;
       continue;
     }
 
@@ -420,12 +508,17 @@ export function parseLatexPreview(source: string): readonly PreviewBlock[] {
 
       const group = readGroup(text, cursor);
       if (group) {
-        flush();
-        blocks.push({
-          kind: "image",
-          path: group.content.trim(),
-          widthFraction: parseWidthFraction(optional?.content ?? ""),
-        });
+        flush(i);
+        blocks.push(
+          withRange(
+            {
+              kind: "image",
+              path: group.content.trim(),
+              widthFraction: parseWidthFraction(optional?.content ?? ""),
+            },
+            rangeOf(at, base, i, group.next),
+          ),
+        );
         i = group.next;
         continue;
       }
@@ -434,8 +527,11 @@ export function parseLatexPreview(source: string): readonly PreviewBlock[] {
     if (text.startsWith("\\begin", i)) {
       const environment = readEnvironment(text, i);
       if (environment) {
-        flush();
-        blocks.push(...blocksForEnvironment(environment));
+        flush(i);
+        const range = rangeOf(at, base, i, environment.next);
+        for (const block of blocksForEnvironment(environment, base, at)) {
+          blocks.push(block.range === undefined ? withRange(block, range) : block);
+        }
         i = environment.next;
         continue;
       }
@@ -444,13 +540,13 @@ export function parseLatexPreview(source: string): readonly PreviewBlock[] {
     // Linha em branco separa parágrafos — é a única regra de espaçamento que o LaTeX tem.
     const paragraphBreak = /^[ \t]*\r?\n[ \t]*\r?\n\s*/.exec(text.slice(i));
     if (paragraphBreak) {
-      flush();
+      flush(i);
       i += paragraphBreak[0].length;
       continue;
     }
 
     if (text[i] === "\\") {
-      // Não deixa `\\begin` de outro comando ser comido caractere a caractere.
+      // Não deixa `\begin` de outro comando ser comido caractere a caractere.
       buffer += text[i] ?? "";
       buffer += text[i + 1] ?? "";
       i += 2;
@@ -461,12 +557,17 @@ export function parseLatexPreview(source: string): readonly PreviewBlock[] {
     i += 1;
   }
 
-  flush();
+  flush(text.length);
   return blocks;
 }
 
-function blocksForEnvironment(environment: EnvironmentMatch): readonly PreviewBlock[] {
-  const { name, body } = environment;
+function blocksForEnvironment(
+  environment: EnvironmentMatch,
+  base: number,
+  at: Locate,
+): readonly PreviewBlock[] {
+  const { name, body, bodyStart } = environment;
+  const inside = base + bodyStart;
 
   if (MATH_ENVIRONMENTS.has(name)) {
     return [{ kind: "displayMath", latex: body.trim() }];
@@ -474,15 +575,21 @@ function blocksForEnvironment(environment: EnvironmentMatch): readonly PreviewBl
 
   if (BOX_ENVIRONMENTS.has(name)) {
     // `tcolorbox` tem argumento opcional de opções antes do conteúdo; ele não interessa ao preview.
+    const trimmed = body.length - body.trimStart().length;
     const optional = readOptional(body.trimStart(), 0);
+    const skip = trimmed + (optional ? optional.next : 0);
     const content = optional ? body.trimStart().slice(optional.next) : body;
-    return [{ kind: "box", blocks: parseLatexPreview(content) }];
+    return [{ kind: "box", blocks: parseBlocks(content, inside + skip, at) }];
   }
 
   const ordered = LIST_ENVIRONMENTS[name];
   if (ordered !== undefined) {
     const items: PreviewItem[] = splitItems(body).flatMap((item) => {
-      const parsed = parseLatexPreview(item);
+      const parsed = parseBlocks(
+        item.text,
+        item.exact ? inside + item.start : 0,
+        item.exact ? at : null,
+      );
       return parsed.length === 0 ? [] : [{ blocks: parsed }];
     });
     return items.length === 0 ? [] : [{ kind: "list", ordered, items }];
@@ -491,5 +598,5 @@ function blocksForEnvironment(environment: EnvironmentMatch): readonly PreviewBl
   // Ambiente desconhecido — `center`, `figure`, `minipage` — desembrulha. É a mesma regra dos
   // comandos: o conteúdo importa, o invólucro não. `tabular` sai como texto corrido, e sai torto;
   // tabela não está no subconjunto da §11 e quem precisa de tabela precisa do PDF.
-  return parseLatexPreview(body);
+  return parseBlocks(body, inside, at);
 }

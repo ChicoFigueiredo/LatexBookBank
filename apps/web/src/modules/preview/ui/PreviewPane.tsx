@@ -1,10 +1,14 @@
 "use client";
 
-import { useDeferredValue, useMemo } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 
 import { Badge } from "@/design-system";
 import { buildPreviewModel, type PreviewSource } from "@modules/preview/domain/build-preview-model";
-import { PREVIEW_DISCLAIMER, type PreviewBlock } from "@modules/preview/domain/preview-model";
+import {
+  PREVIEW_DISCLAIMER,
+  type PreviewBlock,
+  type SourceRange,
+} from "@modules/preview/domain/preview-model";
 
 import { PreviewBlocks } from "./PreviewBlocks";
 
@@ -21,17 +25,84 @@ import { PreviewBlocks } from "./PreviewBlocks";
  * Este preview não fala com ninguém — é conta local sobre texto que já está na memória.
  */
 
+/** Os campos que o editor edita — e que, por isso, o cursor pode estar visitando. */
+export type PreviewField = "statement" | "solution" | "complement";
+
 export interface PreviewPaneProps {
   readonly source: PreviewSource;
+  /** Onde o cursor está, em caracteres, e em qual campo (D55). */
+  readonly cursor?: { readonly field: PreviewField; readonly offset: number } | null;
+  /** Clicar num bloco leva o cursor até o trecho que o gerou. */
+  readonly onPick?: (field: PreviewField, offset: number) => void;
 }
 
-export function PreviewPane({ source }: PreviewPaneProps) {
+/**
+ * O bloco mais **estreito** que contém o cursor.
+ *
+ * Mais estreito, e não o primeiro: o item de uma lista está dentro da lista, e acender os dois
+ * transformaria o destaque em mancha. Quem está por dentro ganha.
+ */
+function blockAt(blocks: readonly PreviewBlock[], offset: number): SourceRange | null {
+  let best: SourceRange | null = null;
+  // O cursor cai fora de todo bloco o tempo todo: a linha em branco entre dois parágrafos não
+  // pertence a nenhum dos dois. Apagar o destaque a cada `Enter` faria o preview piscar, então
+  // nesses vãos vale o último bloco que ficou para trás.
+  let before: SourceRange | null = null;
+
+  const visit = (list: readonly PreviewBlock[]): void => {
+    for (const block of list) {
+      const range = block.range;
+      if (range) {
+        if (offset >= range.from && offset <= range.to) {
+          if (best === null || range.to - range.from < best.to - best.from) best = range;
+        } else if (range.to <= offset && (before === null || range.to > before.to)) {
+          before = range;
+        }
+      }
+      if (block.kind === "box") visit(block.blocks);
+      if (block.kind === "list") for (const item of block.items) visit(item.blocks);
+    }
+  };
+
+  visit(blocks);
+  return best ?? before;
+}
+
+export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps) {
   // O valor adiado é a fonte inteira: adiar campo a campo faria o preview mostrar um enunciado
   // novo com alternativas velhas por um instante, que é pior do que mostrar tudo velho.
   const deferred = useDeferredValue(source);
   const model = useMemo(() => buildPreviewModel(deferred), [deferred]);
 
   const stale = deferred !== source;
+
+  const active = useMemo(() => {
+    if (!cursor) return null;
+    const blocks =
+      cursor.field === "statement"
+        ? model.statement
+        : cursor.field === "solution"
+          ? model.solution
+          : model.complement;
+    return blockAt(blocks, cursor.offset);
+  }, [cursor, model]);
+
+  /*
+    Rolar até o bloco aceso — e só quando ele **muda**.
+
+    Rolar a cada tecla brigaria com quem está lendo o preview: a pessoa rola para conferir o fim
+    da resolução, digita uma vírgula no enunciado, e a tela pula de volta. `nearest` pelo mesmo
+    motivo: se o bloco já está à vista, não se mexe nada.
+  */
+  const body = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    // A classe entra no seletor de propósito: `data-active` é atributo comum na casa (a barra
+    // lateral também o usa), e um seletor solto aqui rolaria até o painel errado.
+    body.current
+      ?.querySelector('.lbb-pv-src[data-active="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [active]);
   const empty =
     model.statement.length === 0 &&
     model.options.length === 0 &&
@@ -71,6 +142,7 @@ export function PreviewPane({ source }: PreviewPaneProps) {
       </header>
 
       <div
+        ref={body}
         style={{
           flex: 1,
           minHeight: 0,
@@ -91,7 +163,13 @@ export function PreviewPane({ source }: PreviewPaneProps) {
           </p>
         ) : (
           <>
-            <PreviewBlocks blocks={model.statement} />
+            <PreviewBlocks
+              blocks={model.statement}
+              active={cursor?.field === "statement" ? active : null}
+              {...(onPick
+                ? { onPick: (range: SourceRange) => onPick("statement", range.from) }
+                : {})}
+            />
 
             {model.options.length > 0 && (
               <ol
@@ -125,8 +203,22 @@ export function PreviewPane({ source }: PreviewPaneProps) {
               </ol>
             )}
 
-            <Section title="Resposta" blocks={model.solution} />
-            <Section title="Complemento" blocks={model.complement} />
+            <Section
+              title="Resposta"
+              blocks={model.solution}
+              active={cursor?.field === "solution" ? active : null}
+              {...(onPick
+                ? { onPick: (range: SourceRange) => onPick("solution", range.from) }
+                : {})}
+            />
+            <Section
+              title="Complemento"
+              blocks={model.complement}
+              active={cursor?.field === "complement" ? active : null}
+              {...(onPick
+                ? { onPick: (range: SourceRange) => onPick("complement", range.from) }
+                : {})}
+            />
           </>
         )}
       </div>
@@ -137,9 +229,13 @@ export function PreviewPane({ source }: PreviewPaneProps) {
 function Section({
   title,
   blocks,
+  active = null,
+  onPick,
 }: {
   readonly title: string;
   readonly blocks: readonly PreviewBlock[];
+  readonly active?: SourceRange | null;
+  readonly onPick?: (range: SourceRange) => void;
 }) {
   if (blocks.length === 0) return null;
 
@@ -158,7 +254,7 @@ function Section({
       >
         {title}
       </h3>
-      <PreviewBlocks blocks={blocks} />
+      <PreviewBlocks blocks={blocks} active={active} {...(onPick ? { onPick } : {})} />
     </div>
   );
 }

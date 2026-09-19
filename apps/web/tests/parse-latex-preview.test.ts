@@ -138,6 +138,7 @@ describe("imagens", () => {
       kind: "image",
       path: "figura.png",
       widthFraction: null,
+      range: { from: 0, to: 28 },
     });
   });
 
@@ -244,5 +245,66 @@ Assinale:
       "image",
     ]);
     expect(textOf(blocks[0]!)).toBe("Considere a função ⟨f(x) = x^2 - 4⟩.");
+  });
+});
+
+/**
+ * A origem de cada bloco (D55): é ela que liga o cursor do editor ao bloco do preview, e o
+ * clique no bloco de volta ao LaTeX. O que se afirma aqui é sempre a mesma coisa — recortar o
+ * original pelo intervalo devolve o trecho que gerou o bloco —, porque é disso que as duas telas
+ * dependem.
+ */
+describe("origem no LaTeX", () => {
+  /** O recorte do original, do jeito que o editor o mostra. */
+  const cut = (source: string, block: PreviewBlock): string =>
+    block.range ? source.slice(block.range.from, block.range.to).trim() : "«sem origem»";
+
+  it("cada parágrafo aponta para o seu trecho", () => {
+    const source = "Primeiro parágrafo.\n\nSegundo parágrafo.";
+    const blocks = parseLatexPreview(source);
+    expect(blocks.map((block) => cut(source, block))).toEqual([
+      "Primeiro parágrafo.",
+      "Segundo parágrafo.",
+    ]);
+  });
+
+  it("o comentário desloca o texto, e a origem continua certa", () => {
+    // O caso que o mapa existe para resolver: sem ele o intervalo sairia adiantado em 21 caracteres.
+    const source = "% um comentário aqui\nDepois do comentário.\n\n$$x = 1$$";
+    const blocks = parseLatexPreview(source);
+    expect(blocks.map((block) => cut(source, block))).toEqual([
+      "Depois do comentário.",
+      "$$x = 1$$",
+    ]);
+  });
+
+  it("a fórmula em display aponta para os delimitadores junto", () => {
+    const source = "Antes.\n\n\\[ y = 2x \\]\n\nDepois.";
+    const [, math] = parseLatexPreview(source);
+    expect(cut(source, math!)).toBe("\\[ y = 2x \\]");
+  });
+
+  it("cada item da lista aponta para o próprio item", () => {
+    const source = "\\begin{enumerate}\n\\item primeiro\n\\item segundo\n\\end{enumerate}";
+    const [list] = parseLatexPreview(source);
+    expect(list?.kind).toBe("list");
+    const items = list?.kind === "list" ? list.items : [];
+    expect(items.map((item) => cut(source, item.blocks[0]!))).toEqual(["primeiro", "segundo"]);
+  });
+
+  it("o item com rótulo não afirma origem — o rótulo foi costurado ao texto", () => {
+    const source = "\\begin{description}\n\\item[a)] costurado\n\\end{description}";
+    const [list] = parseLatexPreview(source);
+    const items = list?.kind === "list" ? list.items : [];
+    expect(items[0]?.blocks[0]?.range).toBeUndefined();
+    // Mas a lista inteira sabe onde está, que é o que sobra para acender e para clicar.
+    expect(cut(source, list!)).toBe(source);
+  });
+
+  it("o conteúdo da caixa aponta para dentro da caixa", () => {
+    const source = "\\begin{tcolorbox}[title=Nota]\nO texto da nota.\n\\end{tcolorbox}";
+    const [box] = parseLatexPreview(source);
+    const inner = box?.kind === "box" ? box.blocks[0] : undefined;
+    expect(cut(source, inner!)).toBe("O texto da nota.");
   });
 });

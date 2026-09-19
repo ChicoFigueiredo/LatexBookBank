@@ -1,10 +1,14 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from "react";
 
 import { injectCss } from "@/design-system";
 import { maskUrlFor } from "@shared/css-mask";
-import type { PreviewBlock, PreviewInline } from "@modules/preview/domain/preview-model";
+import type {
+  PreviewBlock,
+  PreviewInline,
+  SourceRange,
+} from "@modules/preview/domain/preview-model";
 import { renderMath } from "@modules/preview/infrastructure/mathjax";
 
 /**
@@ -19,13 +23,98 @@ import { renderMath } from "@modules/preview/infrastructure/mathjax";
  * conhece hoje; não gerar é uma propriedade.
  */
 
-export function PreviewBlocks({ blocks }: { readonly blocks: readonly PreviewBlock[] }) {
+const CSS = `
+.lbb-pv-src{margin-left:-10px;padding-left:7px;border-left:3px solid transparent;border-radius:var(--radius-sm);transition:background var(--motion-fast) var(--ease-standard),border-color var(--motion-fast) var(--ease-standard)}
+.lbb-pv-src[data-pick="on"]{cursor:pointer}
+.lbb-pv-src[data-pick="on"]:hover{background:var(--surface-sunken)}
+.lbb-pv-src[data-active="true"]{border-left-color:var(--accent);background:var(--surface-sunken)}
+`;
+
+/**
+ * Quem está aceso e o que fazer com o clique (D55).
+ *
+ * Em contexto, e não em propriedade: os blocos se aninham — lista dentro de caixa dentro de
+ * item — e passar as duas coisas de mão em mão por cada nível encheria de cerimônia um
+ * componente que só desenha.
+ */
+interface BlockLink {
+  readonly active: SourceRange | null;
+  readonly onPick: ((range: SourceRange) => void) | null;
+}
+
+const NO_LINK: BlockLink = { active: null, onPick: null };
+const LinkContext = createContext<BlockLink>(NO_LINK);
+
+export function PreviewBlocks({
+  blocks,
+  active,
+  onPick,
+}: {
+  readonly blocks: readonly PreviewBlock[];
+  readonly active?: SourceRange | null;
+  readonly onPick?: (range: SourceRange) => void;
+}) {
+  injectCss("lbb-preview-src", CSS);
+  const inherited = useContext(LinkContext);
+  const link = useMemo<BlockLink>(
+    () =>
+      active === undefined && onPick === undefined
+        ? inherited
+        : { active: active ?? null, onPick: onPick ?? null },
+    [active, onPick, inherited],
+  );
+
   return (
-    <>
+    <LinkContext.Provider value={link}>
       {blocks.map((block, index) => (
-        <Block key={index} block={block} />
+        <Located key={index} block={block}>
+          <Block block={block} />
+        </Located>
       ))}
-    </>
+    </LinkContext.Provider>
+  );
+}
+
+/**
+ * A moldura que liga o bloco ao LaTeX que o gerou: acende quando o cursor está dentro dele, e
+ * leva o cursor até lá quando alguém o clica.
+ *
+ * Bloco sem origem passa direto, sem moldura nenhuma — não há o que acender nem para onde ir.
+ */
+function Located({
+  block,
+  children,
+}: {
+  readonly block: PreviewBlock;
+  readonly children: ReactNode;
+}) {
+  const { active, onPick } = useContext(LinkContext);
+  const range = block.range;
+  if (!range) return <>{children}</>;
+
+  const isActive = active !== null && active.from === range.from && active.to === range.to;
+
+  return (
+    <div
+      className="lbb-pv-src"
+      data-active={isActive ? "true" : undefined}
+      data-pick={onPick ? "on" : undefined}
+      {...(onPick
+        ? {
+            title: "Ir para este trecho no editor",
+            onClick: (event: React.MouseEvent) => {
+              // O bloco mais interno ganha: sem isto, clicar num item também avisaria a lista.
+              event.stopPropagation();
+              // Selecionar texto no preview é leitura, não navegação: só o clique limpo leva o
+              // cursor embora.
+              if (window.getSelection()?.isCollapsed === false) return;
+              onPick(range);
+            },
+          }
+        : {})}
+    >
+      {children}
+    </div>
   );
 }
 
