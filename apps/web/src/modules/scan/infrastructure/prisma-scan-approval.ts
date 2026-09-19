@@ -103,7 +103,12 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           return key;
         };
 
-        const createAnchors = async (regions: readonly ProposedRegion[], sourceText: string, itemKey: string) => {
+        const createAnchors = async (
+          regions: readonly ProposedRegion[],
+          sourceText: string,
+          itemKey: string,
+          cropAssetId: string | null = null,
+        ) => {
           const links: NodeAnchorLink[] = [];
           for (const region of regions) {
             const anchor = await tx.sourceAnchor.create({
@@ -119,6 +124,8 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 extractionMethod,
                 extractionModel: run.mathModel,
                 metadataJson: JSON.stringify({ scanRunId: run.id, itemKey, role: region.role }),
+                // A figura tem arquivo: a âncora guarda qual, que é para o que este campo existe.
+                ...(cropAssetId ? { cropAssetId } : {}),
               },
               select: { id: true },
             });
@@ -188,6 +195,11 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                   kind: step.kind,
                   title: step.title,
                   originalLabel: step.originalLabel,
+                  // O exemplo nasce com o texto dentro (D56); os outros nós nascem vazios.
+                  ...(step.body !== null ? { bodyLatex: step.body } : {}),
+                  // Quem criou este nó (D57): é por aqui que a importação inteira é encontrada
+                  // quando alguém quiser reimportar o livro.
+                  createdByScanRunId: run.id,
                   sortKey: await nextKey(parentId),
                   ...(questionId ? { questionId } : {}),
                 },
@@ -235,7 +247,12 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 data: { bodyLatex: appendToBody(target.bodyLatex, step.latex) },
               });
 
-              const added = await createAnchors(step.anchors, step.sourceText, itemKeyOf(step.itemIds[0] ?? ""));
+              const added = await createAnchors(
+                step.anchors,
+                step.sourceText,
+                itemKeyOf(step.itemIds[0] ?? ""),
+                step.cropAssetId,
+              );
               const current = existing
                 .filter((link) => isAnchorRole(link.role))
                 .map((link) => ({ sourceAnchorId: link.sourceAnchorId, role: link.role as NodeAnchorLink["role"] }));

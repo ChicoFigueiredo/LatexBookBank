@@ -45,9 +45,10 @@ mestra assumia:
    somam 109 MB em 409 arquivos, com menos de 1% recuperável por deduplicação. Isso remove a
    questão de custo de storage da lista de riscos.
 
-O plano resultante tem **23 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
+O plano resultante tem **26 fases**, cada uma dimensionada para caber em uma sessão de trabalho,
 com critérios de aceite verificáveis por comando. *(Eram 19; a Wave G — captura em volume —
-acrescentou as Fases 18 e 19 em 2026-09-10 e as 20 e 21 em 2026-09-16, ver §3.7.)*
+acrescentou as Fases 18 e 19 em 2026-09-10, as 20 e 21 em 2026-09-16, e as 22, 23 e 24 em
+2026-09-19, ver §3.7.)*
 
 ---
 
@@ -1116,6 +1117,37 @@ Três limites, escolhidos:
   item sai **sem** origem e quem responde pelo clique é a lista inteira. Apontar para o lugar
   errado seria pior que não apontar.
 
+#### D56 — O exemplo é um nó, não um negrito no corpo
+
+`NodeKind` ganha o décimo primeiro valor, `EXAMPLE`: nó com corpo próprio, dentro do capítulo, da
+seção ou da subseção, sem filhos. O scan passa a capturá-lo **até a próxima fronteira** — próximo
+exemplo, próximo título ou bloco de exercícios —, com a resolução junto; antes levava um parágrafo
+só. Na árvore aparece o rótulo do livro e o começo do texto ("Exemplo 3 — Sejam A e B conjuntos
+finitos…"). Nada é migrado: no acervo não há exemplo aprovado, e o que houver se resolve
+reimportando (D57). O porquê, e o que isto revisa do ADR 0002, está no
+[ADR 0004](../adr/0004-o-exemplo-vira-no.md).
+
+#### D57 — Reimportar: a importação é apagável, e o nó lembra de onde veio
+
+`DocumentNode` ganha a coluna com o id da execução que o criou, indexada — é ela que distingue o
+nó **criado** pelo scan do nó apenas **reaproveitado**, distinção que o `metadataJson` da âncora
+não faz. O gesto oferece duas coisas: apagar só a proposta, ou a proposta e o que ela criou. O que
+foi criado vai para a **lixeira**; o que foi editado à mão depois da aprovação é **preservado**, e
+a confirmação diz os números antes. A execução antiga sai junto. Detalhes e alternativas
+rejeitadas no [ADR 0006](../adr/0006-a-importacao-e-apagavel.md).
+
+#### D58 — A figura sai no formato que o PDF tem
+
+Medido: o FME vol. 1 tem figura em 55% das páginas, o Curso de Análise em 4%, e nos dois ~90% são
+vetoriais. Então traço vira **recorte em PDF** (`pdf-lib`, dependência nova, JS puro), foto vira o
+**bitmap embutido**, e sempre sai um PNG para a tela. A figura vira asset e âncora de ilustração, e
+entra no LaTeX na posição como `figure` com `\includegraphics[width=…]` e `\caption` — a legenda
+do livro reconhecida e tirada do corpo. Tudo que está dentro da caixa é absorvido, inclusive as
+letras desenhadas sobre o diagrama. Vale para todos os perfis: no `book-v1` a figura vai ao corpo,
+nos perfis de prova vai ao enunciado. Na revisão dá para **redesenhar a caixa arrastando**, que é
+o único conserto possível quando o agrupamento erra. Ver
+[ADR 0005](../adr/0005-figura-vetorial-quando-o-pdf-a-tem.md).
+
 ---
 
 ## 4. Arquitetura
@@ -1498,7 +1530,7 @@ de round-trip exercita as duas direções e está ligado a qualquer mudança de 
 
 ---
 
-## 8. As 21 fases
+## 8. As 26 fases
 
 Cada fase termina em estado verificável e em checkpoint humano. Os itens marcáveis estão em
 [`_checklist.md`](./_checklist.md).
@@ -1797,6 +1829,30 @@ Desempate pelo `AiProvider` só nos itens duvidosos, com resposta validada · re
 funciona sem modelo · `source-scanning-validation.md` medido no corpus real (D48).
 **Aceite:** nenhuma saída de modelo chega ao acervo sem aprovação; o relatório traz os números
 medidos e diz o que não mediu.
+
+#### Fase 22 — O exemplo como galho *(D56, ADR 0004)*
+`EXAMPLE` no `NodeKind` e nas telas que conhecem tipo — validador, ícones da árvore, menu de
+criar, lixeira, lista de tipos com corpo · o `book-v1` captura o exemplo até a próxima fronteira ·
+a aprovação cria o nó em vez de anexar ao corpo · a árvore mostra rótulo e começo do texto.
+**Aceite:** varrer o *Curso de Análise* propõe os 107 exemplos como nós; aprovar cria 107 galhos
+com a resolução dentro, e nenhum texto de exemplo sobra no corpo da seção.
+
+#### Fase 23 — Reimportar *(D57, ADR 0006)*
+Coluna de proveniência no nó, com índice · apagar a importação: nós, questões, corpos e âncoras
+que a execução criou vão para a lixeira · o editado à mão é preservado e contado · a execução
+antiga sai junto · confirmação com os números · as duas opções na tela (só a proposta, ou
+proposta e acervo).
+**Aceite:** importar o FME, apagar a importação e importar de novo devolve o livro ao estado de
+antes, sem resíduo e sem perder o que foi editado à mão no meio.
+
+#### Fase 24 — Figuras *(D58, ADR 0005)*
+Agrupar traços e imagens em figura, absorvendo o texto de dentro da caixa · recorte vetorial em
+PDF (`pdf-lib`) e bitmap embutido para foto, com PNG de tela · asset, âncora de ilustração e
+`figure` com `\caption` na posição · legenda do livro reconhecida e tirada do corpo · destino por
+perfil (corpo no `book-v1`, enunciado nos de prova) · redesenhar a caixa arrastando na revisão.
+**Aceite:** nas páginas medidas do FME as figuras saem vetoriais e na posição, com a legenda
+junto; nenhuma letra de diagrama sobra solta no corpo; o relatório do corpus traz a contagem de
+figuras por livro.
 
 > **Fora desta wave, por decisão:** parear resposta com questão automaticamente (a resposta é um
 > segundo gesto — recortar e apontar); tela para editar perfis; a tela de diff entre dois scans

@@ -11,8 +11,9 @@ vocabulário rico, e a aprovação o traduz para o que o acervo já sabe guardar
 | `EXERCISE_GROUP` | `QUESTION_GROUP` |
 | `EXERCISE` · `QUESTION` | nó `QUESTION` + `Question` em `DRAFT`, tipo padrão do perfil |
 | `ITEM` · `SUBITEM` | não viram nó: `enumerate` no LaTeX da questão, e as âncoras passam a ela |
-| `FIGURE` | âncora de papel *ilustração* do elemento que a contém |
-| `EXAMPLE` · `CONTENT` · `NOTE` | corpo do nó da seção que os contém (ADR 0001), em ordem de leitura |
+| `FIGURE` | âncora de papel *ilustração* do elemento que a contém — **e asset, revisado pelo [ADR 0005](0005-figura-vetorial-quando-o-pdf-a-tem.md)** |
+| `EXAMPLE` | ~~corpo do nó~~ — **revisado: vira nó, [ADR 0004](0004-o-exemplo-vira-no.md)** |
+| `CONTENT` · `NOTE` | corpo do nó da seção que os contém (ADR 0001), em ordem de leitura |
 
 ## Considered options
 
@@ -24,6 +25,10 @@ diferente de *conteúdo* e *questão* em nada que o acervo faça depois.
 tem sentido dentro do enunciado — é assim que ele compila e que ele se embaralha numa avaliação.
 
 ## Consequences
+
+Duas linhas desta tabela foram revisadas depois, e o motivo está nos ADRs que as revisam: o
+exemplo ganhou endereço próprio (0004) e a figura passou a ser arquivo, além de âncora (0005). O
+resto continua valendo.
 
 O rótulo original (`Exemplo 7`, `Exercício 12`) sobrevive em `originalLabel`, então a
 distinção entre exemplo e conteúdo não se perde, só não vira tipo. A proposta aprovada guarda o

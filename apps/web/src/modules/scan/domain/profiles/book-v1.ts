@@ -70,13 +70,13 @@ const ALIGNMENT = 4;
 const CONTAINS: Readonly<Record<string, readonly ScanKind[]>> = {
   ROOT: ["PART", "CHAPTER", "SECTION", "EXERCISE_GROUP"],
   PART: ["CHAPTER"],
-  CHAPTER: ["SECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE"],
-  SECTION: ["SUBSECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE"],
-  SUBSECTION: ["CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE"],
+  CHAPTER: ["SECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE", "FIGURE"],
+  SECTION: ["SUBSECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE", "FIGURE"],
+  SUBSECTION: ["CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE", "FIGURE"],
   EXERCISE_GROUP: ["EXERCISE"],
-  EXERCISE: ["ITEM"],
-  QUESTION: ["ITEM"],
-  EXAMPLE: [],
+  EXERCISE: ["ITEM", "FIGURE"],
+  QUESTION: ["ITEM", "FIGURE"],
+  EXAMPLE: ["FIGURE"],
   ITEM: ["SUBITEM"],
 };
 
@@ -201,7 +201,11 @@ function classify(context: WalkContext): AnchorMatch | null {
       label: `${line.text.slice(0, (example[1] ?? "").length)} ${example[2] ?? ""}`.trim(),
       number: example[2] ?? null,
       title: null,
-      extent: "paragraph",
+      // Um bloco, e não um parágrafo (D56). Como negrito no corpo da seção, um parágrafo bastava:
+      // a resolução vinha logo abaixo e ninguém notava a emenda. Como nó, o exemplo que deixa a
+      // resolução para trás promete na árvore o que não entrega ao abrir. E `until-boundary` seria
+      // ganancioso demais — engoliria a teoria que volta depois, que não tem título nenhum.
+      extent: "block",
       lines: 1,
       confidence: { pattern: 0.92, typography: 0.9 },
       evidence: ["rótulo de exemplo em destaque"],
@@ -348,6 +352,7 @@ export const bookV1: CaptureProfile = {
     "ITEM",
     "SUBITEM",
     "NOTE",
+    "FIGURE",
   ],
   settings: {
     answersLocation: "END_OF_BOOK",

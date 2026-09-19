@@ -126,6 +126,7 @@ function bookSection(measured: Measured): string {
     `| exemplos | ${k("EXAMPLE")} |`,
     `| blocos de exercícios · exercícios · itens | ${k("EXERCISE_GROUP")} · ${k("EXERCISE")} · ${k("ITEM")} |`,
     `| trechos de teoria | ${k("CONTENT")} |`,
+    `| figuras | ${k("FIGURE")} |`,
     `| âncoras · itens com mais de uma · que atravessam página | ${proposal.metrics.regions} · ${proposal.metrics.multiRegion} · ${proposal.metrics.multiPage} |`,
     `| baixa confiança (< 0,70) | ${proposal.metrics.lowConfidence} |`,
     `| sugeridos para aprovação em lote | ${suggested} |`,

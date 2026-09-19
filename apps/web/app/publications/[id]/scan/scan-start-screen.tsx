@@ -37,6 +37,8 @@ export interface ScanStartScreenProps {
   readonly aiConfigured: boolean;
   readonly visionConfigured: boolean;
   readonly aviso: string;
+  /** Acabou de apagar uma importação: a tela diz onde o que foi apagado está (D57). */
+  readonly importRemoved?: boolean;
 }
 
 const STATE_TONE: Record<string, "info" | "ok" | "danger" | "neutral" | "accent"> = {
@@ -57,6 +59,7 @@ export function ScanStartScreen({
   aiConfigured,
   visionConfigured,
   aviso,
+  importRemoved = false,
 }: ScanStartScreenProps) {
   injectCss("lbb-scan-start", CSS);
   const router = useRouter();
@@ -108,6 +111,23 @@ export function ScanStartScreen({
       ]}
     >
       <PageHeader eyebrow="SCAN ESTRUTURAL" title={title} meta={source ? `PDF fonte: ${source.filename}` : undefined} />
+
+      {importRemoved && (
+        <div style={{ padding: "0 var(--space-4)" }}>
+          <Banner
+            tone="ok"
+            title="Importação apagada"
+            actions={
+              <Button size="sm" variant="secondary" href="/lixeira">
+                Abrir a lixeira
+              </Button>
+            }
+          >
+            O que a varredura criou foi para a lixeira, e de lá dá para restaurar. O que você
+            editou à mão depois de aprovar ficou onde estava. Pode varrer o livro de novo.
+          </Banner>
+        </div>
+      )}
 
       {!source ? (
         <div style={{ padding: 24 }}>

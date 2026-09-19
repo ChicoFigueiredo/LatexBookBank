@@ -135,6 +135,13 @@ function flatten(nodes: readonly TreeNode<TreeNodeRecord>[]): readonly TreeNodeD
  * escrever, e ali "sem título" seria uma constatação inútil.
  */
 function titleFor(node: TreeNodeRecord): string {
+  // O exemplo mostra as duas coisas (D56): o rótulo do livro, que é como se fala dele ("o
+  // Exemplo 12"), e o começo do texto, que é o que distingue um dos 107 dos outros 106.
+  if (node.kind === "EXAMPLE") {
+    const label = node.originalLabel ? `Exemplo ${node.originalLabel}` : "Exemplo";
+    return node.title ? `${label} — ${node.title}` : label;
+  }
+
   if (node.title) return node.title;
   if (node.originalLabel) return `Questão ${node.originalLabel}`;
 

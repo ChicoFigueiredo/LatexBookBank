@@ -50,6 +50,10 @@ export const LEGACY_COMPATIBILITY_PROFILE: RenderProfile = {
     "\\usepackage{indentfirst}",
     "\\usepackage[dvipsnames,table]{xcolor}",
     "\\usepackage{graphicx}",
+    // `float` é o que dá o `[H]` das figuras do scan (D58): a figura do livro fica **onde
+    // estava**. Sem ele, `figure` flutua para o alto da página e se descola do parágrafo que a
+    // explica — que é justamente o que a importação tenta preservar.
+    "\\usepackage{float}",
     "\\usepackage{microtype}",
     "\\usepackage[brazilian,hyperpageref]{backref}",
     "\\usepackage[num]{abntex2cite}",
@@ -112,6 +116,10 @@ export const QUESTION_PREVIEW_PROFILE: RenderProfile = {
     "\\usepackage{amsmath}",
     "\\usepackage{amssymb}",
     "\\usepackage{graphicx}",
+    // `float` é o que dá o `[H]` das figuras do scan (D58): a figura do livro fica **onde
+    // estava**. Sem ele, `figure` flutua para o alto da página e se descola do parágrafo que a
+    // explica — que é justamente o que a importação tenta preservar.
+    "\\usepackage{float}",
     "\\usepackage{enumitem}",
     "\\usepackage{siunitx}",
     // O acervo escreve valores em reais como `\SI{1000}{\real}`, e `\real` **não** existe no

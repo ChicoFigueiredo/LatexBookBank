@@ -48,6 +48,7 @@ const ICONE: Readonly<Record<string, IconName>> = {
   PART: "book-open",
   FIGURE: "image",
   NOTE: "file-text",
+  EXAMPLE: "clipboard-list",
 };
 
 export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {

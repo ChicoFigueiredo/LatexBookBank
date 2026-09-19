@@ -231,7 +231,8 @@ describe("aprovação contra o banco", () => {
     const { summary, skipped } = await approveScan({ store, writer }, { runId, destinationId: null, includeSuggested: false });
 
     expect(skipped).toEqual([]);
-    expect(summary).toMatchObject({ createdNodes: 11, createdQuestions: 5, reusedNodes: 0, alreadyInCollection: 0 });
+    // 13 e não 11: os dois exemplos passaram a ser nós, em vez de negrito no corpo da seção (D56).
+    expect(summary).toMatchObject({ createdNodes: 13, createdQuestions: 5, reusedNodes: 0, alreadyInCollection: 0 });
 
     const nodes = await prisma.documentNode.findMany({
       where: { publicationId: publication.id },
@@ -241,10 +242,19 @@ describe("aprovação contra o banco", () => {
     expect([chapter?.title, chapter?.originalLabel, chapter?.parentId]).toEqual(["Funções", "1", null]);
     const section = nodes.find((n) => n.originalLabel === "1.1");
     expect(section?.parentId).toBe(chapter?.id);
-    // Teoria e exemplo no corpo da seção, na ordem do livro.
+    // A teoria vai para o corpo da seção; o exemplo, não — ele virou galho (D56).
     expect(section?.bodyLatex).toContain("Uma função");
-    expect(section?.bodyLatex).toContain("\\textbf{Exemplo 1.}");
-    expect(section!.bodyLatex.indexOf("Exemplo 1")).toBeLessThan(section!.bodyLatex.indexOf("Toda função linear"));
+    expect(section?.bodyLatex).toContain("Toda função linear");
+    expect(section?.bodyLatex).not.toContain("Exemplo 1");
+
+    // O exemplo é nó da seção, com rótulo, título vindo do texto e a resolução no corpo.
+    const example = nodes.find((n) => n.kind === "EXAMPLE");
+    expect(example?.parentId).toBe(section?.id);
+    expect(example?.originalLabel).toBe("1");
+    expect(example?.title).toContain("A função f(x) = 3x é linear");
+    expect(example?.bodyLatex).toContain("Este segundo parágrafo é a resolução do exemplo");
+    // O rótulo mora no nó: repeti-lo no corpo diria a mesma coisa duas vezes.
+    expect(example?.bodyLatex.startsWith("A função")).toBe(true);
 
     const groups = nodes.filter((n) => n.kind === "QUESTION_GROUP");
     expect(groups).toHaveLength(2);

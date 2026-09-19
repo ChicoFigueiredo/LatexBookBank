@@ -19,8 +19,16 @@ import { ScanStartScreen } from "./scan-start-screen";
  */
 export const dynamic = "force-dynamic";
 
-export default async function ScanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ScanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  // Quem acaba de apagar uma importação chega aqui; o aviso é o recibo do que aconteceu (D57).
+  const { importacao } = await searchParams;
   const repository = new PrismaPublicationRepository();
   const publication = await repository.findById(id);
   if (!publication) notFound();
@@ -52,6 +60,7 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
       aiConfigured={appEnv.aiBaseUrl !== null && appEnv.aiModel !== null}
       visionConfigured={appEnv.aiBaseUrl !== null && Boolean(process.env["AI_VISION_MODEL"])}
       aviso={fraseDaLocalidade(localidadeDaIa(appEnv.aiBaseUrl), ai?.providerLabel ?? null)}
+      importRemoved={importacao === "apagada"}
     />
   );
 }

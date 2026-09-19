@@ -3,7 +3,7 @@ import type { AnchorRole } from "@modules/assets/domain/node-anchors";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import type { QuestionType } from "@modules/questions/domain/question-type";
 
-import { contentLatex, questionLatex } from "./approval-latex";
+import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
 import type { CaptureProfile } from "./capture-profile";
 import { overlapRatio } from "./geometry";
 import type { ProposedRegion, ScanKind } from "./proposal";
@@ -60,6 +60,8 @@ export type ApprovalStep =
       readonly anchors: readonly ProposedRegion[];
       readonly sourceText: string;
       readonly question: PlannedQuestion | null;
+      /** O corpo do nó, quando ele nasce com texto: hoje só o exemplo (D56). */
+      readonly body: string | null;
     }
   | { readonly type: "reuseNode"; readonly itemIds: readonly string[]; readonly nodeId: string }
   | {
@@ -69,6 +71,8 @@ export type ApprovalStep =
       readonly latex: string;
       readonly anchors: readonly ProposedRegion[];
       readonly sourceText: string;
+      /** O recorte já gravado, quando é figura (D58): a âncora passa a apontar para o arquivo. */
+      readonly cropAssetId: string | null;
     }
   | { readonly type: "alreadyInCollection"; readonly itemIds: readonly string[]; readonly nodeId: string };
 
@@ -96,9 +100,11 @@ const NODE_KIND: Partial<Record<ScanKind, NodeKind>> = {
   SECTION: "SECTION",
   SUBSECTION: "SUBSECTION",
   EXERCISE_GROUP: "QUESTION_GROUP",
+  // D56: o exemplo tem endereço próprio, e por isso é nó — e não mais texto no corpo da seção.
+  EXAMPLE: "EXAMPLE",
 };
 
-const BODY_KINDS: ReadonlySet<ScanKind> = new Set(["CONTENT", "EXAMPLE", "NOTE", "FIGURE"]);
+const BODY_KINDS: ReadonlySet<ScanKind> = new Set(["CONTENT", "NOTE", "FIGURE"]);
 const QUESTION_KINDS: ReadonlySet<ScanKind> = new Set(["EXERCISE", "QUESTION"]);
 const FOLDED_KINDS: ReadonlySet<ScanKind> = new Set(["ITEM", "SUBITEM"]);
 
@@ -186,12 +192,14 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
           itemIds: [item.id],
           parent: container,
           kind: nodeKind,
-          title: item.title,
+          // O exemplo não traz título do livro: o dele é o começo do próprio texto (D56).
+          title: item.kind === "EXAMPLE" ? exampleTitle(item) : item.title,
           // "Exercícios" como rótulo e como título diria a mesma coisa duas vezes na árvore.
           originalLabel: item.number ?? (sameText(item.originalLabel, item.title) ? null : item.originalLabel),
           anchors: item.regions,
           sourceText: item.text,
           question: null,
+          body: item.kind === "EXAMPLE" ? exampleBody(item) : null,
         });
         resolved.set(item.key, { type: "planned", ref: item.id });
       }
@@ -220,6 +228,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         anchors: item.regions,
         sourceText: item.text,
         question: { type, ...latex },
+        body: null,
       });
       resolved.set(item.key, { type: "planned", ref: item.id });
       continue;
@@ -234,7 +243,8 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         type: "appendBody",
         itemIds: [item.id],
         target: container,
-        latex: contentLatex(item),
+        latex: item.kind === "FIGURE" ? figureLatex(item) : contentLatex(item),
+        cropAssetId: item.kind === "FIGURE" ? (typeof item.metadata["figureAsset"] === "string" ? item.metadata["figureAsset"] : null) : null,
         anchors: item.regions.map((region) => ({
           ...region,
           role: (item.kind === "FIGURE" ? "ILLUSTRATION" : "CONTINUATION") as AnchorRole,

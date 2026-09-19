@@ -7,6 +7,7 @@ import type { ScanItem } from "@modules/scan/domain/scan-item";
 import type { MathRecognitionPolicy } from "@modules/scan/domain/scan-run";
 
 import type { OpenedPdf, PdfDocumentOpener } from "./pdf-document";
+import type { FigurePass } from "./figure-pass";
 import type { ScanItemChanges, ScanRun, ScanStore } from "./scan-store";
 
 /**
@@ -57,6 +58,8 @@ export interface RunScanDeps {
   readonly opener: PdfDocumentOpener;
   readonly sourceKey: (assetId: string) => Promise<string | null>;
   readonly semantic?: SemanticPass | null;
+  /** O recorte das figuras (D58). Ausente, a proposta traz as figuras sem arquivo. */
+  readonly figures?: FigurePass | null;
   readonly math?: MathPass | null;
   readonly now?: () => Date;
 }
@@ -117,7 +120,29 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
     };
 
     const warnings = [...proposal.warnings];
+    let figures = 0;
     let aiCalls = 0;
+
+    if (deps.figures) {
+      if (await cancelled()) return await stop();
+      await store.updateRun(runId, { state: "CROPPING_FIGURES", stepDone: 0, stepTotal: 0, heartbeatAt: now() });
+      const run = (await store.findRun(runId)) ?? initial;
+      const result = await deps.figures.run({
+        run,
+        items: await store.listItems(runId),
+        pdf,
+        // Os mesmos bytes que o leitor abriu: o recorte vetorial copia a página de lá.
+        bytes: stored.content,
+        save: async (changes) => {
+          await store.saveItemChanges(runId, changes);
+          await store.updateRun(runId, { heartbeatAt: now() });
+        },
+        cancelled,
+        progress,
+      });
+      warnings.push(...result.warnings);
+      if (result.saved > 0) figures = result.saved;
+    }
     let mathCalls = 0;
 
     if (deps.semantic && initial.settings.useAi) {
@@ -176,7 +201,7 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
 
     await store.updateRun(runId, {
       state: "READY_FOR_REVIEW",
-      metrics: proposal.metrics,
+      metrics: { ...proposal.metrics, figures },
       warnings,
       pageOffset: proposal.pageOffset,
       aiCalls,
