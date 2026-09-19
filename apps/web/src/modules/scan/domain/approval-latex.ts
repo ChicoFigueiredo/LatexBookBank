@@ -57,6 +57,39 @@ export function exampleBody(item: ScanItem): string {
   return escapeLatexText(joinLines([first, ...lines.slice(1)]));
 }
 
+/**
+ * A figura no LaTeX (D58, ADR 0005): `figure` com `[H]`, na posição em que o livro a tem.
+ *
+ * `[H]` e não `[htbp]` porque a figura do livro **pertence ao parágrafo** que a explica; deixá-la
+ * flutuar para o alto da página desfaria justamente o que a importação preserva. A largura é a
+ * fração que a figura ocupa na coluna do livro, medida na varredura.
+ *
+ * Sem arquivo — o recorte falhou, ou a varredura correu sem recortar — sai um aviso em vez de um
+ * `\includegraphics` quebrado: um LaTeX que não compila é pior que uma figura que falta.
+ */
+export function figureLatex(item: ScanItem): string {
+  const name = item.metadata["figureLatexName"];
+  const caption = (item.reviewedText ?? item.title ?? "").trim();
+  const captionLine = caption === "" ? "" : `  \\caption{${escapeLatexText(caption)}}\n`;
+
+  if (typeof name !== "string" || name === "") {
+    return `% figura da página ${item.pageNumber} sem arquivo — recorte não gravado${caption === "" ? "" : `: ${caption}`}`;
+  }
+
+  const fraction = Number(item.metadata["widthFraction"]);
+  const width = Number.isFinite(fraction) && fraction > 0 ? Math.min(1, Math.max(0.15, fraction)) : 0.6;
+
+  return [
+    "\\begin{figure}[H]",
+    "  \\centering",
+    `  \\includegraphics[width=${width.toFixed(2)}\\textwidth]{${name}}`,
+    captionLine.trimEnd(),
+    "\\end{figure}",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
 /** Quanto do exemplo cabe numa linha da árvore sem empurrar o resto para fora. */
 const TITLE_LENGTH = 60;
 

@@ -64,6 +64,7 @@ describe("Livro A — capítulo, seção, texto, exemplo e exercício", () => {
       "CHAPTER 1",
       "  SECTION 1.1",
       "    EXAMPLE 1",
+      "    FIGURE",
       "    SUBSECTION 1.1.1",
       "      EXAMPLE 2",
       "      EXERCISE_GROUP",
@@ -305,5 +306,45 @@ describe("exam-v1 — a segmentação da captura, sem mudança", () => {
         expect(q.box.height).toBeCloseTo(e.box.height, 4);
       });
     }
+  });
+});
+
+/**
+ * As figuras do livro (D58, ADR 0005): o desenho vira item, o rótulo de dentro sai do fluxo e a
+ * legenda do livro é reconhecida. A fixture tem um gráfico com o ponto `P` marcado e a linha
+ * "Figura 1.1 — O gráfico de uma função linear." logo abaixo.
+ */
+describe("Livro A — figuras", () => {
+  let proposal: Proposal;
+  beforeAll(async () => {
+    proposal = await propose("book-a.pdf", "book-v1");
+  });
+
+  it("o desenho vira um item de figura, com legenda e rótulo", () => {
+    const figuras = ofKind(proposal, "FIGURE");
+    expect(figuras).toHaveLength(1);
+    expect(figuras[0]?.originalLabel).toBe("Figura 1.1");
+    expect(figuras[0]?.title).toBe("O gráfico de uma função linear.");
+  });
+
+  it("a figura fica sob a seção em que aparece, e não na raiz", () => {
+    const secao = proposal.items.find((item) => item.kind === "SECTION" && item.number === "1.1");
+    expect(ofKind(proposal, "FIGURE")[0]?.parentKey).toBe(secao?.key);
+  });
+
+  it("o rótulo de dentro do desenho e a legenda saem do texto corrido", () => {
+    const corpo = ofKind(proposal, "CONTENT").map((item) => item.text).join("\n");
+    expect(corpo).not.toContain("Figura 1.1");
+    // O `P` do gráfico não vira um parágrafo de uma letra no corpo do capítulo.
+    expect(corpo.split("\n").some((linha) => linha.trim() === "P")).toBe(false);
+  });
+
+  it("a figura tem região e largura proporcional à coluna", () => {
+    const figura = ofKind(proposal, "FIGURE")[0];
+    expect(figura?.regions).toHaveLength(1);
+    expect(figura?.regions[0]?.role).toBe("ILLUSTRATION");
+    const fraction = Number(figura?.metadata["widthFraction"]);
+    expect(fraction).toBeGreaterThan(0.15);
+    expect(fraction).toBeLessThanOrEqual(1);
   });
 });

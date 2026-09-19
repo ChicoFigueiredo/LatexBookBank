@@ -22,10 +22,12 @@ export async function POST(
     const { runId, itemId } = await params;
     const body = await readJson(request);
     const what = body["what"];
-    if (what !== "ai" && what !== "math") throw new BadRequestError("`what` precisa ser `ai` ou `math`.");
+    if (what !== "ai" && what !== "math" && what !== "figure") {
+      throw new BadRequestError("`what` precisa ser `ai`, `math` ou `figure`.");
+    }
 
     const env = appEnv();
-    const { store, storage, opener } = scanDeps();
+    const { store, storage, opener, figures } = scanDeps();
     const item = await reprocessItem(
       {
         store,
@@ -36,6 +38,7 @@ export async function POST(
         },
         semantic: semanticPassFromEnv(env),
         math: mathPassFromEnv(env),
+        figures,
       },
       runId,
       itemId,

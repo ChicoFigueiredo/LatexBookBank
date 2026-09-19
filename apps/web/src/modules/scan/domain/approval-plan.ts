@@ -3,7 +3,7 @@ import type { AnchorRole } from "@modules/assets/domain/node-anchors";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import type { QuestionType } from "@modules/questions/domain/question-type";
 
-import { contentLatex, exampleBody, exampleTitle, questionLatex } from "./approval-latex";
+import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
 import type { CaptureProfile } from "./capture-profile";
 import { overlapRatio } from "./geometry";
 import type { ProposedRegion, ScanKind } from "./proposal";
@@ -241,7 +241,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         type: "appendBody",
         itemIds: [item.id],
         target: container,
-        latex: contentLatex(item),
+        latex: item.kind === "FIGURE" ? figureLatex(item) : contentLatex(item),
         anchors: item.regions.map((region) => ({
           ...region,
           role: (item.kind === "FIGURE" ? "ILLUSTRATION" : "CONTINUATION") as AnchorRole,

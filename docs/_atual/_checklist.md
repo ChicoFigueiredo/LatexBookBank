@@ -1846,15 +1846,25 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 
 ### Fase 24 — Figuras *(D58, [ADR 0005](../adr/0005-figura-vetorial-quando-o-pdf-a-tem.md))*
 
-- [ ] Agrupar traços e imagens numa figura, absorvendo o texto de dentro da caixa
-- [ ] Recorte vetorial em PDF (`pdf-lib`) e bitmap embutido para foto; PNG de tela sempre
-- [ ] A figura vira asset e âncora de papel *ilustração*
-- [ ] `figure` com `\includegraphics[width=…]` e `\caption`, na posição do livro
-- [ ] Legenda do livro reconhecida e tirada do corpo
-- [ ] Destino por perfil: corpo no `book-v1`, enunciado nos perfis de prova
-- [ ] Redesenhar a caixa da figura arrastando, na revisão
-- [ ] **Aceite:** nas páginas medidas do FME as figuras saem vetoriais, na posição e com legenda;
-  nenhuma letra de diagrama sobra solta no corpo
+- ✅ Agrupar traços e imagens numa figura, absorvendo o texto de dentro da caixa *(e três regras
+  que o livro real ensinou: fio decorativo não é figura, moldura em volta de texto não é figura, e
+  rótulo é curto — frase dentro da caixa fica no texto)*
+- ✅ Recorte vetorial em PDF (`pdf-lib`) e PNG na resolução nativa para bitmap; PNG de tela sempre
+- ✅ A figura vira asset `CROP` com nome LaTeX estável *(dedup pelo hash: duas varreduras do mesmo
+  livro não duplicam arquivo)*
+- ✅ `figure[H]` com `\includegraphics[width=…]` e `\caption`, na posição do livro *(`float` entrou
+  no preâmbulo: sem ele a figura flutuaria para longe do parágrafo que a explica)*
+- ✅ Legenda do livro reconhecida e tirada do corpo
+- ◐ Destino por perfil: **feito no `book-v1`** (corpo da seção). Nos perfis de prova a figura
+  ainda não entra no enunciado — `exam-enem-v1` não conhece `FIGURE`, e as provas do ENEM
+  continuam sendo importadas sem gráfico
+- ✅ Redesenhar a caixa da figura arrastando, na revisão *(o botão "Recortar de novo" refaz o
+  arquivo depois que a caixa muda)*
+- ◐ **Aceite:** medido nos dois livros — Elon 57 figuras em 447 páginas, FME **703** em 420, com
+  os rótulos saindo do corpo e o recorte saindo vetorial (provado relendo o PDF recortado: os
+  traços e o rótulo continuam lá). **Falta olhar as figuras na tela, uma a uma**, e o FME expôs
+  outra coisa: o `book-v1` não reconhece a estrutura dele (0 exemplos, 0 exercícios, 453 falsas
+  seções) — o livro precisa de perfil próprio, que é trabalho de outra fase
 
 > **Fora desta wave, por decisão:** parear resposta com questão automaticamente · tela para
 > editar perfis · a tela de diff entre dois scans (§61 — o retrato congelado já guarda o que é

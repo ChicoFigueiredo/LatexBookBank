@@ -191,7 +191,7 @@ export function ScanWorkspace({
   );
 
   const reprocess = useCallback(
-    async (what: "ai" | "math") => {
+    async (what: "ai" | "math" | "figure") => {
       if (!selectedId) return;
       setBusy(true);
       setError(null);

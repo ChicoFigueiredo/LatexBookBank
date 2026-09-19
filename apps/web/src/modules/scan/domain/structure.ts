@@ -2,6 +2,7 @@ import { escapeLatexText } from "@modules/recognition/domain/latex-escape";
 
 import type { AnchorMatch, CaptureProfile, DraftItem, Extent, OpenElement, WalkContext } from "./capture-profile";
 import { assembleDocument, positionOf, type DocLine, type ScanDocument } from "./document";
+import { findFigures, type Figure } from "./figures";
 import { toNormalizedBox } from "./geometry";
 import type { PageModel } from "./page";
 import {
@@ -59,14 +60,28 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     };
   }
 
-  const doc = assembleDocument(pages, {
+  const full = assembleDocument(pages, {
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
   });
 
+  /*
+    As figuras saem do fluxo antes da caminhada (D58, ADR 0005).
+
+    As letras de dentro de um diagrama são texto de verdade no PDF. Se elas continuassem na lista
+    de linhas, o corpo do capítulo receberia "A B U P" entre dois parágrafos, e a legenda viraria
+    um parágrafo órfão logo abaixo da figura. Tirá-las aqui é o que faz o resto do motor —
+    parágrafos, extents, regiões — continuar valendo sem saber que figura existe.
+  */
+  const figures = profile.kinds.includes("FIGURE")
+    ? findFigures({ graphics: full.graphics, lines: full.lines, bodySize: full.style.bodySize, lineSpacing: full.style.lineSpacing })
+    : [];
+  const hidden = new Set(figures.flatMap((figure) => [...figure.absorbedLineIds, ...figure.captionLineIds]));
+  const doc: ScanDocument = hidden.size === 0 ? full : { ...full, lines: full.lines.filter((line) => !hidden.has(line.id)) };
+
   const records = walk(doc, profile);
   const linesBySlot = indexBySlot(doc.lines);
-  const drafts = records.map((record) => draftOf(record, doc, linesBySlot));
+  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
   const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
   const items = checked.map((draft) => finalize(draft, profile, doc, offset));
 
@@ -76,6 +91,111 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     metrics: measure(items, pages.length, scannedPages),
     pageOffset: offset,
   };
+}
+
+/**
+ * Intercala as figuras entre os itens, na ordem de leitura, sob quem as contém.
+ *
+ * A figura não tem âncora de texto — ninguém escreve "Figura" para abri-la —, então ela não passa
+ * pela caminhada. O pai dela é o elemento que estava aberto no ponto da página em que ela
+ * aparece: a seção, o exemplo, o exercício. Se nenhum aceita figura, ela fica sem pai, e a
+ * aprovação decide o que fazer com isso.
+ */
+function withFigures(
+  drafts: readonly DraftItem[],
+  figures: readonly Figure[],
+  records: readonly OpenRecord[],
+  doc: ScanDocument,
+  profile: CaptureProfile,
+): DraftItem[] {
+  if (figures.length === 0) return [...drafts];
+
+  const pageSize = new Map(doc.pages.map((page) => [page.pageNumber, page]));
+  const positions = new Map(drafts.map((draft, index) => [draft.key, records[index]?.startIndex ?? index]));
+  const byKey = new Map(records.map((record) => [record.key, record]));
+  const entries = drafts.map((draft) => ({ at: positions.get(draft.key) ?? 0, draft }));
+  const keys = new Set(drafts.map((draft) => draft.key));
+
+  figures.forEach((figure, index) => {
+    const page = pageSize.get(figure.pageNumber);
+    if (!page) return;
+
+    // Onde a figura está, em linhas: a última linha que vem antes dela na ordem de leitura.
+    let at = 0;
+    for (let i = 0; i < doc.lines.length; i++) {
+      const line = doc.lines[i]!;
+      if (line.slot < figure.slot || (line.slot === figure.slot && line.y0 <= figure.box.y0)) at = i + 1;
+      else break;
+    }
+
+    /*
+      De quem a figura é.
+
+      Não dá para procurar quem "cobre" a posição: um título fecha logo depois do próprio texto —
+      `SECTION[2,3]` —, e o que ele contém vem da árvore, não do intervalo. Então pega-se o último
+      elemento que começou antes da figura e sobe-se por `parentKey` até alguém que aceite figura.
+      É o mesmo caminho que a pessoa faz com o olho: "esta figura é daquela seção ali em cima".
+    */
+    const previous = [...records]
+      .filter((record) => record.startIndex <= at)
+      .sort((a, b) => a.startIndex - b.startIndex)
+      .at(-1);
+    let parent: OpenRecord | undefined = previous;
+    while (parent && !profile.canContain(parent.kind, "FIGURE")) {
+      parent = parent.parentKey ? byKey.get(parent.parentKey) : undefined;
+    }
+
+    let key = `FIGURE:p${figure.pageNumber}:${Math.round(figure.box.y0)}`;
+    for (let n = 2; keys.has(key); n++) key = `FIGURE:p${figure.pageNumber}:${Math.round(figure.box.y0)}#${n}`;
+    keys.add(key);
+
+    const column = doc.slots[figure.slot]?.column;
+    const columnWidth = column ? column.x1 - column.x0 : page.width;
+    const fraction = Math.min(1, Math.max(0.15, (figure.box.x1 - figure.box.x0) / columnWidth));
+
+    entries.push({
+      at: at + 0.5 + index / 1000,
+      draft: {
+        key,
+        parentKey: parent?.key ?? null,
+        kind: "FIGURE",
+        originalLabel: figure.label,
+        number: null,
+        title: figure.caption,
+        pageNumber: figure.pageNumber,
+        printedPage: null,
+        regions: [
+          {
+            pageNumber: figure.pageNumber,
+            box: toNormalizedBox(figure.crop, page),
+            role: "ILLUSTRATION",
+          },
+        ],
+        text: figure.caption ?? "",
+        latex: null,
+        needsMath: false,
+        confidence: 0,
+        confidenceParts: {
+          layout: 0.9,
+          // A legenda é a prova de que aquilo é uma figura para o livro, e não um traço solto.
+          pattern: figure.caption === null ? 0.72 : 0.95,
+        },
+        evidence: [
+          figure.kind === "raster" ? "imagem embutida na página" : "traços agrupados numa figura",
+          ...(figure.caption === null ? [] : ["legenda logo abaixo"]),
+          ...(figure.absorbedLineIds.length > 0 ? [`${figure.absorbedLineIds.length} rótulos dentro do desenho`] : []),
+        ],
+        metadata: {
+          figureKind: figure.kind,
+          widthFraction: Math.round(fraction * 100) / 100,
+          absorbedLines: figure.absorbedLineIds.length,
+        },
+        lines: [],
+      },
+    });
+  });
+
+  return entries.sort((a, b) => a.at - b.at).map((entry) => entry.draft);
 }
 
 function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {

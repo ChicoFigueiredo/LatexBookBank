@@ -5,6 +5,7 @@ import { isReviewable } from "@modules/scan/domain/scan-run";
 
 import { ScanRunNotFoundError, ScanRunStateError } from "./control-scan";
 import type { OpenedPdf, PdfDocumentOpener } from "./pdf-document";
+import type { FigurePass } from "./figure-pass";
 import type { MathPass, SemanticPass } from "./run-scan";
 import type { ScanStore } from "./scan-store";
 
@@ -49,10 +50,11 @@ export async function reprocessItem(
     readonly readSource: (assetId: string) => Promise<Uint8Array | null>;
     readonly semantic: SemanticPass | null;
     readonly math: MathPass | null;
+    readonly figures?: FigurePass | null;
   },
   runId: string,
   itemId: string,
-  what: "ai" | "math",
+  what: "ai" | "math" | "figure",
 ): Promise<ScanItem> {
   const { run } = await reviewable(deps.store, runId);
   const items = await deps.store.listItems(runId);
@@ -76,6 +78,44 @@ export async function reprocessItem(
       aiModel: deps.semantic.model,
     });
     return merged;
+  }
+
+  /*
+    Recortar de novo (D58): a caixa da figura mudou na revisão, e o arquivo gravado é o da caixa
+    velha. O `figureAsset` é limpo antes de chamar a passada — é ele que faz a passada pular o que
+    já tem arquivo, e sem isso o pedido explícito não faria nada.
+  */
+  if (what === "figure") {
+    if (!deps.figures) throw new ScanRunStateError("O recorte de figuras não está disponível nesta execução.");
+    const bytes = await deps.readSource(run.sourceAssetId);
+    if (!bytes) throw new ScanRunStateError("O PDF fonte desta execução não está mais no acervo.");
+
+    const { figureAsset: _asset, figureScreenAsset: _screen, figureLatexName: _name, ...metadata } = item.metadata;
+    const pending = { ...item, metadata };
+
+    let pdf: OpenedPdf | null = null;
+    let cropped: ScanItem | null = null;
+    try {
+      pdf = await deps.opener.open(bytes);
+      const result = await deps.figures.run({
+        run,
+        items: [pending],
+        pdf,
+        bytes,
+        save: async (changes) => {
+          const upserted = changes.upserts[0];
+          if (upserted) {
+            cropped = upserted;
+            await deps.store.saveItemChanges(runId, { upserts: [upserted], deletedIds: [] });
+          }
+        },
+        cancelled: async () => false,
+      });
+      if (!cropped) throw new ScanRunStateError(result.warnings[0] ?? "O recorte não gerou arquivo.");
+      return cropped;
+    } finally {
+      await pdf?.close();
+    }
   }
 
   if (!deps.math) throw new ScanRunStateError("Não há modelo de visão configurado (`AI_VISION_MODEL`).");

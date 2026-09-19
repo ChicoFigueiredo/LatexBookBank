@@ -98,7 +98,7 @@ export const scanApi = {
       method: "PATCH",
       body: JSON.stringify(operation),
     }),
-  reprocess: (runId: string, itemId: string, what: "ai" | "math") =>
+  reprocess: (runId: string, itemId: string, what: "ai" | "math" | "figure") =>
     send<{ item: ScanItem }>(`/api/scans/${runId}/items/${itemId}/reprocess`, {
       method: "POST",
       body: JSON.stringify({ what }),

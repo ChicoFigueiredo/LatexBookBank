@@ -16,6 +16,19 @@ para o produto por escalar. Este segundo parágrafo é a resolução do exemplo,
 pertence a ele.
 \end{exemplo}
 
+\begin{center}
+% TikZ e não `picture`: o `\line` do LaTeX desenha com glifos de uma fonte, e sairia do PDF como
+% texto. O livro de verdade traz traço vetorial, e é isso que a fixture precisa ter.
+\begin{tikzpicture}[x=1pt,y=1pt]
+  \draw (10,10) -- (130,10);
+  \draw (10,10) -- (10,80);
+  \draw (10,80) -- (115,10);
+  \node at (70,45) {$P$};
+\end{tikzpicture}
+
+Figura 1.1 --- O gráfico de uma função linear.
+\end{center}
+
 Toda função linear satisfaz $f(x+y) = f(x) + f(y)$, o que se verifica diretamente da definição.
 
 \subsection{Domínio}
