@@ -1831,14 +1831,18 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 
 ### Fase 23 — Reimportar *(D57, [ADR 0006](../adr/0006-a-importacao-e-apagavel.md))*
 
-- [ ] Coluna de proveniência no `DocumentNode`, com índice e migração aditiva
-- [ ] Apagar a importação manda para a **lixeira** o que a execução criou
-- [ ] O editado à mão depois da aprovação é preservado, contado e listado
-- [ ] A execução antiga sai junto — páginas e proposta
-- [ ] Confirmação com os números antes de apagar
-- [ ] As duas opções na tela: só a proposta, ou proposta e acervo
-- [ ] **Aceite:** importar o FME, apagar e importar de novo devolve o livro ao estado anterior, sem
-  resíduo e sem perder o que foi editado no meio
+- ✅ Coluna de proveniência no `DocumentNode`, com índice e migração aditiva *(sem relação formal:
+  a execução some junto com a importação, e a proveniência continua valendo)*
+- ✅ Apagar a importação manda para a **lixeira** o que a execução criou
+- ✅ O editado à mão depois da aprovação é preservado, contado e listado *(três sinais: revisão de
+  origem humana, questão conferida, e `updatedAt` depois da janela da aprovação)*
+- ✅ A execução antiga sai junto — páginas e proposta *(cascata do schema)*
+- ✅ Confirmação com os números antes de apagar *(diálogo com os tipos, a contagem e a lista de
+  preservados com o motivo de cada um)*
+- ✅ As duas opções na tela: só a proposta, ou proposta e acervo
+- ◐ **Aceite:** o ciclo inteiro está provado contra o banco em `scan-reimport.test.ts` — importar,
+  conferir uma questão, reescrever outra, apagar a importação e importar de novo devolve o mesmo
+  número de nós, com os dois editados de pé. **No FME ainda não foi feito**: falta o acervo real
 
 ### Fase 24 — Figuras *(D58, [ADR 0005](../adr/0005-figura-vetorial-quando-o-pdf-a-tem.md))*
 

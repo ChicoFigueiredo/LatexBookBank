@@ -226,6 +226,11 @@ export class PrismaScanStore implements ScanStore {
     });
   }
 
+  async deleteRun(id: string): Promise<void> {
+    // Páginas e itens descem por cascata (schema): a execução é dona deles.
+    await prisma.scanRun.delete({ where: { id } });
+  }
+
   async savePage(runId: string, page: RawPage): Promise<void> {
     const data = {
       width: page.width,

@@ -190,6 +190,14 @@ model DocumentNode {
   /// Os itens de proposta que a aprovação transformou neste nó (D53).
   scanItems ScanItem[]
 
+  /// A execução do scan que **criou** este nó (D57, ADR 0006). É o que permite apagar uma
+  /// importação inteira — e distingue o nó criado do nó que a aprovação apenas reaproveitou,
+  /// distinção que o `metadataJson` da âncora não faz.
+  ///
+  /// Sem relação formal, de propósito: a execução é apagada junto com a importação, e a
+  /// proveniência continua valendo depois disso. Um id órfão aqui é história, não lixo.
+  createdByScanRunId String?
+
   /// Exclusão lógica. `collapsed` NÃO está aqui: estado de UI vive em localStorage, porque
   /// `IsExpanded`/`IsSelected` no banco foi antipadrão do legado.
   deletedAt DateTime?
@@ -201,6 +209,7 @@ model DocumentNode {
 
   @@unique([publicationId, legacyId])
   @@index([publicationId, parentId, sortKey])
+  @@index([createdByScanRunId])
   @@index([parentId])
   @@map("document_nodes")
 }

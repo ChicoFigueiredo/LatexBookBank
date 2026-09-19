@@ -39,6 +39,23 @@ export interface ScanRunView {
   readonly createdAt: string;
 }
 
+/** A conferência antes de apagar uma importação (D57): os números e quem fica, com o motivo. */
+export interface ImportPreview {
+  readonly runId: string;
+  readonly created: number;
+  readonly trash: readonly string[];
+  readonly counts: Readonly<Record<string, number>>;
+  readonly keptCount: number;
+  readonly keptRows: readonly { readonly id: string; readonly label: string; readonly reason: string }[];
+}
+
+export interface RemovalResult {
+  readonly scope: "proposal" | "import";
+  readonly trashed: number;
+  readonly kept: number;
+  readonly counts: Readonly<Record<string, number>>;
+}
+
 export interface ApprovalResult {
   readonly summary: {
     readonly createdNodes: number;
@@ -91,6 +108,9 @@ export const scanApi = {
       method: "POST",
       body: JSON.stringify({ destinationId, includeSuggested }),
     }),
+  importPreview: (runId: string) => send<ImportPreview>(`/api/scans/${runId}/import`),
+  removeImport: (runId: string, scope: "proposal" | "import") =>
+    send<RemovalResult>(`/api/scans/${runId}/import?scope=${scope}`, { method: "DELETE" }),
   start: (publicationId: string, body: Record<string, unknown>) =>
     send<{ run: ScanRunView; reused: boolean }>(`/api/publications/${publicationId}/scans`, {
       method: "POST",

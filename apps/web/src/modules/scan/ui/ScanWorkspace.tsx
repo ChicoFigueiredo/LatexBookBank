@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge, Banner, Button, Checkbox, Select, Segmented, injectCss } from "@/design-system";
@@ -18,6 +19,7 @@ import {
   type ViewFilter,
 } from "@modules/scan/domain/workspace-view";
 
+import { RemoveImportDialog } from "./RemoveImportDialog";
 import { ScanPropertiesPanel } from "./ScanPropertiesPanel";
 import { SourcePdfViewer } from "./SourcePdfViewer";
 import { StructureTree } from "./StructureTree";
@@ -115,6 +117,9 @@ export function ScanWorkspace({
   const [destination, setDestination] = useState("");
   const [includeSuggested, setIncludeSuggested] = useState(true);
   const [approval, setApproval] = useState<ApprovalResult | null>(null);
+  /** Reimportar (D57): o diálogo confere os números antes de qualquer coisa ser apagada. */
+  const [removing, setRemoving] = useState(false);
+  const router = useRouter();
 
   const inProgress = isInProgress(run.state);
 
@@ -305,6 +310,11 @@ export function ScanWorkspace({
             Retomar da página {run.lastPageRead + 1}
           </Button>
         )}
+        {!inProgress && (
+          <Button size="sm" variant="ghost" icon="archive" onClick={() => setRemoving(true)}>
+            Apagar…
+          </Button>
+        )}
         {run.metrics && (
           <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>
             {run.metrics.items} itens · {run.metrics.regions} âncoras · {run.metrics.multiPage} atravessam página ·{" "}
@@ -354,6 +364,17 @@ export function ScanWorkspace({
         <Banner tone="danger" onDismiss={() => setError(null)}>
           {error}
         </Banner>
+      )}
+      {removing && (
+        <RemoveImportDialog
+          runId={runId}
+          onClose={() => setRemoving(false)}
+          onRemoved={(scope) => {
+            // Apagada a execução, esta tela deixou de ter assunto: quem apagou quer varrer de
+            // novo, e é a tela de scan do livro que oferece isso.
+            router.push(`/publications/${publicationId}/scan${scope === "import" ? "?importacao=apagada" : ""}`);
+          }}
+        />
       )}
       {approval && (
         <Banner tone="ok" title="Aprovado" onDismiss={() => setApproval(null)}
