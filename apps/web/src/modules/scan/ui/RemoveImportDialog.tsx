@@ -92,7 +92,10 @@ export function RemoveImportDialog({ runId, onClose, onRemoved }: RemoveImportDi
           <Button
             variant="secondary"
             loading={busy === "proposal"}
-            disabled={busy !== null}
+            // Depois de aprovada, apagar só a proposta cegaria o acervo: os nós ficariam com o id
+            // de uma execução que não existe mais, e ninguém acharia o que ela criou.
+            disabled={busy !== null || (preview?.created ?? 0) > 0}
+            title={(preview?.created ?? 0) > 0 ? "Esta varredura já criou nós no acervo" : undefined}
             onClick={() => void remove("proposal")}
           >
             Só a proposta
@@ -119,6 +122,13 @@ export function RemoveImportDialog({ runId, onClose, onRemoved }: RemoveImportDi
         <strong style={{ color: "var(--text-primary)" }}>Só a proposta</strong> apaga a varredura —
         páginas lidas e itens propostos — e não toca no acervo. É o que se faz depois de mudar o
         perfil de captura.
+        {(preview?.created ?? 0) > 0 && (
+          <>
+            {" "}
+            Aqui ela está indisponível: esta varredura já criou {preview?.created} nós, e sem a
+            execução ninguém mais acharia o que ela criou para desfazer.
+          </>
+        )}
       </p>
 
       {preview === null && !error ? (

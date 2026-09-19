@@ -1837,6 +1837,11 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 - ✅ O editado à mão depois da aprovação é preservado, contado e listado *(três sinais: revisão de
   origem humana, questão conferida, e `updatedAt` depois da janela da aprovação)*
 - ✅ A execução antiga sai junto — páginas e proposta *(cascata do schema)*
+- ✅ Apagar só a proposta é **recusado** depois de aprovada: sem a execução, ninguém mais acharia
+  o que ela criou, e a importação ficaria para sempre
+- ✅ Varredura andando não pode ser apagada — cancele antes
+- ⛔ **A teoria que a aprovação anexou a nós de fora da importação fica**: `appendBody` escreve no
+  corpo de um nó que a execução não criou, e apagar a importação não desfaz isso
 - ✅ Confirmação com os números antes de apagar *(diálogo com os tipos, a contagem e a lista de
   preservados com o motivo de cada um)*
 - ✅ As duas opções na tela: só a proposta, ou proposta e acervo
@@ -1860,6 +1865,15 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
   continuam sendo importadas sem gráfico
 - ✅ Redesenhar a caixa da figura arrastando, na revisão *(o botão "Recortar de novo" refaz o
   arquivo depois que a caixa muda)*
+- ✅ A figura chega ao compilador: âncora com `cropAssetId`, e o render do corpo do nó leva no
+  bundle o que o LaTeX cita *(sem isto o `\includegraphics` do corpo dava `File not found`)*
+- ⛔ **Recorte antigo fica no storage** quando a figura é rejeitada ou recortada de novo: esvaziar
+  a lixeira apaga nós e questões, não assets de recorte. Coletar o que ficou sem referência é
+  trabalho que ainda não existe
+- ⛔ **Bitmap sai a 300 DPI fixos**, e não na resolução em que a imagem está na página: para isso
+  falta o tamanho em pixels do objeto embutido, que o leitor não entrega
+- ⛔ **Página girada não tem recorte vetorial**: o pdf.js entrega a página já girada e desfazer a
+  rotação é conta que não está escrita. Nesses casos sai PNG, com o vetor perdido
 - ◐ **Aceite:** medido nos dois livros — Elon 57 figuras em 447 páginas, FME **703** em 420, com
   os rótulos saindo do corpo e o recorte saindo vetorial (provado relendo o PDF recortado: os
   traços e o rótulo continuam lá). **Falta olhar as figuras na tela, uma a uma**, e o FME expôs

@@ -71,6 +71,8 @@ export type ApprovalStep =
       readonly latex: string;
       readonly anchors: readonly ProposedRegion[];
       readonly sourceText: string;
+      /** O recorte já gravado, quando é figura (D58): a âncora passa a apontar para o arquivo. */
+      readonly cropAssetId: string | null;
     }
   | { readonly type: "alreadyInCollection"; readonly itemIds: readonly string[]; readonly nodeId: string };
 
@@ -242,6 +244,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         itemIds: [item.id],
         target: container,
         latex: item.kind === "FIGURE" ? figureLatex(item) : contentLatex(item),
+        cropAssetId: item.kind === "FIGURE" ? (typeof item.metadata["figureAsset"] === "string" ? item.metadata["figureAsset"] : null) : null,
         anchors: item.regions.map((region) => ({
           ...region,
           role: (item.kind === "FIGURE" ? "ILLUSTRATION" : "CONTINUATION") as AnchorRole,

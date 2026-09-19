@@ -70,8 +70,13 @@ describe("figuras no acervo", () => {
     const gravado = await seeded.storage.get(asset.storageKey as never);
     expect(Buffer.from(gravado.content).toString("latin1").startsWith("%PDF-")).toBe(true);
 
-    // E o PNG de tela, que é o que a revisão mostra.
-    expect(String(figura!.metadata["figureScreenAsset"])).not.toBe(assetId);
+    // E o PNG de tela, que é o que a revisão mostra: existe, é PNG, e não é o mesmo arquivo.
+    const screenId = String(figura!.metadata["figureScreenAsset"]);
+    expect(screenId).not.toBe(assetId);
+    const screen = await seeded.prisma.asset.findUniqueOrThrow({ where: { id: screenId } });
+    expect(screen.mimeType).toBe("image/png");
+    const png = await seeded.storage.get(screen.storageKey as never);
+    expect([...png.content.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
 
     await reviewScan({ store, newId: () => crypto.randomUUID() }, run.id, { type: "acceptSuggested" });
     await approveScan(
@@ -89,5 +94,12 @@ describe("figuras no acervo", () => {
     expect(secao.bodyLatex).toContain("\\caption{O gráfico de uma função linear.}");
     // Na posição: a figura vem depois da teoria que a antecede no livro.
     expect(secao.bodyLatex.indexOf("Uma função")).toBeLessThan(secao.bodyLatex.indexOf("\\begin{figure}"));
+
+    // A âncora da figura aponta para o arquivo: é por ela que a aba Origem e a compilação o acham.
+    const ancora = await seeded.prisma.sourceAnchor.findFirstOrThrow({
+      where: { publicationId: seeded.publication.id, cropAssetId: assetId },
+      select: { pageNumber: true },
+    });
+    expect(ancora.pageNumber).toBe(figura!.regions[0]!.pageNumber);
   });
 });

@@ -53,8 +53,21 @@ export function exampleBody(item: ScanItem): string {
   if (ready !== null) return ready.trim();
 
   const lines = textOf(item).split("\n");
-  const first = (lines[0] ?? "").replace(LABEL_PREFIX, "");
+  const first = stripLabel(lines[0] ?? "", item);
   return escapeLatexText(joinLines([first, ...lines.slice(1)]));
+}
+
+/**
+ * Tira o rótulo do começo do texto — e **só** quando o rótulo existe.
+ *
+ * O padrão `palavra número` casa texto comum: "Sejam 2 e 3 os valores…" perderia as duas
+ * primeiras palavras, no corpo e no título, sem ninguém notar. Quem autoriza o corte é o rótulo
+ * que o perfil leu ("Exemplo 3"), não o formato da frase.
+ */
+function stripLabel(text: string, item: ScanItem): string {
+  if (item.originalLabel === null) return text;
+  const stripped = text.replace(LABEL_PREFIX, "");
+  return stripped === text || stripped.trim() === "" ? text : stripped;
 }
 
 /**
@@ -100,10 +113,7 @@ const TITLE_LENGTH = 60;
  * que a árvore já usa para uma questão sem apelido.
  */
 export function exampleTitle(item: ScanItem): string | null {
-  const plain = textOf(item)
-    .replace(/\s+/g, " ")
-    .replace(LABEL_PREFIX, "")
-    .trim();
+  const plain = stripLabel(textOf(item).replace(/\s+/g, " "), item).trim();
   if (plain === "") return null;
   return plain.length > TITLE_LENGTH ? `${plain.slice(0, TITLE_LENGTH - 1).trimEnd()}…` : plain;
 }

@@ -32,6 +32,15 @@ export interface ImportedNode {
   readonly question: ImportedQuestion | null;
   /** Tem revisão de origem humana — o sinal mais forte, e o único que não depende de relógio. */
   readonly editedByHand: boolean;
+  /**
+   * Tem filho vivo que **não** veio desta importação — um capítulo do scan onde alguém pendurou
+   * uma seção à mão.
+   *
+   * Apagar um nó na árvore desce a subárvore inteira, e este filho não está na lista: ele ficaria
+   * vivo apontando para um pai excluído, e a árvore o promoveria à raiz do livro sem avisar
+   * ninguém. Quem tem filho de fora fica de pé.
+   */
+  readonly hasOutsideChildren: boolean;
 }
 
 export interface KeptNode {
@@ -50,6 +59,7 @@ export interface ImportRemovalPlan {
 
 /** O que segura um nó de pé, ou `null` quando nada segura. */
 function reasonToKeep(node: ImportedNode): string | null {
+  if (node.hasOutsideChildren) return "tem filho que não veio desta importação";
   if (node.editedByHand) return "tem revisão feita à mão";
   if (node.question && node.question.status !== "DRAFT") return "conferida";
 

@@ -39,6 +39,23 @@ export class PrismaScanImport implements ScanImportStore {
     });
     if (nodes.length === 0) return [];
 
+    /*
+      Os filhos que não são desta importação.
+
+      Sem esta consulta, um capítulo criado pelo scan iria para a lixeira levando junto a seção que
+      a pessoa pendurou nele — ou pior, deixando-a viva e órfã, que a árvore promove à raiz.
+    */
+    const outside = await prisma.documentNode.groupBy({
+      by: ["parentId"],
+      where: {
+        parentId: { in: nodes.map((node) => node.id) },
+        deletedAt: null,
+        OR: [{ createdByScanRunId: null }, { createdByScanRunId: { not: runId } }],
+      },
+      _count: { _all: true },
+    });
+    const withOutside = new Set(outside.map((row) => row.parentId).filter((id): id is string => id !== null));
+
     const ids = [
       ...nodes.map((node) => node.id),
       ...nodes.flatMap((node) => (node.questionId ? [node.questionId] : [])),
@@ -59,6 +76,7 @@ export class PrismaScanImport implements ScanImportStore {
       updatedAt: node.updatedAt,
       question: node.question ? { status: node.question.status, updatedAt: node.question.updatedAt } : null,
       editedByHand: touched.has(node.id) || (node.questionId !== null && touched.has(node.questionId)),
+      hasOutsideChildren: withOutside.has(node.id),
     }));
   }
 

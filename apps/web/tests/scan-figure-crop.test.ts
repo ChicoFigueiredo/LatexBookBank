@@ -71,7 +71,7 @@ describe("recortar a figura", () => {
     const { bytes, pdf, region } = await figuraDaFixture();
     const cropper = new PdfFigureCropper({ bytes, render: (p, box, dpi) => pdf.renderRegion(p, box, dpi) });
 
-    const file = await cropper.crop({ pageNumber: region.pageNumber, box: region.box, kind: "vector", pixels: null });
+    const file = await cropper.crop({ pageNumber: region.pageNumber, box: region.box, kind: "vector" });
 
     expect(file.mimeType).toBe("application/pdf");
     expect(Buffer.from(file.content).toString("latin1").startsWith("%PDF-")).toBe(true);
@@ -85,7 +85,7 @@ describe("recortar a figura", () => {
     const { bytes, pdf, region } = await figuraDaFixture();
     const cropper = new PdfFigureCropper({ bytes, render: (p, box, dpi) => pdf.renderRegion(p, box, dpi) });
 
-    const file = await cropper.crop({ pageNumber: region.pageNumber, box: region.box, kind: "raster", pixels: null });
+    const file = await cropper.crop({ pageNumber: region.pageNumber, box: region.box, kind: "raster" });
 
     expect(file.mimeType).toBe("image/png");
     expect([...file.content.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);

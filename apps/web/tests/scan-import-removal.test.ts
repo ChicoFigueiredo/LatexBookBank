@@ -23,6 +23,7 @@ const node = (over: Partial<ImportedNode> & Pick<ImportedNode, "id">): ImportedN
   updatedAt: APROVACAO,
   question: null,
   editedByHand: false,
+  hasOutsideChildren: false,
   ...over,
 });
 
@@ -93,6 +94,19 @@ describe("apagar a importação", () => {
       "sec:contém trabalho preservado",
       "q1:conferida",
     ]);
+  });
+
+  it("o nó com filho de fora fica de pé — senão o filho ficaria órfão", () => {
+    // O scan criou o capítulo; a pessoa pendurou uma seção nele depois. Apagar o capítulo levaria
+    // a seção junto (ela não está na lista) ou a deixaria viva apontando para um pai excluído —
+    // e a árvore promove órfão à raiz do livro, sem avisar.
+    const plano = planImportRemoval([
+      node({ id: "cap", kind: "CHAPTER", hasOutsideChildren: true }),
+      node({ id: "outro", kind: "CHAPTER" }),
+    ]);
+
+    expect(plano.trash).toEqual(["outro"]);
+    expect(plano.kept).toEqual([{ id: "cap", reason: "tem filho que não veio desta importação" }]);
   });
 
   it("conta o que vai para a lixeira por tipo — é o que a confirmação mostra", () => {

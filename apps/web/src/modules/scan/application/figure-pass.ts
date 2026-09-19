@@ -16,9 +16,10 @@ import type { ScanItemChanges, ScanRun } from "./scan-store";
  *   curto de deixar arquivo órfão quando ela falha;
  * - o PDF já está aberto aqui. Reabrir um livro de 21 MB na aprovação seria pagar duas vezes.
  *
- * O preço é conhecido: figura rejeitada na revisão deixa arquivo gravado. Como a `storageKey`
- * é o hash do conteúdo, dois scans do mesmo livro não duplicam nada — e o que sobra é um asset
- * sem referência, que a limpeza da lixeira já sabe tratar.
+ * O preço é conhecido, e ninguém o paga de graça: **figura rejeitada, ou recortada de novo,
+ * deixa arquivo para trás**. A `storageKey` é o hash do conteúdo, então dois scans do mesmo livro
+ * não duplicam nada; mas esvaziar a lixeira apaga nós e questões, não assets de recorte. Coletar
+ * o que ficou sem referência é trabalho que ainda não existe, e está anotado como tal.
  */
 
 export interface FigureFile {
@@ -33,7 +34,6 @@ export interface FigureCropper {
     readonly pageNumber: number;
     readonly box: NormalizedBox;
     readonly kind: FigureKind;
-    readonly pixels: { readonly width: number; readonly height: number } | null;
   }): Promise<FigureFile>;
 }
 
@@ -101,7 +101,6 @@ export function createFigurePass(deps: FigurePassDeps) {
             pageNumber: region.pageNumber,
             box: region.box,
             kind: kindOf(item),
-            pixels: null,
           });
           const stored = await deps.assets.save({
             workspaceId: input.run.workspaceId,

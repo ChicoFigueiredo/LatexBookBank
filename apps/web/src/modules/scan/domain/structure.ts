@@ -154,7 +154,9 @@ function withFigures(
     const fraction = Math.min(1, Math.max(0.15, (figure.box.x1 - figure.box.x0) / columnWidth));
 
     entries.push({
-      at: at + 0.5 + index / 1000,
+      // A fração precisa caber entre duas linhas: com um milésimo fixo, a 500ª figura de um livro
+      // passaria da linha seguinte e sairia do lugar.
+      at: at + ((index + 1) / (figures.length + 1)) * 0.9,
       draft: {
         key,
         parentKey: parent?.key ?? null,
@@ -397,13 +399,24 @@ function isBlockBreak(previous: DocLine | undefined, line: DocLine, doc: ScanDoc
   // dobro da entrelinha — pela distância entre bases, todo exemplo terminaria na primeira fração.
   // Só que a caixa da linha cresceu junto: o branco continua o mesmo. É ele que o olho lê como
   // "aqui acabou", e é ele que o espaço extra do ambiente de exemplo aumenta.
-  // Fórmula em destaque abre branco de verdade — e não é fim de nada: é a conta do exemplo, e o
-  // que vem depois dela ainda é o exemplo. Medido no *Curso de Análise*: sem esta guarda, três
-  // exemplos terminavam em "Seja X = {1, 2, 3}. Então", logo antes da fórmula que os explica.
-  if (previous.mathRatio >= 0.5 || line.mathRatio >= 0.5) return false;
-
   const { style } = doc;
   const white = line.y0 - previous.y1;
+
+  /*
+    Fórmula em destaque abre branco dos dois lados, e os dois brancos querem dizer coisas
+    diferentes.
+
+    **Antes** dela o branco não fecha nada: é a conta do exemplo, e sem esta guarda três exemplos
+    do *Curso de Análise* terminavam em "Seja X = {1, 2, 3}. Então", logo antes da fórmula que os
+    explica.
+
+    **Depois** dela o branco pode, sim, ser o fim: o exemplo acaba na fórmula e a teoria recomeça.
+    Aí a régua é outra, mais larga — o espaço que a fórmula deixa embaixo é maior que o de um
+    parágrafo, e só um vão claramente maior que esse conta como fim.
+  */
+  if (line.mathRatio >= 0.5) return false;
+  if (previous.mathRatio >= 0.5) return white > style.bodySize * 1.6;
+
   return white > style.bodySize * 0.55;
 }
 

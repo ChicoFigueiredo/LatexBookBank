@@ -58,6 +58,27 @@ describe("reimportar", () => {
     return { ...seeded, store, runId: run.id, imports: new PrismaScanImport() };
   }
 
+  /** Varre e para: a proposta existe, o acervo não foi tocado. */
+  async function varrido(slug: string) {
+    const seeded = await seedBookWithSource("book-a.pdf", slug);
+    const { PrismaScanStore, PrismaScanSources, storageKeyOfAsset } = await import("@modules/scan/infrastructure/prisma-scan-store");
+    const { PdfjsDocumentReader } = await import("@modules/scan/infrastructure/pdfjs-document-reader");
+    const { PrismaScanImport } = await import("@modules/scan/infrastructure/prisma-scan-import");
+    const { startScan } = await import("@modules/scan/application/start-scan");
+    const { runScan } = await import("@modules/scan/application/run-scan");
+
+    const store = new PrismaScanStore();
+    const { run } = await startScan(
+      { store, runner: idle, sources: new PrismaScanSources(), sha256 },
+      { publicationId: seeded.publication.id, profileId: "book-v1", recognizeMath: "never" },
+    );
+    await runScan(
+      { store, storage: seeded.storage, opener: new PdfjsDocumentReader(), sourceKey: storageKeyOfAsset },
+      run.id,
+    );
+    return { ...seeded, store, runId: run.id, imports: new PrismaScanImport() };
+  }
+
   it("cada nó criado sabe de que varredura veio", async () => {
     const { prisma, publication, runId } = await importado("reimport-a");
 
@@ -69,8 +90,8 @@ describe("reimportar", () => {
     expect(nodes.every((node) => node.createdByScanRunId === runId)).toBe(true);
   });
 
-  it("apagar só a proposta não toca no acervo", async () => {
-    const { prisma, publication, store, runId, imports } = await importado("reimport-b");
+  it("apagar só a proposta, antes de aprovar, não toca no acervo", async () => {
+    const { prisma, publication, store, runId, imports } = await varrido("reimport-b");
     const { removeImport } = await import("@modules/scan/application/remove-import");
 
     const antes = await prisma.documentNode.count({ where: { publicationId: publication.id, deletedAt: null } });
@@ -80,6 +101,16 @@ describe("reimportar", () => {
     expect(await store.findRun(runId)).toBeNull();
     expect(await prisma.scanPage.count({ where: { runId } })).toBe(0);
     expect(await prisma.documentNode.count({ where: { publicationId: publication.id, deletedAt: null } })).toBe(antes);
+  });
+
+  it("depois de aprovada, apagar só a proposta é recusado — cegaria a importação", async () => {
+    // Sem a execução não há como achar o que ela criou: a importação ficaria no acervo para
+    // sempre, e a tela promete o contrário.
+    const { store, runId, imports } = await importado("reimport-b2");
+    const { removeImport } = await import("@modules/scan/application/remove-import");
+
+    await expect(removeImport({ store, imports }, { runId, scope: "proposal" })).rejects.toThrow(/importação inteira/);
+    expect(await store.findRun(runId)).not.toBeNull();
   });
 
   it("apagar a importação manda para a lixeira o que ela criou, e preserva o que foi editado", async () => {
@@ -110,7 +141,10 @@ describe("reimportar", () => {
 
     const resultado = await removeImport({ store, imports }, { runId, scope: "import" });
     expect(resultado.scope).toBe("import");
+    // Não basta bater com o plano: o plano vazio bateria também. Algo tem de ter ido embora.
+    expect(resultado.trashed).toBeGreaterThan(0);
     expect(resultado.trashed).toBe(preview.trash.length);
+    expect(resultado.kept).toBeGreaterThanOrEqual(3);
 
     const vivos = await prisma.documentNode.findMany({
       where: { publicationId: publication.id, deletedAt: null },

@@ -13,9 +13,8 @@ import type { FigureCropper, FigureFile } from "@modules/scan/application/figure
  * o livro tem, porque é o mesmo conteúdo. É a razão de existir a dependência: era a única coisa
  * que o projeto não sabia fazer.
  *
- * **Bitmap**: rasterizar na resolução em que a imagem está na página. Medir isso é possível —
- * a imagem embutida tem um tamanho em pixels e ocupa um tanto de pontos —, e é o que evita os
- * dois erros do DPI fixo: ampliar uma miniatura, ou gerar 40 MB de uma foto de meia página.
+ * **Bitmap**: rasterizado a 300 DPI. O ideal seria a resolução em que a imagem está na página,
+ * mas isso exige o tamanho em pixels do objeto embutido, que o leitor ainda não entrega.
  *
  * **PNG de tela**: sempre, e pequeno. É o que a revisão mostra ao lado do item, e o que o preview
  * rápido usaria — nenhum dos dois quer abrir um PDF para ver uma miniatura.
@@ -23,8 +22,23 @@ import type { FigureCropper, FigureFile } from "@modules/scan/application/figure
 
 /** O PNG que a tela mostra. Suficiente para conferir a figura, leve para carregar em lista. */
 const SCREEN_DPI = 150;
-/** Teto do bitmap: acima disto o arquivo cresce mais do que a tela ou a impressão aproveitam. */
-const MAX_RASTER_DPI = 600;
+/**
+ * O bitmap sai a 300 DPI.
+ *
+ * O ideal seria a resolução em que a imagem está na página — nem inventar pixel, nem jogar fora o
+ * que existe —, e para isso é preciso o tamanho em pixels do objeto embutido, que o leitor ainda
+ * não entrega: ele guarda a caixa do desenho, não os bytes da imagem. 300 DPI é o que imprime bem
+ * sem gerar dezenas de megabytes, e a conta certa fica anotada como trabalho a fazer.
+ */
+const RASTER_DPI = 300;
+
+/** Página girada: o recorte vetorial recusa, e quem chamou cai no PNG. */
+export class RotatedPageError extends Error {
+  constructor(pageNumber: number) {
+    super(`A página ${pageNumber} está girada: o recorte vetorial não sabe desfazer isso.`);
+    this.name = "RotatedPageError";
+  }
+}
 
 export interface CropperInput {
   /** O PDF inteiro, como está no storage. */
@@ -44,22 +58,39 @@ export class PdfFigureCropper implements FigureCropper {
     return this.document;
   }
 
+  /**
+   * Uma página girada não pode ser recortada por aqui.
+   *
+   * A caixa que chega foi medida pelo pdf.js, que entrega a página **já girada** — como o leitor
+   * a vê. Girar de volta é conta de outro módulo, e uma conta errada aqui produz um arquivo
+   * recortado num pedaço em branco da página, sem que nada avise: o PNG de tela, que passa pelo
+   * pdf.js, sairia certo. Melhor recusar e cair no PNG.
+   */
+  private rotated(page: ReturnType<PDFDocument["getPage"]>): boolean {
+    return (((page.getRotation().angle % 360) + 360) % 360) !== 0;
+  }
+
   async vector(pageNumber: number, box: NormalizedBox): Promise<Uint8Array> {
     const source = await this.load();
     const out = await PDFDocument.create();
     const [page] = await out.copyPages(source, [pageNumber - 1]);
     if (!page) throw new Error(`Página ${pageNumber} não existe no PDF fonte.`);
+    if (this.rotated(page)) throw new RotatedPageError(pageNumber);
 
     /*
       A caixa vem em coordenadas de tela — origem no alto, y para baixo, de 0 a 1 — e o PDF conta
-      de baixo para cima, em pontos, a partir da origem da sua própria MediaBox (que nem sempre é
-      zero). As duas conversões moram aqui, e só aqui.
+      de baixo para cima, em pontos.
+
+      A referência é a **CropBox**, e não a MediaBox: é ela que o pdf.js usa para montar a página
+      que o scan mediu (`getViewport`). Num livro aparado nas margens — CropBox menor que a
+      MediaBox — converter pela MediaBox põe o recorte dezenas de pontos fora do lugar, e o erro
+      passa despercebido porque a miniatura, que vem do pdf.js, continua certa.
     */
-    const media = page.getMediaBox();
-    const x = media.x + box.x * media.width;
-    const width = box.width * media.width;
-    const height = box.height * media.height;
-    const y = media.y + (1 - box.y - box.height) * media.height;
+    const crop = page.getCropBox();
+    const x = crop.x + box.x * crop.width;
+    const width = box.width * crop.width;
+    const height = box.height * crop.height;
+    const y = crop.y + (1 - box.y - box.height) * crop.height;
 
     page.setMediaBox(x, y, width, height);
     page.setCropBox(x, y, width, height);
@@ -68,17 +99,8 @@ export class PdfFigureCropper implements FigureCropper {
     return await out.save({ useObjectStreams: false });
   }
 
-  /**
-   * O DPI em que a imagem está na página: quantos pixels ela tem dividido por quantas polegadas
-   * ela ocupa. Rasterizar acima disso inventa pixels; abaixo, joga fora os que existem.
-   */
-  async raster(pageNumber: number, box: NormalizedBox, pixels: { width: number; height: number } | null): Promise<Uint8Array> {
-    const source = await this.load();
-    const page = source.getPage(pageNumber - 1);
-    const inches = (box.width * page.getWidth()) / 72;
-    const native = pixels && inches > 0 ? pixels.width / inches : SCREEN_DPI * 2;
-    const dpi = Math.min(MAX_RASTER_DPI, Math.max(SCREEN_DPI, Math.round(native)));
-    return await this.input.render(pageNumber, box, dpi);
+  async raster(pageNumber: number, box: NormalizedBox): Promise<Uint8Array> {
+    return await this.input.render(pageNumber, box, RASTER_DPI);
   }
 
   async screen(pageNumber: number, box: NormalizedBox): Promise<Uint8Array> {
@@ -89,14 +111,18 @@ export class PdfFigureCropper implements FigureCropper {
     readonly pageNumber: number;
     readonly box: NormalizedBox;
     readonly kind: "vector" | "raster" | "mixed";
-    readonly pixels: { width: number; height: number } | null;
   }): Promise<FigureFile> {
     const screen = await this.screen(input.pageNumber, input.box);
 
     // Mista conta como vetor: o recorte em PDF leva o bitmap embutido junto, sem recompactar nada.
-    if (input.kind === "raster") {
-      return { content: await this.raster(input.pageNumber, input.box, input.pixels), mimeType: "image/png", screen };
+    if (input.kind !== "raster") {
+      try {
+        return { content: await this.vector(input.pageNumber, input.box), mimeType: "application/pdf", screen };
+      } catch (error) {
+        // Página girada: o PNG é a saída honesta. Perde-se o vetor, não se perde a figura.
+        if (!(error instanceof RotatedPageError)) throw error;
+      }
     }
-    return { content: await this.vector(input.pageNumber, input.box), mimeType: "application/pdf", screen };
+    return { content: await this.raster(input.pageNumber, input.box), mimeType: "image/png", screen };
   }
 }

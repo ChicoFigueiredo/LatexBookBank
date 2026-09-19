@@ -1,7 +1,8 @@
+import { isInProgress } from "../domain/scan-run";
 import { planImportRemoval, type ImportedNode, type ImportRemovalPlan } from "../domain/import-removal";
 // O mesmo erro do resto do scan: uma execução que não existe é 404 em qualquer rota, e dois tipos
 // com o mesmo nome dariam dois caminhos para a mesma resposta.
-import { ScanRunNotFoundError } from "./control-scan";
+import { ScanRunNotFoundError, ScanRunStateError } from "./control-scan";
 import type { ScanStore } from "./scan-store";
 
 /**
@@ -77,7 +78,24 @@ export async function removeImport(
   const run = await deps.store.findRun(input.runId);
   if (!run) throw new ScanRunNotFoundError(input.runId);
 
+  if (isInProgress(run.state)) {
+    // Apagar debaixo de um laço que está escrevendo deixa a execução gravando numa linha que não
+    // existe mais. Cancelar primeiro é um gesto que a tela já tem.
+    throw new ScanRunStateError("Esta varredura ainda está andando: cancele antes de apagar.");
+  }
+
   if (input.scope === "proposal") {
+    /*
+      Apagar só a proposta de uma execução **já aprovada** cegaria o acervo: os nós continuariam
+      com o id dela, e não haveria mais execução para achá-los. A importação ficaria para sempre,
+      sem caminho de volta — e a tela promete o contrário.
+    */
+    const created = await deps.imports.listCreatedNodes(input.runId);
+    if (created.length > 0) {
+      throw new ScanRunStateError(
+        `Esta varredura já criou ${created.length} nós no acervo. Apague a importação inteira, ou deixe-a como está: sem a execução, o que ela criou não pode mais ser desfeito.`,
+      );
+    }
     await deps.store.deleteRun(input.runId);
     return { scope: "proposal", trashed: 0, kept: 0, counts: {} };
   }
