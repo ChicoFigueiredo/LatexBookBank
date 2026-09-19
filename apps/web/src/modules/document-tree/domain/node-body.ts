@@ -17,6 +17,7 @@ const WITH_BODY: ReadonlySet<NodeKind> = new Set([
   "QUESTION_GROUP",
   "NOTE",
   "FIGURE",
+  "EXAMPLE",
 ]);
 
 export const canHaveBody = (kind: NodeKind): boolean => WITH_BODY.has(kind);

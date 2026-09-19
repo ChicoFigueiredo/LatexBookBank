@@ -211,6 +211,11 @@ function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {
       stack.pop();
       top = stack[stack.length - 1];
     }
+    if (top?.extent === "block" && isBlockBreak(lines[i - 1], line, doc)) {
+      close(top, i);
+      stack.pop();
+      top = stack[stack.length - 1];
+    }
 
     if (top && top.extent !== "heading") continue;
     if (profile.settings.emitContent && top) content ??= { start: i };
@@ -249,6 +254,37 @@ function isParagraphBreak(previous: DocLine | undefined, line: DocLine, doc: Sca
   // também começa "recuado", e na mesma altura.
   const below = line.y0 >= previous.y1 - 1 && gap >= style.lineSpacing * 0.8;
   return gap > style.lineSpacing * 1.35 || (below && indented && previous.x0 <= left + style.bodySize * 0.5);
+}
+
+/**
+ * O fim de um bloco: o vão grande, não o recuo.
+ *
+ * Parágrafo comum de livro se separa por **recuo**, sem espaço extra; um bloco — exemplo,
+ * observação — se separa por **espaço**. Só o espaço fecha aqui, e é por isso que a resolução do
+ * exemplo, que é parágrafo novo, continua dentro dele.
+ *
+ * A régua é a entrelinha do corpo, e não a `lineSpacing` sozinha: num trecho esparso — uma
+ * página com meia dúzia de linhas — a moda dos vãos é o vão *entre parágrafos*, e usá-la deixaria
+ * o bloco engolir o livro inteiro. O tamanho da fonte dá o piso que a moda não dá.
+ *
+ * Trocar de coluna ou de página não fecha: o exemplo que vira a página continua sendo um.
+ */
+function isBlockBreak(previous: DocLine | undefined, line: DocLine, doc: ScanDocument): boolean {
+  if (!previous || previous.slot !== line.slot) return false;
+  // O branco **entre as caixas**, e não a distância entre as bases.
+  //
+  // Medido no *Curso de Análise*: uma fração no meio da frase afasta as bases em 26 pt, quase o
+  // dobro da entrelinha — pela distância entre bases, todo exemplo terminaria na primeira fração.
+  // Só que a caixa da linha cresceu junto: o branco continua o mesmo. É ele que o olho lê como
+  // "aqui acabou", e é ele que o espaço extra do ambiente de exemplo aumenta.
+  // Fórmula em destaque abre branco de verdade — e não é fim de nada: é a conta do exemplo, e o
+  // que vem depois dela ainda é o exemplo. Medido no *Curso de Análise*: sem esta guarda, três
+  // exemplos terminavam em "Seja X = {1, 2, 3}. Então", logo antes da fórmula que os explica.
+  if (previous.mathRatio >= 0.5 || line.mathRatio >= 0.5) return false;
+
+  const { style } = doc;
+  const white = line.y0 - previous.y1;
+  return white > style.bodySize * 0.55;
 }
 
 function draftOf(

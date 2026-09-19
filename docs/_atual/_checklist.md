@@ -1813,13 +1813,21 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 
 ### Fase 22 — O exemplo como galho *(D56, [ADR 0004](../adr/0004-o-exemplo-vira-no.md))*
 
-- [ ] `EXAMPLE` no `NodeKind`, no validador e no comentário do schema
-- [ ] As telas que conhecem tipo: ícone na árvore, menu de criar, lixeira, lista de tipos com corpo
-- [ ] `book-v1` captura o exemplo **até a próxima fronteira**, com a resolução junto
-- [ ] A aprovação cria o nó de exemplo em vez de anexar ao corpo da seção
-- [ ] A árvore mostra rótulo e começo do texto ("Exemplo 3 — Sejam A e B…")
-- [ ] **Aceite:** varrer o *Curso de Análise* propõe os 107 exemplos como nós, e aprovar não deixa
-  texto de exemplo no corpo da seção
+- ✅ `EXAMPLE` no `NodeKind`, no validador e no comentário do schema *(#227)*
+- ✅ As telas que conhecem tipo: ícone na árvore, menu de criar, lixeira, nome na lixeira, lista de
+  tipos com corpo *(#227 — conferido no navegador: o editor abre sem erro e *Adicionar* oferece
+  Exemplo)*
+- ✅ `book-v1` captura o exemplo até a próxima fronteira, pelo **branco entre as caixas** *(#228 —
+  o alcance `block` é novo; fração e fórmula em destaque não fecham o bloco, e isso está medido no
+  comentário da regra)*
+- ✅ A aprovação cria o nó de exemplo em vez de anexar ao corpo da seção *(#229)*
+- ✅ A árvore mostra rótulo e começo do texto *(#230 — "Exemplo 3 — Sejam A e B…", com o título
+  derivado do próprio texto na aprovação)*
+- ◐ **Aceite:** o *Curso de Análise* propõe os 107 exemplos como nós — medido, com mediana de 477
+  caracteres, 2 curtos e nenhum gigante; a teoria caiu de 174 para 161 trechos, que são as
+  resoluções voltando para os seus exemplos. **Aprovar no acervo real ainda não foi feito** — o
+  que está provado é a fixture, onde o exemplo leva a resolução e o corpo da seção não fica com
+  texto de exemplo
 
 ### Fase 23 — Reimportar *(D57, [ADR 0006](../adr/0006-a-importacao-e-apagavel.md))*
 

@@ -84,7 +84,11 @@ describe("Livro A — capítulo, seção, texto, exemplo e exercício", () => {
     const texts = ofKind(proposal, "CONTENT").map((item) => item.text.split("\n")[0]);
     expect(texts).toContain("Toda função linear satisfaz f(x+y) = f(x) +f(y), o que se verifica diretamente da definição.");
     const example = ofKind(proposal, "EXAMPLE")[0];
-    expect(example?.text).toBe("Exemplo 1. A função f(x) = 3x é linear, e f(2) = 6.");
+    // O exemplo leva a resolução junto (D56): o segundo parágrafo é dele, e o parágrafo de teoria
+    // que vem depois — separado pelo espaço que o ambiente abre — não é.
+    expect(example?.text).toContain("A função f(x) = 3x é linear, e f(2) = 6.");
+    expect(example?.text).toContain("Este segundo parágrafo é a resolução do exemplo");
+    expect(example?.text).not.toContain("Toda função linear satisfaz");
   });
 
   it("todo elemento tem confiança e pelo menos uma âncora", () => {

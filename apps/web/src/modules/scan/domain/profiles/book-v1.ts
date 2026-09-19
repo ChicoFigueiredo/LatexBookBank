@@ -201,7 +201,11 @@ function classify(context: WalkContext): AnchorMatch | null {
       label: `${line.text.slice(0, (example[1] ?? "").length)} ${example[2] ?? ""}`.trim(),
       number: example[2] ?? null,
       title: null,
-      extent: "paragraph",
+      // Um bloco, e não um parágrafo (D56). Como negrito no corpo da seção, um parágrafo bastava:
+      // a resolução vinha logo abaixo e ninguém notava a emenda. Como nó, o exemplo que deixa a
+      // resolução para trás promete na árvore o que não entrega ao abrir. E `until-boundary` seria
+      // ganancioso demais — engoliria a teoria que volta depois, que não tem título nenhum.
+      extent: "block",
       lines: 1,
       confidence: { pattern: 0.92, typography: 0.9 },
       evidence: ["rótulo de exemplo em destaque"],

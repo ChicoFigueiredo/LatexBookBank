@@ -34,6 +34,7 @@ const STRUCTURE: readonly { kind: NodeKind; label: string; icon: IconName }[] = 
   { kind: "SECTION", label: "Seção", icon: "list-tree" },
   { kind: "SUBSECTION", label: "Subseção", icon: "list-tree" },
   { kind: "QUESTION_GROUP", label: "Grupo de questões", icon: "inbox" },
+  { kind: "EXAMPLE", label: "Exemplo", icon: "clipboard-list" },
 ];
 
 /**

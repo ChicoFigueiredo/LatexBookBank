@@ -149,7 +149,7 @@ model DocumentNode {
   children DocumentNode[] @relation("NodeChildren")
 
   /// `NodeKind`: BOOK · PART · CHAPTER · SECTION · SUBSECTION · CONTENT · QUESTION_GROUP ·
-  /// QUESTION · FIGURE · NOTE
+  /// QUESTION · FIGURE · NOTE · EXAMPLE
   kind  String
   title String?
   slug  String?

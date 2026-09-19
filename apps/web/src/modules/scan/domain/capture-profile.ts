@@ -24,9 +24,13 @@ export type AnswersLocation = "END_OF_BOOK" | "END_OF_CHAPTER" | "BELOW" | "NONE
  * - `until-boundary` — da âncora até a próxima âncora que não seja descendente dele, ou até um
  *   limite semântico. É o caso geral da §12: coluna, página, várias páginas.
  * - `paragraph` — até o fim do parágrafo (vão maior que a entrelinha, ou recuo de parágrafo novo):
- *   o exemplo acaba e a teoria continua sem outro título no meio.
+ *   o texto acaba e a teoria continua sem outro título no meio.
+ * - `block` — vários parágrafos, até o **vão grande** que o livro abre depois do bloco. É o
+ *   exemplo com a resolução junto (D56): o recuo de parágrafo novo não o fecha, porque a
+ *   resolução é um parágrafo novo dentro dele; o espaço extra que o ambiente deixa, sim. É o
+ *   mesmo sinal que o olho usa para ver onde o exemplo termina.
  */
-export type Extent = "heading" | "until-boundary" | "paragraph";
+export type Extent = "heading" | "until-boundary" | "paragraph" | "block";
 
 export interface AnchorMatch {
   readonly kind: ScanKind;

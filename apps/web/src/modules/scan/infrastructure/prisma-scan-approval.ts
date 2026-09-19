@@ -188,6 +188,8 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                   kind: step.kind,
                   title: step.title,
                   originalLabel: step.originalLabel,
+                  // O exemplo nasce com o texto dentro (D56); os outros nós nascem vazios.
+                  ...(step.body !== null ? { bodyLatex: step.body } : {}),
                   sortKey: await nextKey(parentId),
                   ...(questionId ? { questionId } : {}),
                 },

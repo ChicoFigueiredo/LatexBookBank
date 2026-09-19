@@ -31,17 +31,48 @@ const reviewedOrRecognized = (item: ScanItem): string | null =>
 
 const textOf = (item: ScanItem): string => item.reviewedText ?? item.text;
 
-/** Teoria, exemplo e nota: um parágrafo, com o rótulo do exemplo em destaque. */
+/** Onde o rótulo do livro acaba e o texto começa: "Exemplo 3.", "Exemplo 2.4:", "Exemplo 7)". */
+const LABEL_PREFIX = /^\s*\S+\s+\d+(?:\.\d+)*\s*[.:)]?\s*/;
+
+/** Teoria e nota: um parágrafo. */
 export function contentLatex(item: ScanItem): string {
+  const ready = reviewedOrRecognized(item);
+  if (ready !== null) return ready.trim();
+  return escapeLatexText(joinLines(textOf(item).split("\n")));
+}
+
+/**
+ * O corpo do exemplo (D56): o texto **sem** o rótulo.
+ *
+ * Antes o rótulo entrava em negrito no meio do corpo da seção, porque era a única marca de que
+ * ali começava um exemplo. Agora o rótulo é do nó, e repeti-lo no corpo diria a mesma coisa duas
+ * vezes — na árvore e na primeira linha do texto.
+ */
+export function exampleBody(item: ScanItem): string {
   const ready = reviewedOrRecognized(item);
   if (ready !== null) return ready.trim();
 
   const lines = textOf(item).split("\n");
-  if (item.kind === "EXAMPLE" && item.originalLabel) {
-    const first = (lines[0] ?? "").replace(/^\s*\S+\s+\d+(?:\.\d+)*\s*[.:)]?\s*/, "");
-    return `\\textbf{${escapeLatexText(item.originalLabel)}.} ${escapeLatexText(joinLines([first, ...lines.slice(1)]))}`;
-  }
-  return escapeLatexText(joinLines(lines));
+  const first = (lines[0] ?? "").replace(LABEL_PREFIX, "");
+  return escapeLatexText(joinLines([first, ...lines.slice(1)]));
+}
+
+/** Quanto do exemplo cabe numa linha da árvore sem empurrar o resto para fora. */
+const TITLE_LENGTH = 60;
+
+/**
+ * O título do exemplo: o começo do próprio texto, sem o rótulo.
+ *
+ * "Exemplo 3" sozinho não diz qual dos 107 é. O começo do enunciado diz, e é o mesmo critério
+ * que a árvore já usa para uma questão sem apelido.
+ */
+export function exampleTitle(item: ScanItem): string | null {
+  const plain = textOf(item)
+    .replace(/\s+/g, " ")
+    .replace(LABEL_PREFIX, "")
+    .trim();
+  if (plain === "") return null;
+  return plain.length > TITLE_LENGTH ? `${plain.slice(0, TITLE_LENGTH - 1).trimEnd()}…` : plain;
 }
 
 export interface QuestionLatex {
