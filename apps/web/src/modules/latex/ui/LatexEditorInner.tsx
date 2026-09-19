@@ -53,6 +53,14 @@ export interface LatexEditorApi {
    * cada re-render, e o cursor da pessoa seria arrastado no meio de uma frase.
    */
   readonly revealLine: (line: number) => void;
+  /**
+   * Leva o cursor até um ponto do texto, contado em caracteres.
+   *
+   * É o caminho de volta do preview (D55): o bloco sabe de que trecho nasceu, e clicar nele põe o
+   * cursor lá. Em caracteres, e não em linha e coluna, porque é assim que o analisador do preview
+   * conta — e converter no meio do caminho seria duas contas para errar.
+   */
+  readonly goToOffset: (offset: number) => void;
 }
 
 /**
@@ -125,6 +133,13 @@ export interface LatexEditorInnerProps {
    * decoração pintaria a linha e deixaria a mensagem só no painel ao lado.
    */
   readonly markers?: readonly EditorMarker[];
+  /**
+   * Onde o cursor está, em caracteres, a cada vez que ele anda.
+   *
+   * É o que acende o bloco correspondente no preview. Sai daqui como número e não como posição do
+   * Monaco para não vazar o editor para o resto da tela.
+   */
+  readonly onCursorOffset?: (offset: number) => void;
 }
 
 export default function LatexEditorInner({
@@ -137,6 +152,7 @@ export default function LatexEditorInner({
   ariaLabel = "Editor LaTeX",
   onReady,
   markers = EMPTY_MARKERS,
+  onCursorOffset,
 }: LatexEditorInnerProps) {
   // O conhecimento LaTeX do legado (#47) vira sugestão aqui. É um hook e não uma chamada no
   // `onMount` porque o provider é global por linguagem: quem o registra precisa também saber
@@ -146,6 +162,7 @@ export default function LatexEditorInner({
   const saveRef = useRef(onSave);
   const renderRef = useRef(onRender);
   const readyRef = useRef(onReady);
+  const cursorRef = useRef(onCursorOffset);
   const mounted = useRef<MountedEditor | null>(null);
 
   /**
@@ -190,6 +207,10 @@ export default function LatexEditorInner({
   useEffect(() => {
     readyRef.current = onReady;
   }, [onReady]);
+
+  useEffect(() => {
+    cursorRef.current = onCursorOffset;
+  }, [onCursorOffset]);
 
   // O handler do Ctrl+S é registrado uma vez no `onMount`; sem o ref, ele congelaria a primeira
   // versão do callback e passaria a salvar a questão que estava aberta quando o editor montou.
@@ -237,6 +258,12 @@ export default function LatexEditorInner({
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
     });
 
+    // O cursor avisa onde está — inclusive ao clicar, ao navegar com as setas e ao digitar.
+    editor.onDidChangeCursorPosition((event) => {
+      const model = editor.getModel();
+      if (model) cursorRef.current?.(model.getOffsetAt(event.position));
+    });
+
     readyRef.current?.({
       insertSnippet: (body) => {
         // `snippetController2` e não `executeEdits`: é ele que interpreta `${1:…}` e resolve
@@ -275,6 +302,19 @@ export default function LatexEditorInner({
         // na borda de baixo — que é onde ninguém olha ao chegar de outro painel.
         editor.revealLineInCenter(target);
         editor.setPosition({ lineNumber: target, column: 1 });
+        editor.focus();
+      },
+
+      goToOffset: (offset) => {
+        const model = editor.getModel();
+        if (!model) return;
+
+        // Recortado pelo tamanho do texto, pelo mesmo motivo do `revealLine`: o preview pode
+        // estar um instante atrás do que se digitou, e um ponto além do fim não é erro de
+        // ninguém.
+        const position = model.getPositionAt(Math.min(Math.max(0, offset), model.getValueLength()));
+        editor.setPosition(position);
+        editor.revealPositionInCenterIfOutsideViewport(position);
         editor.focus();
       },
     });

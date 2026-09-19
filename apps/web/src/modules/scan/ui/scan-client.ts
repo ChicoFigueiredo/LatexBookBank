@@ -20,6 +20,8 @@ export interface ScanRunView {
   readonly pageFrom: number;
   readonly pageTo: number;
   readonly lastPageRead: number;
+  readonly stepDone: number;
+  readonly stepTotal: number;
   readonly aiProviderId: string | null;
   readonly aiModel: string | null;
   readonly mathProviderId: string | null;

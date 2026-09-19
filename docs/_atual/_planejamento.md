@@ -1097,6 +1097,25 @@ decisão do autor, ainda que a segmentação recente esteja em português. A Wav
 GitHub; a Fase 18 é reescrita pela D45, a 19 continua, e nascem a **20** (revisão e aprovação da
 proposta) e a **21** (IA, matemática e validação), cada uma com as suas issues de trabalho.
 
+#### D55 — O preview sabe de onde cada bloco veio, e as duas metades se apontam
+
+Cada bloco do `PreviewModel` carrega a **origem** — o intervalo, em caracteres do LaTeX
+original, que o gerou. Com ela, o cursor no editor acende o bloco correspondente no preview
+rápido, e clicar num bloco leva o cursor de volta ao trecho. Vale nos dois editores, o da questão
+e o do corpo do nó.
+
+Três limites, escolhidos:
+
+- **Granularidade de bloco** — parágrafo, fórmula, item, caixa. Para acender palavra a palavra o
+  modelo teria de carregar posição em cada trecho inline, o que é muito mais invasivo do que o
+  ganho justifica.
+- **Só o preview rápido.** No PDF compilado o mapa fonte→página é outro problema (SyncTeX), que o
+  projeto não tem.
+- **Quem não sabe, não afirma.** Tirar comentários encurta o texto, então o analisador guarda o
+  mapa de volta ao original; e um `\item[rótulo]` costura o rótulo ao texto do item, caso em que o
+  item sai **sem** origem e quem responde pelo clique é a lista inteira. Apontar para o lugar
+  errado seria pior que não apontar.
+
 ---
 
 ## 4. Arquitetura

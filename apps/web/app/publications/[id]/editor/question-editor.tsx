@@ -2,8 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge, Banner, Button, Field, Select, Tabs, useStoredState } from "@/design-system";
+import {
+  Badge,
+  Banner,
+  Button,
+  Divider,
+  Field,
+  Select,
+  Tabs,
+  useStoredState,
+} from "@/design-system";
 import { QuestionSourcePane } from "@modules/scan/ui/QuestionSourcePane";
+
+import { useEditorColumns } from "./editor-columns";
 import {
   diffSnapshots,
   type RevisionChange,
@@ -31,7 +42,7 @@ import { locateBodyLine } from "@modules/rendering/domain/build-render-bundle";
 import type { DiagnosticTarget } from "@modules/rendering/ui/RenderPanel";
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
-import { PreviewPane } from "@modules/preview/ui/PreviewPane";
+import { PreviewPane, type PreviewField } from "@modules/preview/ui/PreviewPane";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
 import type { SaidaDoRender } from "@modules/rendering/domain/saida-do-render";
 import { useRender } from "@modules/rendering/ui/use-render";
@@ -60,6 +71,9 @@ const AUTOSAVE_DELAY_MS = 1200;
  */
 const RETRY_DELAY_MS = 30_000;
 
+/** A palette de símbolos é painel fixo: fica fora do rateio das colunas. */
+const PALETTE_W = 280;
+
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
 /** Alternativas, só para o preview: quem as edita é a Fase 7. */
@@ -70,6 +84,19 @@ export interface QuestionEditorOption {
 
 /** As três respostas para "como isto está?": aproximada, autoritativa e histórica. */
 type RightTab = "rapido" | "render" | "validacao" | "historico" | "origem";
+
+/** O campo do editor e o campo do preview são a mesma coisa com dois nomes (D55). */
+const PREVIEW_FIELD: Readonly<Record<QuestionFieldId, PreviewField>> = {
+  statementLatex: "statement",
+  solutionLatex: "solution",
+  complementLatex: "complement",
+};
+
+const FIELD_OF_PREVIEW: Readonly<Record<PreviewField, QuestionFieldId>> = {
+  statement: "statementLatex",
+  solution: "solutionLatex",
+  complement: "complementLatex",
+};
 
 /**
  * O que ocupa o centro: um campo de texto, as alternativas ou os metadados.
@@ -163,6 +190,7 @@ export function QuestionEditor({
    */
   const [sourceOpen, setSourceOpen] = useStoredState(`lbb:ver-fonte:${publicationId}`, false);
   const [hasSource, setHasSource] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     void fetch(`/api/questions/${questionId}/anchors`)
@@ -178,6 +206,14 @@ export function QuestionEditor({
     };
   }, [questionId]);
   const showingSource = sourceOpen && hasSource;
+
+  const [columnsBox, setColumnsBox] = useState<HTMLDivElement | null>(null);
+  const columns = useEditorColumns({
+    container: columnsBox,
+    previewOpen,
+    sourceOpen: showingSource,
+    fixedWidth: paletteOpen ? PALETTE_W : 0,
+  });
 
   /**
    * O histórico é carregado **ao abrir a aba**, não junto com a questão.
@@ -444,13 +480,34 @@ export function QuestionEditor({
   const pendingLine = useRef<number | null>(null);
   /** Mesmo mecanismo, para o snippet de figura: ele também pode precisar trocar de aba antes. */
   const pendingSnippet = useRef<string | null>(null);
+  /** E para o clique no preview (D55), que também pode chegar de um campo que não está aberto. */
+  const pendingOffset = useRef<number | null>(null);
   const [revealTick, setRevealTick] = useState(0);
+
+  /**
+   * Onde o cursor está, **por campo** (D55).
+   *
+   * Por campo, e não um número só: o deslocamento é contado dentro de um texto, e reaproveitá-lo
+   * ao trocar de aba acenderia um bloco que não tem nada a ver. Guardar um por campo também faz
+   * voltar à Resposta reacender o bloco onde a pessoa estava.
+   */
+  const [cursors, setCursors] = useState<Partial<Record<QuestionFieldId, number>>>({});
+  const noteCursor = useCallback(
+    (offset: number) => setCursors((current) => ({ ...current, [field]: offset })),
+    [field],
+  );
 
   const flushReveal = useCallback(() => {
     const snippet = pendingSnippet.current;
     if (snippet !== null) {
       pendingSnippet.current = null;
       editor.current?.insertSnippet(snippet);
+    }
+
+    const offset = pendingOffset.current;
+    if (offset !== null) {
+      pendingOffset.current = null;
+      editor.current?.goToOffset(offset);
     }
 
     const line = pendingLine.current;
@@ -473,6 +530,19 @@ export function QuestionEditor({
    * para um arquivo que nunca chega — e o `pdflatex` diria "File not found", mandando procurar
    * defeito no texto de quem escreveu.
    */
+  /**
+   * O caminho de volta do preview (D55): clicar num bloco abre o campo dele e põe o cursor no
+   * trecho. Troca de aba quando precisa — clicar na resolução enquanto se edita o enunciado é
+   * justamente o caso em que isto vale a pena.
+   */
+  const goToPreviewBlock = useCallback((previewField: PreviewField, offset: number) => {
+    const target = FIELD_OF_PREVIEW[previewField];
+    setPane(target);
+    setField(target);
+    pendingOffset.current = offset;
+    setRevealTick((tick) => tick + 1);
+  }, []);
+
   const insertFigure = useCallback((provenance: Provenance) => {
     if (provenance.cropLatexName === null) return;
 
@@ -545,6 +615,17 @@ export function QuestionEditor({
           >
             Preview
           </Button>
+          {hasSource && (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="file-text"
+              aria-pressed={showingSource}
+              onClick={() => setSourceOpen(!sourceOpen)}
+            >
+              Ver fonte
+            </Button>
+          )}
           {onAttachSelection && (
             <Button
               size="sm"
@@ -599,7 +680,7 @@ export function QuestionEditor({
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+      <div ref={setColumnsBox} style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           {pane === "options" ? (
             <OptionsPane
@@ -639,7 +720,9 @@ export function QuestionEditor({
                     onChange={(event) => onTypeChange?.(event.target.value as QuestionType)}
                   >
                     <option value="MULTIPLE_CHOICE">Escolha simples · uma correta</option>
-                    <option value="MULTIPLE_CORRECT">Múltipla escolha · uma ou mais corretas</option>
+                    <option value="MULTIPLE_CORRECT">
+                      Múltipla escolha · uma ou mais corretas
+                    </option>
                     <option value="DISCURSIVE">Discursiva · sem alternativas</option>
                   </Select>
                 </Field>
@@ -653,6 +736,7 @@ export function QuestionEditor({
             <LatexEditor
               value={draft[field]}
               onChange={handleChange}
+              onCursorOffset={noteCursor}
               onSave={() => void save()}
               onRender={compile}
               markers={markers}
@@ -669,109 +753,130 @@ export function QuestionEditor({
           )}
         </div>
 
-        {/* O preview divide o centro com o editor (D14/§11). É a metade direita do "Main", e
-            fica aberto por padrão porque é o feedback que justifica a fase inteira. */}
+        {/* O preview divide o centro com o editor (D14/§11), e fica aberto por padrão porque é
+            o feedback que justifica a fase inteira. A divisória à esquerda dele redimensiona a
+            coluna: arrastar para a esquerda cresce. */}
         {previewOpen && (
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              borderLeft: "1px solid var(--border-default)",
-            }}
-          >
+          <>
+            <Divider {...columns.previewDivider} />
             <div
               style={{
+                width: columns.previewWidth,
+                flexShrink: 0,
+                minWidth: 0,
+                minHeight: 0,
+                overflow: "hidden",
                 display: "flex",
-                gap: "var(--space-1)",
-                padding: "var(--space-2) var(--space-3) 0",
+                flexDirection: "column",
+                borderLeft: "1px solid var(--border-default)",
               }}
             >
-              {/* Aproximado e autoritativo lado a lado, na mesma coluna: são a mesma pergunta
-                  ("como isto vai ficar?") respondida com precisão e custo diferentes. */}
-              <Tabs
-                tabs={[
-                  { id: "rapido", label: "Preview rápido" },
-                  { id: "render", label: "PDF compilado" },
-                  { id: "validacao", label: "Validação" },
-                  { id: "historico", label: "Histórico" },
-                  { id: "origem", label: "Origem" },
-                ]}
-                value={rightTab}
-                onChange={(id) => {
-                  const next = id as RightTab;
-                  setRightTab(next);
-                  if (next === "historico" && revisions === null) void loadHistory();
+              <div
+                style={{
+                  display: "flex",
+                  gap: "var(--space-1)",
+                  padding: "var(--space-2) var(--space-3) 0",
                 }}
-                aria-label="Modo de visualização"
-              />
-              {hasSource && (
-                <Button
-                  size="sm"
-                  variant={showingSource ? "primary" : "ghost"}
-                  icon="file-text"
-                  aria-pressed={showingSource}
-                  onClick={() => setSourceOpen(!sourceOpen)}
-                >
-                  Ver fonte
-                </Button>
-              )}
-            </div>
+              >
+                {/* Aproximado e autoritativo lado a lado, na mesma coluna: são a mesma pergunta
+                  ("como isto vai ficar?") respondida com precisão e custo diferentes. */}
+                <Tabs
+                  tabs={[
+                    { id: "rapido", label: "Preview rápido" },
+                    { id: "render", label: "PDF compilado" },
+                    { id: "validacao", label: "Validação" },
+                    { id: "historico", label: "Histórico" },
+                    { id: "origem", label: "Origem" },
+                  ]}
+                  value={rightTab}
+                  onChange={(id) => {
+                    const next = id as RightTab;
+                    setRightTab(next);
+                    if (next === "historico" && revisions === null) void loadHistory();
+                  }}
+                  aria-label="Modo de visualização"
+                />
+              </div>
 
-            <div style={{ flex: 1, minHeight: 0 }}>
-              {showingSource ? (
-                <QuestionSourcePane questionId={questionId} />
-              ) : rightTab === "origem" ? (
-                // A aba estava bloqueada pela Fase 14: a âncora já guardava a página e a caixa,
-                // e não havia porta para navegá-las.
-                <OriginPanel
-                  questionId={questionId}
-                  onAction={(action, provenance) => {
-                    if (action === "insert-figure") insertFigure(provenance);
-                  }}
-                />
-              ) : rightTab === "validacao" ? (
-                <ValidationPane
-                  publicationId={publicationId}
-                  questionId={questionId}
-                  disabled={blocked}
-                />
-              ) : rightTab === "historico" ? (
-                <HistoryPanel
-                  revisions={revisions ?? []}
-                  changes={revisionChanges}
-                  selected={selectedRevision}
-                  onSelect={(number) => void selectRevision(number)}
-                  onRestore={(number) => void restoreRevision(number)}
-                  busy={blocked}
-                />
-              ) : rightTab === "rapido" ? (
-                <PreviewPane
-                  source={{
-                    statementLatex: draft.statementLatex,
-                    solutionLatex: draft.solutionLatex,
-                    complementLatex: draft.complementLatex,
-                    options,
-                  }}
-                />
-              ) : (
-                <RenderPanel
-                  status={renderStatus}
-                  onRender={compile}
-                  // A memória do "último render bom" é por questão: trocar de nó precisa esquecê-la.
-                  questionKey={questionId}
-                  // Só até a primeira compilação: dali em diante a aba Fonte mostra o corpo que o
-                  // servidor realmente montou, com as alternativas dentro.
-                  sourceLatex={draft.statementLatex}
-                  onGoToDiagnostic={goToDiagnostic}
-                  saida={saida}
-                  onSaidaChange={setSaida}
-                />
-              )}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                {rightTab === "origem" ? (
+                  // A aba estava bloqueada pela Fase 14: a âncora já guardava a página e a caixa,
+                  // e não havia porta para navegá-las.
+                  <OriginPanel
+                    questionId={questionId}
+                    onAction={(action, provenance) => {
+                      if (action === "insert-figure") insertFigure(provenance);
+                    }}
+                  />
+                ) : rightTab === "validacao" ? (
+                  <ValidationPane
+                    publicationId={publicationId}
+                    questionId={questionId}
+                    disabled={blocked}
+                  />
+                ) : rightTab === "historico" ? (
+                  <HistoryPanel
+                    revisions={revisions ?? []}
+                    changes={revisionChanges}
+                    selected={selectedRevision}
+                    onSelect={(number) => void selectRevision(number)}
+                    onRestore={(number) => void restoreRevision(number)}
+                    busy={blocked}
+                  />
+                ) : rightTab === "rapido" ? (
+                  <PreviewPane
+                    source={{
+                      statementLatex: draft.statementLatex,
+                      solutionLatex: draft.solutionLatex,
+                      complementLatex: draft.complementLatex,
+                      options,
+                    }}
+                    // Só enquanto um campo de texto está aberto: nas abas de alternativas, tags e
+                    // metadados não há cursor no LaTeX para acender coisa nenhuma.
+                    cursor={
+                      isField(pane)
+                        ? { field: PREVIEW_FIELD[field], offset: cursors[field] ?? 0 }
+                        : null
+                    }
+                    onPick={goToPreviewBlock}
+                  />
+                ) : (
+                  <RenderPanel
+                    status={renderStatus}
+                    onRender={compile}
+                    // A memória do "último render bom" é por questão: trocar de nó precisa esquecê-la.
+                    questionKey={questionId}
+                    // Só até a primeira compilação: dali em diante a aba Fonte mostra o corpo que o
+                    // servidor realmente montou, com as alternativas dentro.
+                    sourceLatex={draft.statementLatex}
+                    onGoToDiagnostic={goToDiagnostic}
+                    saida={saida}
+                    onSaidaChange={setSaida}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          </>
+        )}
+
+        {/* A fonte é a terceira coluna, e só existe com *Ver fonte* ligado (D43): o PDF do livro
+            aberto na âncora, ao lado do LaTeX e do preview — os três lados da mesma questão. */}
+        {showingSource && (
+          <>
+            <Divider {...columns.sourceDivider} />
+            <div
+              style={{
+                width: columns.sourceWidth,
+                flexShrink: 0,
+                minWidth: 0,
+                minHeight: 0,
+                overflow: "hidden",
+                borderLeft: "1px solid var(--border-default)",
+              }}
+            >
+              <QuestionSourcePane questionId={questionId} />
+            </div>
+          </>
         )}
 
         {/* Painel, não overlay: a palette é ferramenta de trabalho contínuo, e um popover que
@@ -780,7 +885,7 @@ export function QuestionEditor({
           <aside
             aria-label="Símbolos LaTeX"
             style={{
-              width: 280,
+              width: PALETTE_W,
               flexShrink: 0,
               minHeight: 0,
               borderLeft: "1px solid var(--border-default)",

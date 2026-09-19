@@ -12,6 +12,7 @@ export const SCAN_RUN_STATES = [
   "ANALYZING_LAYOUT",
   "STRUCTURING",
   "SEMANTIC_REVIEW",
+  "RECOGNIZING_MATH",
   "READY_FOR_REVIEW",
   "APPROVED",
   "FAILED",
@@ -29,6 +30,7 @@ const IN_PROGRESS: ReadonlySet<ScanRunState> = new Set([
   "ANALYZING_LAYOUT",
   "STRUCTURING",
   "SEMANTIC_REVIEW",
+  "RECOGNIZING_MATH",
 ]);
 
 export const isInProgress = (state: ScanRunState): boolean => IN_PROGRESS.has(state);
@@ -43,6 +45,7 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
   ANALYZING_LAYOUT: "medindo layout",
   STRUCTURING: "montando a estrutura",
   SEMANTIC_REVIEW: "consultando a IA",
+  RECOGNIZING_MATH: "reconhecendo a matemática",
   READY_FOR_REVIEW: "pronta para revisar",
   APPROVED: "aprovada",
   FAILED: "falhou",

@@ -50,7 +50,7 @@ export function createSemanticPass(provider: AiProvider, model: string, now: () 
   return {
     providerId: provider.id,
     model,
-    async run({ run, items, cancelled }) {
+    async run({ run, items, cancelled, progress }) {
       const profile = captureProfile(run.profileId);
       if (!profile) return { changed: [], calls: 0 };
 
@@ -65,9 +65,12 @@ export function createSemanticPass(provider: AiProvider, model: string, now: () 
 
       const changed: ScanItem[] = [];
       let calls = 0;
+      const batches = Math.ceil(doubtful.length / BATCH_SIZE);
+      await progress?.(0, batches);
 
       for (let start = 0; start < doubtful.length; start += BATCH_SIZE) {
         if (await cancelled()) break;
+        if (start > 0) await progress?.(start / BATCH_SIZE, batches);
         const batch = doubtful.slice(start, start + BATCH_SIZE);
         const firstOrder = batch[0]?.sortOrder ?? 0;
         const previousStructure = items
@@ -131,6 +134,7 @@ export function createSemanticPass(provider: AiProvider, model: string, now: () 
         }
       }
 
+      await progress?.(batches, batches);
       return { changed, calls };
     },
   };

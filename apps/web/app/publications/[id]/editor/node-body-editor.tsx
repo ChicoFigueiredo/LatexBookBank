@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Badge, Banner, Button, Tabs, useStoredState } from "@/design-system";
+import { Badge, Banner, Button, Divider, Tabs, useStoredState } from "@/design-system";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
-import { LatexEditor } from "@modules/latex/ui/LatexEditor";
+import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
 import { useRender } from "@modules/rendering/ui/use-render";
 import { SourcePdfViewer } from "@modules/scan/ui/SourcePdfViewer";
+
+import { useEditorColumns } from "./editor-columns";
 
 /**
  * O corpo de um capítulo ou seção (D42, ADR 0001): a teoria, editada no mesmo Monaco da questão,
@@ -54,6 +56,9 @@ export function NodeBodyEditor({
   const [rightTab, setRightTab] = useState<RightTab>("rapido");
   const [sourceOpen, setSourceOpen] = useStoredState(`lbb:ver-fonte:${publicationId}`, false);
   const [page, setPage] = useState(1);
+  /** O cursor no corpo, para acender o bloco correspondente no preview (D55). */
+  const [cursorOffset, setCursorOffset] = useState(0);
+  const editor = useRef<LatexEditorApi | null>(null);
   const version = useRef<string>("");
   const draftRef = useRef("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,7 +108,10 @@ export function NodeBodyEditor({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ expectedVersion: version.current, bodyLatex: draftRef.current }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { version?: string; message?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        version?: string;
+        message?: string;
+      };
       if (response.status === 409) {
         setState("conflict");
         setMessage(payload.message ?? "Este nó mudou desde que você abriu.");
@@ -138,20 +146,45 @@ export function NodeBodyEditor({
     endpoint: `/api/publications/${publicationId}/nodes/${nodeId}/render`,
   });
 
-  if (!data) return <div style={{ padding: 16, color: "var(--text-muted)" }}>Abrindo o corpo…</div>;
-
-  const anchors = data.anchors;
+  const anchors = data?.anchors ?? [];
   const showingSource = sourceOpen && anchors.length > 0;
   const sourceAssetId = anchors[0]?.sourceAssetId ?? null;
+  const [columnsBox, setColumnsBox] = useState<HTMLDivElement | null>(null);
+  const columns = useEditorColumns({
+    container: columnsBox,
+    previewOpen: true,
+    sourceOpen: showingSource,
+  });
+
+  if (!data) return <div style={{ padding: 16, color: "var(--text-muted)" }}>Abrindo o corpo…</div>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 12px", borderBottom: "1px solid var(--border-default)" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "6px 12px",
+          borderBottom: "1px solid var(--border-default)",
+        }}
+      >
         <strong style={{ fontSize: "var(--text-meta)" }}>Corpo da seção</strong>
         <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>
           teoria, definições e exemplos — compila junto com as questões
         </span>
         <span style={{ flex: 1 }} />
+        {anchors.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="file-text"
+            aria-pressed={showingSource}
+            onClick={() => setSourceOpen(!sourceOpen)}
+          >
+            Ver fonte
+          </Button>
+        )}
         {state === "dirty" && <Badge tone="warn">não salvo</Badge>}
         {state === "saving" && <Badge tone="info">salvando…</Badge>}
         {state === "saved" && <Badge tone="ok">salvo</Badge>}
@@ -163,7 +196,11 @@ export function NodeBodyEditor({
           tone={state === "conflict" ? "warn" : "danger"}
           actions={
             state === "conflict" ? (
-              <Button size="sm" variant="secondary" onClick={() => void load().then(() => setState("idle"))}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void load().then(() => setState("idle"))}
+              >
                 Recarregar
               </Button>
             ) : undefined
@@ -172,11 +209,34 @@ export function NodeBodyEditor({
           {message}
         </Banner>
       )}
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+      {/* Corpo, preview e fonte — as mesmas três colunas do editor da questão, e o mesmo rateio
+          (`useEditorColumns`): o capítulo tem tanto direito ao PDF ao lado quanto o exercício. */}
+      <div ref={setColumnsBox} style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }} data-testid="node-body-editor">
-          <LatexEditor value={draft} onChange={onChange} onSave={() => void save()} onRender={render} />
+          <LatexEditor
+            value={draft}
+            onChange={onChange}
+            onSave={() => void save()}
+            onRender={render}
+            onCursorOffset={setCursorOffset}
+            onReady={(api) => {
+              editor.current = api;
+            }}
+          />
         </div>
-        <div style={{ width: "min(46%, 640px)", minHeight: 0, display: "flex", flexDirection: "column", borderLeft: "1px solid var(--border-default)" }}>
+        <Divider {...columns.previewDivider} />
+        <div
+          style={{
+            width: columns.previewWidth,
+            flexShrink: 0,
+            minWidth: 0,
+            minHeight: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            borderLeft: "1px solid var(--border-default)",
+          }}
+        >
           <div style={{ display: "flex", gap: 4, padding: "6px 12px 0", alignItems: "center" }}>
             <Tabs
               tabs={[
@@ -188,14 +248,67 @@ export function NodeBodyEditor({
               onChange={(id) => setRightTab(id as RightTab)}
               aria-label="Modo de visualização do corpo"
             />
-            {anchors.length > 0 && (
-              <Button size="sm" variant={showingSource ? "primary" : "ghost"} icon="file-text" aria-pressed={showingSource} onClick={() => setSourceOpen(!sourceOpen)}>
-                Ver fonte
-              </Button>
-            )}
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
-            {showingSource && sourceAssetId ? (
+            {rightTab === "rapido" ? (
+              <PreviewPane
+                source={{
+                  statementLatex: draft,
+                  solutionLatex: "",
+                  complementLatex: "",
+                  options: [],
+                }}
+                // O corpo é um campo só: o cursor está sempre no "enunciado" do modelo.
+                cursor={{ field: "statement", offset: cursorOffset }}
+                onPick={(_field, offset) => editor.current?.goToOffset(offset)}
+              />
+            ) : rightTab === "render" ? (
+              <RenderPanel
+                status={renderStatus}
+                onRender={render}
+                sourceLatex={draft}
+                questionKey={nodeId}
+              />
+            ) : (
+              <ul
+                style={{
+                  margin: 0,
+                  padding: 16,
+                  listStyle: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                {data.revisions.length === 0 && (
+                  <li style={{ color: "var(--text-muted)" }}>Sem revisões ainda.</li>
+                )}
+                {data.revisions.map((revision) => (
+                  <li key={revision.revisionNumber}>
+                    <strong>#{revision.revisionNumber}</strong> · {revision.summary || "edição"} ·{" "}
+                    <span style={{ color: "var(--text-muted)" }}>
+                      {revision.origin.toLowerCase()} ·{" "}
+                      {new Date(revision.createdAt).toLocaleString("pt-BR")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        {showingSource && sourceAssetId && (
+          <>
+            <Divider {...columns.sourceDivider} />
+            <div
+              style={{
+                width: columns.sourceWidth,
+                flexShrink: 0,
+                minWidth: 0,
+                minHeight: 0,
+                overflow: "hidden",
+                borderLeft: "1px solid var(--border-default)",
+              }}
+            >
               <SourcePdfViewer
                 fileUrl={`/api/assets/${sourceAssetId}/content`}
                 pageNumber={page}
@@ -210,25 +323,9 @@ export function NodeBodyEditor({
                     label: `${anchors.indexOf(anchor) + 1}/${anchors.length}`,
                   }))}
               />
-            ) : rightTab === "rapido" ? (
-              <PreviewPane source={{ statementLatex: draft, solutionLatex: "", complementLatex: "", options: [] }} />
-            ) : rightTab === "render" ? (
-              <RenderPanel status={renderStatus} onRender={render} sourceLatex={draft} questionKey={nodeId} />
-            ) : (
-              <ul style={{ margin: 0, padding: 16, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
-                {data.revisions.length === 0 && <li style={{ color: "var(--text-muted)" }}>Sem revisões ainda.</li>}
-                {data.revisions.map((revision) => (
-                  <li key={revision.revisionNumber}>
-                    <strong>#{revision.revisionNumber}</strong> · {revision.summary || "edição"} ·{" "}
-                    <span style={{ color: "var(--text-muted)" }}>
-                      {revision.origin.toLowerCase()} · {new Date(revision.createdAt).toLocaleString("pt-BR")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -21,6 +21,9 @@ import type { ScanItemChanges, ScanRun, ScanStore } from "./scan-store";
  * `FAILED` com a mensagem — retomar recomeça do ponto de parada.
  */
 
+/** Avisa quanto da etapa já foi: a tela mostra, e o aviso serve de batimento. */
+export type StepProgress = (done: number, total: number) => Promise<void>;
+
 /** A passada de desempate pela IA (D52). Recebe os itens gravados e devolve só os que mudou. */
 export interface SemanticPass {
   readonly providerId: string;
@@ -29,6 +32,7 @@ export interface SemanticPass {
     readonly run: ScanRun;
     readonly items: readonly ScanItem[];
     readonly cancelled: () => Promise<boolean>;
+    readonly progress?: StepProgress;
   }): Promise<{ readonly changed: readonly ScanItem[]; readonly calls: number }>;
 }
 
@@ -43,6 +47,7 @@ export interface MathPass {
     readonly policy: MathRecognitionPolicy;
     readonly save: (changes: ScanItemChanges) => Promise<void>;
     readonly cancelled: () => Promise<boolean>;
+    readonly progress?: StepProgress;
   }): Promise<{ readonly calls: number; readonly warnings: readonly string[] }>;
 }
 
@@ -107,6 +112,10 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
     const proposal = buildProposal(pages, profile);
     await store.replaceItems(runId, proposal.items);
 
+    const progress: StepProgress = async (stepDone, stepTotal) => {
+      await store.updateRun(runId, { stepDone, stepTotal, heartbeatAt: now() });
+    };
+
     const warnings = [...proposal.warnings];
     let aiCalls = 0;
     let mathCalls = 0;
@@ -115,12 +124,14 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
       if (await cancelled()) return await stop();
       await store.updateRun(runId, {
         state: "SEMANTIC_REVIEW",
+        stepDone: 0,
+        stepTotal: 0,
         heartbeatAt: now(),
         aiProviderId: deps.semantic.providerId,
         aiModel: deps.semantic.model,
       });
       const run = (await store.findRun(runId)) ?? initial;
-      const result = await deps.semantic.run({ run, items: await store.listItems(runId), cancelled });
+      const result = await deps.semantic.run({ run, items: await store.listItems(runId), cancelled, progress });
       aiCalls = result.calls;
       if (result.changed.length > 0) {
         await store.saveItemChanges(runId, { upserts: result.changed, deletedIds: [] });
@@ -131,7 +142,11 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
 
     if (initial.settings.recognizeMath !== "never") {
       if (deps.math) {
+        if (await cancelled()) return await stop();
         await store.updateRun(runId, {
+          state: "RECOGNIZING_MATH",
+          stepDone: 0,
+          stepTotal: 0,
           heartbeatAt: now(),
           mathProviderId: deps.math.providerId,
           mathModel: deps.math.model,
@@ -147,6 +162,7 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
             await store.updateRun(runId, { heartbeatAt: now() });
           },
           cancelled,
+          progress,
         });
         mathCalls = result.calls;
         warnings.push(...result.warnings);

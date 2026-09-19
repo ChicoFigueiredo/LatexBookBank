@@ -1021,7 +1021,9 @@ export function PublicationWorkbench({
        * o produto não tem como saber o que é a Fase 1, e a informação nunca foi para ele.
        */
       statusRight={
-        <span>{selected ? `${selected.kind.toLowerCase()} · ${selected.title}` : "nada selecionado"}</span>
+        <span>
+          {selected ? `${selected.kind.toLowerCase()} · ${selected.title}` : "nada selecionado"}
+        </span>
       }
     >
       <>
@@ -1097,7 +1099,7 @@ function NodeDetail({
   onAttachSelection?: (selection: EditorSelection) => void;
 }) {
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <PageHeader
         eyebrow={node.originalLabel ? `${node.kind} · ${node.originalLabel}` : node.kind}
         title={node.title}
@@ -1122,7 +1124,10 @@ function NodeDetail({
                 void fetch(`/api/publications/${publicationId}/questions/${node.question?.id}`, {
                   method: "PATCH",
                   headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ expectedVersion: node.question?.version, status: "READY" }),
+                  body: JSON.stringify({
+                    expectedVersion: node.question?.version,
+                    status: "READY",
+                  }),
                 }).then(() => window.location.reload());
               }}
             >
@@ -1142,13 +1147,27 @@ function NodeDetail({
         
         A regra valia por acidente até agora: o `var(--space-7)` que estava aqui não existe, então
         o CSS descartava a declaração inteira e o padding era zero sem ninguém ter escolhido isso.
+
+        A **altura** segue a mesma ideia. O painel tinha `34rem` fixos e um teto de `96rem` de
+        largura: numa tela de 1080 sobrava um terço da janela em branco abaixo do editor, e numa
+        ultralarga o PDF parava antes da borda. Agora ele ocupa o que a janela dá, e quem rola é
+        cada coluna por dentro — o editor, o preview e a fonte —, nunca a página.
       */}
-      <div style={{ padding: "0 0 var(--space-8)", maxWidth: "min(100%, 96rem)" }}>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          padding: "0 0 var(--space-3)",
+        }}
+      >
         {node.question ? (
           <>
             <div
               style={{
-                height: "34rem",
+                flex: 1,
+                minHeight: 0,
                 border: "1px solid var(--border-default)",
                 borderRadius: "var(--radius-md)",
                 overflow: "hidden",
@@ -1214,7 +1233,8 @@ function NodeDetail({
           <div
             key={node.id}
             style={{
-              height: "34rem",
+              flex: 1,
+              minHeight: 0,
               border: "1px solid var(--border-default)",
               borderRadius: "var(--radius-md)",
               overflow: "hidden",
@@ -1224,6 +1244,6 @@ function NodeDetail({
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

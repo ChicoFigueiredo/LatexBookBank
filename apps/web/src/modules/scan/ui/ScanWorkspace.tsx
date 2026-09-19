@@ -6,6 +6,7 @@ import { Badge, Banner, Button, Checkbox, Select, Segmented, injectCss } from "@
 import type { ScanKind } from "@modules/scan/domain/proposal";
 import type { ReviewOperation } from "@modules/scan/domain/review";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
+import { isInProgress } from "@modules/scan/domain/scan-run";
 import {
   countsByState,
   cycleRegion,
@@ -42,7 +43,12 @@ const CSS = `
 .lbb-scan-ws-col:last-child{border-right:0}
 .lbb-scan-ws-colhead{display:flex;gap:var(--space-2);align-items:center;padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border-subtle);font-size:var(--text-meta);color:var(--text-secondary);flex-wrap:wrap}
 .lbb-scan-progress{width:160px;height:6px;border-radius:3px;background:var(--surface-sunken);overflow:hidden}
-.lbb-scan-progress > span{display:block;height:100%;background:var(--accent)}
+.lbb-scan-progress > span{display:block;height:100%;background:var(--accent);transition:width .4s ease}
+.lbb-scan-progress[data-indeterminate] > span{width:35%;animation:lbb-scan-slide 1.2s ease-in-out infinite}
+.lbb-scan-pulse{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:lbb-scan-pulse 1.2s ease-in-out infinite;flex:none}
+@keyframes lbb-scan-slide{from{transform:translateX(-100%)}to{transform:translateX(290%)}}
+@keyframes lbb-scan-pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.lbb-scan-progress[data-indeterminate] > span,.lbb-scan-pulse{animation:none;opacity:1}}
 .lbb-scan-ws-empty{padding:var(--space-6);color:var(--text-muted)}
 .lbb-scan-ws-regions{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-3);font-size:var(--text-meta);border-bottom:1px solid var(--border-subtle);background:var(--surface)}
 `;
@@ -59,7 +65,27 @@ export interface ScanWorkspaceProps {
   readonly initial: { readonly run: ScanRunView; readonly items: readonly ScanItem[] };
 }
 
-const IN_PROGRESS = new Set(["QUEUED", "EXTRACTING", "ANALYZING_LAYOUT", "STRUCTURING", "SEMANTIC_REVIEW"]);
+/**
+ * O andamento que a barra mostra. Lendo, conta páginas; na IA e na matemática, conta lotes e
+ * itens; nas etapas curtas (ou antes da primeira contagem) não há número — a barra fica
+ * indeterminada, para não parecer cheia e parada.
+ */
+function runProgress(run: ScanRunView): { readonly percent: number | null; readonly text: string } {
+  if (run.state === "QUEUED" || run.state === "EXTRACTING") {
+    const total = run.pageTo - run.pageFrom + 1;
+    const done = Math.max(0, run.lastPageRead - run.pageFrom + 1);
+    if (run.pageTo <= 0 || total <= 0) return { percent: null, text: "abrindo o PDF" };
+    return { percent: (done / total) * 100, text: `página ${Math.max(run.lastPageRead, run.pageFrom - 1)} de ${run.pageTo}` };
+  }
+  if ((run.state === "SEMANTIC_REVIEW" || run.state === "RECOGNIZING_MATH") && run.stepTotal > 0) {
+    const unit = run.state === "SEMANTIC_REVIEW" ? "lote" : "item";
+    return {
+      percent: (run.stepDone / run.stepTotal) * 100,
+      text: `${unit} ${Math.min(run.stepDone + 1, run.stepTotal)} de ${run.stepTotal}`,
+    };
+  }
+  return { percent: null, text: "" };
+}
 const FILTERS: readonly ViewFilter[] = ["all", "pending", "low", "problems", "structure"];
 
 export function ScanWorkspace({
@@ -90,7 +116,7 @@ export function ScanWorkspace({
   const [includeSuggested, setIncludeSuggested] = useState(true);
   const [approval, setApproval] = useState<ApprovalResult | null>(null);
 
-  const inProgress = IN_PROGRESS.has(run.state);
+  const inProgress = isInProgress(run.state);
 
   // Acompanhar a execução: só o estado enquanto anda, a proposta inteira quando termina.
   useEffect(() => {
@@ -100,7 +126,7 @@ export function ScanWorkspace({
         .get(runId, false)
         .then(async ({ run: next }) => {
           setRun(next);
-          if (!IN_PROGRESS.has(next.state)) {
+          if (!isInProgress(next.state)) {
             const full = await scanApi.get(runId, true);
             setRun(full.run);
             setItems(full.items);
@@ -233,7 +259,7 @@ export function ScanWorkspace({
     return () => window.removeEventListener("keydown", onKey);
   }, [apply, busy, items, select, selected]);
 
-  const progress = run.pageTo > 0 ? Math.round(((run.lastPageRead - run.pageFrom + 1) / (run.pageTo - run.pageFrom + 1)) * 100) : 0;
+  const progress = runProgress(run);
   const pendingApproval = counts.accepted + (includeSuggested ? counts.suggested : 0);
 
   return (
@@ -246,14 +272,27 @@ export function ScanWorkspace({
           {profileLabel} · páginas {run.pageFrom}–{run.pageTo || "?"}
           {run.pageOffset !== null ? ` · impressa = PDF − ${run.pageOffset}` : ""}
         </span>
-        {inProgress && (
+        {inProgress && !run.interrupted && (
           <>
-            <div className="lbb-scan-progress" aria-label={`Progresso ${progress}%`}>
-              <span style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+            <span className="lbb-scan-pulse" aria-hidden="true" />
+            <div
+              className="lbb-scan-progress"
+              role="progressbar"
+              aria-label={`Andamento: ${run.stateLabel}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress.percent === null ? undefined : Math.round(progress.percent)}
+              data-indeterminate={progress.percent === null ? "" : undefined}
+            >
+              <span style={progress.percent === null ? undefined : { width: `${Math.max(0, Math.min(100, progress.percent))}%` }} />
             </div>
-            <span>
-              {run.lastPageRead} / {run.pageTo || "?"}
-            </span>
+            {progress.text && <span>{progress.text}</span>}
+            {run.state === "SEMANTIC_REVIEW" && run.aiModel && (
+              <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>{run.aiModel}</span>
+            )}
+            {run.state === "RECOGNIZING_MATH" && run.mathModel && (
+              <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>{run.mathModel}</span>
+            )}
           </>
         )}
         {inProgress && !run.interrupted && (
@@ -347,7 +386,14 @@ export function ScanWorkspace({
             />
           </div>
           {inProgress && items.length === 0 ? (
-            <div className="lbb-scan-ws-empty">A proposta aparece aqui quando a execução terminar. Pode fechar a aba: o scan continua.</div>
+            <div className="lbb-scan-ws-empty" role="status">
+              <strong style={{ color: "var(--text-primary)" }}>
+                {run.interrupted ? "Interrompida" : `Agora: ${run.stateLabel}`}
+                {!run.interrupted && progress.text ? ` — ${progress.text}` : ""}
+              </strong>
+              <br />
+              A proposta aparece aqui quando a execução terminar. Pode fechar a aba: o scan continua.
+            </div>
           ) : items.length === 0 ? (
             <div className="lbb-scan-ws-empty">Nenhum item foi proposto. Confira o perfil escolhido ou marque itens à mão no PDF.</div>
           ) : (

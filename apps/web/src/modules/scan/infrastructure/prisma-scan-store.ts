@@ -80,6 +80,8 @@ function toRun(row: RunRow): ScanRun {
     pageFrom: row.pageFrom,
     pageTo: row.pageTo,
     lastPageRead: row.lastPageRead,
+    stepDone: row.stepDone,
+    stepTotal: row.stepTotal,
     aiProviderId: row.aiProviderId,
     aiModel: row.aiModel,
     mathProviderId: row.mathProviderId,

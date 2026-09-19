@@ -23,6 +23,9 @@ export interface ScanRun {
   readonly pageFrom: number;
   readonly pageTo: number;
   readonly lastPageRead: number;
+  /** O andamento da etapa atual depois da leitura; `stepTotal` 0 é "sem contagem". */
+  readonly stepDone: number;
+  readonly stepTotal: number;
   readonly aiProviderId: string | null;
   readonly aiModel: string | null;
   readonly mathProviderId: string | null;
@@ -60,6 +63,8 @@ export type ScanRunPatch = Partial<
     | "cancelRequested"
     | "pageTo"
     | "lastPageRead"
+    | "stepDone"
+    | "stepTotal"
     | "aiProviderId"
     | "aiModel"
     | "mathProviderId"

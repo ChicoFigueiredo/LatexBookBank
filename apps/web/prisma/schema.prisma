@@ -445,7 +445,7 @@ model ScanRun {
   runKey         String
 
   /// `ScanRunState`: QUEUED · EXTRACTING · ANALYZING_LAYOUT · STRUCTURING · SEMANTIC_REVIEW ·
-  /// READY_FOR_REVIEW · APPROVED · FAILED · CANCELLED
+  /// RECOGNIZING_MATH · READY_FOR_REVIEW · APPROVED · FAILED · CANCELLED
   state           String  @default("QUEUED")
   cancelRequested Boolean @default(false)
 
@@ -453,6 +453,10 @@ model ScanRun {
   pageTo       Int
   /// O ponto de parada: a última página lida e gravada. Retomar começa na seguinte.
   lastPageRead Int @default(0)
+  /// O andamento da etapa depois da leitura (lotes da IA, itens da matemática). Sem ele, a barra
+  /// fica cheia e parada enquanto o modelo trabalha — e a tela parece travada.
+  stepDone     Int @default(0)
+  stepTotal    Int @default(0)
 
   aiProviderId   String?
   aiModel        String?
