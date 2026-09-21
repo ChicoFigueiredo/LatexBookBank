@@ -1,3 +1,4 @@
+import { snapshotOf } from "@modules/scan/domain/capture-profile";
 import { captureProfile } from "@modules/scan/domain/profiles";
 import {
   ENGINE_VERSION,
@@ -80,6 +81,8 @@ export async function startScan(
     sourceAssetId: source.assetId,
     profileId: profile.id,
     profileVersion: profile.version,
+    // O retrato vai junto: é o que sobra da decisão de hoje se o perfil sair amanhã (ADR 0008).
+    profileSnapshot: snapshotOf(profile),
     engineVersion: ENGINE_VERSION,
     settings,
     runKey,

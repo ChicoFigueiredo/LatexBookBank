@@ -43,19 +43,32 @@ export default async function ScanPage({
   const appEnv = env();
   const ai = describeAiSetup();
 
+  /*
+    A lembrança do livro pode apontar para um perfil que saiu do código (ADR 0008).
+
+    Cair no primeiro da lista sem dizer nada trocaria o perfil do livro pelas costas de quem o
+    escolheu — e a varredura seguinte sairia diferente sem explicação nenhuma.
+  */
+  const profiles = registeredCaptureProfiles();
+  const rememberedMissing =
+    remembered !== null && !profiles.some((profile) => profile.id === remembered) ? remembered : null;
+
   return (
     <ScanStartScreen
       publicationId={publication.id}
       title={publication.title}
       {...(library ? { library: { name: library.name, slug: library.slug } } : {})}
       source={source ? { filename: source.filename } : null}
-      profiles={registeredCaptureProfiles().map((profile) => ({
+      profiles={profiles.map((profile) => ({
         id: profile.id,
         label: profile.label,
         description: profile.description,
         version: profile.version,
+        documentKind: profile.documentKind,
+        kinds: profile.kinds,
       }))}
       suggestedProfile={remembered ?? "book-v1"}
+      rememberedMissing={rememberedMissing}
       runs={runs.map((run) => scanRunDto(run, runner.isRunning(run.id)))}
       aiConfigured={appEnv.aiBaseUrl !== null && appEnv.aiModel !== null}
       visionConfigured={appEnv.aiBaseUrl !== null && Boolean(process.env["AI_VISION_MODEL"])}

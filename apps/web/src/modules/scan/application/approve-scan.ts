@@ -1,10 +1,10 @@
 import {
   planApproval,
   type ApprovalPlan,
+  type ApprovalProfile,
   type ExistingAnchor,
   type ExistingNode,
 } from "@modules/scan/domain/approval-plan";
-import type { CaptureProfile } from "@modules/scan/domain/capture-profile";
 import { captureProfile } from "@modules/scan/domain/profiles";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
 
@@ -39,7 +39,7 @@ export interface ScanApprovalWriter {
   readContext(publicationId: string, sourceAssetId: string): Promise<ApprovalContext>;
   execute(input: {
     readonly run: ScanRun;
-    readonly profile: CaptureProfile;
+    readonly profile: ApprovalProfile;
     readonly plan: ApprovalPlan;
     readonly items: readonly ScanItem[];
     readonly now: Date;
@@ -62,8 +62,25 @@ export async function approveScan(
   if (run.state !== "READY_FOR_REVIEW" && run.state !== "APPROVED") {
     throw new ScanRunStateError("Só uma proposta pronta pode ser aprovada.");
   }
-  const profile = captureProfile(run.profileId);
-  if (!profile) throw new ScanRunStateError(`O perfil ${run.profileId} não está mais registrado.`);
+  /*
+    Aprovar não precisa do perfil vivo (ADR 0008).
+
+    O que o plano lê do perfil são três dados, e a execução guarda os três desde o dia da
+    varredura. Uma proposta revisada linha a linha não pode virar trabalho perdido porque alguém
+    renomeou um arquivo no código depois. Só execução antiga, anterior ao retrato, ainda depende
+    do registro — e aí o erro diz exatamente isso.
+  */
+  const live = captureProfile(run.profileId);
+  const profile: ApprovalProfile | null = live
+    ? { id: live.id, version: live.version, defaultQuestionType: live.settings.defaultQuestionType }
+    : run.profileSnapshot
+      ? { id: run.profileId, version: run.profileVersion, defaultQuestionType: run.profileSnapshot.defaultQuestionType }
+      : null;
+  if (!profile) {
+    throw new ScanRunStateError(
+      `O perfil ${run.profileId} não está mais registrado, e esta execução é anterior ao retrato do perfil.`,
+    );
+  }
 
   const [items, context] = await Promise.all([
     deps.store.listItems(run.id),

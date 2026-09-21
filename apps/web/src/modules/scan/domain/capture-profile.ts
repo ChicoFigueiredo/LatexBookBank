@@ -140,6 +140,27 @@ export interface CaptureProfile {
   buildSemanticPrompt(input: SemanticPromptInput): string;
 }
 
+/**
+ * O retrato de um perfil no dia da varredura (ADR 0008).
+ *
+ * Perfil é código, e código sai. O que a proposta precisa **depois** que ele sai não é o perfil
+ * vivo — é este punhado de dados: o rótulo que a tela mostra, os tipos que os seletores listam e
+ * o tipo padrão com que a aprovação cria questão. O que **não** cabe aqui é comportamento:
+ * `classifyLine` e `canContain` são código, não dado, e por isso editar a proposta continua
+ * exigindo o perfil registrado.
+ */
+export interface CaptureProfileSnapshot {
+  readonly label: string;
+  readonly kinds: readonly ScanKind[];
+  readonly defaultQuestionType: QuestionType;
+}
+
+export const snapshotOf = (profile: CaptureProfile): CaptureProfileSnapshot => ({
+  label: profile.label,
+  kinds: profile.kinds,
+  defaultQuestionType: profile.settings.defaultQuestionType,
+});
+
 const registry = new Map<string, CaptureProfile>();
 
 /**

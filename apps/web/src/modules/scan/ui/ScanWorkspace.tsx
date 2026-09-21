@@ -61,6 +61,8 @@ export interface ScanWorkspaceProps {
   readonly fileUrl: string;
   readonly profileLabel: string;
   readonly kinds: readonly ScanKind[];
+  /** O id do perfil que saiu do registro, quando saiu — a proposta está congelada (ADR 0008). */
+  readonly profileMissing?: string | null;
   readonly destinations: readonly { readonly id: string; readonly title: string; readonly depth: number }[];
   readonly aiAvailable: boolean;
   readonly mathAvailable: boolean;
@@ -96,6 +98,7 @@ export function ScanWorkspace({
   fileUrl,
   profileLabel,
   kinds,
+  profileMissing = null,
   destinations,
   aiAvailable,
   mathAvailable,
@@ -349,9 +352,20 @@ export function ScanWorkspace({
         )}
       </div>
 
+      {profileMissing !== null && (
+        <Banner tone="warn" title="Esta proposta está congelada">
+          O perfil <strong>{profileMissing}</strong> não está mais no código. Dá para ler tudo e
+          aprovar como está — a aprovação usa o retrato do perfil, guardado no dia da varredura.
+          O que não dá é editar os itens: mudar tipo ou lugar pergunta ao perfil quem pode conter
+          quem, e isso é código, não dado. Devolver o perfil ao código destrava a edição.
+        </Banner>
+      )}
       {run.error && (
-        <Banner tone="danger" title="A execução falhou">
-          {run.error}. As páginas já lidas estão guardadas; retomar continua de onde parou.
+        <Banner tone={run.state === "AWAITING_PROFILE" ? "warn" : "danger"} title={run.state === "AWAITING_PROFILE" ? "À espera do perfil" : "A execução falhou"}>
+          {run.error}
+          {run.state === "AWAITING_PROFILE"
+            ? " As páginas já lidas estão guardadas: devolva o perfil ao código e peça de novo, que a varredura continua daqui."
+            : ". As páginas já lidas estão guardadas; retomar continua de onde parou."}
         </Banner>
       )}
       {run.warnings.length > 0 && (

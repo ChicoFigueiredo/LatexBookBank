@@ -34,7 +34,8 @@ export interface SemanticPass {
     readonly items: readonly ScanItem[];
     readonly cancelled: () => Promise<boolean>;
     readonly progress?: StepProgress;
-  }): Promise<{ readonly changed: readonly ScanItem[]; readonly calls: number }>;
+    /** Avisos que a passada devolve sem falhar — o silêncio era o pior desfecho (ADR 0008). */
+  }): Promise<{ readonly changed: readonly ScanItem[]; readonly calls: number; readonly warnings?: readonly string[] }>;
 }
 
 /** O reconhecimento matemático sob medida (D52, §22). */
@@ -81,7 +82,22 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
   let pdf: OpenedPdf | null = null;
 
   try {
-    if (!profile) throw new Error(`O perfil ${initial.profileId} não está mais registrado.`);
+    /*
+      Perfil que saiu do registro não é falha da varredura (ADR 0008).
+
+      `FAILED` seria o pior desfecho possível: `startScan` recusa reabrir execução que falhou,
+      então pedir de novo criaria outra do zero e as páginas já lidas iriam embora — e o perfil
+      costuma voltar, porque o caso comum é renomear, não remover. À espera, a chave continua
+      valendo e retomar recomeça na página seguinte à última lida.
+    */
+    if (!profile) {
+      await store.updateRun(runId, {
+        state: "AWAITING_PROFILE",
+        error: `O perfil ${initial.profileId} não está mais registrado: a varredura fica à espera dele.`,
+        heartbeatAt: now(),
+      });
+      return;
+    }
 
     await store.updateRun(runId, {
       state: "EXTRACTING",
@@ -158,6 +174,7 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
       const run = (await store.findRun(runId)) ?? initial;
       const result = await deps.semantic.run({ run, items: await store.listItems(runId), cancelled, progress });
       aiCalls = result.calls;
+      warnings.push(...(result.warnings ?? []));
       if (result.changed.length > 0) {
         await store.saveItemChanges(runId, { upserts: result.changed, deletedIds: [] });
       }

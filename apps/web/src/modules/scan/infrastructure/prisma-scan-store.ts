@@ -14,6 +14,7 @@ import type {
   ScanSourceReader,
   ScanStore,
 } from "@modules/scan/application/scan-store";
+import type { CaptureProfileSnapshot } from "@modules/scan/domain/capture-profile";
 import type { RawPage } from "@modules/scan/domain/page";
 import {
   isReviewState,
@@ -67,6 +68,7 @@ function toRun(row: RunRow): ScanRun {
     sourceAssetId: row.sourceAssetId,
     profileId: row.profileId,
     profileVersion: row.profileVersion,
+    profileSnapshot: row.profileSnapshotJson === null ? null : parse<CaptureProfileSnapshot | null>(row.profileSnapshotJson, null),
     engineVersion: row.engineVersion,
     settings: parse<ScanSettings>(row.settingsJson, {
       pageFrom: row.pageFrom,
@@ -182,6 +184,7 @@ export class PrismaScanStore implements ScanStore {
         sourceAssetId: run.sourceAssetId,
         profileId: run.profileId,
         profileVersion: run.profileVersion,
+        profileSnapshotJson: run.profileSnapshot === null ? null : JSON.stringify(run.profileSnapshot),
         engineVersion: run.engineVersion,
         settingsJson: JSON.stringify(run.settings),
         runKey: run.runKey,

@@ -28,7 +28,15 @@ export default async function ScanRunPage({ params }: { params: Promise<{ id: st
   });
   if (!view || view.run.publicationId !== id) notFound();
 
+  /*
+    O perfil pode ter saído do código desde a varredura (ADR 0008).
+
+    Sem o retrato, a tela abria com rótulo cru e `kinds` vazio: os seletores de tipo vinham em
+    branco e cada clique voltava 409, sem nada explicando. O retrato devolve rótulo e tipos, e o
+    `profileMissing` é o que a tela usa para dizer a verdade antes do primeiro clique.
+  */
   const profile = captureProfile(view.run.profileId);
+  const snapshot = view.run.profileSnapshot;
   const nodes = await getPublicationTree(new PrismaDocumentTreeRepository(), id);
   const library = await new PrismaLibraryRepository().findById(publication.workspaceId);
   const appEnv = env();
@@ -40,8 +48,9 @@ export default async function ScanRunPage({ params }: { params: Promise<{ id: st
       {...(library ? { library: { name: library.name, slug: library.slug } } : {})}
       runId={runId}
       fileUrl={`/api/assets/${view.run.sourceAssetId}/content`}
-      profileLabel={profile?.label ?? view.run.profileId}
-      kinds={profile?.kinds ?? []}
+      profileLabel={profile?.label ?? snapshot?.label ?? view.run.profileId}
+      kinds={profile?.kinds ?? snapshot?.kinds ?? []}
+      profileMissing={profile === null ? view.run.profileId : null}
       destinations={nodes
         .filter((node) => isContainerKind(node.kind))
         .map((node) => ({ id: node.id, title: node.title, depth: node.depth }))}

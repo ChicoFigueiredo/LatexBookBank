@@ -1,3 +1,4 @@
+import type { CaptureProfileSnapshot } from "@modules/scan/domain/capture-profile";
 import type { RawPage } from "@modules/scan/domain/page";
 import type { ProposalMetrics, ProposedItem } from "@modules/scan/domain/proposal";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
@@ -15,6 +16,8 @@ export interface ScanRun {
   readonly sourceAssetId: string;
   readonly profileId: string;
   readonly profileVersion: number;
+  /** O retrato do perfil no dia da varredura (ADR 0008); `null` nas execuções anteriores a ele. */
+  readonly profileSnapshot: CaptureProfileSnapshot | null;
   readonly engineVersion: string;
   readonly settings: ScanSettings;
   readonly runKey: string;
@@ -49,6 +52,7 @@ export type NewScanRun = Pick<
   | "sourceAssetId"
   | "profileId"
   | "profileVersion"
+  | "profileSnapshot"
   | "engineVersion"
   | "settings"
   | "runKey"

@@ -31,8 +31,17 @@ export interface ScanStartScreenProps {
   readonly title: string;
   readonly library?: { readonly name: string; readonly slug: string };
   readonly source: { readonly filename: string } | null;
-  readonly profiles: readonly { readonly id: string; readonly label: string; readonly description: string; readonly version: number }[];
+  readonly profiles: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly description: string;
+    readonly version: number;
+    readonly documentKind: "BOOK" | "EXAM";
+    readonly kinds: readonly string[];
+  }[];
   readonly suggestedProfile: string;
+  /** O perfil que o livro lembrava e não existe mais, se for o caso (ADR 0008). */
+  readonly rememberedMissing?: string | null;
   readonly runs: readonly ScanRunView[];
   readonly aiConfigured: boolean;
   readonly visionConfigured: boolean;
@@ -55,6 +64,7 @@ export function ScanStartScreen({
   source,
   profiles,
   suggestedProfile,
+  rememberedMissing = null,
   runs,
   aiConfigured,
   visionConfigured,
@@ -149,6 +159,12 @@ export function ScanStartScreen({
               O scan lê o PDF e propõe a estrutura — capítulos, seções, exemplos, exercícios — com as âncoras de cada
               um. Nada entra no livro antes de você revisar e aprovar.
             </Callout>
+            {rememberedMissing !== null && (
+              <Banner tone="warn" title="O perfil que este livro usava saiu">
+                A última varredura deste livro usou <strong>{rememberedMissing}</strong>, que não está
+                mais no código. Escolha o perfil abaixo com atenção: não dá para repetir a de antes.
+              </Banner>
+            )}
             <Field label="Perfil de captura" hint={profile?.description}>
               <Select value={profileId} onChange={(event) => setProfileId(event.target.value)}>
                 {profiles.map((p) => (
@@ -158,6 +174,20 @@ export function ScanStartScreen({
                 ))}
               </Select>
             </Field>
+            {profile && (
+              /*
+                De que tipo é o perfil, e o que ele sabe achar.
+
+                O contrato tem estes dois campos desde sempre e a tela os descartava, então nada
+                impedia rodar "Prova do ENEM" num livro-texto e esperar capítulos.
+              */
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
+                <Badge tone={profile.documentKind === "EXAM" ? "accent" : "info"}>
+                  {profile.documentKind === "EXAM" ? "para prova" : "para livro"}
+                </Badge>
+                <small style={{ color: "var(--text-muted)" }}>acha: {profile.kinds.join(" · ").toLowerCase()}</small>
+              </div>
+            )}
             <div className="lbb-scan-start-row">
               <Field label="Da página">
                 <Input type="number" min={1} value={pageFrom} onChange={(event) => setPageFrom(event.target.value)} />
@@ -203,6 +233,13 @@ export function ScanStartScreen({
                   <div>
                     {run.profileId}@{run.profileVersion} · páginas {run.pageFrom}–{run.pageTo || "?"}
                     {run.settings.useAi ? " · IA" : ""}
+                    {/* Perfil que saiu do código: a proposta continua legível e aprovável, não editável. */}
+                    {!profiles.some((p) => p.id === run.profileId) && (
+                      <>
+                        {" "}
+                        <Badge tone="neutral">perfil fora do código</Badge>
+                      </>
+                    )}
                   </div>
                   <small>
                     {new Date(run.createdAt).toLocaleString("pt-BR")}

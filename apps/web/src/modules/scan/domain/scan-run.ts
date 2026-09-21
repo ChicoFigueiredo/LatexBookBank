@@ -16,6 +16,7 @@ export const SCAN_RUN_STATES = [
   "RECOGNIZING_MATH",
   "READY_FOR_REVIEW",
   "APPROVED",
+  "AWAITING_PROFILE",
   "FAILED",
   "CANCELLED",
 ] as const;
@@ -37,6 +38,15 @@ const IN_PROGRESS: ReadonlySet<ScanRunState> = new Set([
 
 export const isInProgress = (state: ScanRunState): boolean => IN_PROGRESS.has(state);
 
+/**
+ * A varredura parou porque o perfil de captura saiu do registro (ADR 0008).
+ *
+ * Não é falha: não há nada de errado com o PDF nem com o que já foi lido. É espera — devolver o
+ * perfil ao código e pedir de novo continua da página onde parou, porque a chave da execução
+ * continua valendo e `FAILED` seria justamente o estado que a faz ser descartada.
+ */
+export const isAwaitingProfile = (state: ScanRunState): boolean => state === "AWAITING_PROFILE";
+
 /** Estados em que a proposta existe e pode ser revisada. */
 export const isReviewable = (state: ScanRunState): boolean =>
   state === "READY_FOR_REVIEW" || state === "APPROVED";
@@ -51,12 +61,19 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
   RECOGNIZING_MATH: "reconhecendo a matemática",
   READY_FOR_REVIEW: "pronta para revisar",
   APPROVED: "aprovada",
+  AWAITING_PROFILE: "à espera do perfil",
   FAILED: "falhou",
   CANCELLED: "cancelada",
 };
 
-/** A versão do motor. Muda quando a mesma entrada passa a produzir outra proposta. */
-export const ENGINE_VERSION = "scan-engine@1";
+/**
+ * A versão do motor. Muda quando a mesma entrada passa a produzir outra proposta.
+ *
+ * `@2`: a figura deixou de engolir a linha que o perfil protege. Mudou proposta de verdade — o
+ * *Fundamentos* passou de dez capítulos sem título para os dez capítulos do livro —, e por isso a
+ * chave antiga não pode mais reabrir uma execução como se fosse a mesma coisa.
+ */
+export const ENGINE_VERSION = "scan-engine@2";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 

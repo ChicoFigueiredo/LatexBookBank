@@ -20,8 +20,19 @@ async function reviewable(store: ScanStore, runId: string) {
   if (!isReviewable(run.state)) {
     throw new ScanRunStateError("A proposta ainda está sendo montada; espere a execução terminar.");
   }
+  /*
+    Editar a proposta **precisa** do perfil vivo, e este é o único gesto que precisa (ADR 0008).
+
+    Mudar o tipo de um item, movê-lo, aceitá-lo, pergunta "este pai pode conter este filho?" —
+    `canContain` é código, não dado, e retrato nenhum o substitui. Por isso a proposta congela em
+    vez de sumir: dá para ler e dá para aprovar como está; o que não dá é mexer.
+  */
   const profile = captureProfile(run.profileId);
-  if (!profile) throw new ScanRunStateError(`O perfil ${run.profileId} não está mais registrado.`);
+  if (!profile) {
+    throw new ScanRunStateError(
+      `O perfil ${run.profileId} não está mais registrado: esta proposta está congelada. Dá para aprová-la como está, ou devolver o perfil ao código para voltar a editá-la.`,
+    );
+  }
   return { run, profile };
 }
 

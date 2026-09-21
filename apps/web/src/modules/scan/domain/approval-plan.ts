@@ -4,7 +4,6 @@ import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import type { QuestionType } from "@modules/questions/domain/question-type";
 
 import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
-import type { CaptureProfile } from "./capture-profile";
 import { overlapRatio } from "./geometry";
 import type { ProposedRegion, ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
@@ -81,9 +80,23 @@ export interface ApprovalPlan {
   readonly skipped: readonly { readonly itemId: string; readonly reason: string }[];
 }
 
+/**
+ * O que a aprovação precisa do perfil — e só isto (ADR 0008).
+ *
+ * Levar o `CaptureProfile` inteiro aqui escondia um fato útil: o plano não chama gancho nenhum,
+ * não classifica linha, não decide quem contém quem. Ele lê três dados. Dizer isso no tipo é o
+ * que permite aprovar uma proposta pronta com o **retrato** do perfil, depois que o perfil vivo
+ * saiu do registro.
+ */
+export interface ApprovalProfile {
+  readonly id: string;
+  readonly version: number;
+  readonly defaultQuestionType: QuestionType;
+}
+
 export interface ApprovalInput {
   readonly items: readonly ScanItem[];
-  readonly profile: CaptureProfile;
+  readonly profile: ApprovalProfile;
   readonly destinationId: string | null;
   /** Aprovação em lote: os `AUTO_ACCEPTABLE` entram junto com os aceitos (§37). */
   readonly includeSuggested: boolean;
@@ -215,7 +228,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
 
     if (QUESTION_KINDS.has(item.kind)) {
       const children = descendants(item).filter((child) => FOLDED_KINDS.has(child.kind));
-      const type = profile.settings.defaultQuestionType;
+      const type = profile.defaultQuestionType;
       const latex = questionLatex(item, children, type === "MULTIPLE_CHOICE" || type === "MULTIPLE_CORRECT");
       steps.push({
         type: "createNode",

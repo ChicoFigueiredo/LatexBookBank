@@ -52,7 +52,20 @@ export function createSemanticPass(provider: AiProvider, model: string, now: () 
     model,
     async run({ run, items, cancelled, progress }) {
       const profile = captureProfile(run.profileId);
-      if (!profile) return { changed: [], calls: 0 };
+      /*
+        Sem perfil, a IA não tem o que perguntar — o prompt sai do perfil —, mas calar era o
+        desfecho errado: a execução terminava idêntica a uma em que a IA rodou e nada achou, e
+        ninguém tinha como saber que o desempate simplesmente não aconteceu (ADR 0008).
+      */
+      if (!profile) {
+        return {
+          changed: [],
+          calls: 0,
+          warnings: [
+            `O desempate por IA não rodou: o perfil ${run.profileId} não está mais registrado, e é dele que sai a pergunta.`,
+          ],
+        };
+      }
 
       const byKey = new Map(items.map((item) => [item.key, item]));
       const doubtful = items.filter(

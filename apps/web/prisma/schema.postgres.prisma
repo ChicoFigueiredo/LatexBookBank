@@ -457,6 +457,10 @@ model ScanRun {
 
   profileId      String
   profileVersion Int
+  /// O retrato do perfil no dia da varredura (ADR 0008): rótulo, tipos e tipo padrão de questão.
+  /// É o que deixa a proposta aprovável e legível depois que o perfil sai do registro. Execuções
+  /// anteriores a esta coluna ficam com NULL, e aí o perfil vivo responde, como sempre respondeu.
+  profileSnapshotJson String?
   engineVersion  String
   /// Intervalo, destino e opções, em JSON normalizado — é o que entra na chave.
   settingsJson   String
