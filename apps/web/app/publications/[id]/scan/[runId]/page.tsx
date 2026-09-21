@@ -6,7 +6,7 @@ import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastruct
 import { isContainerKind } from "@modules/document-tree/domain/add-placement";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { getScan, ScanRunNotFoundError } from "@modules/scan/application/control-scan";
-import { captureProfile } from "@modules/scan/domain/profiles";
+import { captureProfile, registeredCaptureProfiles } from "@modules/scan/domain/profiles";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
@@ -51,6 +51,7 @@ export default async function ScanRunPage({ params }: { params: Promise<{ id: st
       profileLabel={profile?.label ?? snapshot?.label ?? view.run.profileId}
       kinds={profile?.kinds ?? snapshot?.kinds ?? []}
       profileMissing={profile === null ? view.run.profileId : null}
+      profiles={registeredCaptureProfiles().map((entry) => ({ id: entry.id, label: entry.label }))}
       destinations={nodes
         .filter((node) => isContainerKind(node.kind))
         .map((node) => ({ id: node.id, title: node.title, depth: node.depth }))}

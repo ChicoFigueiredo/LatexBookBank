@@ -128,6 +128,11 @@ export const scanApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  switchProfile: (runId: string, profileId: string) =>
+    send<{ run: ScanRunView }>(`/api/scans/${runId}/switch-profile`, {
+      method: "POST",
+      body: JSON.stringify({ profileId }),
+    }),
   suggestProfile: (publicationId: string) =>
     send<ProfileSuggestionView>(`/api/publications/${publicationId}/capture-profile-suggestion`),
 };

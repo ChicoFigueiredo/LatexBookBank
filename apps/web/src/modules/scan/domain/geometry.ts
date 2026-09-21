@@ -49,6 +49,16 @@ export function overlapRatio(a: Rect, b: Rect): number {
   return smaller > 0 ? (w * h) / smaller : 0;
 }
 
+/**
+ * A caixa normalizada como retângulo, para comparar duas âncoras.
+ *
+ * Mora aqui porque tem dois donos: a aprovação, que pergunta "esta âncora já está no acervo?", e
+ * a herança de revisão, que pergunta "isto é o mesmo lugar do livro?". Duas perguntas, uma conta.
+ */
+export function boxRect(box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }): Rect {
+  return { x0: box.x, y0: box.y, x1: box.x + box.width, y1: box.y + box.height };
+}
+
 const PRECISION = 1e6;
 const round = (value: number): number => Math.round(value * PRECISION) / PRECISION;
 

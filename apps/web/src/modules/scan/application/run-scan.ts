@@ -2,6 +2,7 @@ import { asStorageKey, type StorageProvider } from "@shared/ports/storage-provid
 
 import { buildLines } from "@modules/scan/domain/page";
 import { captureProfile, rankProfiles, PROFILE_MISMATCH_MARGIN } from "@modules/scan/domain/profiles";
+import { inheritReview } from "@modules/scan/domain/inherit-review";
 import { buildProposal } from "@modules/scan/domain/structure";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
 import type { MathRecognitionPolicy } from "@modules/scan/domain/scan-run";
@@ -136,6 +137,41 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
     };
 
     const warnings = [...proposal.warnings];
+
+    /*
+      Trocar de perfil não joga fora a revisão (ADR 0009).
+
+      Acontece aqui, logo depois de os itens existirem, porque casar âncoras exige os dois lados
+      gravados. O que atravessa é só decisão de gente — aceitar, rejeitar, corrigir texto —, e
+      nunca o estado que a máquina produziu, que a varredura nova acabou de produzir de novo.
+    */
+    if (initial.inheritedFromRunId !== null) {
+      const anteriores = await store.listItems(initial.inheritedFromRunId);
+      const novos = await store.listItems(runId);
+      const herdados = inheritReview(anteriores, novos);
+      if (herdados.length > 0) {
+        const porId = new Map(novos.map((item) => [item.id, item]));
+        await store.saveItemChanges(runId, {
+          upserts: herdados.flatMap((decisao) => {
+            const item = porId.get(decisao.id);
+            return item
+              ? [
+                  {
+                    ...item,
+                    reviewState: decisao.reviewState,
+                    reviewedText: decisao.reviewedText,
+                    reviewedLatex: decisao.reviewedLatex,
+                  },
+                ]
+              : [];
+          }),
+          deletedIds: [],
+        });
+      }
+      warnings.push(
+        `Trocou de perfil: ${herdados.length} de ${anteriores.length} itens revisados foram reaproveitados pela posição no livro. Confira antes de aprovar.`,
+      );
+    }
 
     /*
       O perfil escolhido foi o errado? (ADR 0007)

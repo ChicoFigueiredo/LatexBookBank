@@ -63,6 +63,8 @@ export interface ScanWorkspaceProps {
   readonly kinds: readonly ScanKind[];
   /** O id do perfil que saiu do registro, quando saiu — a proposta está congelada (ADR 0008). */
   readonly profileMissing?: string | null;
+  /** Os perfis para os quais dá para trocar sem perder a revisão (ADR 0009). */
+  readonly profiles?: readonly { readonly id: string; readonly label: string }[];
   readonly destinations: readonly { readonly id: string; readonly title: string; readonly depth: number }[];
   readonly aiAvailable: boolean;
   readonly mathAvailable: boolean;
@@ -99,6 +101,7 @@ export function ScanWorkspace({
   profileLabel,
   kinds,
   profileMissing = null,
+  profiles = [],
   destinations,
   aiAvailable,
   mathAvailable,
@@ -269,6 +272,23 @@ export function ScanWorkspace({
 
   const progress = runProgress(run);
   const pendingApproval = counts.accepted + (includeSuggested ? counts.suggested : 0);
+  const outros = profiles.filter((option) => option.id !== run.profileId);
+
+  /*
+    A troca cria execução nova e leva a tela para ela: a anterior continua inteira, do lado, e
+    comparar as duas é justamente o que quem afina perfil quer fazer.
+  */
+  const switchTo = async (profileId: string) => {
+    if (profileId === "") return;
+    setBusy(true);
+    try {
+      const { run: nova } = await scanApi.switchProfile(runId, profileId);
+      router.push(`/publications/${publicationId}/scan/${nova.id}`);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : String(problem));
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="lbb-scan-ws">
@@ -280,6 +300,25 @@ export function ScanWorkspace({
           {profileLabel} · páginas {run.pageFrom}–{run.pageTo || "?"}
           {run.pageOffset !== null ? ` · impressa = PDF − ${run.pageOffset}` : ""}
         </span>
+        {/*
+          Trocar de perfil sem perder a revisão (ADR 0009). Some enquanto a varredura anda: trocar
+          no meio dela herdaria de uma proposta pela metade.
+        */}
+        {!inProgress && outros.length > 0 && (
+          <Select
+            aria-label="Varrer de novo com outro perfil"
+            value=""
+            disabled={busy}
+            onChange={(event) => void switchTo(event.target.value)}
+          >
+            <option value="">Trocar de perfil…</option>
+            {outros.map((option) => (
+              <option key={option.id} value={option.id}>
+                Varrer com {option.label}
+              </option>
+            ))}
+          </Select>
+        )}
         {inProgress && !run.interrupted && (
           <>
             <span className="lbb-scan-pulse" aria-hidden="true" />

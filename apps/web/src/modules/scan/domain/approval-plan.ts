@@ -4,7 +4,7 @@ import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import type { QuestionType } from "@modules/questions/domain/question-type";
 
 import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
-import { overlapRatio } from "./geometry";
+import { boxRect, overlapRatio } from "./geometry";
 import type { ProposedRegion, ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
 import { foldText } from "./text";
@@ -274,6 +274,3 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
   return { steps, skipped };
 }
 
-function boxRect(box: NormalizedBox) {
-  return { x0: box.x, y0: box.y, x1: box.x + box.width, y1: box.y + box.height };
-}

@@ -21,6 +21,8 @@ export interface ScanRun {
   readonly engineVersion: string;
   readonly settings: ScanSettings;
   readonly runKey: string;
+  /** De qual execução esta herdou a revisão ao trocar de perfil (ADR 0009). */
+  readonly inheritedFromRunId: string | null;
   readonly state: ScanRunState;
   readonly cancelRequested: boolean;
   readonly pageFrom: number;
@@ -56,6 +58,7 @@ export type NewScanRun = Pick<
   | "engineVersion"
   | "settings"
   | "runKey"
+  | "inheritedFromRunId"
   | "pageFrom"
   | "pageTo"
 >;
