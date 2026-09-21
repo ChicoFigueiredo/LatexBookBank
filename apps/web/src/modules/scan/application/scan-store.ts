@@ -21,7 +21,7 @@ export interface ScanRun {
   readonly engineVersion: string;
   readonly settings: ScanSettings;
   readonly runKey: string;
-  /** De qual execução esta herdou a revisão ao trocar de perfil (ADR 0009). */
+  /** De qual execução esta herdou a revisão ao trocar de perfil (ver `domain/inherit-review.ts`). */
   readonly inheritedFromRunId: string | null;
   readonly state: ScanRunState;
   readonly cancelRequested: boolean;

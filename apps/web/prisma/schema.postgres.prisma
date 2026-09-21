@@ -466,7 +466,7 @@ model ScanRun {
   settingsJson   String
   /// sha256 de (asset, perfil@versão, motor, configuração). A mesma chave reabre a execução (D53).
   runKey         String
-  /// A execução de onde esta herdou a revisão, ao trocar de perfil (ADR 0009). A varredura nova
+  /// A execução de onde esta herdou a revisão, ao trocar de perfil. A varredura nova
   /// é outra execução, com chave própria; o que atravessa é o que uma pessoa decidiu.
   inheritedFromRunId String?
 

@@ -63,7 +63,7 @@ export interface ScanWorkspaceProps {
   readonly kinds: readonly ScanKind[];
   /** O id do perfil que saiu do registro, quando saiu — a proposta está congelada (ADR 0008). */
   readonly profileMissing?: string | null;
-  /** Os perfis para os quais dá para trocar sem perder a revisão (ADR 0009). */
+  /** Os perfis para os quais dá para trocar sem perder a revisão. */
   readonly profiles?: readonly { readonly id: string; readonly label: string }[];
   readonly destinations: readonly { readonly id: string; readonly title: string; readonly depth: number }[];
   readonly aiAvailable: boolean;
@@ -301,7 +301,7 @@ export function ScanWorkspace({
           {run.pageOffset !== null ? ` · impressa = PDF − ${run.pageOffset}` : ""}
         </span>
         {/*
-          Trocar de perfil sem perder a revisão (ADR 0009). Some enquanto a varredura anda: trocar
+          Trocar de perfil sem perder a revisão. Some enquanto a varredura anda: trocar
           no meio dela herdaria de uma proposta pela metade.
         */}
         {!inProgress && outros.length > 0 && (

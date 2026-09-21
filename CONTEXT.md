@@ -169,13 +169,35 @@ do acervo; revisá-la não mexe em livro nenhum, e aprová-la cria os nós e as 
 Guarda o que o scan propôs ao lado do que a pessoa corrigiu.
 _Avoid_: sugestão, rascunho, importação, resultado do OCR
 
+**Diagnóstico do item**:
+O veredito do scan sobre um elemento da proposta, com o motivo junto: **completo**, **suspeito**,
+**incompleto** ou **sem evidência**. Diz o estado *e* por quê — "falta a alternativa D", "tem a
+questão 07 dentro" —, e é por ele que a revisão se ordena. Diferente da **confiança**, que é um
+número para ordenar; o diagnóstico é uma frase para decidir.
+_Avoid_: diagnóstico (sem qualificar; confunde com a tela), erro, validação (é da questão)
+
+**Confiança**:
+De 0 a 1, quanto o scan acredita no que propôs, em partes: padrão, tipografia, layout,
+continuidade e semântica. Serve para **ordenar** a revisão e para o portão do aceite automático,
+não para fingir precisão. Baixa confiança nunca é escondida.
+_Avoid_: certeza, probabilidade, score
+
 **Perfil de captura**:
 As regras que dizem ao scan como um livro é organizado: como uma questão começa, como se
-reconhece um capítulo, onde a teoria acaba e os exercícios começam, onde ficam as respostas.
-Uma prova de concurso, uma prova do ENEM e um livro-texto têm perfis diferentes. Os perfis
-vivem no código, com nome e versão; o livro lembra qual usa.
+reconhece um capítulo, onde a teoria acaba e os exercícios começam. Uma prova de concurso, uma
+prova do ENEM e um livro-texto têm perfis diferentes. Os perfis vivem no **código**, com nome e
+versão — são comportamento, não configuração ([ADR 0007](docs/adr/0007-o-perfil-de-captura-e-codigo.md))
+—, e o livro lembra qual usa. Cada perfil sabe se **pontuar** num documento, e é dessa nota que
+saem a sugestão de qual usar e o aviso de que se usou o errado.
 _Avoid_: perfil (sem qualificar; confunde com Perfil LaTeX), template de scan, preset, plugin
 (é o mecanismo, não o conceito)
+
+**Retrato do perfil**:
+O punhado de dados que a execução guarda do perfil no dia da varredura: rótulo, tipos e tipo
+padrão de questão. É o que mantém a proposta legível e **aprovável** depois que o perfil sai do
+código ([ADR 0008](docs/adr/0008-perfil-que-sai-do-registro.md)). Não guarda comportamento, e por
+isso **editar** a proposta continua exigindo o perfil registrado.
+_Avoid_: snapshot, cópia do perfil, cache
 
 **Mobília**:
 O que se repete nas páginas sem ser conteúdo: cabeçalho corrido, número de página, nome do
@@ -221,7 +243,14 @@ Reconhecimento que devolve, além do enunciado, o tipo da questão e as alternat
 
 **Origem** (aba):
 A tela que mostra de onde uma questão veio: asset fonte, página, âncora e recorte.
-_Avoid_: proveniência (só em documentação)
+_Avoid_: proveniência (que é outra coisa — ver abaixo), fonte (é o arquivo)
+
+**Proveniência**:
+De que execução do scan um nó do acervo nasceu. É dado, não tela: a coluna que responde "o que
+neste livro veio de máquina?" e que permite apagar uma importação inteira sem tocar no que já
+existia antes dela ([ADR 0006](docs/adr/0006-a-importacao-e-apagavel.md)). Nó sem proveniência é
+nó que nenhum scan criou.
+_Avoid_: origem (é a aba), histórico (é o das revisões)
 
 ## Edição e render
 
@@ -319,7 +348,8 @@ Dali se **importa**, criando um livro novo com capa e PDF, ou se **anexa**, dand
 livro que já existe. Nunca escreve de volta no Calibre, e o livro importado não fica preso a ele:
 o Calibre é uma origem, não um dono.
 
-**Diagnóstico**:
+**Diagnóstico do app**:
 A tela que diz se o app está inteiro: banco, storage, worker de render, modelo de IA, TeX do
-host, último backup.
-_Avoid_: health check (em texto de tela), status
+host, último backup. Qualificar é obrigatório: sem "do app" ou "do item", **diagnóstico** é
+ambíguo, e as duas acepções aparecem no mesmo dia de trabalho.
+_Avoid_: health check (em texto de tela), status, diagnóstico (sem qualificar)

@@ -3,8 +3,7 @@ import type { ScanStore } from "./scan-store";
 import { startScan, type StartScanCommand } from "./start-scan";
 
 /**
- * Varrer de novo com outro perfil, herdando a revisão
- * ([ADR 0009](../../../../docs/adr/0009-trocar-de-perfil-herda-a-revisao.md)).
+ * Varrer de novo com outro perfil, herdando a revisão (`domain/inherit-review.ts`).
  *
  * É execução **nova**, e não a mesma trocando de perfil: o `profileId` entra na `runKey`, e
  * recalculá-la faria a execução mudar de identidade no meio da vida — a chave passaria a dizer

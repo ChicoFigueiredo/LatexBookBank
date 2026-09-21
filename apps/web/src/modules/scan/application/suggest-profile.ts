@@ -5,7 +5,7 @@ import type { OpenedPdf, PdfDocumentOpener } from "./pdf-document";
 import type { ScanSourceReader } from "./scan-store";
 
 /**
- * Qual perfil de captura este PDF pede ([ADR 0007](../../../../docs/adr/0007-o-perfil-de-captura-e-codigo.md)).
+ * Qual perfil de captura este PDF pede ([ADR 0007](../../../../../../docs/adr/0007-o-perfil-de-captura-e-codigo.md)).
  *
  * Antes disto, a sugestão era a lembrança do livro — e, sem lembrança, o literal `book-v1`. Um
  * caderno do ENEM anexado a um livro novo chegava com "Livro-texto" escolhido, e quem não

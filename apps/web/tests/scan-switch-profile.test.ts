@@ -11,8 +11,7 @@ import { seedBookWithSource } from "./support/scan-seed";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 /**
- * Trocar de perfil sem jogar fora a revisão
- * ([ADR 0009](../../../docs/adr/0009-trocar-de-perfil-herda-a-revisao.md)).
+ * Trocar de perfil sem jogar fora a revisão.
  *
  * Quem está afinando um perfil varre o mesmo livro muitas vezes. Antes disto, cada troca zerava a
  * revisão, porque o perfil entra na `runKey` e a execução nova nasce vazia. O casamento é pela

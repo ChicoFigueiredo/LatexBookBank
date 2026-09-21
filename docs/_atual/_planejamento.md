@@ -927,6 +927,12 @@ títulos de capítulo e de seção · marcador do bloco de exercícios · onde f
 do livro, fim do capítulo, logo abaixo, nenhuma) · número de colunas · tipo padrão da questão
 criada · modelo de visão.
 
+> **Revisto pelo uso — [ADR 0007](../adr/0007-o-perfil-de-captura-e-codigo.md).** Destas oito,
+> **sete nunca foram lidas por ninguém**: os três perfis as preenchiam e consumidor nenhum
+> existia. Só "tipo padrão da questão criada" é lido, na aprovação. O perfil de captura é
+> **código com ganchos** — `classifyLine`, `canContain`, `score` e os opcionais —, e o contrato
+> declara só o que alguém lê. Um campo volta quando tiver consumidor, não antes.
+
 **Presets no código, não tela de edição.** Cada perfil nasce com um livro real na mão e um teste
 com o PDF dele, como a segmentação nasceu com o ENA. Tela para editar expressão regular é
 cerimônia antes de existirem cinco perfis — e regex editável por formulário é a classe de

@@ -7,7 +7,7 @@ import { Badge, Banner, Button, Modal } from "@/design-system";
 import { scanApi, type ImportPreview } from "./scan-client";
 
 /**
- * Apagar para reimportar (D57, [ADR 0006](../../../../../docs/adr/0006-a-importacao-e-apagavel.md)).
+ * Apagar para reimportar (D57, [ADR 0006](../../../../../../docs/adr/0006-a-importacao-e-apagavel.md)).
  *
  * Duas ações, e a diferença entre elas é a razão deste diálogo existir: uma refaz a análise, a
  * outra mexe no acervo. Os **números vêm antes** — quantos nós vão para a lixeira, por tipo, e

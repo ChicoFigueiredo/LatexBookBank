@@ -1681,8 +1681,20 @@ script `backfill-legacy-assets.ts`. Nenhuma tela escreve.)*
 - ✅ Ordem página → coluna → altura; atravessar coluna ou página não é caso especial
 
 **Perfis de captura** *(D41, D46 — #209, #210, #211)*
-- ✅ Contrato com os oito campos da D41 e ganchos opcionais; registro explícito em
-  `profiles/index.ts`
+- ✅ Contrato e registro explícito em `profiles/index.ts` — **revisto**: dos oito campos da D41,
+  sete nunca foram lidos e saíram ([ADR 0007](../adr/0007-o-perfil-de-captura-e-codigo.md)); ficou
+  `defaultQuestionType`, mais os ganchos. `isBoundary`, declarado **e chamado** sem nenhum perfil
+  o implementar, saiu com o ramo morto
+- ✅ `score`: cada perfil pontua uma amostra, e da mesma nota saem a sugestão de perfil e o aviso
+  de perfil errado *(conferido contra o corpus real: 8 cadernos, o ENA e o Elon)*
+- ✅ Sugestão lendo o PDF — amostra **espalhada** pelo documento, porque as oito primeiras
+  páginas do Elon davam nota zero ao `book-v1` (capa, créditos, prefácio, sumário)
+- ✅ A tela mostra de que tipo é o perfil (`documentKind`) e o que ele sabe achar (`kinds`)
+- ✅ Trocar de perfil sem perder a revisão: execução nova, chave honesta, e o que a pessoa
+  decidiu herdado pela posição no livro (`domain/inherit-review.ts`)
+- ✅ Perfil que sai do registro **congela** a proposta em vez de destruí-la
+  ([ADR 0008](../adr/0008-perfil-que-sai-do-registro.md)): `AWAITING_PROFILE` no lugar de `FAILED`,
+  aprovação pelo retrato do perfil, a IA avisa em vez de calar, e a tela diz antes do 409
 - ✅ `Publication.captureProfileId` — o livro lembra o perfil
 - ✅ Presets no código, **sem tela de edição**
 - ✅ `exam-v1`: a segmentação da captura, chamada sem mudança *(as mesmas caixas nas páginas do
@@ -1860,9 +1872,16 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 - ✅ `figure[H]` com `\includegraphics[width=…]` e `\caption`, na posição do livro *(`float` entrou
   no preâmbulo: sem ele a figura flutuaria para longe do parágrafo que a explica)*
 - ✅ Legenda do livro reconhecida e tirada do corpo
-- ◐ Destino por perfil: **feito no `book-v1`** (corpo da seção). Nos perfis de prova a figura
-  ainda não entra no enunciado — `exam-enem-v1` não conhece `FIGURE`, e as provas do ENEM
-  continuam sendo importadas sem gráfico
+- ◐ Destino por perfil: **feito no `book-v1`** (corpo da seção) e **no `exam-enem-v1`**, que
+  passou a conhecer `FIGURE` — o gráfico da questão do ENEM agora vira figura. Falta o `exam-v1`,
+  e por um motivo estrutural: ele desvia o motor inteiro pelo `buildItems` e retorna antes da
+  passada de figuras, então listar `FIGURE` nos `kinds` dele não faria nada
+- ✅ A figura não engole a linha que o perfil protege *(sem isto, aceitar `FIGURE` no ENEM era
+  regressão: a absorção pega linha de até 16 caracteres, e "QUESTÃO 45" tem dez — três questões
+  desapareciam e dez perdiam as alternativas, de 735. Motor a `@2`)*
+- ✅ Falha do `pdf-lib` cai no PNG, e não só em página girada *(o ADR 0005 promete "nenhuma figura
+  fica de fora por causa do formato"; antes disto, qualquer outra falha deixava a figura na
+  proposta **sem arquivo nenhum**)*
 - ✅ Redesenhar a caixa da figura arrastando, na revisão *(o botão "Recortar de novo" refaz o
   arquivo depois que a caixa muda)*
 - ✅ A figura chega ao compilador: âncora com `cropAssetId`, e o render do corpo do nó leva no
@@ -1880,10 +1899,32 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
   outra coisa: o `book-v1` não reconhece a estrutura dele (0 exemplos, 0 exercícios, 453 falsas
   seções) — o livro precisa de perfil próprio, que é trabalho de outra fase
 
+### Fase 25 — um perfil para o *Fundamentos* · **a fazer**
+
+O `book-v1` não lê o FME, e agora há duas medidas disso, não uma:
+
+- [ ] A varredura acha **0 exemplos, 0 exercícios e 453 falsas seções** em 420 páginas — contra
+      107 exemplos e 447 exercícios no Elon, com o mesmo perfil
+- [ ] O próprio `book-v1` **se pontua em 0,05** neste livro, e está certo: ele não o reconhece.
+      É por isso que o FME fica fora da asserção de sugestão do `scan-corpus.test.ts` — forçar o
+      número ali seria ajustar heurística até ela mentir
+- [ ] Um perfil nasce com um livro real na mão e um teste com o PDF dele (D41). O que o FME usa e
+      o Elon não: numeração de exercício que reinicia por seção, figura em metade das páginas,
+      títulos que não se destacam por corpo
+- [ ] Aceite: os capítulos do livro, com título, e exemplos e exercícios em número próximo do que
+      o volume tem
+
+> **Nota:** a proteção da figura (motor `@2`) já devolveu ao FME a lista real de capítulos — de
+> dez sem título nas páginas 278–312 para "1 Noções de lógica (p. 9)" até "10 Função composta
+> (p. 220)". As figuras do livro estavam comendo os títulos.
+
+---
+
 > **Fora desta wave, por decisão:** parear resposta com questão automaticamente · tela para
 > editar perfis · a tela de diff entre dois scans (§61 — o retrato congelado já guarda o que é
 > preciso para ela) · reconstruir SVG a partir dos operadores do PDF (ADR 0005) · migrar exemplos
-> já aprovados como texto (ADR 0004 — reimportar resolve).
+> já aprovados como texto (ADR 0004 — reimportar resolve) · alias de id de perfil no registro
+> (ADR 0008 — o congelamento já resolve o caso que doía).
 
 ---
 

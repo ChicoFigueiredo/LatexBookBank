@@ -39,7 +39,7 @@ export interface StartScanCommand {
   readonly useAi?: unknown;
   readonly recognizeMath?: unknown;
   readonly forceNew?: boolean;
-  /** Trocar de perfil: a execução nova herda desta o que uma pessoa decidiu (ADR 0009). */
+  /** Trocar de perfil: a execução nova herda desta o que uma pessoa decidiu. */
   readonly inheritFrom?: string;
 }
 

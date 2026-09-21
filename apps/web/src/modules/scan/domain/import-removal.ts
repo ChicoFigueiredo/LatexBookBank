@@ -1,5 +1,5 @@
 /**
- * Apagar uma importação (D57, [ADR 0006](../../../../docs/adr/0006-a-importacao-e-apagavel.md)).
+ * Apagar uma importação (D57, [ADR 0006](../../../../../../docs/adr/0006-a-importacao-e-apagavel.md)).
  *
  * Afinar um perfil de captura é um ciclo — varrer, olhar, mudar a regra, varrer de novo — e o
  * ciclo só fecha se der para desfazer o que entrou no acervo. Este módulo decide **o que sai**,

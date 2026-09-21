@@ -8,7 +8,7 @@ import { readJson } from "../../../tree-http";
 import { scanRunDto } from "../../scan-dto";
 
 /**
- * Varrer de novo com outro perfil, herdando o que já foi revisado (ADR 0009).
+ * Varrer de novo com outro perfil, herdando o que já foi revisado (`domain/inherit-review.ts`).
  *
  * Devolve 201 com a execução nova: é outra varredura, não a mesma mudando de ideia.
  */

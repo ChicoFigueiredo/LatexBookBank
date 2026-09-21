@@ -2,8 +2,7 @@ import { boxRect, overlapRatio } from "./geometry";
 import type { ScanItem } from "./scan-item";
 
 /**
- * Herdar a revisão quando o livro é varrido de novo com outro perfil
- * ([ADR 0009](../../../../docs/adr/0009-trocar-de-perfil-herda-a-revisao.md)).
+ * Herdar a revisão quando o livro é varrido de novo com outro perfil.
  *
  * Trocar de perfil era jogar fora a execução inteira: o `profileId` entra na `runKey`, então a
  * varredura nova nasce zerada e as horas de revisão da anterior vão junto. Quem está afinando

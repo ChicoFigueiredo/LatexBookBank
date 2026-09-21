@@ -6,7 +6,7 @@ import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
 import type { FigureCropper, FigureFile } from "@modules/scan/application/figure-pass";
 
 /**
- * O recorte da figura (D58, [ADR 0005](../../../../docs/adr/0005-figura-vetorial-quando-o-pdf-a-tem.md)).
+ * O recorte da figura (D58, [ADR 0005](../../../../../../docs/adr/0005-figura-vetorial-quando-o-pdf-a-tem.md)).
  *
  * **Vetor**: `pdf-lib` copia a página do livro e aperta a caixa em volta da figura. Nada é
  * redesenhado — o arquivo que sai tem os mesmos traços, as mesmas fontes e as mesmas letras que

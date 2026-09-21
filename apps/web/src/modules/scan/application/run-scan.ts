@@ -139,7 +139,7 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
     const warnings = [...proposal.warnings];
 
     /*
-      Trocar de perfil não joga fora a revisão (ADR 0009).
+      Trocar de perfil não joga fora a revisão (`domain/inherit-review.ts`).
 
       Acontece aqui, logo depois de os itens existirem, porque casar âncoras exige os dois lados
       gravados. O que atravessa é só decisão de gente — aceitar, rejeitar, corrigir texto —, e

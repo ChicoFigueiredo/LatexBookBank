@@ -113,7 +113,7 @@ export interface CaptureProfile {
   readonly kinds: readonly ScanKind[];
 
   /**
-   * A configuração que o motor **lê** ([ADR 0007](../../../../docs/adr/0007-o-perfil-de-captura-e-codigo.md)).
+   * A configuração que o motor **lê** ([ADR 0007](../../../../../../docs/adr/0007-o-perfil-de-captura-e-codigo.md)).
    *
    * A D41 dizia que um perfil declara oito coisas. Um ano de uso depois, sete delas nunca foram
    * lidas por ninguém: marcadores, número de colunas, modelo de visão e onde ficam as respostas

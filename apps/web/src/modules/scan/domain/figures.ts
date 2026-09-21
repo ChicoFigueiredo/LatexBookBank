@@ -1,7 +1,7 @@
 import type { Rect } from "./geometry";
 
 /**
- * A figura do livro, achada na página (D58, [ADR 0005](../../../../docs/adr/0005-figura-vetorial-quando-o-pdf-a-tem.md)).
+ * A figura do livro, achada na página (D58, [ADR 0005](../../../../../../docs/adr/0005-figura-vetorial-quando-o-pdf-a-tem.md)).
  *
  * No PDF não existe "figura": existem traços soltos — dezenas deles num diagrama de Venn — e,
  * por cima, letras que são texto de verdade. Este módulo junta os traços que estão perto, decide

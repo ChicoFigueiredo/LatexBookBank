@@ -1,4 +1,4 @@
--- Trocar de perfil sem jogar fora a revisão (ADR 0009).
+-- Trocar de perfil sem jogar fora a revisão.
 --
 -- O perfil entra na `runKey`, então varrer o mesmo livro com outro perfil é outra execução — e
 -- era, até aqui, começar do zero: as horas de revisão da anterior iam junto. A coluna registra de
