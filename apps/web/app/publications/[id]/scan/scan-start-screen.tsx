@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Callout, Checkbox, EmptyState, Field, Input, PageHeader, Select, injectCss } from "@/design-system";
 import { scanApi, type ProfileSuggestionView, type ScanRunView } from "@modules/scan/ui/scan-client";
@@ -104,6 +104,18 @@ export function ScanStartScreen({
   */
   const [suggestion, setSuggestion] = useState<ProfileSuggestionView | null>(null);
   const [suggestionApplied, setSuggestionApplied] = useState(false);
+  /*
+    Quem já escolheu, escolheu.
+
+    O palpite chega perto de um segundo depois da tela, e nesse intervalo dá tempo de a pessoa
+    mexer no seletor. Aplicar por cima seria trocar a escolha dela pelas costas — e sem aviso,
+    porque a tela já mostrava o perfil certo quando ela clicou em Escanear.
+
+    Um `ref`, e não estado: o efeito roda uma vez, e só `ref` entrega o valor de **agora** dentro
+    de uma promessa que começou antes. Com `useState`, o closure guardaria o `false` da montagem e
+    a guarda não guardaria nada.
+  */
+  const touched = useRef(false);
 
   useEffect(() => {
     if (source === null) return;
@@ -114,7 +126,7 @@ export function ScanStartScreen({
         if (!alive) return;
         setSuggestion(result);
         const best = result.ranking[0];
-        if (!hasMemory && best && best.score >= CONFIDENT && profiles.some((p) => p.id === best.id)) {
+        if (!touched.current && !hasMemory && best && best.score >= CONFIDENT && profiles.some((p) => p.id === best.id)) {
           setProfileId(best.id);
           setSuggestionApplied(true);
         }
@@ -209,7 +221,14 @@ export function ScanStartScreen({
               </Banner>
             )}
             <Field label="Perfil de captura" hint={profile?.description}>
-              <Select value={profileId} onChange={(event) => setProfileId(event.target.value)}>
+              <Select
+                value={profileId}
+                onChange={(event) => {
+                  touched.current = true;
+                  setSuggestionApplied(false);
+                  setProfileId(event.target.value);
+                }}
+              >
                 {profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label} ({p.id})
