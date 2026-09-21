@@ -6,6 +6,7 @@ import { letterIndex, romanToNumber, stripAccents } from "../text";
 import { normalizeNumber } from "../toc";
 import {
   looksLikeHeading,
+  measureStyle,
   relativeSize,
   typographicSignature,
   type PublicationStyle,
@@ -355,18 +356,45 @@ export const bookV1: CaptureProfile = {
     "FIGURE",
   ],
   settings: {
-    answersLocation: "END_OF_BOOK",
-    columns: "auto",
     defaultQuestionType: "DISCURSIVE",
-    visionModel: null,
     emitContent: true,
     autoAcceptThreshold: 0.85,
   },
-  markers: {
-    questionStart: [NUMBERED_ITEM, EXERCISE],
-    solution: [/^(solu[çc][ãa]o|resolu[çc][ãa]o|solution)[.:]?/i],
-    headings: [PART, CHAPTER, NUMBERED_HEADING],
-    exerciseBlock: [EXERCISE_GROUP],
+
+  /*
+    O que faz um PDF parecer livro-texto: título de capítulo, título numerado (`2.3 Limites`),
+    exemplo resolvido e bloco de exercícios. Nenhum deles sozinho decide — "1. Alguma coisa"
+    aparece em qualquer lista —, e por isso a nota é densidade de vários sinais por página, não
+    a presença de um.
+  */
+  score(sample) {
+    const paginas = Math.max(1, sample.length);
+    const todas = sample.flatMap((page) => page.lines);
+    const style = measureStyle(todas);
+
+    let titulos = 0;
+    let exemplos = 0;
+    let blocos = 0;
+    for (const line of todas) {
+      const text = fold(line);
+      /*
+        A mesma segunda evidência que a classificação exige (§15).
+
+        Contar só a forma do texto reproduzia aqui o defeito do PR #201: "1. Considere a função"
+        casa com título numerado, e a prova de concurso do corpus real virava livro-texto com
+        0,95 de nota. Título de livro é título **e** tem corpo de título.
+      */
+      const destacada = line.bold || relativeSize(line, style) >= 1.1 || looksLikeHeading(line, style);
+      if (destacada && (CHAPTER.test(text) || PART.test(text) || NUMBERED_HEADING.test(text))) titulos++;
+      else if (EXAMPLE.test(text)) exemplos++;
+      else if (EXERCISE_GROUP.test(text)) blocos++;
+    }
+
+    const sinais = titulos + exemplos * 2 + blocos * 3;
+    return {
+      score: Math.min(1, sinais / (paginas * 2.5)),
+      evidence: `${titulos} títulos, ${exemplos} exemplos e ${blocos} blocos de exercícios em ${paginas} páginas`,
+    };
   },
 
   classifyLine: classify,

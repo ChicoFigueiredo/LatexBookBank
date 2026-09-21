@@ -39,6 +39,18 @@ export interface ScanRunView {
   readonly createdAt: string;
 }
 
+/** O palpite de perfil, lido das primeiras páginas do PDF (ADR 0007). */
+export interface ProfileSuggestionView {
+  readonly ranking: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly documentKind: "BOOK" | "EXAM";
+    readonly score: number;
+    readonly evidence: string;
+  }[];
+  readonly sampledPages: number;
+}
+
 /** A conferência antes de apagar uma importação (D57): os números e quem fica, com o motivo. */
 export interface ImportPreview {
   readonly runId: string;
@@ -116,6 +128,8 @@ export const scanApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  suggestProfile: (publicationId: string) =>
+    send<ProfileSuggestionView>(`/api/publications/${publicationId}/capture-profile-suggestion`),
 };
 
 /** Aplica a resposta de uma operação sobre a lista que a tela tem. */

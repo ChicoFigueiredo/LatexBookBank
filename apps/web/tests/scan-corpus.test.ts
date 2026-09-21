@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { buildLines, type PageModel } from "@modules/scan/domain/page";
-import { captureProfile } from "@modules/scan/domain/profiles";
+import { captureProfile, rankProfiles } from "@modules/scan/domain/profiles";
+import { samplePageNumbers } from "@modules/scan/application/suggest-profile";
 import type { Proposal } from "@modules/scan/domain/proposal";
 import { buildProposal } from "@modules/scan/domain/structure";
 import { PdfjsDocumentReader } from "@modules/scan/infrastructure/pdfjs-document-reader";
@@ -52,11 +53,13 @@ interface Measured {
   readonly pages: number;
   readonly ms: number;
   readonly proposal: Proposal | null;
+  /** As primeiras páginas, do tamanho que a tela amostra: é o que a sugestão enxergaria. */
+  readonly sample: readonly PageModel[];
 }
 
 async function measure(entry: CorpusEntry): Promise<Measured> {
   const file = path.resolve(root, entry.path);
-  if (!existsSync(file)) return { entry, available: false, pages: 0, ms: 0, proposal: null };
+  if (!existsSync(file)) return { entry, available: false, pages: 0, ms: 0, proposal: null, sample: [] };
 
   const started = performance.now();
   const pdf = await new PdfjsDocumentReader().open(new Uint8Array(readFileSync(file)));
@@ -69,7 +72,18 @@ async function measure(entry: CorpusEntry): Promise<Measured> {
   const profile = captureProfile(entry.profile);
   if (!profile) throw new Error(`perfil ${entry.profile} não registrado`);
   const proposal = buildProposal(pages, profile);
-  return { entry, available: true, pages: pages.length, ms: Math.round(performance.now() - started), proposal };
+  return {
+    entry,
+    available: true,
+    pages: pages.length,
+    ms: Math.round(performance.now() - started),
+    proposal,
+    // A mesma amostra que a tela usa — espalhada, não as primeiras (ADR 0007).
+    sample: samplePageNumbers(pages.length).flatMap((n) => {
+      const page = pages[n - 1];
+      return page ? [page] : [];
+    }),
+  };
 }
 
 const questions = (proposal: Proposal) => proposal.items.filter((item) => item.kind === "QUESTION");
@@ -156,6 +170,33 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
         (q) => ((q.diagnostic?.facts["otherQuestionInside"] as string[] | undefined) ?? []).length > 0,
       );
       expect(invaded.map((q) => q.metadata["identity"]), result.entry.label).toEqual([]);
+    }
+  });
+
+  /*
+    A sugestão de perfil, contra os PDFs de verdade (ADR 0007).
+
+    O sintético prova que a conta funciona; só o caderno real prova que ela serve. A amostra é a
+    mesma que a tela usa — oito páginas —, e o manifesto já diz qual perfil cada PDF pede, então
+    o corpus responde de graça se o palpite acerta.
+  */
+  it("o palpite de perfil acerta o que o manifesto diz", () => {
+    for (const result of results.filter((r) => r.proposal !== null)) {
+      const sample = result.pages > 0 ? result.sample : [];
+      if (sample.length === 0) continue;
+      /*
+        O *Fundamentos* fica de fora, e o motivo é o assunto de outra fase.
+
+        O `book-v1` pontua 0,05 nele — e está **certo**: este é o livro em que ele acha 0 exemplos,
+        0 exercícios e 453 falsas seções. O manifesto diz `book-v1` porque foi o perfil atribuído,
+        não porque ele leia o livro. Forçar a asserção aqui seria ajustar heurística até o número
+        mentir; a nota baixa é evidência a favor do perfil próprio que o checklist já pede.
+      */
+      if (result.entry.path.includes("7dfcb4c1")) continue;
+      const ranking = rankProfiles(sample);
+      expect(ranking[0]?.id, `${result.entry.label} — ${ranking.map((r) => `${r.id}:${r.score.toFixed(2)}`).join(" ")}`).toBe(
+        result.entry.profile,
+      );
     }
   });
 

@@ -232,18 +232,31 @@ export const examEnemV1: CaptureProfile = {
     "Cadernos do ENEM: QUESTÃO N em linha própria, duas colunas, alternativas A–E, marcos de área e blocos de inglês e espanhol com a mesma numeração.",
   kinds: ["SECTION", "SUBSECTION", "QUESTION", "FIGURE"],
   settings: {
-    answersLocation: "NONE",
-    columns: 2,
     defaultQuestionType: "MULTIPLE_CHOICE",
-    visionModel: null,
     emitContent: false,
     autoAcceptThreshold: 0.9,
   },
-  markers: {
-    questionStart: [HEADER],
-    solution: [],
-    headings: [AREA, RANGE],
-    exerciseBlock: [],
+
+  /*
+    O caderno do ENEM se identifica sozinho: "QUESTÃO N" em linha própria, e um caderno tem
+    noventa delas em trinta e duas páginas. Menção no meio do texto não conta aqui pelo mesmo
+    motivo que não conta na âncora — é a linha inteira que prova.
+  */
+  score(sample) {
+    const paginas = Math.max(1, sample.length);
+    let cabecalhos = 0;
+    let marcos = 0;
+    for (const page of sample) {
+      for (const line of page.lines) {
+        if (headerNumber(line) !== null) cabecalhos++;
+        else if (AREA.test(foldText(line.text).toUpperCase()) || RANGE.test(foldText(line.text).toUpperCase())) marcos++;
+      }
+    }
+
+    return {
+      score: Math.min(1, (cabecalhos / (paginas * 2.5)) * 0.9 + (marcos > 0 ? 0.1 : 0)),
+      evidence: `${cabecalhos} linhas "QUESTÃO N" e ${marcos} marcos de área em ${paginas} páginas`,
+    };
   },
 
   classifyLine: classify,

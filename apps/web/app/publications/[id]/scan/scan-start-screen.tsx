@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge, Banner, Button, Callout, Checkbox, EmptyState, Field, Input, PageHeader, Select, injectCss } from "@/design-system";
-import { scanApi, type ScanRunView } from "@modules/scan/ui/scan-client";
+import { scanApi, type ProfileSuggestionView, type ScanRunView } from "@modules/scan/ui/scan-client";
 
 import { AppShell } from "../../../app-shell";
 
@@ -42,6 +42,8 @@ export interface ScanStartScreenProps {
   readonly suggestedProfile: string;
   /** O perfil que o livro lembrava e não existe mais, se for o caso (ADR 0008). */
   readonly rememberedMissing?: string | null;
+  /** O livro já foi varrido antes? Sem lembrança, um palpite confiante vale mais que `book-v1`. */
+  readonly hasMemory?: boolean;
   readonly runs: readonly ScanRunView[];
   readonly aiConfigured: boolean;
   readonly visionConfigured: boolean;
@@ -49,6 +51,11 @@ export interface ScanStartScreenProps {
   /** Acabou de apagar uma importação: a tela diz onde o que foi apagado está (D57). */
   readonly importRemoved?: boolean;
 }
+
+/** Acima disto o palpite se aplica sozinho num livro sem lembrança: o perfil se reconheceu. */
+const CONFIDENT = 0.35;
+/** Abaixo disto não se diz nada: palpite fraco atrapalha mais do que o silêncio. */
+const WORTH_OFFERING = 0.2;
 
 const STATE_TONE: Record<string, "info" | "ok" | "danger" | "neutral" | "accent"> = {
   READY_FOR_REVIEW: "accent",
@@ -65,6 +72,7 @@ export function ScanStartScreen({
   profiles,
   suggestedProfile,
   rememberedMissing = null,
+  hasMemory = false,
   runs,
   aiConfigured,
   visionConfigured,
@@ -85,6 +93,41 @@ export function ScanStartScreen({
   const [error, setError] = useState<string | null>(null);
 
   const profile = profiles.find((p) => p.id === profileId);
+
+  /*
+    O palpite lido do PDF (ADR 0007).
+
+    Vem por rota, depois da tela: abrir o PDF custa perto de um segundo, e a escolha não precisa
+    esperar por ele. Sem lembrança e com palpite confiante, ele se aplica sozinho — a alternativa
+    era o literal `book-v1` num caderno do ENEM. Com lembrança, ele só se oferece: quem varreu
+    este livro antes sabe mais do que oito páginas sabem.
+  */
+  const [suggestion, setSuggestion] = useState<ProfileSuggestionView | null>(null);
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
+
+  useEffect(() => {
+    if (source === null) return;
+    let alive = true;
+    scanApi
+      .suggestProfile(publicationId)
+      .then((result) => {
+        if (!alive) return;
+        setSuggestion(result);
+        const best = result.ranking[0];
+        if (!hasMemory && best && best.score >= CONFIDENT && profiles.some((p) => p.id === best.id)) {
+          setProfileId(best.id);
+          setSuggestionApplied(true);
+        }
+      })
+      // Palpite é conveniência: se a rota falhar, a tela continua inteira e a escolha é sua.
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [publicationId, source, hasMemory, profiles]);
+
+  const best = suggestion?.ranking[0];
+  const offerBest = best !== undefined && best.score >= WORTH_OFFERING && best.id !== profileId;
 
   const start = async () => {
     setBusy(true);
@@ -174,6 +217,28 @@ export function ScanStartScreen({
                 ))}
               </Select>
             </Field>
+            {suggestionApplied && best && (
+              <Callout tone="ok">
+                Escolhido pelo PDF: as primeiras {suggestion?.sampledPages} páginas parecem
+                <strong> {best.label}</strong> ({best.evidence}). Troque se não for.
+              </Callout>
+            )}
+            {offerBest && best && (
+              <Callout tone="warn">
+                As primeiras {suggestion?.sampledPages} páginas parecem mais
+                <strong> {best.label}</strong> ({best.evidence}).{" "}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setProfileId(best.id);
+                    setSuggestionApplied(false);
+                  }}
+                >
+                  Usar {best.label}
+                </Button>
+              </Callout>
+            )}
             {profile && (
               /*
                 De que tipo é o perfil, e o que ele sabe achar.

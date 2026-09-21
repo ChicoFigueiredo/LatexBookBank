@@ -13,14 +13,14 @@ faltando · com mais de uma âncora · que atravessam página · marcadas com l�
 
 | Caderno | Pág. | Achadas | Compl. | Susp. | Incompl. | Sem evid. | Invasão | Alt. falt. | Multi-âncora | Multi-pág. | Língua | Tempo |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| ENEM 2017 · 1º dia (azul) | 32 | 95 / 95 | 95 | 0 | 0 | 0 | 0 | 0 | 35 | 15 | 10 | 2.3 s |
-| ENEM 2017 · 2º dia (azul) | 32 | 90 / 90 | 88 | 0 | 0 | 2 | 0 | 2 | 29 | 19 | 0 | 1.8 s |
+| ENEM 2017 · 1º dia (azul) | 32 | 95 / 95 | 95 | 0 | 0 | 0 | 0 | 0 | 35 | 15 | 10 | 2.1 s |
+| ENEM 2017 · 2º dia (azul) | 32 | 90 / 90 | 88 | 0 | 0 | 2 | 0 | 2 | 29 | 19 | 0 | 1.4 s |
 | ENEM 2018 · 1º dia (azul) | 32 | 95 / 95 | 95 | 0 | 0 | 0 | 0 | 0 | 34 | 18 | 10 | 0.6 s |
-| ENEM 2018 · 2º dia (azul) | 32 | 90 / 90 | 87 | 0 | 0 | 3 | 0 | 3 | 31 | 17 | 0 | 1.8 s |
+| ENEM 2018 · 2º dia (azul) | 32 | 90 / 90 | 87 | 0 | 0 | 3 | 0 | 3 | 31 | 17 | 0 | 0.7 s |
 | ENEM 2019 · 1º dia (azul) | 32 | 95 / 95 | 95 | 0 | 0 | 0 | 0 | 0 | 32 | 17 | 10 | 1.1 s |
-| ENEM 2019 · 2º dia (azul) | 32 | 90 / 90 | 89 | 0 | 0 | 1 | 0 | 1 | 33 | 19 | 0 | 0.9 s |
-| ENEM 2023 · 2º dia (azul) | 32 | 90 / 90 | 88 | 0 | 0 | 2 | 0 | 2 | 33 | 20 | 0 | 1.3 s |
-| ENEM 2024 · 2º dia (azul) | 32 | 90 / 90 | 86 | 0 | 0 | 4 | 0 | 4 | 31 | 18 | 0 | 1.8 s |
+| ENEM 2019 · 2º dia (azul) | 32 | 90 / 90 | 89 | 0 | 0 | 1 | 0 | 1 | 33 | 19 | 0 | 1.0 s |
+| ENEM 2023 · 2º dia (azul) | 32 | 90 / 90 | 88 | 0 | 0 | 2 | 0 | 2 | 33 | 20 | 0 | 1.5 s |
+| ENEM 2024 · 2º dia (azul) | 32 | 90 / 90 | 86 | 0 | 0 | 4 | 0 | 4 | 31 | 18 | 0 | 2.0 s |
 | ProfMat ENA 2023 (com soluções) (exam-v1) | 16 | 30 / 30 | — | — | — | — | — | — | 1 | 1 | — | 0.2 s |
 
 **No total**: 735 de 735 questões localizadas em 8 cadernos; 723 completas (98,4%), 12 com alternativas sem texto (em imagem, 1,6%) e 0 invasões. A referência é o segmentador do TRI, que chegou a 98,3% de completas e zero invasões em 2.775 questões de 30 cadernos (auditoria de 2026-09-06).
@@ -48,7 +48,7 @@ O `exam-v1` não tem diagnóstico por questão: é a estimativa da captura, pág
 | deslocamento PDF − impressa | 13 |
 | avisos | 0 |
 | chamadas à IA · ao reconhecimento | 0 · 0 (medição determinística) |
-| tempo | 6.0 s |
+| tempo | 6.4 s |
 
 Capítulos achados: 1 Conjuntos e Funções (p. 14) · 2 Conjuntos Finitos, Enumeráveis e Não-Enumeráveis (p. 45) · 3 Números Reais (p. 72) · 4 Seqüências e Séries de Números Reais (p. 112) · 5 Topologia da Reta (p. 174) · 6 Limites de Funções (p. 208) · 7 Funções Contínuas (p. 235) · 8 Derivadas (p. 268) · 9 Integral de Riemann (p. 315) · 10 Seqüências e Séries de Funções (p. 374).
 
@@ -70,7 +70,7 @@ Capítulos achados: 1 Conjuntos e Funções (p. 14) · 2 Conjuntos Finitos, Enum
 | deslocamento PDF − impressa | 8 |
 | avisos | 0 |
 | chamadas à IA · ao reconhecimento | 0 · 0 (medição determinística) |
-| tempo | 16.1 s |
+| tempo | 19.0 s |
 
 Capítulos achados: 1 Noções de lógica (p. 9) · 2 Conjuntos (p. 26) · 3 Conjuntos numéricos (p. 48) · 4 Relações (p. 72) · 5 Introdução às funções (p. 87) · 6 Função constante Função afim (p. 105) · 7 Funções quadráticas (p. 145) · 8 Função modular (p. 192) · 9 Outras funções elementares (p. 213) · 10 Função composta Função inversa (p. 220) · 1  (p. 278) · 2  (p. 279).
 

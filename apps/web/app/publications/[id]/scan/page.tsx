@@ -69,6 +69,7 @@ export default async function ScanPage({
       }))}
       suggestedProfile={remembered ?? "book-v1"}
       rememberedMissing={rememberedMissing}
+      hasMemory={remembered !== null && rememberedMissing === null}
       runs={runs.map((run) => scanRunDto(run, runner.isRunning(run.id)))}
       aiConfigured={appEnv.aiBaseUrl !== null && appEnv.aiModel !== null}
       visionConfigured={appEnv.aiBaseUrl !== null && Boolean(process.env["AI_VISION_MODEL"])}

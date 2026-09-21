@@ -11,4 +11,10 @@ registerCaptureProfile(bookV1);
 registerCaptureProfile(examV1);
 registerCaptureProfile(examEnemV1);
 
-export { captureProfile, registeredCaptureProfiles } from "../capture-profile";
+export {
+  captureProfile,
+  registeredCaptureProfiles,
+  rankProfiles,
+  PROFILE_MISMATCH_MARGIN,
+  type RankedProfile,
+} from "../capture-profile";

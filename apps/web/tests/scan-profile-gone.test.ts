@@ -50,8 +50,10 @@ describe("perfil que saiu do registro", () => {
     };
   }
 
+  type Semeado = Awaited<ReturnType<typeof seedBookWithSource>>;
+
   /** Faz o perfil "sumir" desta execução, como se alguém o tivesse tirado do código. */
-  async function apagaOPerfil(prisma: { scanRun: { update: (args: unknown) => Promise<unknown> } }, runId: string) {
+  async function apagaOPerfil(prisma: Semeado["prisma"], runId: string) {
     await prisma.scanRun.update({ where: { id: runId }, data: { profileId: SUMIDO } });
   }
 

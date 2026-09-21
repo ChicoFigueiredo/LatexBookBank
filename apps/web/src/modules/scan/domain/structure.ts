@@ -7,7 +7,6 @@ import { toNormalizedBox } from "./geometry";
 import type { PageModel } from "./page";
 import {
   combineConfidence,
-  HEADING_KINDS,
   measure,
   type ProposedItem,
   type ProposedRegion,
@@ -292,12 +291,6 @@ function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {
       learned,
     };
 
-    if (profile.isBoundary?.(context)) {
-      flushContent(i);
-      popUntil((top) => top === null || HEADING_KINDS.has(top.kind), i);
-      skipUntil = i + 1;
-      continue;
-    }
 
     const match = profile.classifyLine(context);
     const placeable =

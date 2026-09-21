@@ -1,7 +1,7 @@
 import { asStorageKey, type StorageProvider } from "@shared/ports/storage-provider";
 
 import { buildLines } from "@modules/scan/domain/page";
-import { captureProfile } from "@modules/scan/domain/profiles";
+import { captureProfile, rankProfiles, PROFILE_MISMATCH_MARGIN } from "@modules/scan/domain/profiles";
 import { buildProposal } from "@modules/scan/domain/structure";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
 import type { MathRecognitionPolicy } from "@modules/scan/domain/scan-run";
@@ -136,6 +136,27 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
     };
 
     const warnings = [...proposal.warnings];
+
+    /*
+      O perfil escolhido foi o errado? (ADR 0007)
+
+      As páginas já estão lidas e os perfis já sabem se pontuar — a mesma nota que sugere antes
+      da varredura acusa depois dela. O sintoma que motivou isto é mudo por natureza: varrer um
+      livro com o perfil errado não dá erro nenhum, dá 453 seções onde deviam existir vinte.
+    */
+    const ranking = rankProfiles(pages);
+    const melhor = ranking[0];
+    const escolhido = ranking.find((entry) => entry.id === profile.id);
+    if (melhor && escolhido && melhor.id !== profile.id && melhor.score - escolhido.score > PROFILE_MISMATCH_MARGIN) {
+      /*
+        O aviso lidera pelo que é certo — este perfil reconheceu pouco — e só depois nomeia o
+        candidato. A ordem importa: o alarme acerta sempre que dispara, e o palpite de qual seria
+        o perfil certo pode errar num livro para o qual ainda não existe perfil nenhum.
+      */
+      warnings.push(
+        `O perfil "${profile.label}" reconheceu pouco deste PDF (${escolhido.evidence}). O que mais se parece com ele é "${melhor.label}" (${melhor.evidence}) — confira a proposta antes de aprovar.`,
+      );
+    }
     let figures = 0;
     let aiCalls = 0;
 
