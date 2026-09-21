@@ -27,6 +27,13 @@ export interface FigureFile {
   readonly mimeType: string;
   /** O PNG pequeno, para a tela. */
   readonly screen: Uint8Array;
+  /**
+   * Por que esta figura saiu rasterizada tendo pedido vetor (ADR 0005).
+   *
+   * A figura existe de qualquer jeito — essa é a promessa. O que se perde é o vetor, e perder
+   * vetor em silêncio é como um livro inteiro sai em PNG sem ninguém notar.
+   */
+  readonly fallbackReason?: string;
 }
 
 export interface FigureCropper {
@@ -125,6 +132,9 @@ export function createFigurePass(deps: FigurePassDeps) {
             deletedIds: [],
           });
           saved++;
+          if (file.fallbackReason !== undefined) {
+            warnings.push(`Figura da página ${region.pageNumber} saiu em PNG: ${file.fallbackReason}`);
+          }
         } catch (error) {
           // Uma figura que não recorta não derruba a varredura: ela fica na proposta, sem
           // arquivo, e o motivo aparece no diagnóstico — é a revisão que decide o que fazer.

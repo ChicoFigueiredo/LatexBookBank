@@ -42,6 +42,42 @@ const input = (over: Partial<FigureInput> = {}): FigureInput => ({
 });
 
 describe("achar figuras", () => {
+  /*
+    A linha protegida pelo perfil não é rótulo de desenho.
+
+    Este é o teste que trava uma regressão medida: quando o `exam-enem-v1` passou a aceitar
+    figura, a absorção comeu "QUESTÃO 45" (dez caracteres) e alternativas como "A) 3,5 m" (oito)
+    que ficavam sobre o gráfico. No corpus real foram três questões desaparecidas e dez sem
+    alternativa, de 735. Curto e dentro da caixa continua sendo rótulo — a menos que o perfil
+    diga que aquilo é estrutura.
+  */
+  it("não engole a linha que o perfil protege", () => {
+    const graphics = [drawing([100, 200, 200, 300]), drawing([110, 210, 190, 290])];
+    const rotulo = line("l1", "A", [120, 240, 130, 250]);
+    const ancora = line("l2", "QUESTÃO 45", [115, 215, 185, 228]);
+
+    const semProteção = findFigures(input({ graphics, lines: [rotulo, ancora] }));
+    expect(semProteção[0]?.absorbedLineIds).toEqual(expect.arrayContaining(["l1", "l2"]));
+
+    const comProteção = findFigures(
+      input({ graphics, lines: [rotulo, ancora], protect: (l) => l.id === "l2" }),
+    );
+    expect(comProteção[0]?.absorbedLineIds).toContain("l1");
+    expect(comProteção[0]?.absorbedLineIds).not.toContain("l2");
+  });
+
+  it("linha protegida também não vira legenda", () => {
+    const graphics = [drawing([100, 200, 200, 300])];
+    const legenda = line("cap", "Figura 3 — o gráfico", [100, 305, 220, 318]);
+
+    const livre = findFigures(input({ graphics, lines: [legenda] }));
+    expect(livre[0]?.label).toBe("Figura 3");
+
+    const protegida = findFigures(input({ graphics, lines: [legenda], protect: () => true }));
+    expect(protegida[0]?.label).toBeNull();
+    expect(protegida[0]?.captionLineIds).toEqual([]);
+  });
+
   it("junta os traços vizinhos numa figura só", () => {
     // Um diagrama de Venn: dois círculos e o retângulo do universo, desenhados em traços separados.
     const figuras = findFigures(

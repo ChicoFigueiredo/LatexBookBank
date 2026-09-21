@@ -25,6 +25,14 @@ const LANGUAGE = /OP[CÇ]AO\s+(INGLES|ESPANHOL)/;
 const ALTERNATIVE = /^([A-E])(?:\t|\)|\.|\s|$)/;
 const LETTERS = ["A", "B", "C", "D", "E"] as const;
 
+/**
+ * Até onde uma linha ainda é **marcador** de alternativa, e não prosa que começa com "A ".
+ *
+ * Só linhas curtas são absorvidas por figura, então só elas precisam de proteção — e o limite
+ * mantém "A reação observada" fora da regra.
+ */
+const ALTERNATIVE_MARKER_CHARS = 16;
+
 /** A letra da alternativa fica a até isto da margem da coluna (TRI: 16 pt). */
 const MARKER_TOLERANCE = 16;
 /** As letras de uma sequência ficam alinhadas a até isto umas das outras (TRI: 4 pt). */
@@ -35,10 +43,19 @@ const headerNumber = (line: TextLine): number | null => {
   return match ? Number.parseInt(match[1] ?? "", 10) : null;
 };
 
+/*
+  Quem contém quem, e onde a figura cai.
+
+  A figura do ENEM é quase sempre da questão — o gráfico, o mapa, a charge estão dentro dela. Os
+  níveis de cima também a aceitam porque o caderno tem figura fora de questão: a que abre a área,
+  e a do bloco de língua estrangeira. Sem isso ela subiria até a raiz e apareceria solta na
+  revisão, longe do texto a que pertence.
+*/
 const CONTAINS: Readonly<Record<string, readonly ScanKind[]>> = {
-  ROOT: ["SECTION", "SUBSECTION", "QUESTION"],
-  SECTION: ["SUBSECTION", "QUESTION"],
-  SUBSECTION: ["QUESTION"],
+  ROOT: ["SECTION", "SUBSECTION", "QUESTION", "FIGURE"],
+  SECTION: ["SUBSECTION", "QUESTION", "FIGURE"],
+  SUBSECTION: ["QUESTION", "FIGURE"],
+  QUESTION: ["FIGURE"],
 };
 
 function classify(context: WalkContext): AnchorMatch | null {
@@ -213,7 +230,7 @@ export const examEnemV1: CaptureProfile = {
   documentKind: "EXAM",
   description:
     "Cadernos do ENEM: QUESTÃO N em linha própria, duas colunas, alternativas A–E, marcos de área e blocos de inglês e espanhol com a mesma numeração.",
-  kinds: ["SECTION", "SUBSECTION", "QUESTION"],
+  kinds: ["SECTION", "SUBSECTION", "QUESTION", "FIGURE"],
   settings: {
     answersLocation: "NONE",
     columns: 2,
@@ -235,8 +252,18 @@ export const examEnemV1: CaptureProfile = {
     return (CONTAINS[parent ?? "ROOT"] ?? []).includes(child);
   },
 
+  /*
+    O que nunca é mobília — e o que a figura nunca pode engolir.
+
+    O cabeçalho "QUESTÃO N" é óbvio. A alternativa também precisa estar aqui: ela é curta e mora
+    ao lado do gráfico, exatamente a posição de quem seria tomado por rótulo do desenho. Medido no
+    corpus: sem esta linha, o caderno de 2019 perdia duas questões inteiras e dez ficavam sem
+    alternativa nenhuma.
+  */
   isProtected(line) {
-    return headerNumber(line) !== null;
+    if (headerNumber(line) !== null) return true;
+    const text = line.text.trim();
+    return text.length <= ALTERNATIVE_MARKER_CHARS && ALTERNATIVE.test(text);
   },
 
   columnHints(lines) {

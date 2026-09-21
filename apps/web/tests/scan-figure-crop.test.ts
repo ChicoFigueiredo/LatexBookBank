@@ -81,6 +81,41 @@ describe("recortar a figura", () => {
     await pdf.close();
   });
 
+  /*
+    A promessa do ADR 0005 é categórica: "Nenhuma figura fica de fora por causa do formato."
+
+    O caso que a quebrava não era página girada — esse sempre caiu no PNG —, era qualquer outra
+    falha do `pdf-lib`: ela subia, a passada a registrava como aviso, e a figura ficava na proposta
+    **sem arquivo nenhum**. Aqui o leitor funciona e só o `pdf-lib` engasga, que é exatamente a
+    assimetria do mundo real: o pdf.js lê PDF malformado que o pdf-lib recusa.
+  */
+  it("falha genérica do recorte vetorial cai no PNG, com o motivo junto", async () => {
+    const { pdf, region } = await figuraDaFixture();
+    const cropper = new PdfFigureCropper({
+      bytes: new Uint8Array([1, 2, 3, 4]),
+      render: (p, box, dpi) => pdf.renderRegion(p, box, dpi),
+    });
+
+    const file = await cropper.crop({ pageNumber: region.pageNumber, box: region.box, kind: "vector" });
+
+    expect(file.mimeType).toBe("image/png");
+    expect([...file.content.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(file.fallbackReason).toBeTruthy();
+
+    await pdf.close();
+  });
+
+  it("recorte que deu certo não inventa motivo de reserva", async () => {
+    const { bytes, pdf, region } = await figuraDaFixture();
+    const cropper = new PdfFigureCropper({ bytes, render: (p, box, dpi) => pdf.renderRegion(p, box, dpi) });
+
+    const file = await cropper.crop({ pageNumber: region.pageNumber, box: region.box, kind: "vector" });
+
+    expect(file.fallbackReason).toBeUndefined();
+
+    await pdf.close();
+  });
+
   it("figura de bitmap sai em PNG, e não embrulhada num PDF", async () => {
     const { bytes, pdf, region } = await figuraDaFixture();
     const cropper = new PdfFigureCropper({ bytes, render: (p, box, dpi) => pdf.renderRegion(p, box, dpi) });

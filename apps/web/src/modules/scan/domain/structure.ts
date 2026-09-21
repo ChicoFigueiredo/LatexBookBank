@@ -73,8 +73,25 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     um parágrafo órfão logo abaixo da figura. Tirá-las aqui é o que faz o resto do motor —
     parágrafos, extents, regiões — continuar valendo sem saber que figura existe.
   */
+  /*
+    O que o perfil protege, a figura não engole.
+
+    É o mesmo `isProtected` da mobília, e pela mesma razão: a linha que o perfil marca é estrutura
+    do documento, e estrutura não é rótulo de desenho. Calculado uma vez, por id, porque a
+    absorção consulta cada linha várias vezes enquanto a caixa cresce.
+  */
+  const protectedIds = profile.isProtected
+    ? new Set(full.lines.filter((line) => profile.isProtected!(line, full.style)).map((line) => line.id))
+    : null;
+
   const figures = profile.kinds.includes("FIGURE")
-    ? findFigures({ graphics: full.graphics, lines: full.lines, bodySize: full.style.bodySize, lineSpacing: full.style.lineSpacing })
+    ? findFigures({
+        graphics: full.graphics,
+        lines: full.lines,
+        bodySize: full.style.bodySize,
+        lineSpacing: full.style.lineSpacing,
+        ...(protectedIds === null ? {} : { protect: (line: { readonly id: string }) => protectedIds.has(line.id) }),
+      })
     : [];
   const hidden = new Set(figures.flatMap((figure) => [...figure.absorbedLineIds, ...figure.captionLineIds]));
   const doc: ScanDocument = hidden.size === 0 ? full : { ...full, lines: full.lines.filter((line) => !hidden.has(line.id)) };

@@ -113,16 +113,30 @@ export class PdfFigureCropper implements FigureCropper {
     readonly kind: "vector" | "raster" | "mixed";
   }): Promise<FigureFile> {
     const screen = await this.screen(input.pageNumber, input.box);
+    let fallback: string | null = null;
 
     // Mista conta como vetor: o recorte em PDF leva o bitmap embutido junto, sem recompactar nada.
     if (input.kind !== "raster") {
       try {
         return { content: await this.vector(input.pageNumber, input.box), mimeType: "application/pdf", screen };
       } catch (error) {
-        // Página girada: o PNG é a saída honesta. Perde-se o vetor, não se perde a figura.
-        if (!(error instanceof RotatedPageError)) throw error;
+        /*
+          Qualquer falha do recorte vetorial cai no PNG — é a promessa do ADR 0005: nenhuma figura
+          fica de fora por causa do formato.
+
+          Página girada é o caso previsto. O caso que importa é o outro: um PDF cuja estrutura o
+          `pdf-lib` não sabe copiar falha de um jeito que ninguém antecipou, e antes desta linha
+          esse livro perdia a figura inteira — ela ficava na proposta sem arquivo nenhum. O motivo
+          sobe junto para virar aviso da execução, para que a perda do **vetor** continue visível.
+        */
+        fallback = error instanceof Error ? error.message : String(error);
       }
     }
-    return { content: await this.raster(input.pageNumber, input.box), mimeType: "image/png", screen };
+    return {
+      content: await this.raster(input.pageNumber, input.box),
+      mimeType: "image/png",
+      screen,
+      ...(fallback === null ? {} : { fallbackReason: fallback }),
+    };
   }
 }

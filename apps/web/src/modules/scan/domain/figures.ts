@@ -40,6 +40,16 @@ export interface FigureInput {
   readonly lines: readonly FigureLine[];
   readonly bodySize: number;
   readonly lineSpacing: number;
+  /**
+   * Linha que a figura não pode engolir — é o `isProtected` do perfil.
+   *
+   * A absorção pega qualquer linha curta que caia dentro da caixa, porque é assim que os rótulos
+   * de um diagrama entram nela. No caderno do ENEM isso alcançava coisas que não são rótulo de
+   * nada: "QUESTÃO 45" tem dez caracteres e a alternativa "A) 3,5 m" tem oito. Engolidas, a
+   * questão perdia a própria âncora ou as alternativas — medido: três questões desapareciam e
+   * dez perdiam texto, num corpus de 735.
+   */
+  readonly protect?: (line: FigureLine) => boolean;
 }
 
 export interface Figure {
@@ -215,6 +225,7 @@ export function findFigures(input: FigureInput): readonly Figure[] {
       const novas = sameColumn.filter(
         (line) =>
           !absorbed.has(line.id) &&
+          !input.protect?.(line) &&
           line.text.trim().length <= LABEL_CHARS &&
           insideRatio(line, box) >= INSIDE_RATIO,
       );
@@ -228,7 +239,10 @@ export function findFigures(input: FigureInput): readonly Figure[] {
     // A legenda: logo abaixo da figura, começando com a palavra que o livro usa.
     const captionLimit = box.y1 + input.lineSpacing * 1.8;
     const candidate = sameColumn
-      .filter((line) => !absorbed.has(line.id) && line.y0 >= box.y1 - 1 && line.y0 <= captionLimit)
+      .filter(
+        (line) =>
+          !absorbed.has(line.id) && !input.protect?.(line) && line.y0 >= box.y1 - 1 && line.y0 <= captionLimit,
+      )
       .sort((a, b) => a.y0 - b.y0)[0];
     const match = candidate ? CAPTION.exec(candidate.text) : null;
 
