@@ -1899,24 +1899,59 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
   outra coisa: o `book-v1` não reconhece a estrutura dele (0 exemplos, 0 exercícios, 453 falsas
   seções) — o livro precisa de perfil próprio, que é trabalho de outra fase
 
-### Fase 25 — um perfil para o *Fundamentos* · **a fazer**
+### Fase 25 — o perfil da coleção *Fundamentos* · **feito**
 
-O `book-v1` não lê o FME, e agora há duas medidas disso, não uma:
+O `book-v1` não lia o livro: 0 exemplos, 0 exercícios e 453 falsas seções em 420 páginas. Três
+causas, e só uma era do livro.
 
-- [ ] A varredura acha **0 exemplos, 0 exercícios e 453 falsas seções** em 420 páginas — contra
-      107 exemplos e 447 exercícios no Elon, com o mesmo perfil
-- [ ] O próprio `book-v1` **se pontua em 0,05** neste livro, e está certo: ele não o reconhece.
-      É por isso que o FME fica fora da asserção de sugestão do `scan-corpus.test.ts` — forçar o
-      número ali seria ajustar heurística até ela mentir
-- [ ] Um perfil nasce com um livro real na mão e um teste com o PDF dele (D41). O que o FME usa e
-      o Elon não: numeração de exercício que reinicia por seção, figura em metade das páginas,
-      títulos que não se destacam por corpo
-- [ ] Aceite: os capítulos do livro, com título, e exemplos e exercícios em número próximo do que
-      o volume tem
+**O defeito geral do motor** *(vale para qualquer livro com gabarito)*
+- ✅ O aprendizado de estilo recusa assinatura em corpo **menor** que o do texto. O gabarito do
+  fim do volume é cheio de "2. d" e "137. a)" — negrito, curtos, e lidos como título numerado.
+  Aprendidas essas assinaturas, qualquer linha negrito curta de 8–9 pt do livro virava seção,
+  inclusive rótulo de eixo de gráfico *(medido isolado: 453 → 176 falsas seções, e a baixa
+  confiança de 321 → 44; Elon e ENEM inalterados)*
 
-> **Nota:** a proteção da figura (motor `@2`) já devolveu ao FME a lista real de capítulos — de
-> dez sem título nas páginas 278–312 para "1 Noções de lógica (p. 9)" até "10 Função composta
-> (p. 220)". As figuras do livro estavam comendo os títulos.
+**A zona do documento** *([ADR 0009](../adr/0009-a-zona-do-documento.md))*
+- ✅ O perfil devolve as faixas do documento; cada uma diz o que ignorar e que tipo de questão
+  nasce ali. A zona chega também ao classificador, sem o que ele não sabe quando está nos
+  vestibulares
+- ✅ As páginas de zona pulada saem da varredura **inteira**, não só da caminhada — um gabarito de
+  43 páginas em duas colunas tem traço de sobra para virar figura que ninguém quer
+- ✅ `defaultQuestionType` vira o **padrão** do perfil; o tipo carimbado pela zona viaja em
+  `metadata` e a aprovação o respeita
+- ✅ Um aviso por zona pulada, com a página: livro varrido pela metade não pode parecer livro curto
+
+**`book-fme-v1`** *(os onze volumes da coleção)*
+- ✅ Banner `E X E R C Í C I O S` com as letras separadas — 62 no volume, e **zero** ocorrências da
+  palavra contígua: era o que mantinha os 568 exercícios invisíveis
+- ✅ Seções em algarismo romano (`IV. Conjunto universo`), 83 no volume
+- ✅ Exercício e item de teoria separados pelo corpo do **primeiro span** (1,0× contra 1,3×): a
+  p. 84 tem `134.` de exercício e `68.` de teoria, e a linha inteira mede 1,0× nos dois
+- ✅ Título de capítulo com o nome inteiro, que vem quebrado em duas linhas
+- ✅ Questão de vestibular pela banca entre parênteses, só dentro da zona que as abriga
+- ✅ O título do capítulo protegido da ilustração de abertura *(mesmo padrão do "QUESTÃO 45" do
+  ENEM: dez caracteres, e a figura o engolia como rótulo)*
+- ✅ **Aceite, medido no PDF real** *(`scan-corpus.test.ts`)*: 10 capítulos · 83 seções · 159 itens
+  de teoria · 562 exercícios (1→568) · 359 questões de vestibular (1→361), todas com múltipla
+  escolha carimbada · **0** itens vindos dos gabaritos · **0** de baixa confiança
+- ✅ O FME deixa de ser a exceção excluída da asserção de sugestão
+
+**O que a medição pediu, e que vale para todos**
+- ✅ A amostra da sugestão sobe de 8 para 16 páginas. O número é medido, não escolhido: os marcos
+  desta coleção são **raros, não densos** (62 banners em 269 páginas de corpo), e com oito o livro
+  era lido como prova de concurso. Com dezesseis, os onze PDFs do corpus acertam o perfil
+- ✅ A aprovação grava `solutionLatex` — o campo existe no acervo desde sempre e o scan nunca o
+  preenchia. São 82 exercícios resolvidos no volume, com a resolução anunciada por `Solução`
+- ✅ O extrator de alternativas aceita minúsculas (`a) 60`), seguro porque só roda quando o tipo
+  da questão pede alternativas
+
+**Fica de fora, por decisão**
+- ⛔ Ligar a resposta do gabarito à questão. A zona já sabe onde o gabarito está; casar "137. a)"
+  com o exercício 137 é texto matemático em duas colunas, e é outra fase
+- ⛔ Os onze volumes "- Resolução", que trazem a resolução completa de cada exercício
+- ⛔ O reconhecimento matemático dos enunciados. **A camada de texto deste PDF perde os símbolos**:
+  "x ∈ A ⇔ x ∈ B" sai como "x  A x  B". Nenhum perfil conserta isso — perfil acha estrutura, não
+  recupera glifo —, e é por isso que a varredura deste livro faz centenas de chamadas de visão
 
 ---
 
