@@ -32,14 +32,14 @@ import type { ScanSourceReader } from "./scan-store";
 export const SAMPLE_PAGES = 16;
 
 /**
- * **Quais** oito páginas — espalhadas, nunca as primeiras.
+ * **Quais** páginas — espalhadas, nunca as primeiras.
  *
  * As primeiras páginas de qualquer PDF são as menos características que ele tem: o caderno do
  * ENEM abre com instruções e folha de rosto, e o livro-texto abre com capa, créditos, prefácio e
  * sumário. Medido no *Curso de Análise*: lendo as oito primeiras, o `book-v1` pontuava **zero**
  * no próprio livro dele, porque nenhum capítulo começa antes da página 13.
  *
- * Espalhar custa o mesmo — oito páginas são oito páginas, perto ou longe — e enxerga o miolo.
+ * Espalhar custa o mesmo — uma página lida é uma página lida, perto ou longe — e enxerga o miolo.
  */
 export function samplePageNumbers(pageCount: number): readonly number[] {
   if (pageCount <= SAMPLE_PAGES) return Array.from({ length: pageCount }, (_, i) => i + 1);

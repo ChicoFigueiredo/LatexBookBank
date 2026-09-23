@@ -159,20 +159,37 @@ export function questionLatex(
   wantsOptions: boolean,
 ): QuestionLatex {
   const originalLatex = item.proposed.latex ?? escapeLatexText(item.proposed.text);
+  /** Corta a resolução do texto: o que vem depois do marcador não é enunciado nem alternativa. */
+  const splitSolution = (source: readonly string[]): { readonly statement: string[]; readonly solution: string[] } => {
+    const at = source.findIndex((line) => SOLUTION_MARKER.test(line));
+    return at < 0 ? { statement: [...source], solution: [] } : { statement: source.slice(0, at), solution: source.slice(at + 1) };
+  };
+
+  /*
+    O texto revisado ou reconhecido também é cortado.
+
+    Antes ele voltava inteiro, com a resolução dentro do enunciado — e é justamente neste livro que
+    isso morde: a camada de texto perde os símbolos matemáticos, então quase todo exercício passa
+    pelo reconhecimento de visão e cai neste ramo.
+  */
   const ready = reviewedOrRecognized(item);
-  if (ready !== null) return { statementLatex: ready.trim(), options: [], solutionLatex: "", originalLatex };
-
-  let lines = textOf(item)
-    .split("\n")
-    .filter((line) => !QUESTION_HEADER.test(line));
-
-  // A resolução sai antes de tudo: o que vem depois do marcador não é enunciado nem alternativa.
-  let solutionLatex = "";
-  const solutionAt = lines.findIndex((line) => SOLUTION_MARKER.test(line));
-  if (solutionAt >= 0) {
-    solutionLatex = escapeLatexText(joinLines(lines.slice(solutionAt + 1)));
-    lines = lines.slice(0, solutionAt);
+  if (ready !== null) {
+    const cortado = splitSolution(ready.split("\n"));
+    return {
+      statementLatex: joinLines(cortado.statement).trim(),
+      options: [],
+      solutionLatex: joinLines(cortado.solution).trim(),
+      originalLatex,
+    };
   }
+
+  const cortado = splitSolution(
+    textOf(item)
+      .split("\n")
+      .filter((line) => !QUESTION_HEADER.test(line)),
+  );
+  let lines = cortado.statement;
+  const solutionLatex = cortado.solution.length === 0 ? "" : escapeLatexText(joinLines(cortado.solution));
   if (lines[0]) lines[0] = lines[0].replace(EXERCISE_LABEL, "");
 
   // Os itens estão dentro do texto do exercício (a região dele os contém): o enunciado é o que
@@ -184,8 +201,38 @@ export function questionLatex(
     if (cut >= 0) lines = lines.slice(0, cut);
   }
 
+  /*
+    Numa questão de múltipla escolha, `a) b) c)` são **alternativas**, não subitens.
+
+    O motor os reconhece como `ITEM` porque na página são a mesma coisa: letra, parêntese, recuo.
+    Quem os separa é o tipo da questão — e o tipo, no Fundamentos, vem da zona. Sem esta parte, as
+    359 questões de vestibular do volume nasciam `MULTIPLE_CHOICE` com zero alternativas, e o que
+    deviam ser opções virava um `enumerate` dentro do enunciado: uma questão de alternativas que
+    não tem alternativa nenhuma para marcar.
+  */
+  /*
+    A ordem é a da **letra**, não a da leitura.
+
+    O livro imprime as alternativas em duas colunas, e a ordem de leitura sai intercalada:
+    `a) c) e)` de uma coluna e `b) d)` da outra chegam aqui como A,C,E,B,D. Exigir a ordem de
+    leitura rejeitava 157 das 359 questões do volume — todas com as cinco alternativas presentes.
+  */
+  const letters = items.map((child) => (child.number ?? "").toUpperCase());
+  const completa =
+    items.length >= 2 &&
+    new Set(letters).size === letters.length &&
+    [...letters].sort().every((letter, index) => letter === String.fromCharCode(65 + index));
+  const asAlternatives = wantsOptions && completa;
+
   let options: string[] = [];
-  if (wantsOptions) {
+  if (asAlternatives) {
+    options = [...items]
+      .sort((a, b) => (a.number ?? "").toUpperCase().localeCompare((b.number ?? "").toUpperCase()))
+      .map((child) => {
+        const ready = reviewedOrRecognized(child);
+        return ready ?? escapeLatexText(joinLines(textOf(child).split("\n")).replace(ITEM_LABEL, ""));
+      });
+  } else if (wantsOptions) {
     const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
     if (start >= 0) {
       const parsed: string[][] = [];
@@ -204,7 +251,7 @@ export function questionLatex(
   }
 
   let statement = escapeLatexText(joinLines(lines));
-  if (items.length > 0) {
+  if (items.length > 0 && !asAlternatives) {
     const entries = items.map((child) => {
       const label = child.originalLabel ?? `${child.number ?? ""})`;
       const ready = reviewedOrRecognized(child);

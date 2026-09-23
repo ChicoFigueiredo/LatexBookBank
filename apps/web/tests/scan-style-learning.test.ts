@@ -66,7 +66,7 @@ describe("o que o book-v1 aprende da tipografia", () => {
   it("não aprende com o gabarito, que é menor que o corpo do texto", () => {
     const learned = book.learnStyle!([...titulosReais, ...gabarito], style);
 
-    // 0,8× e 0,9× em negrito: nenhum livro imprime título em corpo menor que a prosa.
+    // 0,8× e 0,9× em negrito: nenhum livro imprime título em corpo menor que o texto corrido.
     for (const resposta of gabarito) {
       expect(learned.get(typographicSignature(resposta, style)), resposta.text).toBeUndefined();
     }

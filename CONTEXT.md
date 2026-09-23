@@ -193,12 +193,12 @@ _Avoid_: perfil (sem qualificar; confunde com Perfil LaTeX), template de scan, p
 (é o mecanismo, não o conceito)
 
 **Zona** (de um documento):
-Uma faixa de páginas com regra própria dentro do mesmo livro. Um volume do *Fundamentos* tem
+Um trecho de páginas com regra própria dentro do mesmo livro. Um volume do *Fundamentos* tem
 quatro: o corpo, o gabarito dos exercícios, as questões de vestibulares e o gabarito delas. A
 zona diz duas coisas ao scan — **o que ignorar** (gabarito não tem estrutura, tem respostas) e
 **que tipo de questão nasce ali** ([ADR 0009](docs/adr/0009-a-zona-do-documento.md)). Quem não
 declara zona vê o livro como uma zona só.
-_Avoid_: região (é a âncora de um item), seção (é um tipo de nó), parte (idem), faixa
+_Avoid_: região (é a âncora de um item), seção (é um tipo de nó), parte (idem)
 
 **Retrato do perfil**:
 O punhado de dados que a execução guarda do perfil no dia da varredura: rótulo, tipos e tipo

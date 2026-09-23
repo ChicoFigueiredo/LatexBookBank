@@ -415,7 +415,7 @@ export const bookV1: CaptureProfile = {
     const learned = new Map<string, ScanKind>();
 
     /*
-      Título nunca é menor que a prosa — e o gabarito do fim do volume é.
+      Título nunca é menor que o corpo do texto — e o gabarito do fim do volume é.
 
       O aprendizado varre o livro **inteiro**, e o gabarito é cheio de linhas que parecem título
       numerado: "2. d", "137. a)", "311. c", negrito e curtas, em 8 ou 9 pt contra os 10 pt do

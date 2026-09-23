@@ -1944,6 +1944,13 @@ causas, e só uma era do livro.
   preenchia. São 82 exercícios resolvidos no volume, com a resolução anunciada por `Solução`
 - ✅ O extrator de alternativas aceita minúsculas (`a) 60`), seguro porque só roda quando o tipo
   da questão pede alternativas
+- ✅ Os filhos `ITEM` de uma questão de múltipla escolha **são** as alternativas, e a ordem é a da
+  letra, não a da leitura *(a revisão de código pegou: as 359 questões nasciam `MULTIPLE_CHOICE`
+  com zero alternativas, e as opções viravam `enumerate` dentro do enunciado; e o livro imprime
+  em duas colunas, então a ordem de leitura chega A,C,E,B,D. Medido: 291 das 359 com alternativas,
+  199 com as cinco — as demais têm captura incompleta das letras)*
+- ✅ A resolução sai também do texto **reconhecido**, e não só do texto cru: neste livro quase todo
+  enunciado passa pela visão, e sem isso a resolução ficaria no enunciado justo onde mais importa
 
 **Fica de fora, por decisão**
 - ⛔ Ligar a resposta do gabarito à questão. A zona já sabe onde o gabarito está; casar "137. a)"

@@ -52,36 +52,31 @@ interface OpenRecord {
 }
 
 export function buildProposal(pages: readonly PageModel[], profile: CaptureProfile): Proposal {
-  const scannedPages = pages.filter((page) => page.scanned).length;
-  const scanWarnings = pages
-    .filter((page) => page.scanned)
-    .map((page) => `Página ${page.pageNumber} sem camada de texto: precisa de reconhecimento de texto.`);
-
-  /*
-    As zonas do documento (ADR 0009).
-
-    Calculadas sobre as páginas inteiras, antes de qualquer coisa. A zona marcada `skip` some da
-    varredura inteira — não só da caminhada: as figuras saem de `full.graphics`, e um gabarito de
-    43 páginas em duas colunas tem traço de sobra para virar figura que ninguém quer.
-  */
   const zones = profile.zones?.(pages) ?? [];
-  const lidas = zones.length === 0 ? pages : pages.filter((page) => zoneOfPage(zones, page.pageNumber)?.skip !== true);
+  const walked = zones.length === 0 ? pages : pages.filter((page) => zoneOfPage(zones, page.pageNumber)?.skip !== true);
   const zoneWarnings = zones
     .filter((zone) => zone.skip === true)
     .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida: é gabarito, não estrutura.`);
+
+  // Só as páginas que a varredura de fato olha: avisar que falta texto numa página pulada seria
+  // pedir reconhecimento para um gabarito que ninguém vai ler.
+  const scannedPages = walked.filter((page) => page.scanned).length;
+  const scanWarnings = walked
+    .filter((page) => page.scanned)
+    .map((page) => `Página ${page.pageNumber} sem camada de texto: precisa de reconhecimento de texto.`);
 
   if (profile.buildItems) {
     const drafts = profile.buildItems(pages);
     const items = drafts.map((draft) => finalize(draft, profile, null));
     return {
       items,
-      warnings: scanWarnings,
+      warnings: [...scanWarnings, ...zoneWarnings],
       metrics: measure(items, pages.length, scannedPages),
       pageOffset: null,
     };
   }
 
-  const full = assembleDocument(lidas, {
+  const full = assembleDocument(walked, {
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
   });
@@ -121,7 +116,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const linesBySlot = indexBySlot(doc.lines);
   const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
   const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
-  const items = checked.map((draft) => withZone(finalize(draft, profile, doc, offset), zones));
+  const items = checked.map((draft) => withZoneType(finalize(draft, profile, doc, offset), zones));
 
   return {
     items,
@@ -140,25 +135,19 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
  * aprovação decide o que fazer com isso.
  */
 /**
- * Carimba no item a zona de onde ele veio, e o tipo de questão que a zona pede (ADR 0009).
+ * Carimba no item o tipo de questão que a zona pede (ADR 0009).
  *
  * Vai em `metadata` de propósito: é informação do perfil sobre aquele item, e `metadata` é onde o
  * perfil já fala com a aprovação — `figureKind`, `widthFraction`. Uma coluna nova no banco para
  * guardar um enum que só a aprovação lê seria migração sem dono.
+ *
+ * E carimba **só** isso. O rótulo da zona também caberia aqui e não entra: pelo critério do
+ * ADR 0007, campo sem consumidor não fica. Se um dia a revisão quiser mostrar de que parte do
+ * livro veio o item, ele volta junto com a tela que o mostra.
  */
-function withZone(item: ProposedItem, zones: readonly DocumentZone[]): ProposedItem {
-  if (zones.length === 0) return item;
-  const zone = zoneOfPage(zones, item.pageNumber);
-  if (!zone) return item;
-
-  return {
-    ...item,
-    metadata: {
-      ...item.metadata,
-      zone: zone.label,
-      ...(zone.questionType === undefined ? {} : { questionType: zone.questionType }),
-    },
-  };
+function withZoneType(item: ProposedItem, zones: readonly DocumentZone[]): ProposedItem {
+  const questionType = zones.length === 0 ? undefined : zoneOfPage(zones, item.pageNumber)?.questionType;
+  return questionType === undefined ? item : { ...item, metadata: { ...item.metadata, questionType } };
 }
 
 function withFigures(

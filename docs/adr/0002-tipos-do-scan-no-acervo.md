@@ -9,7 +9,7 @@ vocabulário rico, e a aprovação o traduz para o que o acervo já sabe guardar
 |---|---|
 | `PART` · `CHAPTER` · `SECTION` · `SUBSECTION` | o mesmo `NodeKind` |
 | `EXERCISE_GROUP` | `QUESTION_GROUP` |
-| `EXERCISE` · `QUESTION` | nó `QUESTION` + `Question` em `DRAFT`, tipo padrão do perfil |
+| `EXERCISE` · `QUESTION` | nó `QUESTION` + `Question` em `DRAFT` — **revisado: o tipo pode vir da zona do item, e o do perfil é só o padrão, [ADR 0009](0009-a-zona-do-documento.md)** |
 | `ITEM` · `SUBITEM` | não viram nó: `enumerate` no LaTeX da questão, e as âncoras passam a ela |
 | `FIGURE` | âncora de papel *ilustração* do elemento que a contém — **e asset, revisado pelo [ADR 0005](0005-figura-vetorial-quando-o-pdf-a-tem.md)** |
 | `EXAMPLE` | ~~corpo do nó~~ — **revisado: vira nó, [ADR 0004](0004-o-exemplo-vira-no.md)** |

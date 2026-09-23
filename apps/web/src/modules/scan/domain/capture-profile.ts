@@ -17,7 +17,7 @@ import type { PublicationStyle } from "./typography";
  */
 
 /**
- * Uma faixa do documento com regra própria (ADR 0009).
+ * Uma zona do documento: um trecho de páginas com regra própria (ADR 0009).
  *
  * Um livro didático não é homogêneo. O *Fundamentos de Matemática Elementar* tem quatro partes
  * com regras diferentes: o corpo (teoria e exercícios discursivos), o gabarito dos exercícios,
@@ -198,7 +198,7 @@ export interface CaptureProfile {
   /** Divisores de coluna a partir das linhas do documento inteiro. */
   columnHints?(lines: readonly TextLine[]): readonly number[];
   /**
-   * As faixas do documento com regra própria (ADR 0009).
+   * As zonas do documento, cada uma com regra própria (ADR 0009).
    *
    * Calculado uma vez, antes da caminhada, a partir das páginas inteiras: as zonas de um livro
    * didático são anunciadas por título grande e confirmadas pelo cabeçalho corrente, e as duas

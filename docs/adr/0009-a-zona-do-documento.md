@@ -16,7 +16,7 @@ propôs, **300 vinham dos dois gabaritos** — linhas como "2. d" e "137. a)" li
 numerados — e as ~351 questões de vestibular nasciam discursivas, porque o tipo era um só por
 perfil.
 
-**Decidimos dar ao perfil o conceito de zona**: um gancho recebe as páginas e devolve as faixas do
+**Decidimos dar ao perfil o conceito de zona**: um gancho recebe as páginas e devolve as zonas do
 documento, cada uma com um rótulo, a página em que começa e o que o motor faz ali — ignorar, ou
 criar questões de um tipo determinado. A zona também chega ao classificador, no `WalkContext`.
 

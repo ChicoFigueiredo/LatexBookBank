@@ -2,7 +2,7 @@ import type { AnchorMatch, CaptureProfile, DocumentZone, WalkContext } from "../
 import type { PageModel, TextLine } from "../page";
 import type { ScanKind } from "../proposal";
 import { stripAccents } from "../text";
-import { relativeSize, type PublicationStyle } from "../typography";
+import { measureStyle, relativeSize, type PublicationStyle } from "../typography";
 import { semanticPrompt } from "./semantic-prompt";
 
 /**
@@ -62,6 +62,22 @@ const ZONE_MARKERS: readonly { readonly header: string; readonly zone: Omit<Docu
 ];
 
 const fold = (line: TextLine) => stripAccents(line.text).trim();
+
+/*
+  Os três marcos da coleção, cada um num lugar só.
+
+  Eles são consultados de três pontos — a classificação, a nota do perfil e a proteção contra
+  figura — e, escritos três vezes, os limiares divergiam em silêncio: o banner exigia 1,5× num
+  lugar e nada no outro. Um marco, uma definição.
+*/
+const ehBanner = (line: TextLine, style: PublicationStyle): boolean =>
+  SPACED_EXERCISES.test(fold(line)) && relativeSize(line, style) >= 1.5;
+
+const ehSecaoRomana = (line: TextLine, style: PublicationStyle): boolean =>
+  line.bold && relativeSize(line, style) >= 1.4 && SECTION_ROMAN.test(line.text.trim());
+
+const ehCapitulo = (line: TextLine, style: PublicationStyle): boolean =>
+  CHAPTER.test(fold(line)) && relativeSize(line, style) >= 2;
 const upper = (line: TextLine) => stripAccents(line.text).replace(/\s+/g, " ").trim().toUpperCase();
 
 /** O corpo do primeiro span, em múltiplos do corpo do livro. É ele que separa exercício de teoria. */
@@ -91,7 +107,7 @@ function classify(context: WalkContext): AnchorMatch | null {
 
   // CAPÍTULO I — o rótulo numa linha, o nome do capítulo na seguinte, em corpo ainda maior.
   const chapter = CHAPTER.exec(text);
-  if (chapter && ratio >= 2) {
+  if (chapter && ehCapitulo(line, style)) {
     /*
       O nome do capítulo vem **abaixo** do rótulo, em corpo ainda maior, e quebrado em quantas
       linhas precisar: "Função composta" / "Função inversa". Recolher só a primeira daria
@@ -118,7 +134,7 @@ function classify(context: WalkContext): AnchorMatch | null {
 
   // IV. Conjunto universo — a seção, em romano e 1,5× o corpo.
   const roman = SECTION_ROMAN.exec(line.text.trim());
-  if (roman && ratio >= 1.4 && line.bold) {
+  if (roman && ehSecaoRomana(line, style)) {
     return {
       kind: "SECTION",
       label: line.text.trim(),
@@ -138,7 +154,7 @@ function classify(context: WalkContext): AnchorMatch | null {
     procure a palavra. Aqui ele é a âncora mais confiável do livro — 1,9× o corpo, em negrito, e
     sempre sozinho na linha.
   */
-  if (SPACED_EXERCISES.test(text) && ratio >= 1.5) {
+  if (ehBanner(line, style)) {
     return {
       kind: "EXERCISE_GROUP",
       label: line.text.trim(),
@@ -301,15 +317,15 @@ export const bookFmeV1: CaptureProfile = {
   */
   score(sample) {
     const paginas = Math.max(1, sample.length);
+    const style = measureStyle(sample.flatMap((page) => page.lines));
     let banners = 0;
     let romanas = 0;
     let capitulos = 0;
     for (const page of sample) {
       for (const line of page.lines) {
-        const text = fold(line);
-        if (SPACED_EXERCISES.test(text)) banners++;
-        else if (CHAPTER.test(text)) capitulos++;
-        else if (line.bold && SECTION_ROMAN.test(line.text.trim())) romanas++;
+        if (ehBanner(line, style)) banners++;
+        else if (ehCapitulo(line, style)) capitulos++;
+        else if (ehSecaoRomana(line, style)) romanas++;
       }
     }
 
@@ -330,16 +346,13 @@ export const bookFmeV1: CaptureProfile = {
 
   /** Nada disto é mobília, e nada disto pode ser engolido por uma figura. */
   isProtected(line, style) {
-    const text = fold(line);
     /*
       O título de capítulo entra aqui por uma razão medida: a página de abertura de cada capítulo
       traz uma ilustração grande, e "CAPÍTULO I" tem dez caracteres — curto o bastante para a
       figura o engolir como se fosse rótulo do desenho. Foi o que aconteceu na primeira medição:
       dez capítulos existiam no PDF em 2,80× o corpo, e nenhum chegava à proposta.
     */
-    if (CHAPTER.test(text) && relativeSize(line, style) >= 2) return true;
-    if (SPACED_EXERCISES.test(text)) return true;
-    if (line.bold && SECTION_ROMAN.test(line.text.trim())) return true;
+    if (ehCapitulo(line, style) || ehBanner(line, style) || ehSecaoRomana(line, style)) return true;
     return prefixBold(line) && NUMBER_SPAN.test(line.spans[0]?.text.trim() ?? "") && relativeSize(line, style) <= 1.5;
   },
 
