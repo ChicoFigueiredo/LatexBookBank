@@ -2,6 +2,7 @@ import { asStorageKey, type StorageProvider } from "@shared/ports/storage-provid
 
 import { buildLines } from "@modules/scan/domain/page";
 import { captureProfile, rankProfiles, PROFILE_MISMATCH_MARGIN } from "@modules/scan/domain/profiles";
+import { samplePageNumbers } from "./suggest-profile";
 import { inheritReview } from "@modules/scan/domain/inherit-review";
 import { buildProposal } from "@modules/scan/domain/structure";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
@@ -179,8 +180,17 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
       As páginas já estão lidas e os perfis já sabem se pontuar — a mesma nota que sugere antes
       da varredura acusa depois dela. O sintoma que motivou isto é mudo por natureza: varrer um
       livro com o perfil errado não dá erro nenhum, dá 453 seções onde deviam existir vinte.
+
+      **A mesma amostra**, e não o livro inteiro. A nota é densidade de sinais por página, e um
+      perfil cujos marcos são raros — 61 banners em 420 páginas — afunda quando o denominador é o
+      volume todo. Medido: com o livro inteiro, o `book-fme-v1` acusava a si mesmo de ter lido
+      errado o livro para o qual foi escrito. Com a amostra, ele ganha de longe, que é o mesmo
+      resultado que a sugestão dá antes de a varredura começar.
     */
-    const ranking = rankProfiles(pages);
+    const ranking = rankProfiles(samplePageNumbers(pages.length).flatMap((n) => {
+      const page = pages[n - 1];
+      return page ? [page] : [];
+    }));
     const melhor = ranking[0];
     const escolhido = ranking.find((entry) => entry.id === profile.id);
     if (melhor && escolhido && melhor.id !== profile.id && melhor.score - escolhido.score > PROFILE_MISMATCH_MARGIN) {
