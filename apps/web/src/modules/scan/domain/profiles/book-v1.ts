@@ -413,12 +413,27 @@ export const bookV1: CaptureProfile = {
 
   learnStyle(lines: readonly DocLine[], style: PublicationStyle): LearnedStyle {
     const learned = new Map<string, ScanKind>();
+
+    /*
+      Título nunca é menor que a prosa — e o gabarito do fim do volume é.
+
+      O aprendizado varre o livro **inteiro**, e o gabarito é cheio de linhas que parecem título
+      numerado: "2. d", "137. a)", "311. c", negrito e curtas, em 8 ou 9 pt contra os 10 pt do
+      texto. Aprendidas essas assinaturas, o ramo tipográfico promovia a seção qualquer linha
+      negrito curta desse corpo no livro todo — inclusive rótulo de eixo de gráfico, "y",
+      "Distância (m)". Medido no *Fundamentos*: 300 das 453 falsas seções vinham dos dois
+      gabaritos, e mais 65 de legendas de tabela.
+
+      A guarda é uma verdade tipográfica, não um ajuste para este livro: nenhuma editora imprime
+      título em corpo menor que o do texto corrido.
+    */
+    const candidate = (line: DocLine): boolean => relativeSize(line, style) >= 1 && looksLikeHeading(line, style);
     // "Capítulo I" por extenso **e** títulos de um número só: as seções são numeradas dentro do
     // capítulo. Com "Capítulo 1" e seções "1.1" (o `book` do LaTeX), a numeração é a de sempre.
-    const hasWordChapters = lines.some((line) => CHAPTER.test(fold(line)) && looksLikeHeading(line, style));
+    const hasWordChapters = lines.some((line) => CHAPTER.test(fold(line)) && candidate(line));
     const hasSingleNumberHeadings = lines.some((line) => {
       const numbered = NUMBERED_HEADING.exec(line.text.trim());
-      return numbered !== null && !(numbered[1] ?? "").includes(".") && line.bold && looksLikeHeading(line, style);
+      return numbered !== null && !(numbered[1] ?? "").includes(".") && line.bold && candidate(line);
     });
     const wordChapters = hasWordChapters && hasSingleNumberHeadings;
     if (wordChapters) learned.set(SECTIONS_BY_SINGLE_NUMBER, "SECTION");
@@ -426,7 +441,7 @@ export const bookV1: CaptureProfile = {
 
     for (const line of lines) {
       const numbered = NUMBERED_HEADING.exec(line.text.trim());
-      if (!numbered || !looksLikeHeading(line, style)) continue;
+      if (!numbered || !candidate(line)) continue;
       const depth = (numbered[1] ?? "").split(".").length;
       const kind = levels[Math.min(depth, levels.length) - 1] ?? "SUBSECTION";
       const signature = typographicSignature(line, style);
