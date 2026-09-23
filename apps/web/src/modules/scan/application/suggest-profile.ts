@@ -19,10 +19,17 @@ import type { ScanSourceReader } from "./scan-store";
 /**
  * Quantas páginas bastam para reconhecer um documento.
  *
- * Oito alcança o miolo sem pagar a leitura do volume inteiro: 447 páginas levariam dezesseis
- * segundos, e ninguém espera dezesseis segundos por um palpite.
+ * Dezesseis, e o número é medido, não escolhido. Com oito, o *Fundamentos de Matemática
+ * Elementar* era lido como prova de concurso: os marcos que o identificam — o banner
+ * `E X E R C Í C I O S` e a seção em romano — são **raros, não densos** (62 banners em 269
+ * páginas de corpo), e uma amostra de oito não encontrava nenhum. Medido nos onze PDFs do
+ * corpus: com oito, dez acertos e um erro; com dezesseis, onze acertos, e a margem sobre o
+ * segundo colocado cresce em todos.
+ *
+ * O preço é o dobro de páginas lidas — ainda muito longe de abrir um volume inteiro, que para
+ * 447 páginas levaria dezesseis segundos e ninguém espera por isso.
  */
-export const SAMPLE_PAGES = 8;
+export const SAMPLE_PAGES = 16;
 
 /**
  * **Quais** oito páginas — espalhadas, nunca as primeiras.

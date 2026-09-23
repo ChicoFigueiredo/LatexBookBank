@@ -184,20 +184,40 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     for (const result of results.filter((r) => r.proposal !== null)) {
       const sample = result.pages > 0 ? result.sample : [];
       if (sample.length === 0) continue;
-      /*
-        O *Fundamentos* fica de fora, e o motivo é o assunto de outra fase.
-
-        O `book-v1` pontua 0,05 nele — e está **certo**: este é o livro em que ele acha 0 exemplos,
-        0 exercícios e 453 falsas seções. O manifesto diz `book-v1` porque foi o perfil atribuído,
-        não porque ele leia o livro. Forçar a asserção aqui seria ajustar heurística até o número
-        mentir; a nota baixa é evidência a favor do perfil próprio que o checklist já pede.
-      */
-      if (result.entry.path.includes("7dfcb4c1")) continue;
       const ranking = rankProfiles(sample);
       expect(ranking[0]?.id, `${result.entry.label} — ${ranking.map((r) => `${r.id}:${r.score.toFixed(2)}`).join(" ")}`).toBe(
         result.entry.profile,
       );
     }
+  });
+
+  /*
+    O aceite da Fase 25: o *Fundamentos* lido pelo perfil da coleção.
+
+    Os números são do vol. 1 e vêm do livro, não da implementação: 10 capítulos e 83 seções estão
+    no sumário, os itens de teoria vão de 1 a 159 e os exercícios de 1 a 568. O que se afirma aqui
+    é o que o `book-v1` não conseguia — ele achava 0 exercícios, 0 exemplos e 453 falsas seções.
+  */
+  it("o Fundamentos: a estrutura do livro, e nada vindo dos gabaritos", () => {
+    const fme = results.find((r) => r.entry.profile === "book-fme-v1" && r.proposal !== null);
+    if (!fme) return;
+    const items = fme.proposal!.items;
+    const count = (kind: string) => items.filter((item) => item.kind === kind).length;
+
+    expect(count("CHAPTER"), "capítulos").toBe(10);
+    expect(count("SECTION"), "seções romanas").toBe(83);
+    expect(count("SUBSECTION"), "itens de teoria").toBeGreaterThanOrEqual(150);
+    expect(count("EXERCISE"), "exercícios discursivos").toBeGreaterThanOrEqual(550);
+    expect(count("QUESTION"), "questões de vestibular").toBeGreaterThanOrEqual(350);
+
+    // Toda questão de vestibular nasce com o tipo da zona; nenhum exercício do corpo nasce com ele.
+    const vestibular = items.filter((item) => item.kind === "QUESTION");
+    expect(vestibular.every((item) => item.metadata["questionType"] === "MULTIPLE_CHOICE")).toBe(true);
+    expect(items.filter((item) => item.kind === "EXERCISE").some((item) => item.metadata["questionType"] !== undefined)).toBe(false);
+
+    // Os dois gabaritos não entram: 300 das 453 falsas seções do book-v1 vinham dali.
+    expect(items.filter((item) => String(item.metadata["zone"] ?? "").startsWith("respostas"))).toEqual([]);
+    expect(fme.proposal!.warnings.some((warning) => warning.includes("não foi varrida"))).toBe(true);
   });
 
   it("grava o relatório quando pedido", () => {

@@ -14,7 +14,14 @@ import type { ScanItem } from "./scan-item";
 const EXERCISE_LABEL = /^\s*(?:(?:exerc[ií]cio|problema|exercise|problem)\s+\d+(?:\.\d+)*\s*[.:)]?|\d{1,3}\s*[.)])\s*/i;
 const QUESTION_HEADER = /^\s*QUEST[AÃ]O\s+\d{1,3}\s*$/i;
 const ITEM_LABEL = /^\s*\(?([a-z]|[ivx]{1,5})\)\s*/i;
-const ALTERNATIVE = /^\s*([A-E])(?:\t|\)|\.|\s|$)\s*(.*)$/;
+/**
+ * A letra da alternativa — maiúscula ou minúscula.
+ *
+ * O ENEM imprime "A", o Iezzi imprime "a)". Aceitar as duas é seguro porque este extrator só roda
+ * quando o tipo da questão pede alternativas, e quem decide o tipo é a zona (ADR 0009): no corpo
+ * do livro, onde "a)" é item de exercício discursivo, ele nem é chamado.
+ */
+const ALTERNATIVE = /^\s*([A-Ea-e])(?:\t|\)|\.|\s|$)\s*(.*)$/;
 
 /** Junta as linhas de um parágrafo, desfazendo a hifenização de fim de linha. */
 export function joinLines(lines: readonly string[]): string {
@@ -121,9 +128,26 @@ export function exampleTitle(item: ScanItem): string | null {
 export interface QuestionLatex {
   readonly statementLatex: string;
   readonly options: readonly string[];
+  /**
+   * A resolução impressa no livro, quando o exercício vem com ela — vai para
+   * `Question.solutionLatex`, que existe no acervo desde sempre e o scan nunca preenchia.
+   *
+   * O *Fundamentos* traz 82 exercícios resolvidos: enunciado, a palavra **Solução** em negrito, e
+   * a conta. Sem separar, a resposta ia junto no enunciado e a questão entregava o gabarito a
+   * quem fosse respondê-la.
+   */
+  readonly solutionLatex: string;
   /** O que o scan leu, antes de qualquer revisão — vai para `Question.originalLatex`. */
   readonly originalLatex: string;
 }
+
+/**
+ * A linha que anuncia a resolução: a palavra sozinha, não a palavra no meio de uma frase.
+ *
+ * "Solução" isolada numa linha é marcação editorial; "a solução da equação é" é enunciado. Exigir
+ * a linha inteira é o que separa as duas sem precisar de tipografia.
+ */
+const SOLUTION_MARKER = /^\s*(?:solu[çc][ãa]o|resolu[çc][ãa]o|solution)\s*:?\s*$/i;
 
 /**
  * Exercício ou questão: o enunciado, com os itens como `enumerate` de rótulo explícito
@@ -136,11 +160,19 @@ export function questionLatex(
 ): QuestionLatex {
   const originalLatex = item.proposed.latex ?? escapeLatexText(item.proposed.text);
   const ready = reviewedOrRecognized(item);
-  if (ready !== null) return { statementLatex: ready.trim(), options: [], originalLatex };
+  if (ready !== null) return { statementLatex: ready.trim(), options: [], solutionLatex: "", originalLatex };
 
   let lines = textOf(item)
     .split("\n")
     .filter((line) => !QUESTION_HEADER.test(line));
+
+  // A resolução sai antes de tudo: o que vem depois do marcador não é enunciado nem alternativa.
+  let solutionLatex = "";
+  const solutionAt = lines.findIndex((line) => SOLUTION_MARKER.test(line));
+  if (solutionAt >= 0) {
+    solutionLatex = escapeLatexText(joinLines(lines.slice(solutionAt + 1)));
+    lines = lines.slice(0, solutionAt);
+  }
   if (lines[0]) lines[0] = lines[0].replace(EXERCISE_LABEL, "");
 
   // Os itens estão dentro do texto do exercício (a região dele os contém): o enunciado é o que
@@ -154,13 +186,14 @@ export function questionLatex(
 
   let options: string[] = [];
   if (wantsOptions) {
-    const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1] === "A");
+    const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
     if (start >= 0) {
       const parsed: string[][] = [];
       for (const line of lines.slice(start)) {
         const match = ALTERNATIVE.exec(line);
         const expected = String.fromCharCode(65 + parsed.length);
-        if (match && match[1] === expected) parsed.push([match[2] ?? ""]);
+        // A sequência é conferida em maiúscula: o livro escolhe a caixa, a ordem A→E é a mesma.
+        if (match && match[1]?.toUpperCase() === expected) parsed.push([match[2] ?? ""]);
         else parsed[parsed.length - 1]?.push(line);
       }
       if (parsed.length >= 2) {
@@ -181,5 +214,5 @@ export function questionLatex(
     statement = `${statement}\n\\begin{enumerate}\n${entries.join("\n")}\n\\end{enumerate}`;
   }
 
-  return { statementLatex: statement.trim(), options, originalLatex };
+  return { statementLatex: statement.trim(), options, solutionLatex: solutionLatex.trim(), originalLatex };
 }

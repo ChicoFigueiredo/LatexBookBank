@@ -17,6 +17,46 @@ import type { PublicationStyle } from "./typography";
  */
 
 /**
+ * Uma faixa do documento com regra própria (ADR 0009).
+ *
+ * Um livro didático não é homogêneo. O *Fundamentos de Matemática Elementar* tem quatro partes
+ * com regras diferentes: o corpo (teoria e exercícios discursivos), o gabarito dos exercícios,
+ * uma seção de questões de vestibular com alternativas, e o gabarito dessas questões. Varrer as
+ * quatro com a mesma regra produz o que produziu: 300 falsas seções tiradas de páginas de
+ * resposta, e questões de múltipla escolha nascendo discursivas.
+ *
+ * A zona responde às duas perguntas de uma vez: **o que ignorar** e **que tipo de questão nasce
+ * aqui**. É o conceito que substitui o `isBoundary` apagado no ADR 0007 — aquele só sabia dizer
+ * "pare", e "pare" não cobre uma seção de vestibular que não é para parar, é para ler diferente.
+ */
+export interface DocumentZone {
+  /** Nome curto, para o aviso da execução e para a revisão. */
+  readonly label: string;
+  /** Primeira página da zona, na numeração do PDF. A zona vai até a véspera da próxima. */
+  readonly from: number;
+  /** Não propor nada daqui: gabarito não tem estrutura, tem respostas. */
+  readonly skip?: boolean;
+  /** O tipo com que as questões desta zona nascem; sem ele, vale o padrão do perfil. */
+  readonly questionType?: QuestionType;
+}
+
+/**
+ * Em que zona cai cada página.
+ *
+ * As zonas chegam em qualquer ordem e cada uma vale até a véspera da seguinte. Página anterior à
+ * primeira zona não tem zona — e ficar sem zona é a resposta certa: o perfil não disse nada
+ * sobre ela.
+ */
+export function zoneOfPage(zones: readonly DocumentZone[], pageNumber: number): DocumentZone | null {
+  let current: DocumentZone | null = null;
+  for (const zone of [...zones].sort((a, b) => a.from - b.from)) {
+    if (zone.from > pageNumber) break;
+    current = zone;
+  }
+  return current;
+}
+
+/**
  * O que um perfil enxerga numa amostra, de 0 a 1, com a razão por escrito.
  *
  * A razão é metade do valor: "12 linhas QUESTÃO N, em duas colunas" deixa a pessoa conferir o
@@ -81,6 +121,13 @@ export interface WalkContext {
   readonly columnLeft: number;
   /** O que o perfil aprendeu do livro antes do caminho — ver `learnStyle`. */
   readonly learned: LearnedStyle;
+  /**
+   * A zona em que esta linha está (ADR 0009), ou `null` no perfil que não declara zonas.
+   *
+   * Sem isto, o perfil sabe que o livro tem uma seção de vestibulares e não sabe quando está
+   * dentro dela — e "1. (UF-RS)" fica indistinguível de um exercício do corpo que cite a banca.
+   */
+  readonly zone: DocumentZone | null;
 }
 
 /** Assinatura tipográfica → tipo, aprendida dos títulos que tinham padrão explícito (§18). */
@@ -150,6 +197,15 @@ export interface CaptureProfile {
   isProtected?(line: TextLine, style: PublicationStyle): boolean;
   /** Divisores de coluna a partir das linhas do documento inteiro. */
   columnHints?(lines: readonly TextLine[]): readonly number[];
+  /**
+   * As faixas do documento com regra própria (ADR 0009).
+   *
+   * Calculado uma vez, antes da caminhada, a partir das páginas inteiras: as zonas de um livro
+   * didático são anunciadas por título grande e confirmadas pelo cabeçalho corrente, e as duas
+   * coisas são visíveis sem percorrer a estrutura. Perfil que não o implementa vê o documento
+   * como uma zona só, que é o que sempre foi.
+   */
+  zones?(pages: readonly PageModel[]): readonly DocumentZone[];
   learnStyle?(lines: readonly DocLine[], style: PublicationStyle): LearnedStyle;
   validateItem?(item: DraftItem, doc: ScanDocument): Diagnostic | null;
   /** Substitui o caminho genérico — para perfis que já têm o próprio segmentador (`exam-v1`). */

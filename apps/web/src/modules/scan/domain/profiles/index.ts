@@ -1,4 +1,5 @@
 import { registerCaptureProfile } from "../capture-profile";
+import { bookFmeV1 } from "./book-fme-v1";
 import { bookV1 } from "./book-v1";
 import { examEnemV1 } from "./exam-enem-v1";
 import { examV1 } from "./exam-v1";
@@ -8,6 +9,7 @@ import { examV1 } from "./exam-v1";
  * arquivo e acrescentar uma linha aqui — sem descoberta por pasta, sem reflexão.
  */
 registerCaptureProfile(bookV1);
+registerCaptureProfile(bookFmeV1);
 registerCaptureProfile(examV1);
 registerCaptureProfile(examEnemV1);
 

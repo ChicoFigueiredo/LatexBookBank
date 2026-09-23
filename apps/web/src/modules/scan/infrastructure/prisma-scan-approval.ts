@@ -171,6 +171,8 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                     type: blueprint.type,
                     difficulty: blueprint.difficulty,
                     statementLatex: step.question.statementLatex,
+                    // A resolução impressa, quando o livro a traz junto do enunciado.
+                    solutionLatex: step.question.solutionLatex,
                     originalLatex: step.question.originalLatex,
                     // `DRAFT` com âncora de LaTeX não conferido: é o *a revisar* da D40.
                     status: "DRAFT",

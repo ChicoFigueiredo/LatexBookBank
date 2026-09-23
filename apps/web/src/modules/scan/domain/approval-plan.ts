@@ -1,7 +1,7 @@
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
 import type { AnchorRole } from "@modules/assets/domain/node-anchors";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
-import type { QuestionType } from "@modules/questions/domain/question-type";
+import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
 
 import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
 import { boxRect, overlapRatio } from "./geometry";
@@ -43,6 +43,8 @@ export type NodeRef =
 export interface PlannedQuestion {
   readonly type: QuestionType;
   readonly statementLatex: string;
+  /** A resolução impressa no livro, quando o exercício vem com ela; vazio quando não vem. */
+  readonly solutionLatex: string;
   readonly originalLatex: string;
   readonly options: readonly string[];
 }
@@ -228,7 +230,17 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
 
     if (QUESTION_KINDS.has(item.kind)) {
       const children = descendants(item).filter((child) => FOLDED_KINDS.has(child.kind));
-      const type = profile.defaultQuestionType;
+      /*
+        O tipo vem do item quando a zona o carimbou (ADR 0009).
+
+        Um perfil tem um tipo padrão, e isso basta enquanto o livro inteiro faz o mesmo tipo de
+        pergunta. O *Fundamentos* não faz: 568 exercícios discursivos no corpo e ~351 questões de
+        vestibular com alternativas, no mesmo volume. O padrão do perfil vira o que sempre deveria
+        ter sido — o que vale quando ninguém disse nada.
+      */
+      const stamped = item.metadata["questionType"];
+      const type =
+        typeof stamped === "string" && isQuestionType(stamped) ? stamped : profile.defaultQuestionType;
       const latex = questionLatex(item, children, type === "MULTIPLE_CHOICE" || type === "MULTIPLE_CORRECT");
       steps.push({
         type: "createNode",

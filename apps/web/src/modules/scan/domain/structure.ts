@@ -1,6 +1,15 @@
 import { escapeLatexText } from "@modules/recognition/domain/latex-escape";
 
-import type { AnchorMatch, CaptureProfile, DraftItem, Extent, OpenElement, WalkContext } from "./capture-profile";
+import {
+  zoneOfPage,
+  type AnchorMatch,
+  type CaptureProfile,
+  type DocumentZone,
+  type DraftItem,
+  type Extent,
+  type OpenElement,
+  type WalkContext,
+} from "./capture-profile";
 import { assembleDocument, positionOf, type DocLine, type ScanDocument } from "./document";
 import { findFigures, type Figure } from "./figures";
 import { toNormalizedBox } from "./geometry";
@@ -48,6 +57,19 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     .filter((page) => page.scanned)
     .map((page) => `Página ${page.pageNumber} sem camada de texto: precisa de reconhecimento de texto.`);
 
+  /*
+    As zonas do documento (ADR 0009).
+
+    Calculadas sobre as páginas inteiras, antes de qualquer coisa. A zona marcada `skip` some da
+    varredura inteira — não só da caminhada: as figuras saem de `full.graphics`, e um gabarito de
+    43 páginas em duas colunas tem traço de sobra para virar figura que ninguém quer.
+  */
+  const zones = profile.zones?.(pages) ?? [];
+  const lidas = zones.length === 0 ? pages : pages.filter((page) => zoneOfPage(zones, page.pageNumber)?.skip !== true);
+  const zoneWarnings = zones
+    .filter((zone) => zone.skip === true)
+    .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida: é gabarito, não estrutura.`);
+
   if (profile.buildItems) {
     const drafts = profile.buildItems(pages);
     const items = drafts.map((draft) => finalize(draft, profile, null));
@@ -59,7 +81,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     };
   }
 
-  const full = assembleDocument(pages, {
+  const full = assembleDocument(lidas, {
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
   });
@@ -95,15 +117,15 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const hidden = new Set(figures.flatMap((figure) => [...figure.absorbedLineIds, ...figure.captionLineIds]));
   const doc: ScanDocument = hidden.size === 0 ? full : { ...full, lines: full.lines.filter((line) => !hidden.has(line.id)) };
 
-  const records = walk(doc, profile);
+  const records = walk(doc, profile, zones);
   const linesBySlot = indexBySlot(doc.lines);
   const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
   const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
-  const items = checked.map((draft) => finalize(draft, profile, doc, offset));
+  const items = checked.map((draft) => withZone(finalize(draft, profile, doc, offset), zones));
 
   return {
     items,
-    warnings: [...scanWarnings, ...tocWarnings],
+    warnings: [...scanWarnings, ...tocWarnings, ...zoneWarnings],
     metrics: measure(items, pages.length, scannedPages),
     pageOffset: offset,
   };
@@ -117,6 +139,28 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
  * aparece: a seção, o exemplo, o exercício. Se nenhum aceita figura, ela fica sem pai, e a
  * aprovação decide o que fazer com isso.
  */
+/**
+ * Carimba no item a zona de onde ele veio, e o tipo de questão que a zona pede (ADR 0009).
+ *
+ * Vai em `metadata` de propósito: é informação do perfil sobre aquele item, e `metadata` é onde o
+ * perfil já fala com a aprovação — `figureKind`, `widthFraction`. Uma coluna nova no banco para
+ * guardar um enum que só a aprovação lê seria migração sem dono.
+ */
+function withZone(item: ProposedItem, zones: readonly DocumentZone[]): ProposedItem {
+  if (zones.length === 0) return item;
+  const zone = zoneOfPage(zones, item.pageNumber);
+  if (!zone) return item;
+
+  return {
+    ...item,
+    metadata: {
+      ...item.metadata,
+      zone: zone.label,
+      ...(zone.questionType === undefined ? {} : { questionType: zone.questionType }),
+    },
+  };
+}
+
 function withFigures(
   drafts: readonly DraftItem[],
   figures: readonly Figure[],
@@ -216,7 +260,7 @@ function withFigures(
   return entries.sort((a, b) => a.at - b.at).map((entry) => entry.draft);
 }
 
-function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {
+function walk(doc: ScanDocument, profile: CaptureProfile, zones: readonly DocumentZone[]): OpenRecord[] {
   const { lines, style } = doc;
   const learned = profile.learnStyle?.(lines, style) ?? new Map<string, ScanKind>();
   const records: OpenRecord[] = [];
@@ -289,6 +333,7 @@ function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {
       },
       columnLeft: doc.slots[line.slot]?.column.x0 ?? line.x0,
       learned,
+      zone: zones.length === 0 ? null : zoneOfPage(zones, line.pageNumber),
     };
 
 
