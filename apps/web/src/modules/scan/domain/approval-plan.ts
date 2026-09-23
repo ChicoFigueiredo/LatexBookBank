@@ -106,6 +106,9 @@ export interface ApprovalInput {
   readonly existingAnchors: readonly ExistingAnchor[];
 }
 
+/** Quantas alternativas uma questão precisa ter para ser de múltipla escolha — ver a aprovação. */
+export const MIN_ALTERNATIVES = 4;
+
 /** Sobreposição, na mesma página, a partir da qual a âncora "já está no acervo" (D53). */
 export const DUPLICATE_OVERLAP = 0.8;
 
@@ -239,9 +242,34 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         ter sido — o que vale quando ninguém disse nada.
       */
       const stamped = item.metadata["questionType"];
-      const type =
-        typeof stamped === "string" && isQuestionType(stamped) ? stamped : profile.defaultQuestionType;
-      const latex = questionLatex(item, children, type === "MULTIPLE_CHOICE" || type === "MULTIPLE_CORRECT");
+      const fromZone = typeof stamped === "string" && isQuestionType(stamped);
+      const wanted = fromZone ? stamped : profile.defaultQuestionType;
+      const withOptions = wanted === "MULTIPLE_CHOICE" || wanted === "MULTIPLE_CORRECT";
+      /*
+        Múltipla escolha tem quatro ou cinco alternativas — e o que tem menos é outra coisa.
+
+        A zona diz o tipo do **trecho**, não de cada questão, e a seção de vestibulares mistura
+        feitios. Medido no Fundamentos, contando as alternativas que a aprovação achava:
+
+          2 ou 3  →  todas eram discursivas com subitens: "a) Esboce o gráfico… b) Determine…"
+          4 ou 5  →  todas eram múltipla escolha: "50 | 51 | 60 | 61", "13,83 °C | 13,86 °C…"
+          0 ou 1  →  de soma, com "(16)", "(32)", "(64)"; ou aberta, "Justifique sua escolha"
+
+        Na página, subitem e alternativa são a mesma coisa: letra e parêntese. Quem as separa é a
+        quantidade, que é a regra do próprio vestibular brasileiro.
+
+        E o rebaixamento refaz o LaTeX sem alternativas: senão os subitens, já consumidos como
+        opções, sumiriam do enunciado de uma questão que não tem onde guardá-las.
+
+        **Só o tipo que veio da zona é rebaixado.** A zona é palpite sobre um trecho; o padrão do
+        perfil é afirmação sobre o documento inteiro. O caderno do ENEM é todo de múltipla escolha,
+        e a questão dele com as alternativas em imagem não tem texto para contar — rebaixá-la
+        apagaria o que o perfil sabe com certeza.
+      */
+      const tentativa = questionLatex(item, children, withOptions);
+      const rebaixa = fromZone && withOptions && tentativa.options.length < MIN_ALTERNATIVES;
+      const type: QuestionType = rebaixa ? "DISCURSIVE" : wanted;
+      const latex = rebaixa ? questionLatex(item, children, false) : tentativa;
       steps.push({
         type: "createNode",
         ref: item.id,

@@ -1952,6 +1952,26 @@ causas, e só uma era do livro.
 - ✅ A resolução sai também do texto **reconhecido**, e não só do texto cru: neste livro quase todo
   enunciado passa pela visão, e sem isso a resolução ficaria no enunciado justo onde mais importa
 
+**O que a aprovação de ensaio mostrou** *(a aprovação inteira rodada numa cópia do banco, antes de
+tocar no acervo)*
+- ✅ A seção de vestibulares vira um capítulo próprio, "Questões de vestibulares", com os **dez
+  temas** que o livro imprime ("Lógica", "Função quadrática"…) como grupos de questões. Antes, as
+  359 questões caíam soltas na raiz do livro, depois do capítulo X
+- ✅ Na zona de vestibulares, número em negrito é questão **com ou sem banca**: 254 e 255 dividem
+  o enunciado com a 253 e não repetem "(Enem)". Eram engolidas por ela, que ficava com três jogos
+  de alternativas. Agora são **361 questões, de 1 a 361, sem buraco**
+- ✅ Alternativas impressas **numa linha só** ("a) Ari; água b) Bruna; água…") são separadas pelas
+  letras; e quando as letras recomeçam, fica o primeiro jogo
+- ✅ **Múltipla escolha tem quatro ou cinco alternativas**, e o que tem menos é outra coisa. Medido:
+  com 2 ou 3, todas eram discursivas com subitens ("a) Esboce o gráfico… b) Determine…"); com 4 ou
+  5, todas eram múltipla escolha ("50 | 51 | 60 | 61"); com 0 ou 1, eram de soma — "(16)", "(32)"
+  — ou abertas. Rebaixadas a discursiva, com os subitens de volta no enunciado. **Só o tipo que veio
+  da zona é rebaixado**: o ENEM é todo de múltipla escolha, e a questão dele com alternativas em
+  imagem não pode perder o tipo
+- ✅ **Aprovação de ensaio, numa cópia do banco**: 4,8 s · 1247 nós · 923 questões (673
+  discursivas, 250 de múltipla escolha — todas com 4 ou 5 alternativas) · 80 com resolução · 0
+  itens pulados. As 470 figuras ficam para a revisão, como toda figura sem legenda
+
 **Fica de fora, por decisão**
 - ⛔ Ligar a resposta do gabarito à questão. A zona já sabe onde o gabarito está; casar "137. a)"
   com o exercício 137 é texto matemático em duas colunas, e é outra fase

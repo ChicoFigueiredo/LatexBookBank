@@ -94,7 +94,8 @@ const CONTAINS: Readonly<Record<string, readonly ScanKind[]>> = {
   CHAPTER: ["SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
   SECTION: ["SUBSECTION", "CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
   SUBSECTION: ["CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
-  EXERCISE_GROUP: ["EXERCISE"],
+  // O tema da seção de vestibulares ("Lógica", "Função quadrática") agrupa questões, não exercícios.
+  EXERCISE_GROUP: ["EXERCISE", "QUESTION"],
   EXERCISE: ["ITEM", "FIGURE"],
   QUESTION: ["ITEM", "FIGURE"],
 };
@@ -104,6 +105,47 @@ function classify(context: WalkContext): AnchorMatch | null {
   const text = fold(line);
   const ratio = relativeSize(line, style);
   const open = new Set(context.open.map((element) => element.kind));
+
+  /*
+    A seção de vestibulares tem estrutura própria, e ela espelha o livro.
+
+    Abre com um título grande — "Questões de" / "vestibulares", no mesmo corpo do nome de capítulo
+    — e divide as questões em dez temas em 13 pt, um por capítulo: "Lógica", "Conjuntos", "Função
+    quadrática". Sem isto, as 359 questões caíam soltas na raiz do livro, depois do capítulo X.
+  */
+  if (context.zone?.questionType !== undefined && !CHAPTER.test(text)) {
+    if (ratio >= 2) {
+      const abaixo: string[] = [];
+      for (let offset = 1; ; offset++) {
+        const next = context.peek(offset);
+        if (!next || relativeSize(next, style) < 2) break;
+        abaixo.push(next.text.trim());
+      }
+      return {
+        kind: "CHAPTER",
+        label: [line.text.trim(), ...abaixo].join(" "),
+        number: null,
+        title: [line.text.trim(), ...abaixo].join(" "),
+        extent: "heading",
+        lines: 1 + abaixo.length,
+        confidence: { pattern: 0.9, typography: 0.98 },
+        evidence: ["título de abertura da zona", `corpo ${ratio.toFixed(2)}× o do livro`],
+      };
+    }
+    // O tema: negrito, em corpo de título, sem número — é o que o separa do enunciado.
+    if (line.bold && prefixRatio(line, style) >= 1.2 && !/^\d/.test(line.text.trim()) && line.text.trim().length <= 80) {
+      return {
+        kind: "EXERCISE_GROUP",
+        label: line.text.trim(),
+        number: null,
+        title: line.text.trim(),
+        extent: "until-boundary",
+        lines: 1,
+        confidence: { pattern: 0.9, typography: 0.95 },
+        evidence: ["tema das questões de vestibulares", `corpo ${prefixRatio(line, style).toFixed(2)}× o do livro`],
+      };
+    }
+  }
 
   // CAPÍTULO I — o rótulo numa linha, o nome do capítulo na seguinte, em corpo ainda maior.
   const chapter = CHAPTER.exec(text);
@@ -175,9 +217,9 @@ function classify(context: WalkContext): AnchorMatch | null {
     citar uma banca e continuar sendo exercício do livro. Quem decide é a zona — é para isso que
     ela chega até aqui.
 
-    O `closes` é necessário porque o último bloco de exercícios do corpo continua aberto quando a
-    caminhada chega aos vestibulares: as páginas de gabarito entre os dois foram puladas, e não
-    sobrou âncora nenhuma no meio para fechá-lo.
+    O `closes` impede a questão de se aninhar num exercício do corpo. Não fecha o grupo: o grupo
+    agora é o tema, e é nele que a questão tem de cair. Quem fecha o último bloco de exercícios do
+    corpo é o título de abertura da zona, que abre um capítulo novo na raiz.
   */
   const vestibular = VESTIBULAR.exec(line.text.trim());
   if (vestibular && context.zone?.questionType !== undefined) {
@@ -191,7 +233,7 @@ function classify(context: WalkContext): AnchorMatch | null {
       confidence: { pattern: 0.94, layout: 0.9 },
       evidence: ["número seguido da banca entre parênteses", `banca ${vestibular[2]}`],
       metadata: { banca: (vestibular[2] ?? "").trim() },
-      closes: ["EXERCISE_GROUP", "EXERCISE"],
+      closes: ["EXERCISE"],
     };
   }
 
@@ -199,6 +241,28 @@ function classify(context: WalkContext): AnchorMatch | null {
   if (!numbered || !prefixBold(line)) return null;
   const number = numbered[1] ?? "";
   const prefix = prefixRatio(line, style);
+
+  /*
+    Na zona de vestibulares, número em negrito é questão — com ou sem banca.
+
+    A banca falta quando várias questões dividem um enunciado: "254." e "255." perguntam sobre a
+    mesma lanchonete da 253, e por isso não repetem "(Enem)". Sem esta regra elas eram engolidas
+    pela 253, que ficava com três jogos de alternativas; depois do agrupamento por tema, viravam
+    exercício do corpo dentro de um tema de vestibular.
+  */
+  if (context.zone?.questionType !== undefined && prefix <= 1.1) {
+    return {
+      kind: "QUESTION",
+      label: `${number}.`,
+      number,
+      title: null,
+      extent: "until-boundary",
+      lines: 1,
+      confidence: { pattern: 0.86, layout: 0.9 },
+      evidence: ["número em negrito na zona de vestibulares", "sem banca: divide o enunciado com a anterior"],
+      closes: ["EXERCISE"],
+    };
+  }
 
   /*
     Aqui moram as duas sequências do livro, e elas só se distinguem pelo corpo do primeiro span.

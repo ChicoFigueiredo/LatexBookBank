@@ -23,6 +23,14 @@ const ITEM_LABEL = /^\s*\(?([a-z]|[ivx]{1,5})\)\s*/i;
  */
 const ALTERNATIVE = /^\s*([A-Ea-e])(?:\t|\)|\.|\s|$)\s*(.*)$/;
 
+/**
+ * Uma letra de alternativa **em qualquer ponto** do texto — "b) 410" no meio da linha.
+ *
+ * Exige espaço (ou o começo) antes da letra: "(b)" e "f(x)" não são alternativa, e é o espaço
+ * que as separa de "a) 60 b) 410", em que as cinco vêm na mesma linha.
+ */
+const INLINE_ALTERNATIVE = /(?:^|\s)([A-Ea-e])\)\s*/g;
+
 /** Junta as linhas de um parágrafo, desfazendo a hifenização de fim de linha. */
 export function joinLines(lines: readonly string[]): string {
   let text = "";
@@ -211,27 +219,43 @@ export function questionLatex(
     não tem alternativa nenhuma para marcar.
   */
   /*
-    A ordem é a da **letra**, não a da leitura.
+    As alternativas, com as três formas em que o livro as imprime.
 
-    O livro imprime as alternativas em duas colunas, e a ordem de leitura sai intercalada:
-    `a) c) e)` de uma coluna e `b) d)` da outra chegam aqui como A,C,E,B,D. Exigir a ordem de
-    leitura rejeitava 157 das 359 questões do volume — todas com as cinco alternativas presentes.
+    - **Uma por linha**, cada uma um `ITEM`: o caso simples.
+    - **Em duas colunas**, e a ordem de leitura sai intercalada: `a) c) e)` de uma coluna e `b) d)`
+      da outra chegam como A,C,E,B,D. A ordem que vale é a da **letra**, não a da leitura — exigir
+      a de leitura rejeitava 157 das 359 questões do volume, com as cinco alternativas presentes.
+    - **Todas numa linha só** — "a) Ari; água b) Bruna; água c) Carlos; suco…" —, que o motor lê
+      como **um** item. Por isso o texto de cada item é recortado pelas letras que ele contém.
+
+    E fica o **primeiro** jogo completo. Quando o limite entre duas questões falha, as alternativas
+    da seguinte grudam nesta, e as letras recomeçam: a–e, a–e de novo. O primeiro jogo, na ordem
+    de leitura, é o desta questão.
   */
-  const letters = items.map((child) => (child.number ?? "").toUpperCase());
+  const firstRun: { readonly letter: string; readonly latex: string }[] = [];
+  const seen = new Set<string>();
+  collect: for (const child of items) {
+    const ready = reviewedOrRecognized(child);
+    const text = ready ?? joinLines(textOf(child).split("\n"));
+    const marks = [...text.matchAll(INLINE_ALTERNATIVE)];
+    for (const [index, mark] of marks.entries()) {
+      const letter = (mark[1] ?? "").toUpperCase();
+      if (seen.has(letter)) break collect;
+      seen.add(letter);
+      const start = (mark.index ?? 0) + mark[0].length;
+      const end = marks[index + 1]?.index ?? text.length;
+      const piece = text.slice(start, end).trim();
+      firstRun.push({ letter, latex: ready === null ? escapeLatexText(piece) : piece });
+    }
+  }
   const completa =
-    items.length >= 2 &&
-    new Set(letters).size === letters.length &&
-    [...letters].sort().every((letter, index) => letter === String.fromCharCode(65 + index));
+    firstRun.length >= 2 &&
+    [...firstRun.map((option) => option.letter)].sort().every((letter, index) => letter === String.fromCharCode(65 + index));
   const asAlternatives = wantsOptions && completa;
 
   let options: string[] = [];
   if (asAlternatives) {
-    options = [...items]
-      .sort((a, b) => (a.number ?? "").toUpperCase().localeCompare((b.number ?? "").toUpperCase()))
-      .map((child) => {
-        const ready = reviewedOrRecognized(child);
-        return ready ?? escapeLatexText(joinLines(textOf(child).split("\n")).replace(ITEM_LABEL, ""));
-      });
+    options = [...firstRun].sort((a, b) => a.letter.localeCompare(b.letter)).map((option) => option.latex);
   } else if (wantsOptions) {
     const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
     if (start >= 0) {

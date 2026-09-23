@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { zoneOfPage } from "@modules/scan/domain/capture-profile";
 import type { PageModel, TextLine } from "@modules/scan/domain/page";
 import { questionLatex } from "@modules/scan/domain/approval-latex";
+import { planApproval } from "@modules/scan/domain/approval-plan";
 import { captureProfile } from "@modules/scan/domain/profiles";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
 
@@ -157,6 +158,47 @@ describe("o que a aprovação faz com o que este livro traz", () => {
     expect(questionLatex(questao, filhos, true).options).toEqual(["A", "B", "C", "D", "E"]);
   });
 
+  it("as cinco numa linha só são separadas pelas letras", () => {
+    // O motor lê a linha inteira como **um** item: "a) Ari; água b) Bruna; água …".
+    const questao = item({ id: "q", key: "Q:4", kind: "QUESTION", text: "4. Quem pede água?", number: "4" });
+    const unico = item({
+      id: "i",
+      key: "I:a",
+      kind: "ITEM",
+      number: "a",
+      parentKey: "Q:4",
+      text: "a) Ari; água b) Bruna; água c) Carlos; suco e) Bruna; suco d) Ari; suco",
+    });
+
+    expect(questionLatex(questao, [unico], true).options).toEqual([
+      "Ari; água",
+      "Bruna; água",
+      "Carlos; suco",
+      "Ari; suco",
+      "Bruna; suco",
+    ]);
+  });
+
+  it("quando as letras recomeçam, fica o primeiro jogo — o resto é da questão seguinte", () => {
+    // A 253 ficava com as alternativas da 254 e da 255, que dividem o enunciado com ela.
+    const questao = item({ id: "q", key: "Q:253", kind: "QUESTION", text: "253. Qual o preço?", number: "253" });
+    const filhos = ["a) 55", "b) 60", "c) 65", "d) 70", "e) 75", "a) 380", "b) 390"].map((texto, i) =>
+      item({ id: `i${i}`, key: `I:${i}`, kind: "ITEM", number: texto[0]!, parentKey: "Q:253", text: texto }),
+    );
+
+    expect(questionLatex(questao, filhos, true).options).toEqual(["55", "60", "65", "70", "75"]);
+  });
+
+  it("\"(b)\" e \"f(x)\" no meio do texto não são alternativa", () => {
+    const questao = item({ id: "q", key: "Q:9", kind: "QUESTION", text: "9. Seja f.", number: "9" });
+    const filhos = [
+      item({ id: "a", key: "I:a", kind: "ITEM", number: "a", parentKey: "Q:9", text: "a) vale f(x) em (b)" }),
+      item({ id: "b", key: "I:b", kind: "ITEM", number: "b", parentKey: "Q:9", text: "b) outra" }),
+    ];
+
+    expect(questionLatex(questao, filhos, true).options).toEqual(["vale f(x) em (b)", "outra"]);
+  });
+
   it("num exercício discursivo os mesmos filhos continuam sendo itens", () => {
     const exercicio = item({ id: "e", key: "E:9", kind: "EXERCISE", text: "9. Resolva:", number: "9" });
     const filhos = ["a", "b"].map((letra) =>
@@ -203,6 +245,165 @@ describe("o que a aprovação faz com o que este livro traz", () => {
 
     expect(statementLatex).not.toContain("f(1) = 5");
     expect(solutionLatex).toContain("f(1) = 5");
+  });
+});
+
+describe("múltipla escolha sem alternativa não é múltipla escolha", () => {
+  /*
+    A zona diz o tipo do trecho, não de cada questão. A seção de vestibulares tem questão de soma
+    — "(16)", "(32)", "(64)" — e questão aberta com proposições em romano. Carimbadas múltipla
+    escolha, elas eram gravadas com cinco alternativas em branco.
+  */
+  it("a questão de soma nasce discursiva, com o texto inteiro", () => {
+    const soma = {
+      id: "q48",
+      key: "Q:48",
+      kind: "QUESTION" as const,
+      parentKey: null,
+      originalLabel: null,
+      number: "48",
+      title: null,
+      pageNumber: 330,
+      printedPage: null,
+      regions: [{ pageNumber: 330, role: "PRIMARY" as const, box: { x: 0.1, y: 0.1, width: 0.5, height: 0.1 } }],
+      text: "48. (UFSC) Assinale as corretas.\n(16) Todo múltiplo de 17 é ímpar.\n(32) A soma de dois primos é primo.",
+      latex: null,
+      needsMath: false,
+      confidence: 0.9,
+      confidenceParts: {},
+      evidence: [],
+      diagnostic: null,
+      metadata: { questionType: "MULTIPLE_CHOICE" },
+      reviewState: "APPROVED" as const,
+      sortOrder: 0,
+      reviewedText: null,
+      reviewedLatex: null,
+      proposed: { kind: "QUESTION" as const, parentKey: null, title: null, originalLabel: null, number: "48", regions: [], text: "", latex: null, confidence: 0.9 },
+      origin: "SCAN" as const,
+      aiDecision: null,
+      mathResult: null,
+      documentNodeId: null,
+      approvedAt: null,
+    } as ScanItem;
+
+    const plan = planApproval({
+      items: [soma],
+      profile: { id: "book-fme-v1", version: 1, defaultQuestionType: "DISCURSIVE" },
+      destinationId: null,
+      includeSuggested: true,
+      existingNodes: [],
+      existingAnchors: [],
+    });
+
+    const step = plan.steps.find((candidate) => candidate.type === "createNode");
+    expect(step && step.type === "createNode" ? step.question?.type : null).toBe("DISCURSIVE");
+    expect(step && step.type === "createNode" ? step.question?.statementLatex : "").toContain("(32)");
+  });
+});
+
+describe("subitem não é alternativa", () => {
+  const questao = (filhos: readonly string[]) => {
+    const base = {
+      parentKey: null,
+      originalLabel: null,
+      title: null,
+      pageNumber: 370,
+      printedPage: null,
+      regions: [{ pageNumber: 370, role: "PRIMARY" as const, box: { x: 0.1, y: 0.1, width: 0.5, height: 0.1 } }],
+      latex: null,
+      needsMath: false,
+      confidence: 0.9,
+      confidenceParts: {},
+      evidence: [],
+      diagnostic: null,
+      reviewState: "APPROVED" as const,
+      sortOrder: 0,
+      reviewedText: null,
+      reviewedLatex: null,
+      origin: "SCAN" as const,
+      aiDecision: null,
+      mathResult: null,
+      documentNodeId: null,
+      approvedAt: null,
+      proposed: { kind: "QUESTION" as const, parentKey: null, title: null, originalLabel: null, number: null, regions: [], text: "", latex: null, confidence: 0.9 },
+    };
+    const pai = { ...base, id: "q", key: "Q:268", kind: "QUESTION" as const, number: "268", text: "268. (Unifesp) Considere as funções.", metadata: { questionType: "MULTIPLE_CHOICE" } } as ScanItem;
+    const itens = filhos.map(
+      (texto, i) => ({ ...base, id: `i${i}`, key: `I:${i}`, kind: "ITEM" as const, number: texto[0]!, parentKey: "Q:268", text: texto, metadata: {} }) as ScanItem,
+    );
+    const plan = planApproval({
+      items: [pai, ...itens],
+      profile: { id: "book-fme-v1", version: 1, defaultQuestionType: "DISCURSIVE" },
+      destinationId: null,
+      includeSuggested: true,
+      existingNodes: [],
+      existingAnchors: [],
+    });
+    const step = plan.steps.find((candidate) => candidate.type === "createNode");
+    return step && step.type === "createNode" ? step.question : null;
+  };
+
+  it("\"a) Esboce… b) Calcule…\" é discursiva, e os subitens ficam no enunciado", () => {
+    const q = questao(["a) Faça o esboço do gráfico.", "b) Calcule o quociente."]);
+
+    expect(q?.type).toBe("DISCURSIVE");
+    expect(q?.options).toEqual([]);
+    // O rebaixamento refaz o LaTeX: sem isso os subitens, já tomados como opções, sumiam.
+    expect(q?.statementLatex).toContain("Faça o esboço");
+    expect(q?.statementLatex).toContain("Calcule o quociente");
+  });
+
+  it("sem zona, o tipo do perfil não é rebaixado — o ENEM é todo de múltipla escolha", () => {
+    // Alternativas em imagem não têm texto para contar; o perfil do caderno sabe que é múltipla
+    // escolha mesmo assim, e é ele quem manda quando a zona não disse nada.
+    const plan = planApproval({
+      items: [
+        {
+          id: "e",
+          key: "Q:45",
+          kind: "QUESTION",
+          parentKey: null,
+          originalLabel: null,
+          number: "45",
+          title: null,
+          pageNumber: 12,
+          printedPage: null,
+          regions: [{ pageNumber: 12, role: "PRIMARY", box: { x: 0.1, y: 0.1, width: 0.5, height: 0.1 } }],
+          text: "QUESTÃO 45\nObserve os gráficos.",
+          latex: null,
+          needsMath: false,
+          confidence: 0.9,
+          confidenceParts: {},
+          evidence: [],
+          diagnostic: null,
+          metadata: {},
+          reviewState: "APPROVED",
+          sortOrder: 0,
+          reviewedText: null,
+          reviewedLatex: null,
+          proposed: { kind: "QUESTION", parentKey: null, title: null, originalLabel: null, number: "45", regions: [], text: "", latex: null, confidence: 0.9 },
+          origin: "SCAN",
+          aiDecision: null,
+          mathResult: null,
+          documentNodeId: null,
+          approvedAt: null,
+        } as ScanItem,
+      ],
+      profile: { id: "exam-enem-v1", version: 1, defaultQuestionType: "MULTIPLE_CHOICE" },
+      destinationId: null,
+      includeSuggested: true,
+      existingNodes: [],
+      existingAnchors: [],
+    });
+    const step = plan.steps.find((candidate) => candidate.type === "createNode");
+    expect(step && step.type === "createNode" ? step.question?.type : null).toBe("MULTIPLE_CHOICE");
+  });
+
+  it("com quatro alternativas é múltipla escolha", () => {
+    const q = questao(["a) 50", "b) 51", "c) 60", "d) 61"]);
+
+    expect(q?.type).toBe("MULTIPLE_CHOICE");
+    expect(q?.options).toEqual(["50", "51", "60", "61"]);
   });
 });
 

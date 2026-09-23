@@ -217,11 +217,21 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     const count = (kind: string) => items.filter((item) => item.kind === kind).length;
 
     // Os números são os medidos, não pisos frouxos: se a estrutura mudar, o teste diz quanto.
-    expect(count("CHAPTER"), "capítulos").toBe(10);
+    const capitulos = items.filter((item) => item.kind === "CHAPTER");
+    expect(capitulos.filter((item) => item.number !== null).length, "capítulos numerados").toBe(10);
+    // E a seção de vestibulares é um capítulo à parte, com os dez temas dentro dele.
+    const vestibulares = capitulos.find((item) => item.number === null);
+    expect(vestibulares?.title, "abertura da zona de vestibulares").toBe("Questões de vestibulares");
+    const temas = items.filter((item) => item.kind === "EXERCISE_GROUP" && item.parentKey === vestibulares?.key);
+    expect(temas.map((tema) => tema.title), "temas de vestibular").toHaveLength(10);
+
     expect(count("SECTION"), "seções romanas").toBe(83);
     expect(count("SUBSECTION"), "itens de teoria").toBe(159);
     expect(count("EXERCISE"), "exercícios discursivos").toBe(562);
-    expect(count("QUESTION"), "questões de vestibular").toBe(359);
+    // 1 a 361, sem buraco: 254 e 255 dividem o enunciado com a 253 e não repetem a banca.
+    expect(count("QUESTION"), "questões de vestibular").toBe(361);
+    const temaDe = new Set(temas.map((tema) => tema.key));
+    expect(items.filter((item) => item.kind === "QUESTION" && !temaDe.has(item.parentKey ?? "")), "questão fora de tema").toEqual([]);
     expect(fme.proposal!.metrics.lowConfidence, "itens de baixa confiança").toBe(0);
 
     // Toda questão de vestibular nasce com o tipo da zona; nenhum exercício do corpo nasce com ele.
