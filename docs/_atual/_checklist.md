@@ -1968,7 +1968,10 @@ tocar no acervo)*
   — ou abertas. Rebaixadas a discursiva, com os subitens de volta no enunciado. **Só o tipo que veio
   da zona é rebaixado**: o ENEM é todo de múltipla escolha, e a questão dele com alternativas em
   imagem não pode perder o tipo
-- ✅ **Aprovação de ensaio, numa cópia do banco**: 4,8 s · 1247 nós · 923 questões (673
+- ✅ Um dos 62 banners chega como "E X E R C **ê** C I O S" — a fonte da p. 117 entrega o "Í"
+  como "ê". O bloco não abria, e os exercícios 188 a 193 ficavam invisíveis. A letra acentuada
+  aceita qualquer caractere: **568 exercícios, de 1 a 568, sem buraco**
+- ✅ **Aprovação de ensaio, numa cópia do banco**: 4,5 s · 1254 nós · 929 questões (679
   discursivas, 250 de múltipla escolha — todas com 4 ou 5 alternativas) · 80 com resolução · 0
   itens pulados. As 470 figuras ficam para a revisão, como toda figura sem legenda
 

@@ -227,7 +227,10 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
 
     expect(count("SECTION"), "seções romanas").toBe(83);
     expect(count("SUBSECTION"), "itens de teoria").toBe(159);
-    expect(count("EXERCISE"), "exercícios discursivos").toBe(562);
+    // 1 a 568, sem buraco: o banner da p. 117 chega como "E X E R C ê C I O S" e escondia 188–193.
+    expect(count("EXERCISE"), "exercícios discursivos").toBe(568);
+    const numeros = new Set(items.filter((item) => item.kind === "EXERCISE").map((item) => Number(item.number)));
+    expect(Array.from({ length: 568 }, (_, i) => i + 1).filter((n) => !numeros.has(n)), "exercícios faltando").toEqual([]);
     // 1 a 361, sem buraco: 254 e 255 dividem o enunciado com a 253 e não repetem a banca.
     expect(count("QUESTION"), "questões de vestibular").toBe(361);
     const temaDe = new Set(temas.map((tema) => tema.key));

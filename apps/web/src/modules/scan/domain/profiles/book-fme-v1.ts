@@ -39,8 +39,15 @@ import { semanticPrompt } from "./semantic-prompt";
 const CHAPTER = /^CAPITULO\s+([IVXLC]+)\b\s*(.*)$/i;
 /** `IV. Conjunto universo` e `III.Conjunto unitário` — o livro às vezes come o espaço. */
 const SECTION_ROMAN = /^([IVXLC]{1,7})\s*\.\s*(\S.*)$/;
-/** `E X E R C Í C I O S`, e as quatro ocorrências que o extrator lê sem o S final. */
-const SPACED_EXERCISES = /^E\s+X\s+E\s+R\s+C\s+I\s+C\s+I\s+O\s*S?$/i;
+/**
+ * `E X E R C Í C I O S`, e as ocorrências que o extrator lê sem o S final.
+ *
+ * A letra acentuada aceita **qualquer** caractere. Numa das 62 ocorrências do volume — a da
+ * página 117 — a fonte entrega o "Í" como "ê", e o banner chegava como "E X E R C ê C I O S". O
+ * bloco não abria, e os exercícios 188 a 193 ficavam invisíveis. Nada mais num livro tem esta
+ * forma — dez letras separadas, em corpo de título —, então a tolerância não custa falso positivo.
+ */
+const SPACED_EXERCISES = /^E\s+X\s+E\s+R\s+C\s+\S\s+C\s+I\s+O\s*S?$/i;
 /** O número no primeiro span: `135.` do exercício, `68.` do item de teoria. */
 const NUMBER_SPAN = /^(\d{1,3})\.$/;
 const NUMBER_LINE = /^(\d{1,3})\.\s*(.*)$/;

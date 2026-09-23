@@ -94,6 +94,15 @@ describe("as zonas do Fundamentos", () => {
     expect(zoneOfPage(zones, 420)?.label).toBe("respostas dos vestibulares");
   });
 
+  it("o banner com a letra acentuada mal codificada ainda é o banner", () => {
+    // Na p. 117 do vol. 1 a fonte entrega o "Í" como "ê". O bloco não abria, e seis exercícios
+    // ficavam invisíveis. A pontuação do perfil usa a mesma regra que a classificação.
+    // O corpo do texto precisa estar na página: é contra ele que o banner mede 1,9×.
+    const corpo = Array.from({ length: 6 }, (_, i) => line(`${188 + i}. Enunciado de um exercício qualquer.`));
+    const amostra = [page(117, [line("E X E R C ê C I O S", 19, true), ...corpo])];
+    expect(profile.score(amostra).evidence).toContain("1 banners");
+  });
+
   it("livro sem marco nenhum é uma zona só", () => {
     expect(profile.zones!([page(1, [line("Um livro qualquer")])])).toEqual([{ label: "corpo", from: 1 }]);
   });
