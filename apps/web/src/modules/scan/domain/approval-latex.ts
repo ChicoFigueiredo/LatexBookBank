@@ -173,20 +173,46 @@ export function questionLatex(
     return at < 0 ? { statement: [...source], solution: [] } : { statement: source.slice(0, at), solution: source.slice(at + 1) };
   };
 
+  // Os itens estão dentro do texto do exercício (a região dele os contém).
+  const items = children.filter((child) => child.kind === "ITEM" && child.reviewState !== "REJECTED");
+
   /*
     O texto revisado ou reconhecido também é cortado.
 
     Antes ele voltava inteiro, com a resolução dentro do enunciado — e é justamente neste livro que
     isso morde: a camada de texto perde os símbolos matemáticos, então quase todo exercício passa
     pelo reconhecimento de visão e cai neste ramo.
+
+    E as alternativas também saem dele (#245). O ramo parava aqui com `options: []`: com modelo de
+    visão, a questão de vestibular do Fundamentos era rebaixada a discursiva com as alternativas
+    coladas no enunciado, e a do ENEM nascia de múltipla escolha com cinco alternativas vazias.
+
+    As linhas se juntam com quebra, e não com `joinLines`: aquilo desfaz a hifenização do texto
+    cru do PDF, e em LaTeX um `%` passaria a comentar o resto da questão e o `-` de fim de linha
+    (um sinal de menos) sumiria.
   */
   const ready = reviewedOrRecognized(item);
   if (ready !== null) {
     const cortado = splitSolution(ready.split("\n"));
+    let statement = cortado.statement;
+    let options: string[] = [];
+
+    if (wantsOptions) {
+      const fromItems = alternativesFromItems(items);
+      const inLatex = fromItems === null ? alternativesInLatex(statement) : null;
+      if (fromItems !== null) {
+        options = fromItems;
+        statement = beforeFirstAlternative(statement);
+      } else if (inLatex !== null) {
+        options = inLatex.options;
+        statement = inLatex.statement;
+      }
+    }
+
     return {
-      statementLatex: joinLines(cortado.statement).trim(),
-      options: [],
-      solutionLatex: joinLines(cortado.solution).trim(),
+      statementLatex: statement.join("\n").trim(),
+      options,
+      solutionLatex: cortado.solution.join("\n").trim(),
       originalLatex,
     };
   }
@@ -200,9 +226,7 @@ export function questionLatex(
   const solutionLatex = cortado.solution.length === 0 ? "" : escapeLatexText(joinLines(cortado.solution));
   if (lines[0]) lines[0] = lines[0].replace(EXERCISE_LABEL, "");
 
-  // Os itens estão dentro do texto do exercício (a região dele os contém): o enunciado é o que
-  // vem antes do primeiro, e cada item vira um `\item`.
-  const items = children.filter((child) => child.kind === "ITEM" && child.reviewState !== "REJECTED");
+  // O enunciado é o que vem antes do primeiro item, e cada item vira um `\item`.
   const firstItemText = items[0]?.text.split("\n")[0];
   if (firstItemText) {
     const cut = lines.findIndex((line) => line.trim() === firstItemText.trim());
@@ -218,44 +242,12 @@ export function questionLatex(
     deviam ser opções virava um `enumerate` dentro do enunciado: uma questão de alternativas que
     não tem alternativa nenhuma para marcar.
   */
-  /*
-    As alternativas, com as três formas em que o livro as imprime.
-
-    - **Uma por linha**, cada uma um `ITEM`: o caso simples.
-    - **Em duas colunas**, e a ordem de leitura sai intercalada: `a) c) e)` de uma coluna e `b) d)`
-      da outra chegam como A,C,E,B,D. A ordem que vale é a da **letra**, não a da leitura — exigir
-      a de leitura rejeitava 157 das 359 questões do volume, com as cinco alternativas presentes.
-    - **Todas numa linha só** — "a) Ari; água b) Bruna; água c) Carlos; suco…" —, que o motor lê
-      como **um** item. Por isso o texto de cada item é recortado pelas letras que ele contém.
-
-    E fica o **primeiro** jogo completo. Quando o limite entre duas questões falha, as alternativas
-    da seguinte grudam nesta, e as letras recomeçam: a–e, a–e de novo. O primeiro jogo, na ordem
-    de leitura, é o desta questão.
-  */
-  const firstRun: { readonly letter: string; readonly latex: string }[] = [];
-  const seen = new Set<string>();
-  collect: for (const child of items) {
-    const ready = reviewedOrRecognized(child);
-    const text = ready ?? joinLines(textOf(child).split("\n"));
-    const marks = [...text.matchAll(INLINE_ALTERNATIVE)];
-    for (const [index, mark] of marks.entries()) {
-      const letter = (mark[1] ?? "").toUpperCase();
-      if (seen.has(letter)) break collect;
-      seen.add(letter);
-      const start = (mark.index ?? 0) + mark[0].length;
-      const end = marks[index + 1]?.index ?? text.length;
-      const piece = text.slice(start, end).trim();
-      firstRun.push({ letter, latex: ready === null ? escapeLatexText(piece) : piece });
-    }
-  }
-  const completa =
-    firstRun.length >= 2 &&
-    [...firstRun.map((option) => option.letter)].sort().every((letter, index) => letter === String.fromCharCode(65 + index));
-  const asAlternatives = wantsOptions && completa;
+  const fromItems = wantsOptions ? alternativesFromItems(items) : null;
+  const asAlternatives = fromItems !== null;
 
   let options: string[] = [];
-  if (asAlternatives) {
-    options = [...firstRun].sort((a, b) => a.letter.localeCompare(b.letter)).map((option) => option.latex);
+  if (fromItems !== null) {
+    options = fromItems;
   } else if (wantsOptions) {
     const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
     if (start >= 0) {
@@ -286,4 +278,116 @@ export function questionLatex(
   }
 
   return { statementLatex: statement.trim(), options, solutionLatex: solutionLatex.trim(), originalLatex };
+}
+
+/*
+  As alternativas, com as três formas em que o livro as imprime.
+
+  - **Uma por linha**, cada uma um `ITEM`: o caso simples.
+  - **Em duas colunas**, e a ordem de leitura sai intercalada: `a) c) e)` de uma coluna e `b) d)`
+    da outra chegam como A,C,E,B,D. A ordem que vale é a da **letra**, não a da leitura — exigir
+    a de leitura rejeitava 157 das 359 questões do volume, com as cinco alternativas presentes.
+  - **Todas numa linha só** — "a) Ari; água b) Bruna; água c) Carlos; suco…" —, que o motor lê
+    como **um** item. Por isso o texto de cada item é recortado pelas letras que ele contém.
+
+  E fica o **primeiro** jogo completo. Quando o limite entre duas questões falha, as alternativas
+  da seguinte grudam nesta, e as letras recomeçam: a–e, a–e de novo. O primeiro jogo, na ordem
+  de leitura, é o desta questão.
+
+  `null` quando os itens não formam um jogo completo (A, B, … sem buraco, pelo menos duas).
+*/
+function alternativesFromItems(items: readonly ScanItem[]): string[] | null {
+  const firstRun: { readonly letter: string; readonly latex: string }[] = [];
+  const seen = new Set<string>();
+  collect: for (const child of items) {
+    const ready = reviewedOrRecognized(child);
+    const text = ready ?? joinLines(textOf(child).split("\n"));
+    const marks = [...text.matchAll(INLINE_ALTERNATIVE)];
+    for (const [index, mark] of marks.entries()) {
+      const letter = (mark[1] ?? "").toUpperCase();
+      if (seen.has(letter)) break collect;
+      seen.add(letter);
+      const start = (mark.index ?? 0) + mark[0].length;
+      const end = marks[index + 1]?.index ?? text.length;
+      const piece = text.slice(start, end).trim();
+      firstRun.push({ letter, latex: ready === null ? escapeLatexText(piece) : piece });
+    }
+  }
+  const complete =
+    firstRun.length >= 2 &&
+    [...firstRun.map((option) => option.letter)]
+      .sort()
+      .every((letter, index) => letter === String.fromCharCode(65 + index));
+  if (!complete) return null;
+  return [...firstRun]
+    .sort((a, b) => a.letter.localeCompare(b.letter))
+    .map((option) => option.latex);
+}
+
+/**
+ * O enunciado sem as alternativas: tudo antes do "a)" — no começo de uma linha ou no meio dela.
+ *
+ * Só é chamado quando as alternativas já foram achadas: sem elas, cortar no primeiro "a)" poderia
+ * tirar do enunciado um subitem de uma questão discursiva.
+ */
+function beforeFirstAlternative(lines: readonly string[]): string[] {
+  for (const [index, line] of lines.entries()) {
+    const mark = [...line.matchAll(INLINE_ALTERNATIVE)].find(
+      (match) => match[1]?.toUpperCase() === "A",
+    );
+    if (mark === undefined) continue;
+    const head = line.slice(0, mark.index ?? 0).trimEnd();
+    return [...lines.slice(0, index), ...(head === "" ? [] : [head])];
+  }
+  return [...lines];
+}
+
+/**
+ * As alternativas escritas no próprio LaTeX, quando não há `ITEM` que as traga — o reconhecimento
+ * de visão devolve a questão inteira, alternativas inclusive.
+ *
+ * Primeiro as marcas `a) b) c)`, em sequência a partir do `a`, numa linha só ou uma por linha; se
+ * não houver, a forma do ENEM, uma letra no começo de cada linha. O texto já é LaTeX: nada aqui é
+ * escapado. `null` quando não há um jogo em sequência com pelo menos duas.
+ */
+function alternativesInLatex(
+  lines: readonly string[],
+): { readonly statement: string[]; readonly options: string[] } | null {
+  const text = lines.join("\n");
+  const marks = [...text.matchAll(INLINE_ALTERNATIVE)];
+  const first = marks.findIndex((mark) => mark[1]?.toUpperCase() === "A");
+  if (first >= 0) {
+    const run: RegExpExecArray[] = [];
+    for (const mark of marks.slice(first)) {
+      if (mark[1]?.toUpperCase() !== String.fromCharCode(65 + run.length)) break;
+      run.push(mark);
+    }
+    if (run.length >= 2) {
+      const options = run.map((mark, index) =>
+        text.slice((mark.index ?? 0) + mark[0].length, run[index + 1]?.index ?? text.length).trim(),
+      );
+      return {
+        statement: text
+          .slice(0, run[0]?.index ?? 0)
+          .trimEnd()
+          .split("\n"),
+        options,
+      };
+    }
+  }
+
+  const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
+  if (start < 0) return null;
+  const parsed: string[][] = [];
+  for (const line of lines.slice(start)) {
+    const match = ALTERNATIVE.exec(line);
+    if (match && match[1]?.toUpperCase() === String.fromCharCode(65 + parsed.length))
+      parsed.push([match[2] ?? ""]);
+    else parsed[parsed.length - 1]?.push(line);
+  }
+  if (parsed.length < 2) return null;
+  return {
+    statement: lines.slice(0, start),
+    options: parsed.map((option) => option.join("\n").trim()),
+  };
 }

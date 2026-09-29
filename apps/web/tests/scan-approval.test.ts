@@ -190,6 +190,89 @@ describe("LaTeX da aprovação", () => {
     expect(questionLatex(recognized, [], false).statementLatex).toBe("Calcule $x^2$");
     expect(questionLatex({ ...recognized, reviewedLatex: "Revisado" }, [], false).statementLatex).toBe("Revisado");
   });
+
+  /*
+    #245 (CAP-03/SPG-01 da revisão de 2026-09-23): o LaTeX reconhecido vencia o texto e **parava
+    ali** — sem olhar os ITEMs, com `options: []`. No Fundamentos com modelo de visão, a questão de
+    vestibular nascia discursiva (rebaixada pela zona) com as alternativas coladas no enunciado; no
+    ENEM, nascia de múltipla escolha com cinco alternativas vazias.
+  */
+  const recognized = (latex: string) => ({
+    latex,
+    confidence: 0.9,
+    alternatives: [],
+    providerId: "v",
+    model: "m",
+    durationMs: 1,
+    recognizedAt: "",
+  });
+
+  it("o LaTeX reconhecido não engole as alternativas: elas vêm dos ITEMs e saem do enunciado", () => {
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      text: "Quanto vale x2 para x = 2?\na) 1\nb) 2\nc) 4\nd) 8\ne) 16",
+      mathResult: recognized(
+        "Quanto vale $x^2$ para $x = 2$?\na) $1$\nb) $2$\nc) $4$\nd) $8$\ne) $16$",
+      ),
+    });
+    const children = ["1", "2", "4", "8", "16"].map((value, index) => {
+      const letter = String.fromCharCode(97 + index);
+      return item({
+        id: letter,
+        key: letter.toUpperCase(),
+        kind: "ITEM",
+        parentKey: "Q",
+        originalLabel: `${letter})`,
+        text: `${letter}) ${value}`,
+      });
+    });
+
+    const latex = questionLatex(question, children, true);
+
+    expect(latex.statementLatex).toBe("Quanto vale $x^2$ para $x = 2$?");
+    expect(latex.options).toEqual(["1", "2", "4", "8", "16"]);
+  });
+
+  it("sem ITEMs, as alternativas saem do próprio LaTeX — uma por linha ou todas numa linha", () => {
+    const porLinha = item({
+      id: "l",
+      key: "L",
+      kind: "QUESTION",
+      mathResult: recognized(
+        "Calcule $\\int_0^1 x\\,dx$.\na) $0$\nb) $\\frac{1}{2}$\nc) $1$\nd) $2$",
+      ),
+    });
+    const numaLinha = item({
+      id: "n",
+      key: "N",
+      kind: "QUESTION",
+      reviewedLatex: "Calcule $\\int_0^1 x\\,dx$. a) $0$ b) $\\frac{1}{2}$ c) $1$ d) $2$",
+    });
+
+    for (const question of [porLinha, numaLinha]) {
+      const latex = questionLatex(question, [], true);
+      expect(latex.statementLatex, question.id).toBe("Calcule $\\int_0^1 x\\,dx$.");
+      expect(latex.options, question.id).toEqual(["$0$", "$\\frac{1}{2}$", "$1$", "$2$"]);
+    }
+  });
+
+  it("o LaTeX pronto chega intacto: o % não comenta o resto e o - de fim de linha não some", () => {
+    // `joinLines` é do texto cru do PDF: aplicado ao LaTeX, juntava tudo numa linha — o `%`
+    // passava a comentar a equação — e tomava o `-` de fim de linha por hifenização (CAP-10).
+    const revisado =
+      "Resolva a equação % dica: Bhaskara\n$$x^2 - 5x + 6 = 0$$\n\n\\begin{align}\nf(x) &= 2x -\nx^2\n\\end{align}";
+    const exercise = item({
+      id: "x",
+      key: "X",
+      kind: "EXERCISE",
+      text: "1. Resolva",
+      reviewedLatex: revisado,
+    });
+
+    expect(questionLatex(exercise, [], false).statementLatex).toBe(revisado);
+  });
 });
 
 describe("aprovação contra o banco", () => {
