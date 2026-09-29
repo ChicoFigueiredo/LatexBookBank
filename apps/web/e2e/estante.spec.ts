@@ -11,8 +11,10 @@ test("a estante compara livros por coluna, e o filtro estreita", async ({ page }
   const resposta = await page.request.get("/api/libraries");
   const { libraries } = (await resposta.json()) as { libraries: { slug: string; name: string }[] };
 
-  const comLivros = libraries.find((l) => l.name.includes("Teste")) ?? libraries[0];
-  expect(comLivros, "nenhuma biblioteca no banco").toBeTruthy();
+  // A biblioteca do seed (`prisma/seed.ts`), que o servidor do E2E cria a cada execução. Antes era
+  // "a que tem Teste no nome", que só existia no acervo real — e o E2E já não roda nele (#241).
+  const comLivros = libraries.find((l) => l.slug === "demo");
+  expect(comLivros, "a biblioteca do seed não está no banco do E2E").toBeTruthy();
 
   await page.goto(`/bibliotecas/${comLivros?.slug}`);
 
@@ -30,7 +32,9 @@ test("a estante compara livros por coluna, e o filtro estreita", async ({ page }
   // Um termo que nenhum título casa: a lista vazia precisa explicar o que o filtro olha, e
   // oferecer a saída — lista vazia sem saída é beco.
   await page.getByLabel("Filtrar os livros").fill("zzzz-nao-existe");
-  await expect(page.getByText("O filtro olha título, apelido, subtítulo, autor e edição.")).toBeVisible();
+  await expect(
+    page.getByText("O filtro olha título, apelido, subtítulo, autor e edição."),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Limpar filtros" }).click();
   await expect(tabela.getByRole("row")).toHaveCount(antes);

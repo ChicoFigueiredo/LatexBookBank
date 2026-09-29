@@ -43,12 +43,13 @@ serve só como fallback.
 Bloco `28xxx`, escolhido **abaixo de 32768** para ficar fora da faixa efêmera do kernel
 (`32768–60999`) — serviços fixados ali colidem com conexões de saída aleatórias.
 
-|   Porta | Serviço                                |
-| ------: | -------------------------------------- |
-| `28080` | Aplicação Next.js                      |
-| `28900` | Worker de render LaTeX (Fase 6)        |
-| `28432` | PostgreSQL em Docker (apenas Fase 6.5) |
-| `28001` | Prisma Studio                          |
+|   Porta | Serviço                                     |
+| ------: | ------------------------------------------- |
+| `28080` | Aplicação Next.js                           |
+| `28081` | Aplicação do E2E (banco e storage próprios) |
+| `28900` | Worker de render LaTeX (Fase 6)             |
+| `28432` | PostgreSQL em Docker (apenas Fase 6.5)      |
+| `28001` | Prisma Studio                               |
 
 O app escuta **só em `127.0.0.1`**, e o `apps/web/proxy.ts` recusa `Host` que não seja desta
 máquina e escrita vinda de outra origem. A API não tem autenticação: quem alcança a porta lê e

@@ -46,6 +46,14 @@ export interface AppEnv {
    * linha de configuração, não um commit.
    */
   readonly calibreLibraryRoot: string | null;
+  /**
+   * Qual instância é esta: `local` no uso de todo dia, `e2e` no servidor que o Playwright sobe.
+   *
+   * Existe para o E2E conferir, antes do primeiro teste, que está falando com o servidor dele —
+   * banco e storage descartáveis — e não com o acervo (#241). Sem isso, a única garantia seria a
+   * porta, e porta é convenção.
+   */
+  readonly instance: string;
 }
 
 class EnvError extends Error {
@@ -107,6 +115,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     aiModel: get("AI_MODEL"),
     aiToolCalling: get("AI_TOOL_CALLING") === "true",
     calibreLibraryRoot: get("CALIBRE_LIBRARY_ROOT"),
+    instance: get("LBB_INSTANCE") ?? "local",
   };
 }
 

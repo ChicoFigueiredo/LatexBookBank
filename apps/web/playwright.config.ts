@@ -1,6 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
+ * A porta do servidor do E2E — e **não** a `28080` do dia a dia, que aponta para o acervo (#241).
+ * Mesmo bloco `28xxx` do README, abaixo da faixa efêmera do kernel.
+ */
+const PORT = 28081;
+const BASE_URL = `http://127.0.0.1:${PORT}`;
+
+/**
  * O E2E da §27.
  *
  * Tudo até aqui foi verificado por rota e por unidade, e nada disso pega o que só quebra quando
@@ -25,9 +32,11 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: process.env["CI"] === undefined ? "list" : [["list"], ["github"]],
+  // Confere, antes do primeiro teste, que o servidor é o do E2E e não o do acervo.
+  globalSetup: "./e2e/global-setup.ts",
 
   use: {
-    baseURL: "http://localhost:28080",
+    baseURL: BASE_URL,
     // Só do que falhou: trace de tudo enche o disco por um problema que quase nunca acontece.
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -36,14 +45,17 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
   webServer: {
-    // `dev` e não `start`: o E2E roda contra o mesmo servidor que a pessoa usa, e um build de
-    // produção esconderia justamente os erros de hidratação que este teste existe para pegar.
-    command: "bun run dev",
-    url: "http://localhost:28080",
-    // Reaproveita o servidor que já estiver de pé — em desenvolvimento ele quase sempre está, e
-    // subir um segundo daria conflito de porta em vez de teste.
-    reuseExistingServer: true,
-    timeout: 120_000,
+    // `dev` e não `start`: um build de produção esconderia justamente os erros de hidratação que
+    // este teste existe para pegar. Mas é um `dev` **próprio**, com banco e storage que nascem a
+    // cada execução (`e2e/server.ts`): o E2E esvazia lixeira e edita questão, e antes fazia isso
+    // no acervo, porque reaproveitava o servidor que a pessoa usa.
+    command: `bun e2e/server.ts ${PORT}`,
+    url: `${BASE_URL}/api/infra`,
+    // Nunca reaproveita: um servidor que já está na porta não é, por definição, o que este
+    // comando acabou de semear.
+    reuseExistingServer: false,
+    // Migrações, seed e a primeira compilação do `next dev`.
+    timeout: 240_000,
     stdout: "pipe",
     stderr: "pipe",
   },
