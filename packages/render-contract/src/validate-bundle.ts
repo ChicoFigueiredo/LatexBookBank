@@ -127,7 +127,22 @@ export function validateRenderBundle(bundle: RenderBundle): void {
  * segunda camada, e existe porque a primeira é uma flag: basta alguém acrescentar um argumento
  * "para testar" e ela some sem deixar rastro. Um bundle que **pede** execução de shell é sinal de
  * que algo está muito errado, e recusar é mais barato que investigar depois.
+ *
+ * É heurística, e diz isso: o TeX tem jeitos demais de montar um nome de controle. Por isso não
+ * procura só `\write18` literal (#244, SEC-08): também o nome montado por `\csname` ou por
+ * `^^5c` (a barra em hexadecimal), o fluxo 18 por número (`\write\number18`) e a entrada por pipe
+ * (`\input|`, `\openin…|`), que também executa comando. A palavra solta, sem barra, é prosa.
+ * A leitura de arquivo fora do job é outra camada, no worker (`openin_any=p`).
  */
+const SHELL_ESCAPE = [
+  /\\write\s*(?:\\number\s*)?18/,
+  /csname\s*write\s*18/,
+  /ShellEscape/,
+  /\^\^5c/i,
+  /\\input\s*\{?\s*\|/,
+  /\\openin\s*\\?\w+\s*=?\s*\{?\s*\|/,
+];
+
 export function requestsShellEscape(sourceLatex: string): boolean {
-  return /\\(write18|immediate\s*\\write18|ShellEscape)/.test(sourceLatex);
+  return SHELL_ESCAPE.some((pattern) => pattern.test(sourceLatex));
 }

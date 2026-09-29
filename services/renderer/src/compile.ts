@@ -15,6 +15,7 @@ import {
 
 import { hasErrors, parseLatexLog, toBodyRelative } from "./diagnostics.ts";
 import { bodyWithFormat, ensureFormat, FORMATS_DIR } from "./format-cache.ts";
+import { PARANOID_FILES } from "./tex-sandbox.ts";
 
 /**
  * A compilação.
@@ -90,6 +91,7 @@ function run(
           // achar o próprio `pdflatex.fmt` e **toda** compilação falharia, inclusive as que não
           // usam formato pré-compilado.
           TEXFORMATS: `${FORMATS_DIR}:`,
+          ...PARANOID_FILES,
         },
       },
       (error, stdout, stderr) => {

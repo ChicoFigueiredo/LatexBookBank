@@ -2238,7 +2238,12 @@ escritas de verdade no banco de desenvolvimento.*
 - ✅ Tempo de compilação limitado *(no contrato e no `execFile`; o timeout mata o processo e vira
   diagnóstico)*
 - ✅ Shell escape bloqueado no LaTeX *(duas camadas: `-no-shell-escape` explícito e `\write18`
-  recusado antes de tocar o disco)*
+  recusado antes de tocar o disco — a segunda é heurística, e desde a #244 pega também `\csname`,
+  `^^5c`, `\write\number18` e a entrada por pipe)*
+- ✅ Documento não lê arquivo fora do job *(#244: `-no-shell-escape` não impedia **ler** — com o
+  `openin_any=a` padrão, `\openin` de `/proc/1/environ` punha o `RENDERER_SECRET` no log, provado
+  na imagem do worker. O `pdflatex` roda com `openin_any=p`/`openout_any=p`, e
+  `services/renderer/tests/compile.test.ts` afirma que `/etc/passwd` e `../` não chegam ao log)*
 - ✅ Filesystem efêmero nunca usado como storage persistente *(auditoria §23 — o worker é
   `read_only` + `tmpfs`, e quem persiste é a aplicação, pelo `StorageProvider`)*
 - ✅ Container do worker sem rede de saída *(rede `internal: true`; `fetch` de dentro falha, e o
@@ -2314,8 +2319,8 @@ Verificar em toda revisão de fase:
   com controle positivo; e o recorte reconhecido vira LaTeX revisado por gente, não imagem)*
 - ✅ Letra de alternativa nunca tratada como identidade *(schema + teste de projeção)*
 - ✅ LaTeX nunca executado de forma insegura *(vetor de argumentos, sem shell; `-no-shell-escape`
-  explícito, `\write18` recusado no contrato, diretório temporário por job, timeout, contêiner sem
-  rede e sem privilégio)*
+  explícito, `\write18` recusado no contrato, leitura de arquivo presa ao job com `openin_any=p`
+  (#244), diretório temporário por job, timeout, contêiner sem rede e sem privilégio)*
 - ✅ Batch agent não implementado antes de aprovação e revisão funcionarem *(não existe batch
   agent; aprovação seletiva e reversão estão de pé desde a Fase 9)*
 - ✅ Erro de compilação nunca escondido *(diagnóstico com linha, log cru inteiro na aba, e o corte
