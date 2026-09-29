@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 28080",
+    "dev": "next dev -H 127.0.0.1 --port 28080",
     "build": "next build",
-    "start": "next start --port 28080",
+    "start": "next start -H 127.0.0.1 --port 28080",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -50,6 +50,10 @@ Bloco `28xxx`, escolhido **abaixo de 32768** para ficar fora da faixa efêmera d
 | `28432` | PostgreSQL em Docker (apenas Fase 6.5) |
 | `28001` | Prisma Studio                          |
 
+O app escuta **só em `127.0.0.1`**, e o `apps/web/proxy.ts` recusa `Host` que não seja desta
+máquina e escrita vinda de outra origem. A API não tem autenticação: quem alcança a porta lê e
+apaga o acervo, e a rede local, o DNS rebinding e o CSRF ficam de fora por essas duas camadas.
+
 ## Estrutura
 
 ```
