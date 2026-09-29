@@ -129,25 +129,20 @@ export class PrismaPublicationRepository implements PublicationRepository {
     return { questionCount, nodeCount, assetCount, anchorCount };
   }
 
-  async listAssetKeys(id: string): Promise<readonly string[]> {
-    const assets = await prisma.asset.findMany({
-      where: { publicationId: id },
-      select: { storageKey: true },
-    });
-
-    return assets.map((asset) => asset.storageKey);
-  }
-
   /**
-   * Apaga o livro e o que é dele.
+   * Apaga o livro e o que é dele, e devolve as chaves de storage que ficaram sem dono.
    *
    * As questões saem **explicitamente**: `DocumentNode` cascateia da publicação, mas `Question`
    * não — é a mesma armadilha que a lixeira global encontrou (achado 7), e deixá-la aqui
    * significaria 148 questões vivas e invisíveis a cada livro excluído.
    *
    * Ordem: nós primeiro (eles referenciam a questão), questões depois.
+   *
+   * Os assets (#243): o `createAsset` deduplica pela chave, então a linha de Asset deste livro pode
+   * ser a que outro livro usa como PDF fonte, capa ou fonte de âncora. A linha só sai quando
+   * ninguém mais a cita; o arquivo só sai quando nenhuma linha resta com a chave dele.
    */
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string): Promise<readonly string[] | null> {
     const questionIds = (
       await prisma.documentNode.findMany({
         where: { publicationId: id, questionId: { not: null } },
@@ -158,11 +153,52 @@ export class PrismaPublicationRepository implements PublicationRepository {
       .filter((questionId): questionId is string => questionId !== null);
 
     return prisma.$transaction(async (tx) => {
+      const assets = await tx.asset.findMany({
+        where: { publicationId: id },
+        select: { id: true, storageKey: true },
+      });
+
       const removida = await tx.publication.deleteMany({ where: { id } });
-      if (removida.count === 0) return false;
+      if (removida.count === 0) return null;
 
       await tx.question.deleteMany({ where: { id: { in: questionIds } } });
-      return true;
+
+      // Depois das duas exclusões, `publicationId` e `questionId` dos assets deste livro viraram
+      // nulos (SetNull), e as âncoras e varreduras dele saíram em cascata: o que ainda aponta para
+      // uma destas linhas é de outro livro. As capas e os PDFs fonte são colunas soltas, sem FK —
+      // por isso a consulta à parte.
+      const assetIds = assets.map((asset) => asset.id);
+      const inUseByBooks = await tx.publication.findMany({
+        where: { OR: [{ sourcePdfAssetId: { in: assetIds } }, { coverAssetId: { in: assetIds } }] },
+        select: { sourcePdfAssetId: true, coverAssetId: true },
+      });
+      const keep = new Set(
+        inUseByBooks.flatMap((book) => [book.sourcePdfAssetId, book.coverAssetId]),
+      );
+
+      await tx.asset.deleteMany({
+        where: {
+          id: { in: assetIds.filter((assetId) => !keep.has(assetId)) },
+          publicationId: null,
+          questionId: null,
+          renderJobId: null,
+          anchorsAsSource: { none: {} },
+          anchorsAsCrop: { none: {} },
+          scanRuns: { none: {} },
+        },
+      });
+
+      const keys = [...new Set(assets.map((asset) => asset.storageKey))];
+      const stillCited = new Set(
+        (
+          await tx.asset.findMany({
+            where: { storageKey: { in: keys } },
+            select: { storageKey: true },
+          })
+        ).map((asset) => asset.storageKey),
+      );
+
+      return keys.filter((key) => !stillCited.has(key));
     });
   }
 }

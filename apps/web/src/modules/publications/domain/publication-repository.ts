@@ -85,9 +85,13 @@ export interface PublicationRepository {
    */
   contentsOf(id: string): Promise<PublicationContents | null>;
 
-  /** As chaves de storage dos arquivos do livro, para apagá-los depois do banco. */
-  listAssetKeys(id: string): Promise<readonly string[]>;
-
-  /** `false` quando o livro já não existe. */
-  delete(id: string): Promise<boolean>;
+  /**
+   * Apaga o livro e o que é só dele, e devolve as chaves de storage que ficaram **sem dono** —
+   * as que se pode apagar do disco depois. `null` quando o livro já não existe.
+   *
+   * "Sem dono" e não "do livro" (#243): o storage guarda cada arquivo pelo hash, e o mesmo PDF em
+   * dois livros da biblioteca é um arquivo só. Apagar do disco toda chave que o livro citava tirava
+   * o PDF fonte — patrimônio imutável (D29) — de um livro que continua existindo.
+   */
+  delete(id: string): Promise<readonly string[] | null>;
 }

@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, open, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -73,10 +73,12 @@ export class LocalFileStorageProvider implements StorageProvider {
     const absolute = this.#resolve(key);
     await mkdir(path.dirname(absolute), { recursive: true });
 
-    // Endereçado por hash: se já existe, o conteúdo é bit a bit o mesmo. Regravar seria
-    // desperdício, e — pior — abriria uma janela onde o arquivo fica truncado.
-    if (!(await this.#exists(absolute))) {
-      await writeFile(absolute, input.content);
+    // Endereçado por hash: se o arquivo já está lá, inteiro, o conteúdo é bit a bit o mesmo e
+    // regravar seria desperdício. "Inteiro" é o que o tamanho confere (#243, PLT-10): um crash ou
+    // um disco cheio no meio da gravação deixava um arquivo truncado **com o nome certo**, e toda
+    // gravação seguinte o aceitava como bom, para sempre.
+    if ((await this.#sizeOf(absolute)) !== input.content.byteLength) {
+      await this.#writeAtomically(absolute, input.content);
     }
 
     return { storageKey: key, sha256, sizeBytes: input.content.byteLength };
@@ -153,6 +155,38 @@ export class LocalFileStorageProvider implements StorageProvider {
   #assertMimeType(mimeType: string, workspaceId: string): void {
     if (this.#allowedMimeTypes && !this.#allowedMimeTypes.has(mimeType)) {
       throw new TypeError(`MIME type não permitido: ${mimeType} (workspace ${workspaceId})`);
+    }
+  }
+
+  /**
+   * Grava num arquivo ao lado e renomeia: `rename` no mesmo sistema de arquivos é atômico, então
+   * quem lê a chave vê o arquivo antigo ou o novo inteiro — nunca a metade que um `put`
+   * concorrente ainda está escrevendo. O `sync` antes do `rename` é o que faz o "inteiro" valer
+   * também depois de uma queda de energia.
+   */
+  async #writeAtomically(absolute: string, content: Uint8Array): Promise<void> {
+    const temporary = `${absolute}.${randomUUID()}.tmp`;
+    try {
+      const handle = await open(temporary, "w");
+      try {
+        await handle.writeFile(content);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      await rename(temporary, absolute);
+    } catch (error) {
+      await rm(temporary, { force: true });
+      throw error;
+    }
+  }
+
+  /** O tamanho do arquivo, ou `null` quando ele não existe. */
+  async #sizeOf(absolute: string): Promise<number | null> {
+    try {
+      return (await stat(absolute)).size;
+    } catch {
+      return null;
     }
   }
 

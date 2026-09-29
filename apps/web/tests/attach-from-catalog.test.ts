@@ -109,9 +109,6 @@ class FakePublications implements PublicationRepository {
   contentsOf(): never {
     throw new Error("não usado neste caminho");
   }
-  listAssetKeys(): never {
-    throw new Error("não usado neste caminho");
-  }
   delete(): never {
     throw new Error("não usado neste caminho");
   }
@@ -383,8 +380,9 @@ describe("metadados do catálogo", () => {
 
   it("volume não entra sem coleção — o Calibre grava índice 1.0 em todo livro", async () => {
     const avulso = entrada({ series: null, seriesIndex: "1" });
-    expect(camposAPreencher({ ...LIVRO, series: null, volume: null }, avulso).map((c) => c.field))
-      .not.toContain("volume");
+    expect(
+      camposAPreencher({ ...LIVRO, series: null, volume: null }, avulso).map((c) => c.field),
+    ).not.toContain("volume");
   });
 
   it("ISBN torto do catálogo vira aviso, e o resto dos campos entra", async () => {

@@ -104,12 +104,9 @@ const libraries: LibraryRepository = {
 };
 
 class FakePublications implements PublicationRepository {
-  // A importação do Calibre não exclui nada — o dublê declara os três e recusa, para que um
+  // A importação do Calibre não exclui nada — o dublê declara os dois e recusa, para que um
   // caminho que passe a chamá-los apareça no teste em vez de passar batido com um `noop`.
   contentsOf(): never {
-    throw new Error("não usado neste caminho");
-  }
-  listAssetKeys(): never {
     throw new Error("não usado neste caminho");
   }
   delete(): never {
@@ -235,9 +232,7 @@ describe("duplicata", () => {
   it("reconhece pelo id do catálogo, pelo ISBN e por título+autor — nesta ordem", () => {
     expect(duplicateSignalFor(entrada(), [existente]).signal).toBe("external-id");
 
-    expect(
-      duplicateSignalFor(entrada({ externalId: "outro" }), [existente]).signal,
-    ).toBe("isbn");
+    expect(duplicateSignalFor(entrada({ externalId: "outro" }), [existente]).signal).toBe("isbn");
 
     expect(
       duplicateSignalFor(entrada({ externalId: "outro", isbn: null }), [existente]).signal,
@@ -376,7 +371,10 @@ describe("importação em lote — beta-editorial.md, 'o que o Calibre ainda nã
 
     expect(report.results).toHaveLength(2);
     expect(report.results.every((r) => r.outcome.kind === "imported")).toBe(true);
-    expect(publications.written.map((w) => w.title)).toEqual(["Conjuntos e Funções", "Outro Livro"]);
+    expect(publications.written.map((w) => w.title)).toEqual([
+      "Conjuntos e Funções",
+      "Outro Livro",
+    ]);
   });
 
   it("um livro ruim não derruba o lote — os outros entram", async () => {

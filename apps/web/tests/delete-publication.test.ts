@@ -43,10 +43,10 @@ function fakes(over: Partial<PublicationRepository> = {}) {
       nodeCount: 312,
     })),
     contentsOf: vi.fn(async () => CONTEUDO),
-    listAssetKeys: vi.fn(async () => ["w1/a.pdf", "w1/b.png"]),
+    // O repositório devolve as chaves que ficaram sem dono — quais são, decide o banco (#243).
     delete: vi.fn(async (id: string) => {
       removidos.push(id);
-      return true;
+      return ["w1/a.pdf", "w1/b.png"];
     }),
     ...over,
   } as unknown as PublicationRepository;
@@ -71,7 +71,10 @@ describe("deletePublication", () => {
     expect(removidos).toEqual(["p1"]);
     expect(apagados).toEqual(["w1/a.pdf", "w1/b.png"]);
     // Os números vêm do repositório, e não de estimativa: é o que o diálogo mostra antes do clique.
-    expect(resultado).toMatchObject({ ...CONTEUDO, title: "Fundamentos de Matemática Elementar 1" });
+    expect(resultado).toMatchObject({
+      ...CONTEUDO,
+      title: "Fundamentos de Matemática Elementar 1",
+    });
   });
 
   it("**recusa** com o título errado, e não apaga nada", async () => {
