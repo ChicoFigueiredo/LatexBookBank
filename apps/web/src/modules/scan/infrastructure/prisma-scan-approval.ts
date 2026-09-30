@@ -7,10 +7,11 @@ import { generateKeyBetween } from "@modules/document-tree/domain/fractional-ind
 import { appendToBody } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
 import { planQuestion } from "@modules/questions/domain/question-blueprint";
-import type {
-  ApprovalContext,
-  ApprovalSummary,
-  ScanApprovalWriter,
+import {
+  ApprovalConflictError,
+  type ApprovalContext,
+  type ApprovalSummary,
+  type ScanApprovalWriter,
 } from "@modules/scan/application/approve-scan";
 import type { NodeRef } from "@modules/scan/domain/approval-plan";
 import type { ProposedRegion } from "@modules/scan/domain/proposal";
@@ -135,11 +136,14 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           return links;
         };
 
+        // Só marca item que ainda não tem nó: se algum já tem, outra aprovação da mesma proposta
+        // gravou depois da leitura que deu este plano, e a transação inteira volta (#247).
         const mark = async (itemIds: readonly string[], nodeId: string) => {
-          await tx.scanItem.updateMany({
-            where: { runId: run.id, id: { in: [...itemIds] } },
+          const marked = await tx.scanItem.updateMany({
+            where: { runId: run.id, id: { in: [...itemIds] }, documentNodeId: null },
             data: { documentNodeId: nodeId, approvedAt: now, reviewState: "APPROVED" },
           });
+          if (marked.count !== new Set(itemIds).size) throw new ApprovalConflictError();
           summary.materializedItems += itemIds.length;
         };
 

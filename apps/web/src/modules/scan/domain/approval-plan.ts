@@ -4,7 +4,7 @@ import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
 
 import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
-import { boxRect, overlapRatio } from "./geometry";
+import { boxRect, intersectionOverUnion } from "./geometry";
 import type { ProposedRegion, ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
 import { foldText } from "./text";
@@ -109,7 +109,10 @@ export interface ApprovalInput {
 /** Quantas alternativas uma questão precisa ter para ser de múltipla escolha — ver a aprovação. */
 export const MIN_ALTERNATIVES = 4;
 
-/** Sobreposição, na mesma página, a partir da qual a âncora "já está no acervo" (D53). */
+/**
+ * Sobreposição (interseção sobre união), na mesma página, a partir da qual a âncora "já está no
+ * acervo" (D53). Simétrica de propósito: é "o mesmo lugar", e não "um dentro do outro" (#247).
+ */
 export const DUPLICATE_OVERLAP = 0.8;
 
 const NODE_KIND: Partial<Record<ScanKind, NodeKind>> = {
@@ -143,33 +146,87 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     !item.documentNodeId &&
     (item.reviewState === "APPROVED" || (input.includeSuggested && item.reviewState === "AUTO_ACCEPTABLE"));
 
+  /*
+    O item já materializado serve de pai só se o nó dele continua no acervo (#247, CAP-12).
+
+    A exclusão lógica no editor não mexe no item, que segue marcado com o nó. Sem esta conferência,
+    o filho aprovado depois nascia dentro de um nó da lixeira — invisível na árvore, e contado como
+    criado no resumo.
+  */
+  const alive = new Set(input.existingNodes.map((node) => node.id));
+  const trashed = new Set<string>();
   for (const item of items) {
-    if (item.documentNodeId) resolved.set(item.key, { type: "existing", id: item.documentNodeId });
+    if (!item.documentNodeId) continue;
+    if (alive.has(item.documentNodeId)) resolved.set(item.key, { type: "existing", id: item.documentNodeId });
+    else trashed.add(item.key);
   }
 
   const parentItem = (item: ScanItem) => (item.parentKey ? (byKey.get(item.parentKey) ?? null) : null);
 
-  const containerFor = (item: ScanItem): NodeRef | null => {
+  /** O pai que conta: o mais próximo que não foi rejeitado — os filhos do rejeitado sobem. */
+  const effectiveParent = (item: ScanItem): ScanItem | null => {
     let parent = parentItem(item);
-    while (parent) {
-      if (parent.reviewState === "REJECTED") {
-        parent = parentItem(parent);
-        continue;
-      }
-      return resolved.get(parent.key) ?? null;
-    }
-    return destination;
+    while (parent && parent.reviewState === "REJECTED") parent = parentItem(parent);
+    return parent;
   };
 
+  const containerFor = (item: ScanItem): NodeRef | null => {
+    const parent = effectiveParent(item);
+    return parent ? (resolved.get(parent.key) ?? null) : destination;
+  };
+
+  /*
+    O item cujas âncoras coincidem com as de um nó que já existe está "já no acervo".
+
+    Duas travas contra o falso positivo da aprovação em rodadas (#247), em que o exercício
+    aprovado na segunda rodada virava "já no acervo" apontando para o **grupo** — e nenhuma questão
+    era criada: coincidir é interseção sobre união, e não estar contido; e exercício ou questão só
+    coincide com nó de questão. O texto do corpo (teoria, figura) coincide com a âncora de
+    continuação que ele deixou no nó que o recebeu, seja qual for o tipo desse nó.
+  */
+  const kindOfNode = new Map(input.existingNodes.map((node) => [node.id, node.kind]));
   const duplicateOf = (item: ScanItem): string | null => {
-    const match = input.existingAnchors.find((anchor) =>
-      item.regions.some(
-        (region) =>
-          region.pageNumber === anchor.pageNumber &&
-          overlapRatio(boxRect(region.box), boxRect(anchor.box)) >= DUPLICATE_OVERLAP,
-      ),
+    const match = input.existingAnchors.find(
+      (anchor) =>
+        (!QUESTION_KINDS.has(item.kind) || kindOfNode.get(anchor.nodeId) === "QUESTION") &&
+        item.regions.some(
+          (region) =>
+            region.pageNumber === anchor.pageNumber &&
+            intersectionOverUnion(boxRect(region.box), boxRect(anchor.box)) >= DUPLICATE_OVERLAP,
+        ),
     );
     return match?.nodeId ?? null;
+  };
+
+  /** Alguma âncora do item coincide com uma do nó — o mesmo lugar do mesmo PDF. */
+  const sameSpot = (item: ScanItem, nodeId: string): boolean =>
+    input.existingAnchors.some(
+      (anchor) =>
+        anchor.nodeId === nodeId &&
+        item.regions.some(
+          (region) =>
+            region.pageNumber === anchor.pageNumber &&
+            intersectionOverUnion(boxRect(region.box), boxRect(anchor.box)) >= DUPLICATE_OVERLAP,
+        ),
+    );
+
+  /*
+    O título que já existe no destino é o deste item? (D53: "mesmo rótulo e título", #247 SPG-04)
+
+    Com número, o rótulo **e** o título — o capítulo 2 de outro volume no mesmo destino tem o mesmo
+    número e outro título, e antes recebia as seções deste. A âncora coincidindo também vale no
+    lugar do título: é o capítulo que a pessoa renomeou no editor depois de aprovar.
+
+    O bloco de exercícios sem número só pela âncora: "Exercícios" se repete em todo capítulo, e o
+    título fundia o segundo bloco no primeiro. Os outros sem número, pelo título.
+  */
+  const sameHeading = (item: ScanItem, node: ExistingNode, nodeKind: NodeKind): boolean => {
+    if (item.number !== null) {
+      const sameLabel = node.originalLabel === item.number || node.originalLabel === item.originalLabel;
+      return sameLabel && (item.title === null || sameText(node.title, item.title) || sameSpot(item, node.id));
+    }
+    if (nodeKind === "QUESTION_GROUP") return sameSpot(item, node.id);
+    return sameText(node.title, item.title);
   };
 
   const descendants = (item: ScanItem): ScanItem[] => {
@@ -182,7 +239,14 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
 
     const container = containerFor(item);
     if (container === null) {
-      skipped.push({ itemId: item.id, reason: "o item acima dele ainda não foi aprovado" });
+      const parent = effectiveParent(item);
+      if (parent && trashed.has(parent.key)) {
+        // O neto também fica de fora pelo mesmo motivo, e não por "ainda não foi aprovado".
+        trashed.add(item.key);
+        skipped.push({ itemId: item.id, reason: "o item acima dele foi excluído no editor" });
+      } else {
+        skipped.push({ itemId: item.id, reason: "o item acima dele ainda não foi aprovado" });
+      }
       continue;
     }
 
@@ -194,11 +258,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         parentId === undefined
           ? undefined
           : input.existingNodes.find(
-              (node) =>
-                node.parentId === parentId &&
-                node.kind === nodeKind &&
-                ((item.number !== null && (node.originalLabel === item.number || node.originalLabel === item.originalLabel)) ||
-                  sameText(node.title, item.title)),
+              (node) => node.parentId === parentId && node.kind === nodeKind && sameHeading(item, node, nodeKind),
             );
       if (reuse) {
         steps.push({ type: "reuseNode", itemIds: [item.id], nodeId: reuse.id });

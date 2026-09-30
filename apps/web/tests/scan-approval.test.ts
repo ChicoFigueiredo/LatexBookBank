@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { ScanRunner } from "@modules/scan/application/scan-store";
 import { questionLatex } from "@modules/scan/domain/approval-latex";
+import { planApproval, type ApprovalInput } from "@modules/scan/domain/approval-plan";
 import { captureProfile } from "@modules/scan/domain/profiles";
 import { applyReview, InvalidReviewError } from "@modules/scan/domain/review";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
@@ -275,6 +276,92 @@ describe("LaTeX da aprovação", () => {
   });
 });
 
+/*
+  Aprovar em rodadas (#247, CAP-01/CAP-12/SPG-04 da revisão de 2026-09-23).
+
+  A aprovação parcial é o fluxo pedido — aceitar os sugeridos, revisar o resto e aprovar de novo —,
+  e a segunda rodada roda contra o que a primeira já gravou. É ali que o plano errava.
+*/
+describe("plano da aprovação em rodadas", () => {
+  const profile = { id: "book-v1", version: 1, defaultQuestionType: "DISCURSIVE" as const };
+  const plan = (over: Partial<ApprovalInput>) =>
+    planApproval({ items: [], profile, destinationId: null, includeSuggested: false, existingNodes: [], existingAnchors: [], ...over });
+
+  // O banner "E X E R C Í C I O S" tem extensão até a próxima fronteira: a âncora dele cobre a página.
+  const pagina = { x: 0.05, y: 0.1, width: 0.9, height: 0.85 };
+  const grupo = item({ id: "g", key: "G", kind: "EXERCISE_GROUP", reviewState: "APPROVED", documentNodeId: "no-grupo", regions: [{ pageNumber: 1, role: "PRIMARY", box: pagina }] });
+  const exercicio = item({
+    id: "e",
+    key: "E",
+    kind: "EXERCISE",
+    parentKey: "G",
+    reviewState: "APPROVED",
+    sortOrder: 1,
+    text: "2. Calcule x.",
+    number: "2",
+    regions: [{ pageNumber: 1, role: "PRIMARY", box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 } }],
+  });
+  const noGrupo = { id: "no-grupo", parentId: null, kind: "QUESTION_GROUP" as const, title: "Exercícios", originalLabel: null };
+
+  it("o exercício dentro da âncora do grupo vira questão, e não 'já no acervo'", () => {
+    const { steps } = plan({
+      items: [grupo, exercicio],
+      existingNodes: [noGrupo],
+      existingAnchors: [{ nodeId: "no-grupo", pageNumber: 1, box: pagina }],
+    });
+
+    expect(steps.map((step) => step.type)).toEqual(["createNode"]);
+    expect(steps[0]).toMatchObject({ kind: "QUESTION", parent: { type: "existing", id: "no-grupo" } });
+  });
+
+  it("o exercício que coincide com uma questão do acervo continua 'já no acervo'", () => {
+    const { steps } = plan({
+      items: [grupo, exercicio],
+      existingNodes: [noGrupo, { id: "q2", parentId: "no-grupo", kind: "QUESTION", title: null, originalLabel: "2" }],
+      existingAnchors: [
+        { nodeId: "no-grupo", pageNumber: 1, box: pagina },
+        { nodeId: "q2", pageNumber: 1, box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 } },
+      ],
+    });
+
+    expect(steps).toEqual([{ type: "alreadyInCollection", itemIds: ["e"], nodeId: "q2" }]);
+  });
+
+  it("o pai que foi para a lixeira no editor não recebe filho: o item é pulado, com o motivo", () => {
+    // O item do grupo continua marcado com o nó, mas o nó saiu do acervo (a exclusão lógica não mexe
+    // no item). Antes o exercício nascia dentro do nó da lixeira — invisível, e contado como criado.
+    const { steps, skipped } = plan({ items: [grupo, exercicio], existingNodes: [], existingAnchors: [] });
+
+    expect(steps).toEqual([]);
+    expect(skipped).toEqual([{ itemId: "e", reason: "o item acima dele foi excluído no editor" }]);
+  });
+
+  it("reaproveita o capítulo com rótulo E título, como a D53 pede — não com um dos dois", () => {
+    const existente = { id: "c2", parentId: null, kind: "CHAPTER" as const, title: "Outro título", originalLabel: "2" };
+    const capitulo = (title: string) =>
+      item({ id: "c", key: "C", kind: "CHAPTER", reviewState: "APPROVED", number: "2", originalLabel: "Capítulo 2", title });
+
+    expect(plan({ items: [capitulo("Funções")], existingNodes: [existente] }).steps[0]?.type).toBe("createNode");
+    expect(plan({ items: [capitulo("Outro título")], existingNodes: [existente] }).steps[0]).toEqual({
+      type: "reuseNode",
+      itemIds: ["c"],
+      nodeId: "c2",
+    });
+  });
+
+  it("o segundo bloco 'Exercícios' do capítulo não se funde no primeiro só pelo título", () => {
+    // Bloco sem número: o título se repete em todo capítulo. Quem diz se é o mesmo é a âncora.
+    const caixa = { x: 0.1, y: 0.1, width: 0.8, height: 0.3 };
+    const existente = { id: "g1", parentId: null, kind: "QUESTION_GROUP" as const, title: "Exercícios", originalLabel: null };
+    const bloco = (pageNumber: number) =>
+      item({ id: `b${pageNumber}`, key: `B${pageNumber}`, kind: "EXERCISE_GROUP", reviewState: "APPROVED", title: "Exercícios", regions: [{ pageNumber, role: "PRIMARY", box: caixa }] });
+    const acervo = { existingNodes: [existente], existingAnchors: [{ nodeId: "g1", pageNumber: 3, box: caixa }] };
+
+    expect(plan({ items: [bloco(7)], ...acervo }).steps[0]?.type).toBe("createNode");
+    expect(plan({ items: [bloco(3)], ...acervo }).steps[0]).toMatchObject({ type: "reuseNode", nodeId: "g1" });
+  });
+});
+
 describe("aprovação contra o banco", () => {
   let dispose: () => Promise<void>;
   beforeAll(async () => {
@@ -389,6 +476,56 @@ describe("aprovação contra o banco", () => {
     ]);
     // Os seis itens foram dobrados no enunciado, não viraram nós.
     expect(await prisma.documentNode.count({ where: { publicationId: publication.id, kind: "QUESTION" } })).toBe(3);
+  });
+
+  it("duas aprovações ao mesmo tempo não duplicam o livro (#247, CAP-11)", async () => {
+    // Aprovar em duas abas, ou reenviar a requisição que parecia travada: o plano de cada uma sai
+    // de uma leitura feita antes de a outra gravar.
+    const { approveScan } = await import("@modules/scan/application/approve-scan");
+    const { prisma, publication, store, writer, scan } = await scanned("book-a.pdf", "approve-concurrent", "book-v1");
+
+    const runId = await scan();
+    const request = { runId, destinationId: null, includeSuggested: true };
+    await Promise.allSettled([approveScan({ store, writer }, request), approveScan({ store, writer }, request)]);
+
+    // Os mesmos 13 nós de uma aprovação só, e nenhuma questão em dobro.
+    expect(await prisma.documentNode.count({ where: { publicationId: publication.id } })).toBe(13);
+    expect(await prisma.question.count({ where: { node: { publicationId: publication.id } } })).toBe(5);
+  });
+
+  it("aprovar sob um destino: a proposta entra dentro dele, e reaprovar não cria de novo (TST-06)", async () => {
+    // Todos os testes passavam `destinationId: null`, e a tela manda o destino escolhido.
+    const { approveScan, DestinationNotInPublicationError } = await import("@modules/scan/application/approve-scan");
+    const { prisma, publication, store, writer, scan } = await scanned("book-a.pdf", "approve-destination", "book-v1");
+    const destino = await prisma.documentNode.create({
+      data: { publicationId: publication.id, kind: "PART", title: "Volume 1", sortKey: "a0" },
+      select: { id: true },
+    });
+
+    const runId = await scan();
+    const request = { runId, destinationId: destino.id, includeSuggested: true };
+    const { summary } = await approveScan({ store, writer }, request);
+
+    expect(summary.createdNodes).toBeGreaterThan(0);
+    const raiz = await prisma.documentNode.findMany({ where: { publicationId: publication.id, parentId: null }, select: { id: true } });
+    expect(raiz).toEqual([destino]);
+    const capitulo = await prisma.documentNode.findFirstOrThrow({ where: { publicationId: publication.id, kind: "CHAPTER" }, select: { parentId: true } });
+    expect(capitulo.parentId).toBe(destino.id);
+
+    const nodes = await prisma.documentNode.count({ where: { publicationId: publication.id } });
+    const second = await scan(true);
+    const repeat = await approveScan({ store, writer }, { ...request, runId: second });
+    expect(repeat.summary.createdNodes).toBe(0);
+    expect(await prisma.documentNode.count({ where: { publicationId: publication.id } })).toBe(nodes);
+
+    const outro = await seedBookWithSource("book-c.pdf", "approve-destination-outro");
+    const alheio = await prisma.documentNode.create({
+      data: { publicationId: outro.publication.id, kind: "PART", title: "De outro livro", sortKey: "a0" },
+      select: { id: true },
+    });
+    await expect(approveScan({ store, writer }, { ...request, runId: second, destinationId: alheio.id })).rejects.toBeInstanceOf(
+      DestinationNotInPublicationError,
+    );
   });
 
   it("filho de pai pendente fica de fora, com o motivo; e a prova chega com alternativas", async () => {

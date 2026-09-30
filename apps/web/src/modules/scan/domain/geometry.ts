@@ -50,6 +50,23 @@ export function overlapRatio(a: Rect, b: Rect): number {
 }
 
 /**
+ * Área da interseção dividida pela área da união — 1 só quando as duas caixas coincidem.
+ *
+ * É a pergunta "é o mesmo lugar?", e não "um contém o outro?". A diferença morde na aprovação em
+ * rodadas (#247): pela `overlapRatio`, o exercício pequeno dentro da âncora do grupo — que cobre a
+ * página inteira — dava 1, e virava "já no acervo" apontando para o grupo.
+ */
+export function intersectionOverUnion(a: Rect, b: Rect): number {
+  const w = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+  const h = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+  if (w <= 0 || h <= 0) return 0;
+
+  const intersection = w * h;
+  const union = width(a) * height(a) + width(b) * height(b) - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
  * A caixa normalizada como retângulo, para comparar duas âncoras.
  *
  * Mora aqui porque tem dois donos: a aprovação, que pergunta "esta âncora já está no acervo?", e

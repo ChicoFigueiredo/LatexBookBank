@@ -53,6 +53,21 @@ export class DestinationNotInPublicationError extends Error {
   }
 }
 
+/**
+ * Outra aprovação da mesma proposta gravou antes desta (#247, CAP-11).
+ *
+ * O plano sai de uma leitura feita fora da transação: duas abas — ou a requisição reenviada porque
+ * a primeira parecia travada — calculavam o mesmo plano, e o SQLite, serializando as duas
+ * transações, gravava o livro duas vezes. O escritor recusa marcar item que já tem nó, e a
+ * transação inteira volta: nada entra em dobro, e a tela manda recarregar.
+ */
+export class ApprovalConflictError extends Error {
+  constructor() {
+    super("Outra aprovação desta proposta terminou antes. Recarregue a revisão para ver o que entrou.");
+    this.name = "ApprovalConflictError";
+  }
+}
+
 export async function approveScan(
   deps: { readonly store: ScanStore; readonly writer: ScanApprovalWriter; readonly now?: () => Date },
   command: { readonly runId: string; readonly destinationId: string | null; readonly includeSuggested: boolean },
