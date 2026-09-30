@@ -204,6 +204,9 @@ describe("requestsShellEscape", () => {
     expect(requestsShellEscape('\\input|"ls /"')).toBe(true);
     expect(requestsShellEscape('\\input{|"ls /"}')).toBe(true);
     expect(requestsShellEscape("\\openin\\arquivo=|ls")).toBe(true);
+    // O nome partido pelo `\\endcsname` e o `\\input` primitivo do LaTeX — os dois passavam (revisão das P0).
+    expect(requestsShellEscape("\\csname write\\endcsname18{ls}")).toBe(true);
+    expect(requestsShellEscape('\\@@input|"ls"')).toBe(true);
   });
 
   it("não confunde a barra vertical da matemática com pipe", () => {

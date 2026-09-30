@@ -129,6 +129,14 @@ const BODY_KINDS: ReadonlySet<ScanKind> = new Set(["CONTENT", "NOTE", "FIGURE"])
 const QUESTION_KINDS: ReadonlySet<ScanKind> = new Set(["EXERCISE", "QUESTION"]);
 const FOLDED_KINDS: ReadonlySet<ScanKind> = new Set(["ITEM", "SUBITEM"]);
 
+/** O item está no mesmo lugar da âncora: mesma página, e interseção sobre união acima do limite. */
+const coincides = (item: ScanItem, anchor: ExistingAnchor): boolean =>
+  item.regions.some(
+    (region) =>
+      region.pageNumber === anchor.pageNumber &&
+      intersectionOverUnion(boxRect(region.box), boxRect(anchor.box)) >= DUPLICATE_OVERLAP,
+  );
+
 const sameText = (a: string | null, b: string | null) =>
   a !== null && b !== null && foldText(a) === foldText(b);
 
@@ -154,11 +162,11 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     criado no resumo.
   */
   const alive = new Set(input.existingNodes.map((node) => node.id));
-  const trashed = new Set<string>();
+  const blockedByTrash = new Set<string>();
   for (const item of items) {
     if (!item.documentNodeId) continue;
     if (alive.has(item.documentNodeId)) resolved.set(item.key, { type: "existing", id: item.documentNodeId });
-    else trashed.add(item.key);
+    else blockedByTrash.add(item.key);
   }
 
   const parentItem = (item: ScanItem) => (item.parentKey ? (byKey.get(item.parentKey) ?? null) : null);
@@ -189,26 +197,14 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     const match = input.existingAnchors.find(
       (anchor) =>
         (!QUESTION_KINDS.has(item.kind) || kindOfNode.get(anchor.nodeId) === "QUESTION") &&
-        item.regions.some(
-          (region) =>
-            region.pageNumber === anchor.pageNumber &&
-            intersectionOverUnion(boxRect(region.box), boxRect(anchor.box)) >= DUPLICATE_OVERLAP,
-        ),
+        coincides(item, anchor),
     );
     return match?.nodeId ?? null;
   };
 
   /** Alguma âncora do item coincide com uma do nó — o mesmo lugar do mesmo PDF. */
   const sameSpot = (item: ScanItem, nodeId: string): boolean =>
-    input.existingAnchors.some(
-      (anchor) =>
-        anchor.nodeId === nodeId &&
-        item.regions.some(
-          (region) =>
-            region.pageNumber === anchor.pageNumber &&
-            intersectionOverUnion(boxRect(region.box), boxRect(anchor.box)) >= DUPLICATE_OVERLAP,
-        ),
-    );
+    input.existingAnchors.some((anchor) => anchor.nodeId === nodeId && coincides(item, anchor));
 
   /*
     O título que já existe no destino é o deste item? (D53: "mesmo rótulo e título", #247 SPG-04)
@@ -220,12 +216,12 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     O bloco de exercícios sem número só pela âncora: "Exercícios" se repete em todo capítulo, e o
     título fundia o segundo bloco no primeiro. Os outros sem número, pelo título.
   */
-  const sameHeading = (item: ScanItem, node: ExistingNode, nodeKind: NodeKind): boolean => {
+  const sameHeading = (item: ScanItem, node: ExistingNode): boolean => {
     if (item.number !== null) {
       const sameLabel = node.originalLabel === item.number || node.originalLabel === item.originalLabel;
       return sameLabel && (item.title === null || sameText(node.title, item.title) || sameSpot(item, node.id));
     }
-    if (nodeKind === "QUESTION_GROUP") return sameSpot(item, node.id);
+    if (node.kind === "QUESTION_GROUP") return sameSpot(item, node.id);
     return sameText(node.title, item.title);
   };
 
@@ -240,9 +236,9 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     const container = containerFor(item);
     if (container === null) {
       const parent = effectiveParent(item);
-      if (parent && trashed.has(parent.key)) {
+      if (parent && blockedByTrash.has(parent.key)) {
         // O neto também fica de fora pelo mesmo motivo, e não por "ainda não foi aprovado".
-        trashed.add(item.key);
+        blockedByTrash.add(item.key);
         skipped.push({ itemId: item.id, reason: "o item acima dele foi excluído no editor" });
       } else {
         skipped.push({ itemId: item.id, reason: "o item acima dele ainda não foi aprovado" });
@@ -258,7 +254,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         parentId === undefined
           ? undefined
           : input.existingNodes.find(
-              (node) => node.parentId === parentId && node.kind === nodeKind && sameHeading(item, node, nodeKind),
+              (node) => node.parentId === parentId && node.kind === nodeKind && sameHeading(item, node),
             );
       if (reuse) {
         steps.push({ type: "reuseNode", itemIds: [item.id], nodeId: reuse.id });

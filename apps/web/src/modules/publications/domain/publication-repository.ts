@@ -1,3 +1,5 @@
+import type { StorageKey } from "@/shared/ports";
+
 /**
  * Porta de persistência de `Publication`.
  *
@@ -93,5 +95,5 @@ export interface PublicationRepository {
    * dois livros da biblioteca é um arquivo só. Apagar do disco toda chave que o livro citava tirava
    * o PDF fonte — patrimônio imutável (D29) — de um livro que continua existindo.
    */
-  delete(id: string): Promise<readonly string[] | null>;
+  delete(id: string): Promise<readonly StorageKey[] | null>;
 }

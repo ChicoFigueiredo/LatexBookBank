@@ -9,7 +9,7 @@ import type {
   PublicationContents,
   PublicationRepository,
 } from "@modules/publications/domain/publication-repository";
-import type { StorageProvider } from "@/shared/ports";
+import { asStorageKey, type StorageProvider } from "@/shared/ports";
 
 /**
  * Excluir um livro — a segunda operação sem volta do produto.
@@ -46,7 +46,7 @@ function fakes(over: Partial<PublicationRepository> = {}) {
     // O repositório devolve as chaves que ficaram sem dono — quais são, decide o banco (#243).
     delete: vi.fn(async (id: string) => {
       removidos.push(id);
-      return ["w1/a.pdf", "w1/b.png"];
+      return ["w1/a.pdf", "w1/b.png"].map(asStorageKey);
     }),
     ...over,
   } as unknown as PublicationRepository;

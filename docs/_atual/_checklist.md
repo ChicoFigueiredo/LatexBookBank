@@ -2238,12 +2238,15 @@ escritas de verdade no banco de desenvolvimento.*
 - ✅ Tempo de compilação limitado *(no contrato e no `execFile`; o timeout mata o processo e vira
   diagnóstico)*
 - ✅ Shell escape bloqueado no LaTeX *(duas camadas: `-no-shell-escape` explícito e `\write18`
-  recusado antes de tocar o disco — a segunda é heurística, e desde a #244 pega também `\csname`,
-  `^^5c`, `\write\number18` e a entrada por pipe)*
+  recusado antes de tocar o disco — a segunda é heurística e nunca fecha; desde a #244 pega também
+  as formas conhecidas: `\csname` (inteiro ou partido pelo `\endcsname`), `^^5c`,
+  `\write\number18` e a entrada por pipe em `\input`, `\@@input` e `\openin`)*
 - ✅ Documento não lê arquivo fora do job *(#244: `-no-shell-escape` não impedia **ler** — com o
   `openin_any=a` padrão, `\openin` de `/proc/1/environ` punha o `RENDERER_SECRET` no log, provado
   na imagem do worker. O `pdflatex` roda com `openin_any=p`/`openout_any=p`, e
-  `services/renderer/tests/compile.test.ts` afirma que `/etc/passwd` e `../` não chegam ao log)*
+  `services/renderer/tests/compile.test.ts` afirma que `/etc/passwd`, `/proc/self/environ` e `../`
+  não chegam ao log. O segredo continua no ambiente do PID 1 do worker — fechado pelo
+  `openin_any=p`, e não por estar ausente)*
 - ✅ Filesystem efêmero nunca usado como storage persistente *(auditoria §23 — o worker é
   `read_only` + `tmpfs`, e quem persiste é a aplicação, pelo `StorageProvider`)*
 - ✅ Container do worker sem rede de saída *(rede `internal: true`; `fetch` de dentro falha, e o

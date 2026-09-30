@@ -11,7 +11,7 @@
  * variáveis de ambiente de mesmo nome valem por cima do `texmf.cnf`, então isto não depende de
  * como a imagem foi montada.
  */
-export const PARANOID_FILES = {
+export const PARANOID_FILE_ACCESS = {
   openin_any: "p",
   openout_any: "p",
 } as const;

@@ -249,20 +249,10 @@ export function questionLatex(
   if (fromItems !== null) {
     options = fromItems;
   } else if (wantsOptions) {
-    const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
-    if (start >= 0) {
-      const parsed: string[][] = [];
-      for (const line of lines.slice(start)) {
-        const match = ALTERNATIVE.exec(line);
-        const expected = String.fromCharCode(65 + parsed.length);
-        // A sequência é conferida em maiúscula: o livro escolhe a caixa, a ordem A→E é a mesma.
-        if (match && match[1]?.toUpperCase() === expected) parsed.push([match[2] ?? ""]);
-        else parsed[parsed.length - 1]?.push(line);
-      }
-      if (parsed.length >= 2) {
-        options = parsed.map((option) => escapeLatexText(joinLines(option)));
-        lines = lines.slice(0, start);
-      }
+    const byLine = alternativesByLine(lines);
+    if (byLine !== null) {
+      options = byLine.parts.map((option) => escapeLatexText(joinLines(option)));
+      lines = lines.slice(0, byLine.start);
     }
   }
 
@@ -317,7 +307,7 @@ function alternativesFromItems(items: readonly ScanItem[]): string[] | null {
     firstRun.length >= 2 &&
     [...firstRun.map((option) => option.letter)]
       .sort()
-      .every((letter, index) => letter === String.fromCharCode(65 + index));
+      .every((letter, index) => letter === letterAt(index));
   if (!complete) return null;
   return [...firstRun]
     .sort((a, b) => a.letter.localeCompare(b.letter))
@@ -359,7 +349,7 @@ function alternativesInLatex(
   if (first >= 0) {
     const run: RegExpExecArray[] = [];
     for (const mark of marks.slice(first)) {
-      if (mark[1]?.toUpperCase() !== String.fromCharCode(65 + run.length)) break;
+      if (mark[1]?.toUpperCase() !== letterAt(run.length)) break;
       run.push(mark);
     }
     if (run.length >= 2) {
@@ -376,18 +366,33 @@ function alternativesInLatex(
     }
   }
 
-  const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
-  if (start < 0) return null;
-  const parsed: string[][] = [];
-  for (const line of lines.slice(start)) {
-    const match = ALTERNATIVE.exec(line);
-    if (match && match[1]?.toUpperCase() === String.fromCharCode(65 + parsed.length))
-      parsed.push([match[2] ?? ""]);
-    else parsed[parsed.length - 1]?.push(line);
-  }
-  if (parsed.length < 2) return null;
+  const byLine = alternativesByLine(lines);
+  if (byLine === null) return null;
   return {
-    statement: lines.slice(0, start),
-    options: parsed.map((option) => option.join("\n").trim()),
+    statement: lines.slice(0, byLine.start),
+    options: byLine.parts.map((option) => option.join("\n").trim()),
   };
 }
+
+/**
+ * As alternativas uma por linha, na forma do ENEM ("A texto"): a partir da linha do A, cada letra
+ * seguinte abre uma alternativa, e o que não abre continua a anterior. Serve ao texto cru e ao
+ * LaTeX; quem chama decide como juntar e se escapa. `null` sem ao menos duas.
+ */
+function alternativesByLine(
+  lines: readonly string[],
+): { readonly start: number; readonly parts: string[][] } | null {
+  const start = lines.findIndex((line) => ALTERNATIVE.exec(line)?.[1]?.toUpperCase() === "A");
+  if (start < 0) return null;
+  const parts: string[][] = [];
+  for (const line of lines.slice(start)) {
+    const match = ALTERNATIVE.exec(line);
+    // A sequência é conferida em maiúscula: o livro escolhe a caixa, a ordem A→E é a mesma.
+    if (match && match[1]?.toUpperCase() === letterAt(parts.length)) parts.push([match[2] ?? ""]);
+    else parts[parts.length - 1]?.push(line);
+  }
+  return parts.length >= 2 ? { start, parts } : null;
+}
+
+/** A letra da alternativa na posição `index`, em maiúscula: 0 → "A". */
+const letterAt = (index: number): string => String.fromCharCode(65 + index);

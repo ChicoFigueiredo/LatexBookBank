@@ -8,6 +8,7 @@ import type {
   PublicationContents,
 } from "@modules/publications/domain/publication-repository";
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { asStorageKey, type StorageKey } from "@/shared/ports";
 
 /**
  * Implementação Prisma de `PublicationRepository`.
@@ -142,7 +143,7 @@ export class PrismaPublicationRepository implements PublicationRepository {
    * ser a que outro livro usa como PDF fonte, capa ou fonte de âncora. A linha só sai quando
    * ninguém mais a cita; o arquivo só sai quando nenhuma linha resta com a chave dele.
    */
-  async delete(id: string): Promise<readonly string[] | null> {
+  async delete(id: string): Promise<readonly StorageKey[] | null> {
     const questionIds = (
       await prisma.documentNode.findMany({
         where: { publicationId: id, questionId: { not: null } },
@@ -168,12 +169,15 @@ export class PrismaPublicationRepository implements PublicationRepository {
       // uma destas linhas é de outro livro. As capas e os PDFs fonte são colunas soltas, sem FK —
       // por isso a consulta à parte.
       const assetIds = assets.map((asset) => asset.id);
-      const inUseByBooks = await tx.publication.findMany({
+      const inUsePublications = await tx.publication.findMany({
         where: { OR: [{ sourcePdfAssetId: { in: assetIds } }, { coverAssetId: { in: assetIds } }] },
         select: { sourcePdfAssetId: true, coverAssetId: true },
       });
       const keep = new Set(
-        inUseByBooks.flatMap((book) => [book.sourcePdfAssetId, book.coverAssetId]),
+        inUsePublications.flatMap((publication) => [
+          publication.sourcePdfAssetId,
+          publication.coverAssetId,
+        ]),
       );
 
       await tx.asset.deleteMany({
@@ -198,7 +202,7 @@ export class PrismaPublicationRepository implements PublicationRepository {
         ).map((asset) => asset.storageKey),
       );
 
-      return keys.filter((key) => !stillCited.has(key));
+      return keys.filter((key) => !stillCited.has(key)).map(asStorageKey);
     });
   }
 }

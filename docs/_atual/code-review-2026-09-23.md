@@ -1,6 +1,6 @@
 # Code review do código inteiro — 2026-09-23
 
-> Revisão do código inteiro do LatexBookBank na branch `feat/perfil-do-fundamentos` (`6ba3525`), em seis dimensões, com um plano de ação em issues. **Plano aprovado:** as tarefas P0 e P1 viraram issues sob o épico [#232](https://github.com/ChicoFigueiredo/LatexBookBank/issues/232); as P2 ficam aqui até serem puxadas.
+> Revisão do código inteiro do LatexBookBank na branch `feat/perfil-do-fundamentos` (`6ba3525`), em seis dimensões, com um plano de ação em issues. **Plano aprovado:** as tarefas P0 e P1 viraram issues sob o épico [#232](https://github.com/ChicoFigueiredo/LatexBookBank/issues/232); as P2 ficam aqui até serem puxadas. **As seis P0 foram feitas em 2026-09-29** (coluna Estado).
 
 ## Como foi feito
 
@@ -12,12 +12,12 @@
 
 **Resultado:** 147 achados (121 confirmados, 26 plausíveis), agrupados em 49 tarefas sob 9 frentes.
 
-## Riscos que valem hoje
+## Os dois riscos imediatos — fechados
 
-Dois achados valem hoje, antes de qualquer tarefa sair:
+A revisão achou dois riscos que valiam no dia, antes de qualquer tarefa. Os dois foram fechados em 2026-09-29:
 
-1. **Não rode `bunx playwright test` contra o dev server de agora** ([TST-01](#tst-01), tarefa A1: [#241](https://github.com/ChicoFigueiredo/LatexBookBank/issues/241)). O Playwright reaproveita o servidor em `28080`, que aponta para `data/latexbookbank.db`, o acervo. `lixeira-global.spec` esvazia a lixeira inteira, o que apagaria de vez uma importação removida; `agente.spec` apaga o complemento de uma questão real; `atalhos.spec` edita questões aprovadas pelo scan, e isso faz a remoção de importação passar a preservá-las.
-2. **O dev server está aberto na rede local** ([SEC-01](#sec-01)). `next dev --port 28080` escuta em todas as interfaces, sem autenticação e sem conferir `Origin`/`Host`. A máquina está numa LAN (`192.168.1.14`): outra máquina da rede lista as bibliotecas, exporta o acervo e esvazia a lixeira com `curl`. Enquanto a A2 ([#242](https://github.com/ChicoFigueiredo/LatexBookBank/issues/242)) não sai, subir com `-H 127.0.0.1` fecha isso.
+1. **O E2E rodava contra o acervo** ([TST-01](#tst-01)): o Playwright reaproveitava o servidor da `28080`, que aponta para `data/latexbookbank.db`, e um spec esvaziava a lixeira real. Desde a A1 ([#241](https://github.com/ChicoFigueiredo/LatexBookBank/issues/241), D60) o E2E sobe o próprio servidor na `28081`, com banco e storage descartáveis, e recusa rodar se a instância não for `e2e`. A primeira execução inteira deixou o banco do acervo com o mesmo sha256.
+2. **O dev server estava aberto na rede local** ([SEC-01](#sec-01)): desde a A2 ([#242](https://github.com/ChicoFigueiredo/LatexBookBank/issues/242), D59) `dev` e `start` escutam só em `127.0.0.1`, e o `proxy.ts` recusa `Host` estranho e escrita de outra origem.
 
 ## Números
 
@@ -60,113 +60,113 @@ São 6 tarefas P0, 27 P1 e 16 P2.
 
 Quatro riscos que alcançam o acervo real hoje, sem esperar nenhum bug novo: o E2E apaga dados de verdade, a API está aberta na rede local, excluir um livro apaga arquivo de outro e o LaTeX lê qualquer arquivo do worker. Frente: [#233](https://github.com/ChicoFigueiredo/LatexBookBank/issues/233).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **A1** | [#241](https://github.com/ChicoFigueiredo/LatexBookBank/issues/241) | P0 | M | O E2E roda num banco e num storage próprios, nunca no acervo | [TST-01](#tst-01) |
-| **A2** | [#242](https://github.com/ChicoFigueiredo/LatexBookBank/issues/242) | P0 | S | O app escuta só em localhost e recusa Host e Origin estranhos | [SEC-01](#sec-01) |
-| **A3** | [#243](https://github.com/ChicoFigueiredo/LatexBookBank/issues/243) | P0 | S | Excluir um livro só apaga o arquivo que ninguém mais usa, e o storage grava de forma atômica | [ACV-01](#acv-01), [PLT-01](#plt-01), [PLT-10](#plt-10) |
-| **A4** | [#244](https://github.com/ChicoFigueiredo/LatexBookBank/issues/244) | P0 | S | O pdflatex do worker não lê arquivo fora do job | [SEC-02](#sec-02), [SEC-08](#sec-08) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **A1** | [#241](https://github.com/ChicoFigueiredo/LatexBookBank/issues/241) | feita (`69bbfeb`) | P0 | M | O E2E roda num banco e num storage próprios, nunca no acervo | [TST-01](#tst-01) |
+| **A2** | [#242](https://github.com/ChicoFigueiredo/LatexBookBank/issues/242) | feita (`515ea42`) | P0 | S | O app escuta só em localhost e recusa Host e Origin estranhos | [SEC-01](#sec-01) |
+| **A3** | [#243](https://github.com/ChicoFigueiredo/LatexBookBank/issues/243) | feita (`c8ef7aa`) | P0 | S | Excluir um livro só apaga o arquivo que ninguém mais usa, e o storage grava de forma atômica | [ACV-01](#acv-01), [PLT-01](#plt-01), [PLT-10](#plt-10) |
+| **A4** | [#244](https://github.com/ChicoFigueiredo/LatexBookBank/issues/244) | feita (`c204f56`) | P0 | S | O pdflatex do worker não lê arquivo fora do job | [SEC-02](#sec-02), [SEC-08](#sec-08) |
 
 ### B — A aprovação do scan grava o que a proposta diz
 
 A aprovação é onde a proposta vira acervo. Ela acerta quando o livro é aprovado de uma vez e sem modelo de visão; erra nas rodadas parciais, no LaTeX reconhecido e nas figuras de questão. Frente: [#234](https://github.com/ChicoFigueiredo/LatexBookBank/issues/234).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **B1** | [#245](https://github.com/ChicoFigueiredo/LatexBookBank/issues/245) | P0 | M | As alternativas saem também do LaTeX reconhecido ou revisado | [CAP-03](#cap-03), [SPG-01](#spg-01), [CAP-10](#cap-10) |
-| **B2** | [#246](https://github.com/ChicoFigueiredo/LatexBookBank/issues/246) | P1 | M | A figura da questão vai para o enunciado, e não para o corpo do nó | [CAP-02](#cap-02), [SPG-02](#spg-02) |
-| **B3** | [#247](https://github.com/ChicoFigueiredo/LatexBookBank/issues/247) | P0 | M | Aprovar em rodadas: 'já no acervo' só casa item compatível, e nó na lixeira não serve de pai | [CAP-01](#cap-01), [CAP-12](#cap-12), [SPG-04](#spg-04), [CAP-11](#cap-11), [TST-06](#tst-06) |
-| **B4** | [#248](https://github.com/ChicoFigueiredo/LatexBookBank/issues/248) | P1 | M | Aprovar em rodadas mantém a ordem do livro, na árvore e no corpo | [CAP-04](#cap-04), [CAP-16](#cap-16) |
-| **B5** | [#249](https://github.com/ChicoFigueiredo/LatexBookBank/issues/249) | P1 | M | Apagar a importação distingue aprovação posterior de edição à mão | [CAP-09](#cap-09), [SPG-05](#spg-05), [SPG-12](#spg-12) |
-| **B6** | [#250](https://github.com/ChicoFigueiredo/LatexBookBank/issues/250) | P1 | M | A revisão da proposta não perde nem inventa trabalho | [CAP-06](#cap-06), [CAP-07](#cap-07), [CAP-17](#cap-17), [SPG-07](#spg-07) |
-| **B7** | [#251](https://github.com/ChicoFigueiredo/LatexBookBank/issues/251) | P1 | S | Mudou a proposta, mudou a versão; e a aprovação usa o retrato do perfil | [STM-01](#stm-01), [STM-07](#stm-07), [SPG-10](#spg-10), [CAP-05](#cap-05), [TST-10](#tst-10) |
-| **B8** | [#252](https://github.com/ChicoFigueiredo/LatexBookBank/issues/252) | P1 | M | Corpo e exemplo vindos do scan ficam 'a revisar', e duplicar leva o corpo | [SPG-06](#spg-06), [SPG-08](#spg-08) |
-| **B9** | [#253](https://github.com/ChicoFigueiredo/LatexBookBank/issues/253) | P1 | S | A fila de captura não some depois de um scan, e a falha não apaga a transcrição | [CAP-08](#cap-08), [CAP-15](#cap-15) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **B1** | [#245](https://github.com/ChicoFigueiredo/LatexBookBank/issues/245) | feita (`4c7a567`) | P0 | M | As alternativas saem também do LaTeX reconhecido ou revisado | [CAP-03](#cap-03), [SPG-01](#spg-01), [CAP-10](#cap-10) |
+| **B2** | [#246](https://github.com/ChicoFigueiredo/LatexBookBank/issues/246) | — | P1 | M | A figura da questão vai para o enunciado, e não para o corpo do nó | [CAP-02](#cap-02), [SPG-02](#spg-02) |
+| **B3** | [#247](https://github.com/ChicoFigueiredo/LatexBookBank/issues/247) | feita (`b1673ae`) | P0 | M | Aprovar em rodadas: 'já no acervo' só casa item compatível, e nó na lixeira não serve de pai | [CAP-01](#cap-01), [CAP-12](#cap-12), [SPG-04](#spg-04), [CAP-11](#cap-11), [TST-06](#tst-06) |
+| **B4** | [#248](https://github.com/ChicoFigueiredo/LatexBookBank/issues/248) | — | P1 | M | Aprovar em rodadas mantém a ordem do livro, na árvore e no corpo | [CAP-04](#cap-04), [CAP-16](#cap-16) |
+| **B5** | [#249](https://github.com/ChicoFigueiredo/LatexBookBank/issues/249) | — | P1 | M | Apagar a importação distingue aprovação posterior de edição à mão | [CAP-09](#cap-09), [SPG-05](#spg-05), [SPG-12](#spg-12) |
+| **B6** | [#250](https://github.com/ChicoFigueiredo/LatexBookBank/issues/250) | — | P1 | M | A revisão da proposta não perde nem inventa trabalho | [CAP-06](#cap-06), [CAP-07](#cap-07), [CAP-17](#cap-17), [SPG-07](#spg-07) |
+| **B7** | [#251](https://github.com/ChicoFigueiredo/LatexBookBank/issues/251) | — | P1 | S | Mudou a proposta, mudou a versão; e a aprovação usa o retrato do perfil | [STM-01](#stm-01), [STM-07](#stm-07), [SPG-10](#spg-10), [CAP-05](#cap-05), [TST-10](#tst-10) |
+| **B8** | [#252](https://github.com/ChicoFigueiredo/LatexBookBank/issues/252) | — | P1 | M | Corpo e exemplo vindos do scan ficam 'a revisar', e duplicar leva o corpo | [SPG-06](#spg-06), [SPG-08](#spg-08) |
+| **B9** | [#253](https://github.com/ChicoFigueiredo/LatexBookBank/issues/253) | — | P1 | S | A fila de captura não some depois de um scan, e a falha não apaga a transcrição | [CAP-08](#cap-08), [CAP-15](#cap-15) |
 
 ### C — Assets: uma linha por dono, e a figura chega ao PDF
 
 A deduplicação por hash devolve a linha de outro livro ou de outra questão; com isso a figura enviada não compila, o recorte não entra no bundle e o upload aceita ids de outra biblioteca. Frente: [#235](https://github.com/ChicoFigueiredo/LatexBookBank/issues/235).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **C1** | [#254](https://github.com/ChicoFigueiredo/LatexBookBank/issues/254) | P1 | M | Deduplicar o arquivo, e não a linha do Asset | [ACV-06](#acv-06), [CAP-13](#cap-13), [CAP-14](#cap-14) |
-| **C2** | [#255](https://github.com/ChicoFigueiredo/LatexBookBank/issues/255) | P1 | S | 'Inserir como figura' leva o recorte ao bundle de render | [ACV-05](#acv-05) |
-| **C3** | [#256](https://github.com/ChicoFigueiredo/LatexBookBank/issues/256) | P1 | M | Upload, recorte e Calibre resolvem a biblioteca e a raiz no servidor | [SEC-06](#sec-06), [ACV-12](#acv-12), [SEC-05](#sec-05) |
-| **C4** | [#257](https://github.com/ChicoFigueiredo/LatexBookBank/issues/257) | P1 | S | Conteúdo servido com nosniff, e SVG em sandbox | [SEC-04](#sec-04) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **C1** | [#254](https://github.com/ChicoFigueiredo/LatexBookBank/issues/254) | — | P1 | M | Deduplicar o arquivo, e não a linha do Asset | [ACV-06](#acv-06), [CAP-13](#cap-13), [CAP-14](#cap-14) |
+| **C2** | [#255](https://github.com/ChicoFigueiredo/LatexBookBank/issues/255) | — | P1 | S | 'Inserir como figura' leva o recorte ao bundle de render | [ACV-05](#acv-05) |
+| **C3** | [#256](https://github.com/ChicoFigueiredo/LatexBookBank/issues/256) | — | P1 | M | Upload, recorte e Calibre resolvem a biblioteca e a raiz no servidor | [SEC-06](#sec-06), [ACV-12](#acv-12), [SEC-05](#sec-05) |
+| **C4** | [#257](https://github.com/ChicoFigueiredo/LatexBookBank/issues/257) | — | P1 | S | Conteúdo servido com nosniff, e SVG em sandbox | [SEC-04](#sec-04) |
 
 ### D — Lixeira, exclusão e concorrência no acervo
 
 A lixeira trava inteira por causa de uma questão numa prova, e escritas que não são do usuário disparam 409 falso — no corpo do nó, o 'Recarregar' ainda descarta o que foi digitado. Frente: [#236](https://github.com/ChicoFigueiredo/LatexBookBank/issues/236).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **D1** | [#258](https://github.com/ChicoFigueiredo/LatexBookBank/issues/258) | P1 | M | Questão numa avaliação não trava a lixeira nem a exclusão do livro | [ACV-02](#acv-02), [STE-04](#ste-04), [TST-03](#tst-03) |
-| **D2** | [#259](https://github.com/ChicoFigueiredo/LatexBookBank/issues/259) | P1 | M | Escrita derivada não gera 409 falso, e o conflito do corpo não descarta o rascunho | [ACV-03](#acv-03), [ACV-04](#acv-04) |
-| **D3** | [#260](https://github.com/ChicoFigueiredo/LatexBookBank/issues/260) | P1 | S | Restaurar da lixeira não repete sortKey, e a regra dos filhos fica escrita | [ACV-09](#acv-09), [ACV-14](#acv-14), [TST-08](#tst-08) |
-| **D4** | — | P2 | S | O texto da alternativa passa por use case, e toda escrita da questão revalida | [STE-15](#ste-15), [STE-05](#ste-05) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **D1** | [#258](https://github.com/ChicoFigueiredo/LatexBookBank/issues/258) | — | P1 | M | Questão numa avaliação não trava a lixeira nem a exclusão do livro | [ACV-02](#acv-02), [STE-04](#ste-04), [TST-03](#tst-03) |
+| **D2** | [#259](https://github.com/ChicoFigueiredo/LatexBookBank/issues/259) | — | P1 | M | Escrita derivada não gera 409 falso, e o conflito do corpo não descarta o rascunho | [ACV-03](#acv-03), [ACV-04](#acv-04) |
+| **D3** | [#260](https://github.com/ChicoFigueiredo/LatexBookBank/issues/260) | — | P1 | S | Restaurar da lixeira não repete sortKey, e a regra dos filhos fica escrita | [ACV-09](#acv-09), [ACV-14](#acv-14), [TST-08](#tst-08) |
+| **D4** | — | — | P2 | S | O texto da alternativa passa por use case, e toda escrita da questão revalida | [STE-15](#ste-15), [STE-05](#ste-05) |
 
 ### E — Avaliações por biblioteca, e tipos de questão pelo registry
 
 A tela de avaliações só vê a primeira biblioteca, e o gabarito impresso sai errado para questão de várias corretas — o custo de o conhecimento por tipo estar espalhado fora do plugin. Frente: [#237](https://github.com/ChicoFigueiredo/LatexBookBank/issues/237).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **E1** | [#261](https://github.com/ChicoFigueiredo/LatexBookBank/issues/261) | P1 | S | /avaliacoes trabalha na biblioteca escolhida | [STE-01](#ste-01), [STE-14](#ste-14) |
-| **E2** | [#262](https://github.com/ChicoFigueiredo/LatexBookBank/issues/262) | P1 | M | O gabarito marca todas as corretas, e a discursiva sai sem alternativas | [ACV-07](#acv-07), [SPA-02](#spa-02), [STM-08](#stm-08) |
-| **E3** | [#263](https://github.com/ChicoFigueiredo/LatexBookBank/issues/263) | P1 | S | A prova não imprime questão da lixeira, e seed fora de Int32 é recusada | [ACV-10](#acv-10), [ACV-15](#acv-15) |
-| **E4** | — | P2 | M | O plugin declara as capacidades do tipo, e o guarda enxerga além do switch | [STM-02](#stm-02), [SPA-04](#spa-04), [TST-11](#tst-11), [ARQ-05](#arq-05) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **E1** | [#261](https://github.com/ChicoFigueiredo/LatexBookBank/issues/261) | — | P1 | S | /avaliacoes trabalha na biblioteca escolhida | [STE-01](#ste-01), [STE-14](#ste-14) |
+| **E2** | [#262](https://github.com/ChicoFigueiredo/LatexBookBank/issues/262) | — | P1 | M | O gabarito marca todas as corretas, e a discursiva sai sem alternativas | [ACV-07](#acv-07), [SPA-02](#spa-02), [STM-08](#stm-08) |
+| **E3** | [#263](https://github.com/ChicoFigueiredo/LatexBookBank/issues/263) | — | P1 | S | A prova não imprime questão da lixeira, e seed fora de Int32 é recusada | [ACV-10](#acv-10), [ACV-15](#acv-15) |
+| **E4** | — | — | P2 | M | O plugin declara as capacidades do tipo, e o guarda enxerga além do switch | [STM-02](#stm-02), [SPA-04](#spa-04), [TST-11](#tst-11), [ARQ-05](#arq-05) |
 
 ### F — Agente e render
 
 Com OpenAI ou OpenRouter o agente falha na segunda chamada; o candidato compila sem figuras; patch e revert não respeitam o tipo; e o cache de render guarda para sempre falhas que não são do documento. Frente: [#238](https://github.com/ChicoFigueiredo/LatexBookBank/issues/238).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **F1** | [#264](https://github.com/ChicoFigueiredo/LatexBookBank/issues/264) | P1 | S | Tool calling funciona com OpenAI e OpenRouter | [PLT-02](#plt-02), [PLT-17](#plt-17) |
-| **F2** | [#265](https://github.com/ChicoFigueiredo/LatexBookBank/issues/265) | P1 | M | Um caso de uso de render, com assets, para questão, candidato e agente | [PLT-04](#plt-04), [ARQ-02](#arq-02), [STE-09](#ste-09) |
-| **F3** | [#266](https://github.com/ChicoFigueiredo/LatexBookBank/issues/266) | P1 | M | Patch e revert fiéis ao tipo e ao estado da questão | [SPA-01](#spa-01), [TST-02](#tst-02), [PLT-06](#plt-06), [PLT-07](#plt-07), [PLT-08](#plt-08), [SPA-05](#spa-05) |
-| **F4** | [#267](https://github.com/ChicoFigueiredo/LatexBookBank/issues/267) | P1 | M | O cache de render só guarda falha do documento | [PLT-03](#plt-03), [PLT-05](#plt-05), [PLT-09](#plt-09) |
-| **F5** | — | P2 | S | Worker: jobId único, formato atômico e prazo por job | [SEC-07](#sec-07), [PLT-12](#plt-12), [PLT-11](#plt-11), [PLT-14](#plt-14), [PLT-15](#plt-15) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **F1** | [#264](https://github.com/ChicoFigueiredo/LatexBookBank/issues/264) | — | P1 | S | Tool calling funciona com OpenAI e OpenRouter | [PLT-02](#plt-02), [PLT-17](#plt-17) |
+| **F2** | [#265](https://github.com/ChicoFigueiredo/LatexBookBank/issues/265) | — | P1 | M | Um caso de uso de render, com assets, para questão, candidato e agente | [PLT-04](#plt-04), [ARQ-02](#arq-02), [STE-09](#ste-09) |
+| **F3** | [#266](https://github.com/ChicoFigueiredo/LatexBookBank/issues/266) | — | P1 | M | Patch e revert fiéis ao tipo e ao estado da questão | [SPA-01](#spa-01), [TST-02](#tst-02), [PLT-06](#plt-06), [PLT-07](#plt-07), [PLT-08](#plt-08), [SPA-05](#spa-05) |
+| **F4** | [#267](https://github.com/ChicoFigueiredo/LatexBookBank/issues/267) | — | P1 | M | O cache de render só guarda falha do documento | [PLT-03](#plt-03), [PLT-05](#plt-05), [PLT-09](#plt-09) |
+| **F5** | — | — | P2 | S | Worker: jobId único, formato atômico e prazo por job | [SEC-07](#sec-07), [PLT-12](#plt-12), [PLT-11](#plt-11), [PLT-14](#plt-14), [PLT-15](#plt-15) |
 
 ### G — Backup e .lbb que restauram de verdade
 
 O .lbb é também o backup declarado, e hoje uma restauração perde figuras, capas, avaliações, variantes e revisões — e o round-trip de aceite não enxerga isso. Frente: [#239](https://github.com/ChicoFigueiredo/LatexBookBank/issues/239).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **G1** | [#268](https://github.com/ChicoFigueiredo/LatexBookBank/issues/268) | P1 | M | .lbb v3: figuras, nome, tipo e capa atravessam o round-trip | [ACV-08](#acv-08), [SPG-03](#spg-03), [TST-13](#tst-13) |
-| **G2** | [#269](https://github.com/ChicoFigueiredo/LatexBookBank/issues/269) | P1 | L | Decidir o que o backup leva: avaliações, variantes, revisões e legacyId | [SPA-03](#spa-03) |
-| **G3** | [#270](https://github.com/ChicoFigueiredo/LatexBookBank/issues/270) | P1 | M | O import de .lbb tem teto, schema e colisão no escopo certo | [SEC-03](#sec-03), [ACV-11](#acv-11), [SPA-10](#spa-10) |
-| **G4** | — | P2 | M | Legado, scripts e o indicador de backup dizem a verdade | [ACV-13](#acv-13), [SPA-08](#spa-08), [SPA-09](#spa-09), [PLT-16](#plt-16), [PLT-13](#plt-13) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **G1** | [#268](https://github.com/ChicoFigueiredo/LatexBookBank/issues/268) | — | P1 | M | .lbb v3: figuras, nome, tipo e capa atravessam o round-trip | [ACV-08](#acv-08), [SPG-03](#spg-03), [TST-13](#tst-13) |
+| **G2** | [#269](https://github.com/ChicoFigueiredo/LatexBookBank/issues/269) | — | P1 | L | Decidir o que o backup leva: avaliações, variantes, revisões e legacyId | [SPA-03](#spa-03) |
+| **G3** | [#270](https://github.com/ChicoFigueiredo/LatexBookBank/issues/270) | — | P1 | M | O import de .lbb tem teto, schema e colisão no escopo certo | [SEC-03](#sec-03), [ACV-11](#acv-11), [SPA-10](#spa-10) |
+| **G4** | — | — | P2 | M | Legado, scripts e o indicador de backup dizem a verdade | [ACV-13](#acv-13), [SPA-08](#spa-08), [SPA-09](#spa-09), [PLT-16](#plt-16), [PLT-13](#plt-13) |
 
 ### H — Testes e CI que barram de verdade
 
 A suíte é densa, mas o CI está vermelho desde agosto, os adaptadores Prisma de escrita só são testados por fakes, e os guardas de fronteira têm furos medidos. Frente: [#240](https://github.com/ChicoFigueiredo/LatexBookBank/issues/240).
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **H1** | [#271](https://github.com/ChicoFigueiredo/LatexBookBank/issues/271) | P1 | S | O CI fica verde e volta a rodar o build | [TST-04](#tst-04) |
-| **H2** | [#272](https://github.com/ChicoFigueiredo/LatexBookBank/issues/272) | P1 | L | Adaptadores Prisma de escrita testados contra SQLite | [TST-05](#tst-05) |
-| **H3** | [#273](https://github.com/ChicoFigueiredo/LatexBookBank/issues/273) | P1 | S | Os guardas de fronteira fecham os furos medidos | [TST-07](#tst-07), [TST-12](#tst-12) |
-| **H4** | — | P2 | S | Higiene: E2E do Calibre no schema 27, sem caminho de máquina, sem sleep | [TST-09](#tst-09), [TST-14](#tst-14), [TST-15](#tst-15) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **H1** | [#271](https://github.com/ChicoFigueiredo/LatexBookBank/issues/271) | — | P1 | S | O CI fica verde e volta a rodar o build | [TST-04](#tst-04) |
+| **H2** | [#272](https://github.com/ChicoFigueiredo/LatexBookBank/issues/272) | — | P1 | L | Adaptadores Prisma de escrita testados contra SQLite | [TST-05](#tst-05) |
+| **H3** | [#273](https://github.com/ChicoFigueiredo/LatexBookBank/issues/273) | — | P1 | S | Os guardas de fronteira fecham os furos medidos | [TST-07](#tst-07), [TST-12](#tst-12) |
+| **H4** | — | — | P2 | S | Higiene: E2E do Calibre no schema 27, sem caminho de máquina, sem sleep | [TST-09](#tst-09), [TST-14](#tst-14), [TST-15](#tst-15) |
 
 ### I — Arquitetura e padrões: a documentação e o código voltam a concordar
 
 A arquitetura macro está sã. A dívida está nas costuras entre módulos, em regras escritas que o repositório deixou de praticar e em conceitos com dois donos. Frente sem issue nesta rodada: todas as tarefas são P2.
 
-| Tarefa | Issue | Prioridade | Esforço | O que entrega | Achados |
-|---|---|---|---|---|---|
-| **I1** | — | P2 | S | Registrar o fluxo que o repositório pratica: Zod, Server Components, estrutura, D23 e D43 | [STM-06](#stm-06), [STE-02](#ste-02), [STM-05](#stm-05), [STE-18](#ste-18), [STM-15](#stm-15), [STE-19](#ste-19), [STM-18](#stm-18), [SPG-09](#spg-09) |
-| **I2** | — | P2 | L | Casos de uso onde a regra mora na rota ou no adaptador | [STM-04](#stm-04), [STE-03](#ste-03), [ARQ-09](#arq-09), [STE-11](#ste-11) |
-| **I3** | — | P2 | M | Uma raiz de composição, e o ambiente lido uma vez | [STE-08](#ste-08), [ARQ-03](#arq-03), [STM-14](#stm-14), [STE-12](#ste-12) |
-| **I4** | — | P2 | M | Um tradutor de erro de domínio para HTTP | [STE-06](#ste-06), [ARQ-11](#arq-11), [STE-20](#ste-20), [STE-10](#ste-10) |
-| **I5** | — | P2 | L | Um escritor de questão, nó e âncora; e Revision com dono | [ARQ-01](#arq-01), [ARQ-04](#arq-04) |
-| **I6** | — | P2 | M | Primitivas neutras, sem ciclo entre módulos e sem peso morto | [ARQ-12](#arq-12), [ARQ-13](#arq-13), [STM-16](#stm-16) |
-| **I7** | — | P2 | M | Um modelo de camada de texto do PDF, e um cliente de IA | [ARQ-06](#arq-06), [ARQ-07](#arq-07) |
-| **I8** | — | P2 | L | Telas gigantes viram hooks e clientes com contrato tipado | [ARQ-08](#arq-08), [STM-17](#stm-17), [ARQ-10](#arq-10), [STE-16](#ste-16) |
-| **I9** | — | P2 | M | Os traços de cada ScanKind num lugar só, e as passadas com contrato | [STM-13](#stm-13), [ARQ-14](#arq-14) |
-| **I10** | — | P2 | M | Glossário e idioma no texto de tela e nos identificadores | [STM-09](#stm-09), [STM-10](#stm-10), [STM-11](#stm-11), [STM-12](#stm-12), [STE-07](#ste-07), [STM-03](#stm-03), [STE-17](#ste-17), [STE-13](#ste-13) |
-| **I11** | — | P2 | S | O checklist volta a dizer a verdade | [SPA-06](#spa-06), [SPA-07](#spa-07), [SPG-13](#spg-13), [SPG-11](#spg-11) |
+| Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
+|---|---|---|---|---|---|---|
+| **I1** | — | — | P2 | S | Registrar o fluxo que o repositório pratica: Zod, Server Components, estrutura, D23 e D43 | [STM-06](#stm-06), [STE-02](#ste-02), [STM-05](#stm-05), [STE-18](#ste-18), [STM-15](#stm-15), [STE-19](#ste-19), [STM-18](#stm-18), [SPG-09](#spg-09) |
+| **I2** | — | — | P2 | L | Casos de uso onde a regra mora na rota ou no adaptador | [STM-04](#stm-04), [STE-03](#ste-03), [ARQ-09](#arq-09), [STE-11](#ste-11) |
+| **I3** | — | — | P2 | M | Uma raiz de composição, e o ambiente lido uma vez | [STE-08](#ste-08), [ARQ-03](#arq-03), [STM-14](#stm-14), [STE-12](#ste-12) |
+| **I4** | — | — | P2 | M | Um tradutor de erro de domínio para HTTP | [STE-06](#ste-06), [ARQ-11](#arq-11), [STE-20](#ste-20), [STE-10](#ste-10) |
+| **I5** | — | — | P2 | L | Um escritor de questão, nó e âncora; e Revision com dono | [ARQ-01](#arq-01), [ARQ-04](#arq-04) |
+| **I6** | — | — | P2 | M | Primitivas neutras, sem ciclo entre módulos e sem peso morto | [ARQ-12](#arq-12), [ARQ-13](#arq-13), [STM-16](#stm-16) |
+| **I7** | — | — | P2 | M | Um modelo de camada de texto do PDF, e um cliente de IA | [ARQ-06](#arq-06), [ARQ-07](#arq-07) |
+| **I8** | — | — | P2 | L | Telas gigantes viram hooks e clientes com contrato tipado | [ARQ-08](#arq-08), [STM-17](#stm-17), [ARQ-10](#arq-10), [STE-16](#ste-16) |
+| **I9** | — | — | P2 | M | Os traços de cada ScanKind num lugar só, e as passadas com contrato | [STM-13](#stm-13), [ARQ-14](#arq-14) |
+| **I10** | — | — | P2 | M | Glossário e idioma no texto de tela e nos identificadores | [STM-09](#stm-09), [STM-10](#stm-10), [STM-11](#stm-11), [STM-12](#stm-12), [STE-07](#ste-07), [STM-03](#stm-03), [STE-17](#ste-17), [STE-13](#ste-13) |
+| **I11** | — | — | P2 | S | O checklist volta a dizer a verdade | [SPA-06](#spa-06), [SPA-07](#spa-07), [SPG-13](#spg-13), [SPG-11](#spg-11) |
 
 ### Ordem sugerida
 
@@ -616,7 +616,7 @@ Li por inteiro: o checklist da Wave G (linhas 1604–1995), o planejamento §3.7
 
 #### SPG-01
 
-**Múltipla escolha perde as alternativas quando o LaTeX vem do reconhecimento ou da revisão** — alta · confirmado · `spec-wrong` · tarefa **B1**
+**Múltipla escolha perde as alternativas quando o LaTeX vem do reconhecimento ou da revisão** — alta · confirmado · `spec-wrong` · tarefa **B1** · **feita** (`4c7a567`)
 
 - **Local:** `apps/web/src/modules/scan/domain/approval-latex.ts:183` · também: `apps/web/src/modules/scan/domain/approval-plan.ts:269`, `apps/web/src/modules/scan/infrastructure/prisma-scan-approval.ts:165`, `apps/web/src/modules/scan/domain/profiles/exam-v1.ts:98`
 - **Regra ou spec:** docs/_atual/_checklist.md:1947 "✅ Os filhos `ITEM` de uma questão de múltipla escolha **são** as alternativas"; :1952 "✅ A resolução sai também do texto **reconhecido** ... neste livro quase todo enunciado passa pela visão"; :1965 "Múltipla escolha tem quatro ou cinco alternativas ... Só o tipo que veio da zona é rebaixado: ... a questão dele com alternativas em imagem não pode perder o tipo"
@@ -646,7 +646,7 @@ Li por inteiro: o checklist da Wave G (linhas 1604–1995), o planejamento §3.7
 
 #### SPG-04
 
-**Nó reaproveitado por rótulo OU título, e a D53 pede rótulo E título** — média · confirmado · `spec-wrong` · tarefa **B3**
+**Nó reaproveitado por rótulo OU título, e a D53 pede rótulo E título** — média · confirmado · `spec-wrong` · tarefa **B3** · **feita** (`b1673ae`)
 
 - **Local:** `apps/web/src/modules/scan/domain/approval-plan.ts:193`
 - **Regra ou spec:** docs/_atual/_planejamento.md:1091 (D53) "reaproveita o capítulo que já existe com mesmo rótulo e título"
@@ -871,7 +871,7 @@ Li por inteiro: scan/application (approve-scan, run-scan, control-scan, start-sc
 
 #### CAP-01
 
-**Aprovação parcial marca exercícios como 'já no acervo' apontando para o nó do grupo (âncora gigante)** — crítica · confirmado · `bug` · tarefa **B3**
+**Aprovação parcial marca exercícios como 'já no acervo' apontando para o nó do grupo (âncora gigante)** — crítica · confirmado · `bug` · tarefa **B3** · **feita** (`b1673ae`)
 
 - **Local:** `apps/web/src/modules/scan/domain/approval-plan.ts:164` · também: `apps/web/src/modules/scan/domain/approval-plan.ts:227`, `apps/web/src/modules/scan/infrastructure/prisma-scan-approval.ts:141`, `apps/web/src/modules/scan/domain/profiles/book-fme-v1.ts:212`
 - **Regra ou spec:** D53: 'nada entra duas vezes' sem perder o que não entrou
@@ -890,7 +890,7 @@ Li por inteiro: scan/application (approve-scan, run-scan, control-scan, start-sc
 
 #### CAP-03
 
-**Questão com LaTeX reconhecido/revisado nunca separa alternativas; na zona, múltipla escolha vira DISCURSIVE** — alta · confirmado · `bug` · tarefa **B1**
+**Questão com LaTeX reconhecido/revisado nunca separa alternativas; na zona, múltipla escolha vira DISCURSIVE** — alta · confirmado · `bug` · tarefa **B1** · **feita** (`4c7a567`)
 
 - **Local:** `apps/web/src/modules/scan/domain/approval-latex.ts:183` · também: `apps/web/src/modules/scan/domain/approval-plan.ts:269`
 - **Regra ou spec:** ADR 0009
@@ -955,7 +955,7 @@ Li por inteiro: scan/application (approve-scan, run-scan, control-scan, start-sc
 
 #### CAP-10
 
-**joinLines aplicado a LaTeX revisado/reconhecido: '%' comenta o resto da questão e o '-' de fim de linha some** — média · confirmado · `bug` · tarefa **B1**
+**joinLines aplicado a LaTeX revisado/reconhecido: '%' comenta o resto da questão e o '-' de fim de linha some** — média · confirmado · `bug` · tarefa **B1** · **feita** (`4c7a567`)
 
 - **Local:** `apps/web/src/modules/scan/domain/approval-latex.ts:187` · também: `apps/web/src/modules/scan/domain/approval-latex.ts:189`, `apps/web/src/modules/scan/domain/approval-latex.ts:35`
 - **Cenário:** Um revisor deixa um comentário `%` no LaTeX de um exercício, ou o modelo de visão quebra uma equação numa linha que termina em '-': depois da aprovação, a equação inteira fica comentada (compila sem erro e sai sem o conteúdo), ou o sinal de menos desaparece ('2x -' + 'x^2' → '2x x^2'). As quebras de parágrafo também se perdem. O mesmo acontece com a resolução (solutionLatex).
@@ -964,7 +964,7 @@ Li por inteiro: scan/application (approve-scan, run-scan, control-scan, start-sc
 
 #### CAP-11
 
-**Duas aprovações concorrentes duplicam nós e questões: o plano sai de leitura fora da transação e o `mark` não confere documentNodeId** — média · plausível · `bug` · tarefa **B3**
+**Duas aprovações concorrentes duplicam nós e questões: o plano sai de leitura fora da transação e o `mark` não confere documentNodeId** — média · plausível · `bug` · tarefa **B3** · **feita** (`b1673ae`)
 
 - **Local:** `apps/web/src/modules/scan/infrastructure/prisma-scan-approval.ts:138` · também: `apps/web/src/modules/scan/infrastructure/prisma-scan-approval.ts:247`
 - **Cenário:** Aprovar o livro em duas abas, ou reenviar depois que a primeira requisição (até 120 s) parece travada: o SQLite serializa as transações, mas a segunda executa o plano calculado antes da primeira terminar. Todos os capítulos, questões DRAFT e âncoras são criados em dobro, e os itens passam a apontar para a segunda cópia.
@@ -973,7 +973,7 @@ Li por inteiro: scan/application (approve-scan, run-scan, control-scan, start-sc
 
 #### CAP-12
 
-**Item materializado cujo nó foi para a lixeira continua servindo de pai: filhos aprovados depois nascem dentro de nó excluído** — média · confirmado · `bug` · tarefa **B3**
+**Item materializado cujo nó foi para a lixeira continua servindo de pai: filhos aprovados depois nascem dentro de nó excluído** — média · confirmado · `bug` · tarefa **B3** · **feita** (`b1673ae`)
 
 - **Local:** `apps/web/src/modules/scan/domain/approval-plan.ts:146`
 - **Cenário:** A pessoa aprova a seção 2.3, apaga essa seção no editor (vai para a lixeira) e depois aprova os exercícios dela que estavam em revisão: as questões são criadas com parentId = seção excluída, ficam invisíveis na árvore e aparecem na aprovação como sucesso ('N nós criados').
@@ -1037,7 +1037,7 @@ Li por inteiro: document-tree (application/mutate-tree, domain/tree-mutations, a
 
 #### ACV-01
 
-**Excluir um livro apaga do disco o PDF fonte (ou a figura) que outro livro compartilha** — crítica · confirmado · `bug` · tarefa **A3**
+**Excluir um livro apaga do disco o PDF fonte (ou a figura) que outro livro compartilha** — crítica · confirmado · `bug` · tarefa **A3** · **feita** (`c8ef7aa`)
 
 - **Local:** `apps/web/src/modules/publications/application/manage-publications.ts:105` · também: `apps/web/src/modules/publications/infrastructure/prisma-publication-repository.ts:132`, `apps/web/src/modules/assets/infrastructure/prisma-asset-writer.ts:51`, `apps/web/src/modules/publications/infrastructure/prisma-catalog-import.ts:88`
 - **Cenário:** Na biblioteca X, o livro A recebe o PDF `fme1.pdf` (asset K, publicationId=A). O livro B (uma duplicata, ou outra edição com o mesmo arquivo) anexa o mesmo PDF pelo Calibre ou pela ingestão: `createAsset` devolve K e `B.sourcePdfAssetId = K`. O usuário exclui A digitando o título. `listAssetKeys(A)` inclui a chave de K, e o arquivo é apagado. B continua com `sourcePdfAssetId = K`, mas `/api/assets/K/content` responde `asset_evicted`. As âncoras e os recortes de B perdem a fonte, que a D29 trata como patrimônio imutável. O mesmo vale para figuras (CROP e QUESTION_IMAGE) compartilhadas entre livros.
@@ -1182,7 +1182,7 @@ Li por inteiro: services/renderer/src/{compile,jobs,server,format-cache,diagnost
 
 #### PLT-01
 
-**Excluir um livro apaga arquivos do storage que outros livros do mesmo workspace ainda usam** — crítica · confirmado · `bug` · tarefa **A3**
+**Excluir um livro apaga arquivos do storage que outros livros do mesmo workspace ainda usam** — crítica · confirmado · `bug` · tarefa **A3** · **feita** (`c8ef7aa`)
 
 - **Local:** `apps/web/src/modules/publications/application/manage-publications.ts:105` · também: `apps/web/src/modules/publications/infrastructure/prisma-publication-repository.ts:132`, `apps/web/src/infrastructure/storage/local/local-file-storage-provider.ts:71`
 - **Regra ou spec:** D29 (fonte imutável/preservada); dedup por hash declarada em local-file-storage-provider.ts
@@ -1268,7 +1268,7 @@ Li por inteiro: services/renderer/src/{compile,jobs,server,format-cache,diagnost
 
 #### PLT-10
 
-**`put` grava o arquivo sem atomicidade e "já existe" pula a escrita, então um arquivo truncado fica permanente** — média · confirmado · `bug` · tarefa **A3**
+**`put` grava o arquivo sem atomicidade e "já existe" pula a escrita, então um arquivo truncado fica permanente** — média · confirmado · `bug` · tarefa **A3** · **feita** (`c8ef7aa`)
 
 - **Local:** `apps/web/src/infrastructure/storage/local/local-file-storage-provider.ts:79` · também: `apps/web/src/modules/rendering/application/execute-render.ts:113`
 - **Cenário:** (1) O dev server é reiniciado ou o disco enche no meio da gravação de um PDF fonte de 40 MB: sobra um arquivo truncado. Toda gravação futura do mesmo conteúdo vê que ele existe e pula, e o Asset é criado com um sha256 correto apontando para bytes corrompidos, para sempre. (2) Dois `put` concorrentes do mesmo conteúdo: B vê o arquivo que A ainda está escrevendo, devolve a chave, e quem lê em seguida recebe os bytes pela metade.
@@ -1490,7 +1490,7 @@ Li por inteiro: tests/scan-approval, scan-reimport (setup e casos), architecture
 
 #### TST-01
 
-**E2E rodam contra o dev server e o banco do acervo: esvaziam a lixeira real, apagam complemento de questão real e editam questões reais** — crítica · confirmado · `test-quality` · tarefa **A1**
+**E2E rodam contra o dev server e o banco do acervo: esvaziam a lixeira real, apagam complemento de questão real e editam questões reais** — crítica · confirmado · `test-quality` · tarefa **A1** · **feita** (`69bbfeb`)
 
 - **Local:** `apps/web/playwright.config.ts:45` · também: `apps/web/e2e/lixeira-global.spec.ts:128`, `apps/web/e2e/agente.spec.ts:160`, `apps/web/e2e/atalhos.spec.ts:72`, `apps/web/e2e/acervo.ts:30`
 - **Cenário:** O autor remove uma importação do scan (vai para a lixeira, que é a rede de segurança do ADR) e roda `bunx playwright test`: lixeira-global.spec esvazia a lixeira inteira e o que a importação levou some para sempre. agente.spec, sobre um livro cuja primeira questão tem complemento, apaga esse complemento (sobra só a Revision). atalhos.spec avança o updatedAt de questões aprovadas pelo scan, e planImportRemoval passa a tratá-las como 'editado depois de aprovado': a remoção da importação deixa de mandá-las para a lixeira. Cada execução deixa ainda dezenas de bibliotecas 'Acervo … 17…' na estante real.
@@ -1535,7 +1535,7 @@ Li por inteiro: tests/scan-approval, scan-reimport (setup e casos), architecture
 
 #### TST-06
 
-**Aprovação do scan com destino escolhido nunca é testada: todos os testes passam destinationId: null** — média · confirmado · `test-gap` · tarefa **B3**
+**Aprovação do scan com destino escolhido nunca é testada: todos os testes passam destinationId: null** — média · confirmado · `test-gap` · tarefa **B3** · **feita** (`b1673ae`)
 
 - **Local:** `apps/web/src/modules/scan/application/approve-scan.ts:90` · também: `apps/web/src/modules/scan/domain/approval-plan.ts:138`, `apps/web/tests/scan-approval.test.ts:231`
 - **Cenário:** O autor aprova a proposta dentro de um capítulo que já existe. Se o reaproveitamento por parentId ou a criação sob o destino errarem (capítulos duplicados, nós na raiz, reaprovação que cria de novo em vez de reaproveitar), isso vai direto para o acervo sem teste que pegue. É a 'aprovação que grava errado'.
@@ -1637,7 +1637,7 @@ LIDOS POR INTEIRO: docker-compose.yml; services/renderer/Dockerfile; services/re
 
 #### SEC-01
 
-**API sem autenticação escuta em todas as interfaces e não confere Origin/Host: a rede local e o DNS rebinding apagam o acervo** — crítica · confirmado · `security` · tarefa **A2**
+**API sem autenticação escuta em todas as interfaces e não confere Origin/Host: a rede local e o DNS rebinding apagam o acervo** — crítica · confirmado · `security` · tarefa **A2** · **feita** (`515ea42`)
 
 - **Local:** `apps/web/package.json:6` · também: `apps/web/package.json:9`, `app/api/trash/route.ts:40`, `app/api/libraries/[libraryId]/route.ts:60`, `app/api/publications/[id]/route.ts:47`, `app/api/tree-http.ts:26`, `app/api/workspaces/import/route.ts:40`, `app/api/workspaces/export/route.ts:23`
 - **Regra ou spec:** checklist §13 'Nenhum path de usuário escapa do workspace' / modelo de ameaça local-first sem auth; spec §24
@@ -1647,7 +1647,7 @@ LIDOS POR INTEIRO: docker-compose.yml; services/renderer/Dockerfile; services/re
 
 #### SEC-02
 
-**`-no-shell-escape` não impede leitura de arquivo: o LaTeX lê qualquer arquivo do worker, inclusive o RENDERER_SECRET em /proc/1/environ (provado)** — alta · confirmado · `security` · tarefa **A4**
+**`-no-shell-escape` não impede leitura de arquivo: o LaTeX lê qualquer arquivo do worker, inclusive o RENDERER_SECRET em /proc/1/environ (provado)** — alta · confirmado · `security` · tarefa **A4** · **feita** (`c204f56`)
 
 - **Local:** `services/renderer/src/compile.ts:84` · também: `services/renderer/src/format-cache.ts`, `services/renderer/Dockerfile`, `apps/web/src/modules/agents/application/render-candidate.ts:86`, `docs/_atual/_checklist.md`
 - **Regra ou spec:** checklist §15 'LaTeX nunca executado de forma insegura'; §13 'Shell escape bloqueado no LaTeX'
@@ -1707,7 +1707,7 @@ LIDOS POR INTEIRO: docker-compose.yml; services/renderer/Dockerfile; services/re
 
 #### SEC-08
 
-**A 'segunda camada' contra `\write18` é contornável e só olha o sourceLatex, mas o checklist a conta como defesa** — baixa · confirmado · `security` · tarefa **A4**
+**A 'segunda camada' contra `\write18` é contornável e só olha o sourceLatex, mas o checklist a conta como defesa** — baixa · confirmado · `security` · tarefa **A4** · **feita** (`c204f56`)
 
 - **Local:** `packages/render-contract/src/validate-bundle.ts:132` · também: `services/renderer/src/compile.ts:154`, `docs/_atual/_checklist.md`
 - **Regra ou spec:** checklist §13 'Shell escape bloqueado no LaTeX (duas camadas)'

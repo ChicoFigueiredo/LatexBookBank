@@ -191,12 +191,7 @@ export class LocalFileStorageProvider implements StorageProvider {
   }
 
   async #exists(absolute: string): Promise<boolean> {
-    try {
-      await stat(absolute);
-      return true;
-    } catch {
-      return false;
-    }
+    return (await this.#sizeOf(absolute)) !== null;
   }
 }
 

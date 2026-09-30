@@ -53,8 +53,15 @@ export interface AppEnv {
    * banco e storage descartáveis — e não com o acervo (#241). Sem isso, a única garantia seria a
    * porta, e porta é convenção.
    */
-  readonly instance: string;
+  readonly instance: AppInstance;
 }
+
+/** As instâncias que existem. Um valor fora daqui é erro de digitação, e não uma terceira. */
+const INSTANCES = ["local", "e2e"] as const;
+export type AppInstance = (typeof INSTANCES)[number];
+
+const isInstance = (value: string): value is AppInstance =>
+  (INSTANCES as readonly string[]).includes(value);
 
 class EnvError extends Error {
   constructor(problems: readonly string[]) {
@@ -103,6 +110,11 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     problems.push("RENDERER_BASE_URL definido sem RENDERER_SECRET");
   }
 
+  const instance = get("LBB_INSTANCE") ?? "local";
+  if (!isInstance(instance)) {
+    problems.push(`LBB_INSTANCE precisa ser ${INSTANCES.join(" ou ")}: ${instance}`);
+  }
+
   if (problems.length > 0) throw new EnvError(problems);
 
   return {
@@ -115,7 +127,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     aiModel: get("AI_MODEL"),
     aiToolCalling: get("AI_TOOL_CALLING") === "true",
     calibreLibraryRoot: get("CALIBRE_LIBRARY_ROOT"),
-    instance: get("LBB_INSTANCE") ?? "local",
+    instance: instance as AppInstance,
   };
 }
 

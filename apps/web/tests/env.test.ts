@@ -24,6 +24,13 @@ describe("configuração de ambiente", () => {
     expect(env.calibreLibraryRoot).toBe("/mnt/e/Livros");
   });
 
+  it("a instância é local por padrão, e e2e só no servidor do E2E (#241)", () => {
+    expect(loadEnv(base).instance).toBe("local");
+    expect(loadEnv({ ...base, LBB_INSTANCE: "e2e" }).instance).toBe("e2e");
+    // Um erro de digitação não pode passar calado como uma terceira instância.
+    expect(() => loadEnv({ ...base, LBB_INSTANCE: "e2 e" })).toThrow(/LBB_INSTANCE/);
+  });
+
   it("recusa DATABASE_URL ausente, e a mensagem diz o que fazer", () => {
     try {
       loadEnv({});

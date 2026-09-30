@@ -259,6 +259,32 @@ describe("LaTeX da aprovação", () => {
     }
   });
 
+  it("no plano, a questão da zona com LaTeX reconhecido sai de múltipla escolha, e não rebaixada", () => {
+    // O cenário do CAP-03: a zona carimba MULTIPLE_CHOICE, o modelo de visão reconheceu a questão,
+    // e antes o plano a rebaixava a discursiva por não achar alternativa nenhuma.
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      reviewState: "APPROVED",
+      metadata: { questionType: "MULTIPLE_CHOICE" },
+      mathResult: recognized("Quanto vale $2^3$?\na) $6$\nb) $8$\nc) $9$\nd) $12$"),
+    });
+    const { steps } = planApproval({
+      items: [question],
+      profile: { id: "book-fme-v1", version: 1, defaultQuestionType: "DISCURSIVE" },
+      destinationId: null,
+      includeSuggested: false,
+      existingNodes: [],
+      existingAnchors: [],
+    });
+
+    expect(steps[0]).toMatchObject({
+      type: "createNode",
+      question: { type: "MULTIPLE_CHOICE", statementLatex: "Quanto vale $2^3$?", options: ["$6$", "$8$", "$9$", "$12$"] },
+    });
+  });
+
   it("o LaTeX pronto chega intacto: o % não comenta o resto e o - de fim de linha não some", () => {
     // `joinLines` é do texto cru do PDF: aplicado ao LaTeX, juntava tudo numa linha — o `%`
     // passava a comentar a equação — e tomava o `-` de fim de linha por hifenização (CAP-10).
@@ -347,6 +373,13 @@ describe("plano da aprovação em rodadas", () => {
       itemIds: ["c"],
       nodeId: "c2",
     });
+  });
+
+  it("com destino escolhido, o que não tem pai no livro entra dentro do destino", () => {
+    const capitulo = item({ id: "c", key: "C", kind: "CHAPTER", reviewState: "APPROVED", number: "1", title: "Funções" });
+    const { steps } = plan({ items: [capitulo], destinationId: "no-destino" });
+
+    expect(steps[0]).toMatchObject({ type: "createNode", kind: "CHAPTER", parent: { type: "existing", id: "no-destino" } });
   });
 
   it("o segundo bloco 'Exercícios' do capítulo não se funde no primeiro só pelo título", () => {
@@ -498,7 +531,7 @@ describe("aprovação contra o banco", () => {
     const { approveScan, DestinationNotInPublicationError } = await import("@modules/scan/application/approve-scan");
     const { prisma, publication, store, writer, scan } = await scanned("book-a.pdf", "approve-destination", "book-v1");
     const destino = await prisma.documentNode.create({
-      data: { publicationId: publication.id, kind: "PART", title: "Volume 1", sortKey: "a0" },
+      data: { publicationId: publication.id, kind: "CHAPTER", title: "Capítulo que já existia", sortKey: "a0" },
       select: { id: true },
     });
 
@@ -509,7 +542,10 @@ describe("aprovação contra o banco", () => {
     expect(summary.createdNodes).toBeGreaterThan(0);
     const raiz = await prisma.documentNode.findMany({ where: { publicationId: publication.id, parentId: null }, select: { id: true } });
     expect(raiz).toEqual([destino]);
-    const capitulo = await prisma.documentNode.findFirstOrThrow({ where: { publicationId: publication.id, kind: "CHAPTER" }, select: { parentId: true } });
+    const capitulo = await prisma.documentNode.findFirstOrThrow({
+      where: { publicationId: publication.id, kind: "CHAPTER", id: { not: destino.id } },
+      select: { parentId: true },
+    });
     expect(capitulo.parentId).toBe(destino.id);
 
     const nodes = await prisma.documentNode.count({ where: { publicationId: publication.id } });

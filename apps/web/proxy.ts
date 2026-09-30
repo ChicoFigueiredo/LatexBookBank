@@ -16,6 +16,11 @@ import { NextResponse, type NextRequest } from "next/server";
  * `/api/*` — por isso a regra mora aqui, antes de qualquer rota.
  */
 
+/**
+ * Fixa, e não configuração: o app é de uma máquina só (D59, `_planejamento.md` §3.8). O modo cloud
+ * (§4.2) precisa de autenticação de verdade antes de qualquer coisa; nesse dia esta lista vira
+ * configuração, junto com ela.
+ */
 const LOCAL_HOSTNAMES: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /** Métodos que não escrevem: a navegação vinda de outro site (um link) é legítima e continua. */
@@ -32,7 +37,10 @@ export function proxy(request: NextRequest): NextResponse {
     // escuta em `127.0.0.1`. Com `Origin`, ela precisa ser esta mesma: o navegador manda o
     // cabeçalho em toda escrita entre origens, inclusive no `fetch` em modo `no-cors`.
     const origin = request.headers.get("origin");
-    if (origin !== null && hostOf(origin) !== host) {
+    // `Sec-Fetch-Site` é a mesma informação dita pelo navegador de outro jeito, e vale quando o
+    // `Origin` não veio.
+    const crossSite = request.headers.get("sec-fetch-site") === "cross-site";
+    if ((origin !== null && hostOf(origin) !== host) || crossSite) {
       return forbidden("foreign_origin", "Pedido de outra origem recusado.");
     }
   }

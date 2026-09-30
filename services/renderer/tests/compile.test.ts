@@ -234,6 +234,15 @@ describe("compile — leitura de arquivo", () => {
     expect(result.stdout).toContain("ARQUIVO-FECHADO");
   });
 
+  it("recusa o ambiente do processo: /proc/self/environ não chega ao log", async () => {
+    // No contêiner, o `/proc/1/environ` do worker trazia o `RENDERER_SECRET`. Aqui o PID 1 é o
+    // init da máquina, que o usuário não lê; o `self` do `pdflatex` é o mesmo caminho absoluto.
+    const { result } = await compile(leitura("/proc/self/environ"), new Map(), deps);
+
+    expect(result.stdout).not.toContain("LIDO:");
+    expect(result.stdout).toContain("ARQUIVO-FECHADO");
+  });
+
   it("recusa subir de diretório: ../ não sai do job", async () => {
     const { result } = await compile(
       leitura("../../../../../../../../etc/passwd"),

@@ -1154,6 +1154,32 @@ nos perfis de prova vai ao enunciado. Na revisão dá para **redesenhar a caixa 
 o único conserto possível quando o agrupamento erra. Ver
 [ADR 0005](../adr/0005-figura-vetorial-quando-o-pdf-a-tem.md).
 
+### 3.8 Revisão de código — decisões de 2026-09-29
+
+A revisão do código inteiro ([relatório](code-review-2026-09-23.md), épico #232) achou duas
+portas que davam no acervo sem ninguém passar pela tela. As duas pediam uma decisão antes do
+conserto.
+
+#### D59 — O app é de uma máquina só, e o perímetro é o loopback
+
+A API não tem autenticação — é local-first, de uma pessoa (D11) —, e o `next dev` escutava em todas
+as interfaces: outra máquina da rede listava, exportava e apagava o acervo. O autor não abre o app
+de outro aparelho. Então `dev` e `start` escutam só em `127.0.0.1`, e o `apps/web/proxy.ts` recusa
+com 403 o `Host` que não é `localhost`/`127.0.0.1`/`[::1]` (DNS rebinding) e a escrita cujo
+`Origin` ou `Sec-Fetch-Site` diz outra origem (CSRF). A lista é **fixa**, e não configuração: o
+modo cloud (§4.2) precisa de autenticação de verdade antes de qualquer coisa, e nesse dia a lista
+vira configuração junto com ela (#242).
+
+#### D60 — O E2E roda num servidor próprio, com banco e storage descartáveis
+
+O Playwright reaproveitava o servidor da `28080`, que é o do acervo: um spec esvaziava a lixeira
+real, outro apagava o complemento de uma questão, outro editava questões aprovadas pelo scan.
+Travar só (abortar se o banco for o do acervo) deixava para a pessoa subir outro banco à mão. O
+E2E passa a subir o **próprio** `next dev` na `28081` (`apps/web/e2e/server.ts`), com banco e
+storage em `data/e2e/` recriados a cada execução pelas migrações e pelo seed, e nunca reaproveita
+servidor; um `globalSetup` recusa rodar se a instância não for `e2e`. O custo: só roda um
+`next dev` por pasta, então o dev server de todo dia precisa estar parado para o E2E subir (#241).
+
 ---
 
 ## 4. Arquitetura
