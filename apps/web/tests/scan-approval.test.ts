@@ -208,17 +208,11 @@ describe("LaTeX da aprovação", () => {
     recognizedAt: "",
   });
 
-  it("o LaTeX reconhecido não engole as alternativas: elas vêm dos ITEMs e saem do enunciado", () => {
-    const question = item({
-      id: "q",
-      key: "Q",
-      kind: "QUESTION",
-      text: "Quanto vale x2 para x = 2?\na) 1\nb) 2\nc) 4\nd) 8\ne) 16",
-      mathResult: recognized(
-        "Quanto vale $x^2$ para $x = 2$?\na) $1$\nb) $2$\nc) $4$\nd) $8$\ne) $16$",
-      ),
-    });
-    const children = ["1", "2", "4", "8", "16"].map((value, index) => {
+  // Os ITEMs vêm da camada de texto do PDF, que perde justamente a matemática — o motivo de a
+  // questão ter passado pelo modelo de visão. Medido no Fundamentos: o ITEM da questão 40 dizia
+  // "a) 28  9." onde o LaTeX reconhecido dizia "$2^8 - 9$".
+  const itensDegradados = (values: readonly string[]) =>
+    values.map((value, index) => {
       const letter = String.fromCharCode(97 + index);
       return item({
         id: letter,
@@ -230,10 +224,67 @@ describe("LaTeX da aprovação", () => {
       });
     });
 
-    const latex = questionLatex(question, children, true);
+  it("o LaTeX reconhecido manda nas alternativas, e não os ITEMs da camada de texto", () => {
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      text: "Quanto vale 28 menos 9?\na) 28  9\nb) 28  1\nc) 214  28\nd) 28",
+      mathResult: recognized("Quanto vale $2^8$ menos $9$?\na) $2^8 - 9$\nb) $2^8 - 1$\nc) $2^{14} - 2^8$\nd) $2^8$"),
+    });
+
+    const latex = questionLatex(question, itensDegradados(["28  9", "28  1", "214  28", "28"]), true);
+
+    expect(latex.statementLatex).toBe("Quanto vale $2^8$ menos $9$?");
+    expect(latex.options).toEqual(["$2^8 - 9$", "$2^8 - 1$", "$2^{14} - 2^8$", "$2^8$"]);
+  });
+
+  it("letra com parêntese dentro da matemática não é alternativa", () => {
+    // A questão 43 do Fundamentos: "$(B^c \\cup A)^c$" e "$n(A \\cap B)$" formavam um falso jogo
+    // A, B, e as alternativas de verdade ficavam coladas no enunciado.
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      mathResult: recognized("Sabendo que $(B^c \\cup A)^c = \\{f\\}$, $n(A \\cap B)$ é igual a\na) 0. b) 1. c) 2. d) 4. e) 8."),
+    });
+
+    const latex = questionLatex(question, [], true);
+
+    expect(latex.statementLatex).toBe("Sabendo que $(B^c \\cup A)^c = \\{f\\}$, $n(A \\cap B)$ é igual a");
+    expect(latex.options).toEqual(["0.", "1.", "2.", "4.", "8."]);
+  });
+
+  it("os ITEMs entram quando o LaTeX reconhecido não trouxe as alternativas", () => {
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      text: "Quanto vale x2 para x = 2?\na) 1\nb) 2\nc) 4\nd) 8\ne) 16",
+      mathResult: recognized("Quanto vale $x^2$ para $x = 2$?"),
+    });
+
+    const latex = questionLatex(question, itensDegradados(["1", "2", "4", "8", "16"]), true);
 
     expect(latex.statementLatex).toBe("Quanto vale $x^2$ para $x = 2$?");
     expect(latex.options).toEqual(["1", "2", "4", "8", "16"]);
+  });
+
+  it("o número da questão sai do começo do LaTeX reconhecido — ele já é o rótulo do nó", () => {
+    // O modelo de visão transcreve a linha inteira, "15. (FEI-SP) …"; o texto cru já perdia o "15.".
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      number: "15",
+      mathResult: recognized("15. (FEI-SP) Uma pesquisa com $800$ adolescentes."),
+    });
+
+    expect(questionLatex(question, [], false).statementLatex).toBe("(FEI-SP) Uma pesquisa com $800$ adolescentes.");
+    // Só o número dela: "150 alunos" não é rótulo.
+    expect(questionLatex({ ...question, mathResult: recognized("150 alunos responderam.") }, [], false).statementLatex).toBe(
+      "150 alunos responderam.",
+    );
   });
 
   it("sem ITEMs, as alternativas saem do próprio LaTeX — uma por linha ou todas numa linha", () => {

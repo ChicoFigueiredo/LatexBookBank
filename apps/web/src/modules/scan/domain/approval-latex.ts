@@ -27,9 +27,11 @@ const ALTERNATIVE = /^\s*([A-Ea-e])(?:\t|\)|\.|\s|$)\s*(.*)$/;
  * Uma letra de alternativa **em qualquer ponto** do texto — "b) 410" no meio da linha.
  *
  * Exige espaço (ou o começo) antes da letra: "(b)" e "f(x)" não são alternativa, e é o espaço
- * que as separa de "a) 60 b) 410", em que as cinco vêm na mesma linha.
+ * que as separa de "a) 60 b) 410", em que as cinco vêm na mesma linha. O espaço é conferido e não
+ * consumido: com a matemática apagada (`outsideMath`), "a) $0$ b)" vira "a)     b)", e consumir os
+ * brancos depois de "a)" tirava do "b)" o espaço de que ele precisa.
  */
-const INLINE_ALTERNATIVE = /(?:^|\s)([A-Ea-e])\)\s*/g;
+const INLINE_ALTERNATIVE = /(?<=^|\s)([A-Ea-e])\)/g;
 
 /** Junta as linhas de um parágrafo, desfazendo a hifenização de fim de linha. */
 export function joinLines(lines: readonly string[]): string {
@@ -193,19 +195,25 @@ export function questionLatex(
   */
   const ready = reviewedOrRecognized(item);
   if (ready !== null) {
-    const cortado = splitSolution(ready.split("\n"));
+    const cortado = splitSolution(withoutOwnNumber(ready, item).split("\n"));
     let statement = cortado.statement;
     let options: string[] = [];
 
+    /*
+      O LaTeX pronto manda nas alternativas quando as traz. Os ITEMs vêm da camada de texto do
+      PDF, que perde a matemática — o motivo de a questão ter passado pela visão: na aprovação do
+      Fundamentos, o ITEM da questão 40 dizia "a) 28  9." onde o LaTeX reconhecido dizia
+      "$2^8 - 9$". Eles só entram quando o LaTeX não trouxe alternativa nenhuma.
+    */
     if (wantsOptions) {
-      const fromItems = alternativesFromItems(items);
-      const inLatex = fromItems === null ? alternativesInLatex(statement) : null;
-      if (fromItems !== null) {
-        options = fromItems;
-        statement = beforeFirstAlternative(statement);
-      } else if (inLatex !== null) {
+      const inLatex = alternativesInLatex(statement);
+      const fromItems = inLatex === null ? alternativesFromItems(items) : null;
+      if (inLatex !== null) {
         options = inLatex.options;
         statement = inLatex.statement;
+      } else if (fromItems !== null) {
+        options = fromItems;
+        statement = beforeFirstAlternative(statement);
       }
     }
 
@@ -321,8 +329,9 @@ function alternativesFromItems(items: readonly ScanItem[]): string[] | null {
  * tirar do enunciado um subitem de uma questão discursiva.
  */
 function beforeFirstAlternative(lines: readonly string[]): string[] {
+  const masked = outsideMath(lines.join("\n")).split("\n");
   for (const [index, line] of lines.entries()) {
-    const mark = [...line.matchAll(INLINE_ALTERNATIVE)].find(
+    const mark = [...(masked[index] ?? "").matchAll(INLINE_ALTERNATIVE)].find(
       (match) => match[1]?.toUpperCase() === "A",
     );
     if (mark === undefined) continue;
@@ -344,7 +353,7 @@ function alternativesInLatex(
   lines: readonly string[],
 ): { readonly statement: string[]; readonly options: string[] } | null {
   const text = lines.join("\n");
-  const marks = [...text.matchAll(INLINE_ALTERNATIVE)];
+  const marks = [...outsideMath(text).matchAll(INLINE_ALTERNATIVE)];
   const first = marks.findIndex((mark) => mark[1]?.toUpperCase() === "A");
   if (first >= 0) {
     const run: RegExpExecArray[] = [];
@@ -396,3 +405,30 @@ function alternativesByLine(
 
 /** A letra da alternativa na posição `index`, em maiúscula: 0 → "A". */
 const letterAt = (index: number): string => String.fromCharCode(65 + index);
+
+/**
+ * O LaTeX sem o número da própria questão no começo — "15. (FEI-SP) …" vira "(FEI-SP) …".
+ *
+ * O modelo de visão transcreve a linha inteira, rótulo incluído, e o rótulo já é do nó: repeti-lo
+ * no enunciado diria o número duas vezes. Só o número **dela**, seguido de ponto ou parêntese —
+ * "150 alunos" não é rótulo da questão 15.
+ */
+function withoutOwnNumber(latex: string, item: ScanItem): string {
+  if (item.number === null) return latex;
+  const own = new RegExp(`^\\s*${item.number.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[.)]\\s*`);
+  return latex.replace(own, "");
+}
+
+/** Os trechos de matemática do LaTeX: `$$…$$`, `$…$`, `\[…\]` e `\(…\)`. */
+const MATH = /\$\$[\s\S]*?\$\$|\$(?:\\\$|[^$])*\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/g;
+
+/**
+ * O texto com a matemática apagada — cada caractere dela vira espaço, e o tamanho não muda.
+ *
+ * É onde se procuram as marcas de alternativa no LaTeX: "$(B^c \cup A)^c$" tem um "A)" que não é
+ * alternativa, e na questão 43 do Fundamentos ele e o "B)" de "$n(A \cap B)$" formavam um falso
+ * jogo A, B. Como o tamanho é o mesmo, os índices achados aqui valem no texto original.
+ */
+function outsideMath(latex: string): string {
+  return latex.replace(MATH, (math) => math.replace(/[^\n]/g, " "));
+}
