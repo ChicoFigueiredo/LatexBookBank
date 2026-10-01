@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import type { ScanImportStore } from "@modules/scan/application/remove-import";
 import type { ImportedNode } from "@modules/scan/domain/import-removal";
 
@@ -45,25 +46,38 @@ export class PrismaScanImport implements ScanImportStore {
       Sem esta consulta, um capítulo criado pelo scan iria para a lixeira levando junto a seção que
       a pessoa pendurou nele — ou pior, deixando-a viva e órfã, que a árvore promove à raiz.
     */
-    const outside = await prisma.documentNode.groupBy({
-      by: ["parentId"],
-      where: {
-        parentId: { in: nodes.map((node) => node.id) },
-        deletedAt: null,
-        OR: [{ createdByScanRunId: null }, { createdByScanRunId: { not: runId } }],
-      },
-      _count: { _all: true },
-    });
+    // Em pedaços: um livro inteiro passa do limite de parâmetros do SQLite (`in-chunks.ts`).
+    const outside = (
+      await Promise.all(
+        inChunks(nodes.map((node) => node.id)).map((parentIds) =>
+          prisma.documentNode.findMany({
+            where: {
+              parentId: { in: parentIds },
+              deletedAt: null,
+              OR: [{ createdByScanRunId: null }, { createdByScanRunId: { not: runId } }],
+            },
+            select: { parentId: true },
+            distinct: ["parentId"],
+          }),
+        ),
+      )
+    ).flat();
     const withOutside = new Set(outside.map((row) => row.parentId).filter((id): id is string => id !== null));
 
     const ids = [
       ...nodes.map((node) => node.id),
       ...nodes.flatMap((node) => (node.questionId ? [node.questionId] : [])),
     ];
-    const revisions = await prisma.revision.findMany({
-      where: { entityId: { in: ids }, origin: { in: BY_HAND } },
-      select: { entityId: true },
-    });
+    const revisions = (
+      await Promise.all(
+        inChunks(ids).map((entityIds) =>
+          prisma.revision.findMany({
+            where: { entityId: { in: entityIds }, origin: { in: BY_HAND } },
+            select: { entityId: true },
+          }),
+        ),
+      )
+    ).flat();
     const touched = new Set(revisions.map((revision) => revision.entityId));
 
     return nodes.map((node) => ({
@@ -82,13 +96,16 @@ export class PrismaScanImport implements ScanImportStore {
 
   /**
    * Exclusão lógica, como qualquer nó apagado na árvore: reversível enquanto a lixeira não for
-   * esvaziada. Num `updateMany` só — apagar metade de uma importação seria pior que não apagar.
+   * esvaziada. Numa transação só — apagar metade de uma importação seria pior que não apagar —, em
+   * pedaços que o SQLite aceita, e com o mesmo instante em todos (a lixeira agrupa por ele).
    */
   async sendToTrash(nodeIds: readonly string[]): Promise<void> {
     if (nodeIds.length === 0) return;
-    await prisma.documentNode.updateMany({
-      where: { id: { in: [...nodeIds] } },
-      data: { deletedAt: new Date() },
+    const deletedAt = new Date();
+    await prisma.$transaction(async (tx) => {
+      for (const ids of inChunks(nodeIds)) {
+        await tx.documentNode.updateMany({ where: { id: { in: ids } }, data: { deletedAt } });
+      }
     });
   }
 }

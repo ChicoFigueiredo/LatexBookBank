@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import {
   normalizeIsbn,
   type ExistingIndex,
@@ -93,10 +94,15 @@ export async function describeConflicts(
           where: { publicationId: { in: publicationIds }, deletedAt: null, questionId: { not: null } },
           _count: { _all: true },
         }),
-    prisma.question.findMany({
-      where: { id: { in: questionIds } },
-      select: { id: true, nickname: true, legacyId: true },
-    }),
+    // Em pedaços (`in-chunks.ts`): reimportar uma biblioteca colide em centenas de questões.
+    Promise.all(
+      inChunks(questionIds).map((ids) =>
+        prisma.question.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, nickname: true, legacyId: true },
+        }),
+      ),
+    ).then((chunks) => chunks.flat()),
   ]);
 
   const porId = new Map(publicacoes.map((row) => [row.id, row]));

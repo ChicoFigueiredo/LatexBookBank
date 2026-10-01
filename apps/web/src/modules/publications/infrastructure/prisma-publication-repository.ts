@@ -8,6 +8,7 @@ import type {
   PublicationContents,
 } from "@modules/publications/domain/publication-repository";
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import { asStorageKey, type StorageKey } from "@/shared/ports";
 
 /**
@@ -162,45 +163,52 @@ export class PrismaPublicationRepository implements PublicationRepository {
       const removida = await tx.publication.deleteMany({ where: { id } });
       if (removida.count === 0) return null;
 
-      await tx.question.deleteMany({ where: { id: { in: questionIds } } });
+      // Tudo em pedaços (`in-chunks.ts`): um livro inteiro tem mais questões e recortes do que o
+      // SQLite aceita numa lista só.
+      for (const ids of inChunks(questionIds))
+        await tx.question.deleteMany({ where: { id: { in: ids } } });
 
       // Depois das duas exclusões, `publicationId` e `questionId` dos assets deste livro viraram
       // nulos (SetNull), e as âncoras e varreduras dele saíram em cascata: o que ainda aponta para
       // uma destas linhas é de outro livro. As capas e os PDFs fonte são colunas soltas, sem FK —
       // por isso a consulta à parte.
-      const assetIds = assets.map((asset) => asset.id);
-      const inUsePublications = await tx.publication.findMany({
-        where: { OR: [{ sourcePdfAssetId: { in: assetIds } }, { coverAssetId: { in: assetIds } }] },
-        select: { sourcePdfAssetId: true, coverAssetId: true },
-      });
-      const keep = new Set(
-        inUsePublications.flatMap((publication) => [
-          publication.sourcePdfAssetId,
-          publication.coverAssetId,
-        ]),
-      );
+      const keep = new Set<string | null>();
+      for (const ids of inChunks(assets.map((asset) => asset.id))) {
+        const inUsePublications = await tx.publication.findMany({
+          where: { OR: [{ sourcePdfAssetId: { in: ids } }, { coverAssetId: { in: ids } }] },
+          select: { sourcePdfAssetId: true, coverAssetId: true },
+        });
+        for (const publication of inUsePublications) {
+          keep.add(publication.sourcePdfAssetId);
+          keep.add(publication.coverAssetId);
+        }
+      }
 
-      await tx.asset.deleteMany({
-        where: {
-          id: { in: assetIds.filter((assetId) => !keep.has(assetId)) },
-          publicationId: null,
-          questionId: null,
-          renderJobId: null,
-          anchorsAsSource: { none: {} },
-          anchorsAsCrop: { none: {} },
-          scanRuns: { none: {} },
-        },
-      });
+      for (const ids of inChunks(
+        assets.map((asset) => asset.id).filter((assetId) => !keep.has(assetId)),
+      )) {
+        await tx.asset.deleteMany({
+          where: {
+            id: { in: ids },
+            publicationId: null,
+            questionId: null,
+            renderJobId: null,
+            anchorsAsSource: { none: {} },
+            anchorsAsCrop: { none: {} },
+            scanRuns: { none: {} },
+          },
+        });
+      }
 
       const keys = [...new Set(assets.map((asset) => asset.storageKey))];
-      const stillCited = new Set(
-        (
-          await tx.asset.findMany({
-            where: { storageKey: { in: keys } },
-            select: { storageKey: true },
-          })
-        ).map((asset) => asset.storageKey),
-      );
+      const stillCited = new Set<string>();
+      for (const chunk of inChunks(keys)) {
+        const cited = await tx.asset.findMany({
+          where: { storageKey: { in: chunk } },
+          select: { storageKey: true },
+        });
+        for (const asset of cited) stillCited.add(asset.storageKey);
+      }
 
       return keys.filter((key) => !stillCited.has(key)).map(asStorageKey);
     });

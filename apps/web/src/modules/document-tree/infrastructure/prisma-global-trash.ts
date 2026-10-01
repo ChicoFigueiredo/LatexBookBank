@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import {
   type AtoDeExclusao,
   type NoExcluido,
@@ -120,10 +121,16 @@ const tituloDoLivro = (
 async function carregarAncestrais(ids: readonly string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map();
 
-  const rows = await prisma.documentNode.findMany({
-    where: { id: { in: [...new Set(ids)] } },
-    select: { id: true, title: true, kind: true, originalLabel: true },
-  });
+  const rows = (
+    await Promise.all(
+      inChunks([...new Set(ids)]).map((chunk) =>
+        prisma.documentNode.findMany({
+          where: { id: { in: chunk } },
+          select: { id: true, title: true, kind: true, originalLabel: true },
+        }),
+      ),
+    )
+  ).flat();
 
   return new Map(
     rows.map((row) => [
@@ -166,14 +173,22 @@ export async function emptyGlobalTrash(): Promise<{ nodes: number; questions: nu
     // Um filho **vivo** de um nó excluído não deveria existir — a exclusão desce a subárvore —,
     // mas se existisse, apagar o pai deixaria a FK `parentId` apontando para o nada. Soltá-lo na
     // raiz é a escolha que preserva o dado; apagá-lo junto seria apagar o que ninguém mandou.
-    await tx.documentNode.updateMany({
-      where: { parentId: { in: nodeIds }, deletedAt: null },
-      data: { parentId: null },
-    });
+    // Em pedaços (`in-chunks.ts`): a lixeira depois de apagar a importação de um livro passa de
+    // mil nós, e o SQLite recusa a lista inteira.
+    for (const ids of inChunks(nodeIds)) {
+      await tx.documentNode.updateMany({
+        where: { parentId: { in: ids }, deletedAt: null },
+        data: { parentId: null },
+      });
+    }
 
-    const nodes = await tx.documentNode.deleteMany({ where: { id: { in: nodeIds } } });
-    const questions = await tx.question.deleteMany({ where: { id: { in: questionIds } } });
+    let nodes = 0;
+    for (const ids of inChunks(nodeIds))
+      nodes += (await tx.documentNode.deleteMany({ where: { id: { in: ids } } })).count;
+    let questions = 0;
+    for (const ids of inChunks(questionIds))
+      questions += (await tx.question.deleteMany({ where: { id: { in: ids } } })).count;
 
-    return { nodes: nodes.count, questions: questions.count };
+    return { nodes, questions };
   });
 }

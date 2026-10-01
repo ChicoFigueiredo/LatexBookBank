@@ -10,6 +10,7 @@ import type {
 } from "@modules/document-tree/domain/document-tree-repository";
 import { isNodeKind, isNumberingStyle } from "@modules/document-tree/domain/node-kind";
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 
 /**
  * Implementação Prisma de `DocumentTreeRepository`.
@@ -118,17 +119,22 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
    */
   async softDeleteMany(nodeIds: readonly string[]): Promise<void> {
     if (nodeIds.length === 0) return;
-    await prisma.documentNode.updateMany({
-      where: { id: { in: [...nodeIds] } },
-      data: { deletedAt: new Date() },
+    // Em pedaços, na mesma transação e com o mesmo instante: uma subárvore grande passa do limite
+    // de parâmetros do SQLite (`in-chunks.ts`), e a lixeira agrupa os atos pelo `deletedAt`.
+    const deletedAt = new Date();
+    await prisma.$transaction(async (tx) => {
+      for (const ids of inChunks(nodeIds)) {
+        await tx.documentNode.updateMany({ where: { id: { in: ids } }, data: { deletedAt } });
+      }
     });
   }
 
   async restoreMany(nodeIds: readonly string[]): Promise<void> {
     if (nodeIds.length === 0) return;
-    await prisma.documentNode.updateMany({
-      where: { id: { in: [...nodeIds] } },
-      data: { deletedAt: null },
+    await prisma.$transaction(async (tx) => {
+      for (const ids of inChunks(nodeIds)) {
+        await tx.documentNode.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
+      }
     });
   }
 
