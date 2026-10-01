@@ -1,4 +1,4 @@
-import { escapeLatexText } from "@modules/recognition/domain/latex-escape";
+import { escapeLatexText, hasUnreadableSymbol } from "@modules/recognition/domain/latex-escape";
 
 import {
   zoneOfPage,
@@ -503,7 +503,11 @@ function draftOf(
   const text = bodyLines.map((line) => line.text).join("\n");
   const chars = bodyLines.reduce((sum, line) => sum + line.text.length, 0) || 1;
   const mathChars = bodyLines.reduce((sum, line) => sum + line.text.length * line.mathRatio, 0);
-  const needsMath = mathChars / chars >= 0.05 || bodyLines.some((line) => line.mathRatio >= 0.5);
+  // A fonte diz se a linha é matemática; o símbolo da área privada diz o mesmo por outro caminho —
+  // a fonte de símbolos do livro não parece matemática, e a camada de texto não a lê (importação do
+  // Fundamentos, 2026-09-30).
+  const needsMath =
+    mathChars / chars >= 0.05 || bodyLines.some((line) => line.mathRatio >= 0.5) || hasUnreadableSymbol(text);
   const match = record.match;
 
   return {

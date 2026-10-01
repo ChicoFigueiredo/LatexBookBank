@@ -186,6 +186,23 @@ describe("fórmulas", () => {
     expect(prose?.needsMath).toBe(false);
     expect(prose?.latex).toContain("Dois triângulos são semelhantes");
   });
+
+  it("símbolo da área privada também pede reconhecimento — a camada de texto não o lê", async () => {
+    // O Fundamentos escreve =, ∈, ∪ e ⇔ numa fonte própria, e a camada de texto entrega códigos
+    // da área privada (U+E000–U+F8FF). Pela fonte, a linha não parece matemática; na importação de
+    // 2026-09-30, 169 itens assim escaparam do reconhecimento, e o LaTeX deles não compilava.
+    const profile = captureProfile("book-v1")!;
+    const pages = (await fixturePages("book-b.pdf")).map((page) => ({
+      ...page,
+      lines: page.lines.map((line) =>
+        line.text.startsWith("Dois triângulos") ? { ...line, text: line.text.replace(" são ", " \ue032 ") } : line,
+      ),
+    }));
+
+    const prose = ofKind(buildProposal(pages, profile), "CONTENT").find((item) => item.text.startsWith("Dois triângulos"));
+    expect(prose?.needsMath).toBe(true);
+    expect(prose?.latex).toBeNull();
+  });
 });
 
 describe("livro sintético — sumário, páginas iniciais e mobília", () => {
