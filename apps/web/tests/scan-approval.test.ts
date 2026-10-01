@@ -164,7 +164,8 @@ describe("LaTeX da aprovação", () => {
     const b = item({ id: "b", key: "B", kind: "ITEM", parentKey: "E", originalLabel: "b)", text: "b) f(−3) para f(x) = 7x." });
     const latex = questionLatex(exercise, [a, b], false);
     expect(latex.statementLatex).toBe(
-      "Calcule:\n\\begin{enumerate}\n  \\item[a)] f(1) para f(x) = 2x;\n  \\item[b)] f(−3) para f(x) = 7x.\n\\end{enumerate}",
+      // O sinal de menos Unicode (U+2212) vira "$-$": cru, o pdflatex recusava o documento.
+      "Calcule:\n\\begin{enumerate}\n  \\item[a)] f(1) para f(x) = 2x;\n  \\item[b)] f($-$3) para f(x) = 7x.\n\\end{enumerate}",
     );
   });
 
@@ -334,6 +335,18 @@ describe("LaTeX da aprovação", () => {
       type: "createNode",
       question: { type: "MULTIPLE_CHOICE", statementLatex: "Quanto vale $2^3$?", options: ["$6$", "$8$", "$9$", "$12$"] },
     });
+  });
+
+  it("símbolo Unicode no LaTeX reconhecido vira comando — dentro da matemática ou fora dela", () => {
+    // O modelo de visão às vezes devolve "≠" em vez de "\\neq"; o pdflatex recusa o documento.
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      mathResult: recognized("Se $x ≠ 0$ e $a≤b$, então A ⊆ B."),
+    });
+
+    expect(questionLatex(question, [], false).statementLatex).toBe("Se $x \\neq 0$ e $a\\leq b$, então A $\\subseteq$ B.");
   });
 
   it("o LaTeX pronto chega intacto: o % não comenta o resto e o - de fim de linha não some", () => {

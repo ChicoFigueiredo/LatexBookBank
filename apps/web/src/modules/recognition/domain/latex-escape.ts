@@ -62,8 +62,59 @@ export const hasUnreadableSymbol = (text: string): boolean => /[\uE000-\uF8FF]/.
  */
 const UNREADABLE_MARK = "\\fbox{?}";
 
+/**
+ * Os símbolos matemáticos em Unicode e o comando que os escreve em modo matemático.
+ *
+ * O `pdflatex` com `inputenc` só conhece o latin-1 e alguns sinais de texto: "≤", "∈" ou o sinal
+ * de menos (U+2212) derrubam a compilação inteira. Eles chegam pela camada de texto do PDF e, mais
+ * vezes, pelo modelo de visão, que às vezes escreve "≠" em vez de `\neq` — na importação do
+ * Fundamentos vol. 1, dez questões e corpos não compilavam por isso.
+ */
+export const UNICODE_MATH: Readonly<Record<string, string>> = {
+  "−": "-",
+  "≤": "\\leq",
+  "≥": "\\geq",
+  "≠": "\\neq",
+  "≈": "\\approx",
+  "≡": "\\equiv",
+  "∈": "\\in",
+  "∉": "\\notin",
+  "∋": "\\ni",
+  "⊂": "\\subset",
+  "⊃": "\\supset",
+  "⊆": "\\subseteq",
+  "⊇": "\\supseteq",
+  "∪": "\\cup",
+  "∩": "\\cap",
+  "∅": "\\emptyset",
+  "∀": "\\forall",
+  "∃": "\\exists",
+  "∧": "\\wedge",
+  "∨": "\\vee",
+  "¬": "\\neg",
+  "→": "\\rightarrow",
+  "←": "\\leftarrow",
+  "↔": "\\leftrightarrow",
+  "⇒": "\\Rightarrow",
+  "⇐": "\\Leftarrow",
+  "⇔": "\\Leftrightarrow",
+  "∞": "\\infty",
+  "∘": "\\circ",
+  "±": "\\pm",
+  "ℕ": "\\mathbb{N}",
+  "ℤ": "\\mathbb{Z}",
+  "ℚ": "\\mathbb{Q}",
+  "ℝ": "\\mathbb{R}",
+  "ℂ": "\\mathbb{C}",
+};
+
+export const UNICODE_MATH_CHARS = new RegExp(`[${Object.keys(UNICODE_MATH).join("")}]`, "g");
+
 export const escapeLatexText = (text: string): string =>
-  text.replace(/[\\%$&#_{}~^]/g, (char) => ESCAPES[char] ?? char).replace(UNREADABLE, UNREADABLE_MARK);
+  text
+    .replace(/[\\%$&#_{}~^]/g, (char) => ESCAPES[char] ?? char)
+    .replace(UNREADABLE, UNREADABLE_MARK)
+    .replace(UNICODE_MATH_CHARS, (char) => `$${UNICODE_MATH[char]}$`);
 
 /**
  * O modo `text` é o único que escapa.

@@ -1,4 +1,4 @@
-import { escapeLatexText } from "@modules/recognition/domain/latex-escape";
+import { escapeLatexText, UNICODE_MATH, UNICODE_MATH_CHARS } from "@modules/recognition/domain/latex-escape";
 
 import type { ScanItem } from "./scan-item";
 
@@ -43,8 +43,10 @@ export function joinLines(lines: readonly string[]): string {
   return text;
 }
 
-const reviewedOrRecognized = (item: ScanItem): string | null =>
-  item.reviewedLatex ?? item.mathResult?.latex ?? null;
+const reviewedOrRecognized = (item: ScanItem): string | null => {
+  const ready = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  return ready === null ? null : withLatexSymbols(ready);
+};
 
 const textOf = (item: ScanItem): string => item.reviewedText ?? item.text;
 
@@ -431,4 +433,19 @@ const MATH = /\$\$[\s\S]*?\$\$|\$(?:\\\$|[^$])*\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\
  */
 function outsideMath(latex: string): string {
   return latex.replace(MATH, (math) => math.replace(/[^\n]/g, " "));
+}
+
+/**
+ * O LaTeX pronto com os símbolos Unicode trocados pelo comando (`UNICODE_MATH`).
+ *
+ * Dentro da matemática, o comando; fora dela, o comando entre `$`. O espaço depois do comando só
+ * entra quando a letra seguinte colaria nele — "$a≤b$" vira "$a\\leq b$", e não "$a\\leqb$".
+ */
+function withLatexSymbols(latex: string): string {
+  const masked = outsideMath(latex);
+  return latex.replace(UNICODE_MATH_CHARS, (char, index: number) => {
+    const command = UNICODE_MATH[char] ?? char;
+    if (masked[index] === char) return `$${command}$`;
+    return /^[A-Za-z]/.test(latex[index + 1] ?? "") && command.startsWith("\\") ? `${command} ` : command;
+  });
 }

@@ -82,3 +82,11 @@ describe("símbolo que a camada de texto não leu", () => {
     expect(escapeLatexText("100% de A")).toBe("100\\% de A");
   });
 });
+
+describe("símbolo matemático em Unicode", () => {
+  it("vira o comando do LaTeX, em modo matemático — o pdflatex não conhece ≤, ∈ nem o sinal de menos", () => {
+    // A importação do Fundamentos parava em "Unicode character − (U+2212)" vindo da camada de texto.
+    expect(escapeLatexText("x ≤ 2, A ∈ B e 5 − 3")).toBe("x $\\leq$ 2, A $\\in$ B e 5 $-$ 3");
+    expect(escapeLatexText("ℝ ⊆ ℂ")).toBe("$\\mathbb{R}$ $\\subseteq$ $\\mathbb{C}$");
+  });
+});
