@@ -384,7 +384,7 @@ describe("plano da aprovação em rodadas", () => {
     const { steps } = plan({
       items: [grupo, exercicio],
       existingNodes: [noGrupo],
-      existingAnchors: [{ nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY" }],
+      existingAnchors: [{ nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY", cropped: false }],
     });
 
     expect(steps.map((step) => step.type)).toEqual(["createNode"]);
@@ -396,8 +396,8 @@ describe("plano da aprovação em rodadas", () => {
       items: [grupo, exercicio],
       existingNodes: [noGrupo, { id: "q2", parentId: "no-grupo", kind: "QUESTION", title: null, originalLabel: "2" }],
       existingAnchors: [
-        { nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY" },
-        { nodeId: "q2", pageNumber: 1, box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 }, role: "PRIMARY" },
+        { nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY", cropped: false },
+        { nodeId: "q2", pageNumber: 1, box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 }, role: "PRIMARY", cropped: false },
       ],
     });
 
@@ -478,15 +478,25 @@ describe("plano da aprovação em rodadas", () => {
     const desenho = { x: 0.2, y: 0.45, width: 0.4, height: 0.2 };
     const noQuestao = { id: "q2", parentId: "no-grupo", kind: "QUESTION" as const, title: null, originalLabel: "2" };
     const jaAprovado = { ...exercicio, documentNodeId: "q2" };
-    const continua = { nodeId: "q2", pageNumber: 1, box: desenho, role: "CONTINUATION" };
+    const continua = { nodeId: "q2", pageNumber: 1, box: desenho, role: "CONTINUATION", cropped: false };
 
     const nova = plan({ items: [grupo, jaAprovado, figura("E")], existingNodes: [noGrupo, noQuestao], existingAnchors: [continua] });
     expect(nova.steps.map((step) => step.type)).toEqual(["appendStatement"]);
 
-    const repetida = plan({
+    // O pedaço sem texto da extensão de um item também tem papel de ilustração (o grupo de
+    // exercícios que avança sobre a faixa que abre o capítulo seguinte), mas sem arquivo: não é
+    // figura que entrou.
+    const semArquivo = plan({
       items: [grupo, jaAprovado, figura("E")],
       existingNodes: [noGrupo, noQuestao],
       existingAnchors: [continua, { ...continua, role: "ILLUSTRATION" }],
+    });
+    expect(semArquivo.steps.map((step) => step.type)).toEqual(["appendStatement"]);
+
+    const repetida = plan({
+      items: [grupo, jaAprovado, figura("E")],
+      existingNodes: [noGrupo, noQuestao],
+      existingAnchors: [continua, { ...continua, role: "ILLUSTRATION", cropped: true }],
     });
     expect(repetida.steps).toEqual([{ type: "alreadyInCollection", itemIds: ["f"], nodeId: "q2" }]);
   });
@@ -497,7 +507,7 @@ describe("plano da aprovação em rodadas", () => {
     const existente = { id: "g1", parentId: null, kind: "QUESTION_GROUP" as const, title: "Exercícios", originalLabel: null };
     const bloco = (pageNumber: number) =>
       item({ id: `b${pageNumber}`, key: `B${pageNumber}`, kind: "EXERCISE_GROUP", reviewState: "APPROVED", title: "Exercícios", regions: [{ pageNumber, role: "PRIMARY", box: caixa }] });
-    const acervo = { existingNodes: [existente], existingAnchors: [{ nodeId: "g1", pageNumber: 3, box: caixa, role: "PRIMARY" }] };
+    const acervo = { existingNodes: [existente], existingAnchors: [{ nodeId: "g1", pageNumber: 3, box: caixa, role: "PRIMARY", cropped: false }] };
 
     expect(plan({ items: [bloco(7)], ...acervo }).steps[0]?.type).toBe("createNode");
     expect(plan({ items: [bloco(3)], ...acervo }).steps[0]).toMatchObject({ type: "reuseNode", nodeId: "g1" });

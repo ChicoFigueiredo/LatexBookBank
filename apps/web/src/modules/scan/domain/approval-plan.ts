@@ -35,6 +35,8 @@ export interface ExistingAnchor {
   readonly box: NormalizedBox;
   /** O papel da âncora no nó (`AnchorRole`): é o que diz se ela é do nó ou de um trecho que ele recebeu. */
   readonly role: string;
+  /** A âncora aponta para um recorte gravado — é a marca que a figura aprovada deixa. */
+  readonly cropped: boolean;
 }
 
 export type NodeRef =
@@ -217,7 +219,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     Com que âncora cada tipo de item pode coincidir.
 
     Questão e exercício, com âncora de nó de questão. O que vai para o corpo ou para o enunciado,
-    com a âncora que ele mesmo deixou ao entrar: a figura, de ilustração; o texto, de continuação
+    com a âncora que ele mesmo deixou ao entrar: a figura, de ilustração com o recorte; o texto, de continuação
     num nó que não é questão. Coincidir com âncora **estrutural** não diz nada — no Fundamentos, a
     figura que ocupa sozinha a página de continuação do exercício 406 coincidia com a âncora do
     próprio exercício, e virava "já no acervo" sem ter entrado em lugar nenhum.
@@ -225,7 +227,10 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
   const comparable = (item: ScanItem, anchor: ExistingAnchor): boolean => {
     const nodeKind = kindOfNode.get(anchor.nodeId);
     if (QUESTION_KINDS.has(item.kind)) return nodeKind === "QUESTION";
-    if (item.kind === "FIGURE") return anchor.role === "ILLUSTRATION";
+    // Ilustração **com arquivo**: o pedaço sem texto da extensão de um item também ganha o papel de
+    // ilustração (structure.ts) — no Fundamentos, o grupo de exercícios que avança sobre a faixa
+    // que abre o capítulo seguinte —, e coincidir com ele não é a figura ter entrado.
+    if (item.kind === "FIGURE") return anchor.role === "ILLUSTRATION" && anchor.cropped;
     return anchor.role === "CONTINUATION" && nodeKind !== "QUESTION";
   };
   const duplicateOf = (item: ScanItem): string | null => {

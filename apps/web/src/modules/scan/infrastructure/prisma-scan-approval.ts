@@ -45,6 +45,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
               yNormalized: true,
               widthNormalized: true,
               heightNormalized: true,
+              cropAssetId: true,
             },
           },
         },
@@ -56,6 +57,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
       anchors: links.map((link) => ({
         nodeId: link.documentNodeId,
         role: link.role,
+        cropped: link.sourceAnchor.cropAssetId !== null,
         pageNumber: link.sourceAnchor.pageNumber,
         box: {
           x: link.sourceAnchor.xNormalized,
