@@ -74,6 +74,7 @@ export interface ApprovalResult {
     readonly createdQuestions: number;
     readonly reusedNodes: number;
     readonly bodyAppends: number;
+    readonly statementAppends: number;
     readonly anchors: number;
     readonly alreadyInCollection: number;
     readonly materializedItems: number;

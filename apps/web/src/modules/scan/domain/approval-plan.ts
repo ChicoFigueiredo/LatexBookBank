@@ -75,6 +75,21 @@ export type ApprovalStep =
       /** O recorte já gravado, quando é figura (D58): a âncora passa a apontar para o arquivo. */
       readonly cropAssetId: string | null;
     }
+  | {
+      /**
+       * Texto que pertence a uma **questão**, e não a um nó estrutural: a figura do exercício, o
+       * gráfico da questão do ENEM (#246, D58). Vai para o enunciado — o nó QUESTION não tem corpo
+       * (`canHaveBody`), e o que se escrevia lá nenhuma tela mostrava.
+       */
+      readonly type: "appendStatement";
+      readonly itemIds: readonly string[];
+      /** O nó da questão — criado nesta aprovação ou já no acervo. */
+      readonly target: NodeRef;
+      readonly latex: string;
+      readonly anchors: readonly ProposedRegion[];
+      readonly sourceText: string;
+      readonly cropAssetId: string | null;
+    }
   | { readonly type: "alreadyInCollection"; readonly itemIds: readonly string[]; readonly nodeId: string };
 
 export interface ApprovalPlan {
@@ -193,6 +208,10 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     continuação que ele deixou no nó que o recebeu, seja qual for o tipo desse nó.
   */
   const kindOfNode = new Map(input.existingNodes.map((node) => [node.id, node.kind]));
+  /** As questões criadas nesta aprovação, pelo `ref` do passo que as cria. */
+  const plannedQuestions = new Set<string>();
+  const isQuestionNode = (ref: NodeRef): boolean =>
+    ref.type === "planned" ? plannedQuestions.has(ref.ref) : ref.type === "existing" && kindOfNode.get(ref.id) === "QUESTION";
   const duplicateOf = (item: ScanItem): string | null => {
     const match = input.existingAnchors.find(
       (anchor) =>
@@ -340,6 +359,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         body: null,
       });
       resolved.set(item.key, { type: "planned", ref: item.id });
+      plannedQuestions.add(item.id);
       continue;
     }
 
@@ -349,7 +369,8 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         continue;
       }
       steps.push({
-        type: "appendBody",
+        // Dentro de uma questão, o texto vai ao enunciado dela; nos outros nós, ao corpo (#246).
+        type: isQuestionNode(container) ? "appendStatement" : "appendBody",
         itemIds: [item.id],
         target: container,
         latex: item.kind === "FIGURE" ? figureLatex(item) : contentLatex(item),

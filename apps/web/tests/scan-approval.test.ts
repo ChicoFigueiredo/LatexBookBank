@@ -433,6 +433,44 @@ describe("plano da aprovação em rodadas", () => {
     expect(steps[0]).toMatchObject({ type: "createNode", kind: "CHAPTER", parent: { type: "existing", id: "no-destino" } });
   });
 
+  /*
+    #246 (CAP-02/SPG-02): a figura filha de exercício ou questão ia para o corpo do nó QUESTION —
+    um campo que nada mostra —, e a questão ficava sem a figura. No Fundamentos vol. 1 eram 316
+    das 470 figuras. A D58 manda: nos perfis de prova (e no exercício), a figura vai ao enunciado.
+  */
+  const figura = (parentKey: string) =>
+    item({
+      id: "f",
+      key: "F",
+      kind: "FIGURE",
+      parentKey,
+      reviewState: "APPROVED",
+      sortOrder: 2,
+      metadata: { figureLatexName: "figura-p3-ab12cd34.pdf", figureAsset: "asset-figura", widthFraction: 0.5 },
+      regions: [{ pageNumber: 1, role: "PRIMARY", box: { x: 0.2, y: 0.45, width: 0.4, height: 0.2 } }],
+    });
+
+  it("a figura de um exercício entra no enunciado da questão, e não no corpo do nó", () => {
+    const { steps } = plan({ items: [grupo, exercicio, figura("E")], existingNodes: [noGrupo] });
+
+    expect(steps.map((step) => step.type)).toEqual(["createNode", "appendStatement"]);
+    expect(steps[1]).toMatchObject({
+      target: { type: "planned", ref: "e" },
+      cropAssetId: "asset-figura",
+      anchors: [{ role: "ILLUSTRATION" }],
+    });
+    expect(steps[1]).toHaveProperty("latex", expect.stringContaining("\\includegraphics[width=0.50\\textwidth]{figura-p3-ab12cd34.pdf}"));
+  });
+
+  it("a figura aprovada depois entra no enunciado da questão que já está no acervo", () => {
+    const noQuestao = { id: "q2", parentId: "no-grupo", kind: "QUESTION" as const, title: null, originalLabel: "2" };
+    const jaAprovado = { ...exercicio, documentNodeId: "q2" };
+
+    const { steps } = plan({ items: [grupo, jaAprovado, figura("E")], existingNodes: [noGrupo, noQuestao] });
+
+    expect(steps).toEqual([expect.objectContaining({ type: "appendStatement", target: { type: "existing", id: "q2" } })]);
+  });
+
   it("o segundo bloco 'Exercícios' do capítulo não se funde no primeiro só pelo título", () => {
     // Bloco sem número: o título se repete em todo capítulo. Quem diz se é o mesmo é a âncora.
     const caixa = { x: 0.1, y: 0.1, width: 0.8, height: 0.3 };

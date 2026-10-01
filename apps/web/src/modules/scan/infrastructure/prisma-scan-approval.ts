@@ -77,6 +77,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           createdQuestions: 0,
           reusedNodes: 0,
           bodyAppends: 0,
+          statementAppends: 0,
           anchors: 0,
           alreadyInCollection: 0,
           materializedItems: 0,
@@ -148,6 +149,23 @@ export class PrismaScanApproval implements ScanApprovalWriter {
         };
 
         const itemKeyOf = (id: string) => items.find((item) => item.id === id)?.key ?? id;
+
+        /** As âncoras do trecho somadas às que o nó já tem, na ordem — a principal continua a dele. */
+        const appendAnchors = async (
+          targetId: string,
+          step: { readonly anchors: readonly ProposedRegion[]; readonly sourceText: string; readonly itemIds: readonly string[]; readonly cropAssetId: string | null },
+        ) => {
+          const existing = await tx.documentNodeAnchor.findMany({
+            where: { documentNodeId: targetId },
+            orderBy: { sortOrder: "asc" },
+            select: { sourceAnchorId: true, role: true },
+          });
+          const added = await createAnchors(step.anchors, step.sourceText, itemKeyOf(step.itemIds[0] ?? ""), step.cropAssetId);
+          const current = existing
+            .filter((link) => isAnchorRole(link.role))
+            .map((link) => ({ sourceAnchorId: link.sourceAnchorId, role: link.role as NodeAnchorLink["role"] }));
+          await writeNodeAnchors(tx, targetId, planNodeAnchors([...current, ...added]));
+        };
 
         for (const step of plan.steps) {
           switch (step.type) {
@@ -227,11 +245,6 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 where: { id: targetId },
                 select: { bodyLatex: true, title: true },
               });
-              const existing = await tx.documentNodeAnchor.findMany({
-                where: { documentNodeId: targetId },
-                orderBy: { sortOrder: "asc" },
-                select: { sourceAnchorId: true, role: true },
-              });
 
               const last = await tx.revision.findFirst({
                 where: { entityType: "DOCUMENT_NODE", entityId: targetId },
@@ -253,17 +266,36 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 data: { bodyLatex: appendToBody(target.bodyLatex, step.latex) },
               });
 
-              const added = await createAnchors(
-                step.anchors,
-                step.sourceText,
-                itemKeyOf(step.itemIds[0] ?? ""),
-                step.cropAssetId,
-              );
-              const current = existing
-                .filter((link) => isAnchorRole(link.role))
-                .map((link) => ({ sourceAnchorId: link.sourceAnchorId, role: link.role as NodeAnchorLink["role"] }));
-              await writeNodeAnchors(tx, targetId, planNodeAnchors([...current, ...added]));
+              await appendAnchors(targetId, step);
               summary.bodyAppends++;
+              await mark(step.itemIds, targetId);
+              break;
+            }
+
+            case "appendStatement": {
+              // A figura do exercício ou da questão (#246): vai ao enunciado, e o arquivo passa a ser
+              // da questão — é por `questionId` que o render dela acha os assets.
+              const targetId = resolve(step.target);
+              if (!targetId) break;
+              const node = await tx.documentNode.findUniqueOrThrow({
+                where: { id: targetId },
+                select: { question: { select: { id: true, statementLatex: true } } },
+              });
+              if (!node.question) throw new Error(`O nó ${targetId} não tem questão para receber o enunciado.`);
+
+              await tx.question.update({
+                where: { id: node.question.id },
+                data: { statementLatex: appendToBody(node.question.statementLatex, step.latex) },
+              });
+              if (step.cropAssetId) {
+                // Só o recorte ainda sem dono: uma linha que já é de outra questão continua dela.
+                await tx.asset.updateMany({
+                  where: { id: step.cropAssetId, questionId: null },
+                  data: { questionId: node.question.id },
+                });
+              }
+              await appendAnchors(targetId, step);
+              summary.statementAppends++;
               await mark(step.itemIds, targetId);
               break;
             }

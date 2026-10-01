@@ -102,4 +102,79 @@ describe("figuras no acervo", () => {
     });
     expect(ancora.pageNumber).toBe(figura!.regions[0]!.pageNumber);
   });
+
+  it("a figura de um exercício entra no enunciado da questão, ligada a ela (#246)", async () => {
+    const seeded = await seedBookWithSource("book-a.pdf", "figuras-questao");
+    const { PrismaScanStore, PrismaScanSources, storageKeyOfAsset } = await import("@modules/scan/infrastructure/prisma-scan-store");
+    const { PdfjsDocumentReader } = await import("@modules/scan/infrastructure/pdfjs-document-reader");
+    const { PrismaScanApproval } = await import("@modules/scan/infrastructure/prisma-scan-approval");
+    const { PrismaFigureAssets } = await import("@modules/scan/infrastructure/prisma-figure-assets");
+    const { PdfFigureCropper } = await import("@modules/scan/infrastructure/pdf-figure-cropper");
+    const { createFigurePass } = await import("@modules/scan/application/figure-pass");
+    const { startScan } = await import("@modules/scan/application/start-scan");
+    const { runScan } = await import("@modules/scan/application/run-scan");
+    const { reviewScan } = await import("@modules/scan/application/review-scan");
+    const { approveScan } = await import("@modules/scan/application/approve-scan");
+
+    const store = new PrismaScanStore();
+    const { run } = await startScan(
+      { store, runner: idle, sources: new PrismaScanSources(), sha256 },
+      { publicationId: seeded.publication.id, profileId: "book-v1", recognizeMath: "never" },
+    );
+    await runScan(
+      {
+        store,
+        storage: seeded.storage,
+        opener: new PdfjsDocumentReader(),
+        sourceKey: storageKeyOfAsset,
+        figures: createFigurePass({
+          assets: new PrismaFigureAssets(seeded.storage),
+          cropper: ({ bytes, pdf }) =>
+            new PdfFigureCropper({ bytes, render: (page, box, dpi) => pdf.renderRegion(page, box, dpi) }),
+        }),
+      },
+      run.id,
+    );
+
+    // O livro de teste tem a figura na teoria; a revisão a põe sob o primeiro exercício, que é o
+    // caso do Fundamentos (o diagrama de Venn do exercício) e do ENEM (o gráfico da questão).
+    const items = await store.listItems(run.id);
+    const figura = items.find((item) => item.kind === "FIGURE")!;
+    const exercicio = items.find((item) => item.kind === "EXERCISE")!;
+    const newId = () => crypto.randomUUID();
+    await reviewScan({ store, newId }, run.id, { type: "reparent", itemId: figura.id, parentId: exercicio.id });
+
+    // Duas rodadas, como no Fundamentos, em que as figuras esperam revisão: a questão entra com os
+    // sugeridos, e a figura aceita depois vai ao enunciado da questão que já está no acervo.
+    // (Na mesma rodada a figura reparentada viria antes do pai na ordem — o CAP-16, da #248.)
+    await reviewScan({ store, newId }, run.id, { type: "acceptSuggested" });
+    await approveScan({ store, writer: new PrismaScanApproval() }, { runId: run.id, destinationId: null, includeSuggested: false });
+    await reviewScan({ store, newId }, run.id, { type: "accept", itemIds: [figura.id] });
+    const { summary } = await approveScan(
+      { store, writer: new PrismaScanApproval() },
+      { runId: run.id, destinationId: null, includeSuggested: false },
+    );
+
+    expect(summary.statementAppends).toBe(1);
+    const latexName = String(figura.metadata["figureLatexName"]);
+    const no = await seeded.prisma.documentNode.findFirstOrThrow({
+      where: { publicationId: seeded.publication.id, kind: "QUESTION", originalLabel: exercicio.number ?? "" },
+      select: { id: true, bodyLatex: true, question: { select: { id: true, statementLatex: true } } },
+    });
+    expect(no.question?.statementLatex).toContain(`\\includegraphics[width=`);
+    expect(no.question?.statementLatex).toContain(latexName);
+    // O nó QUESTION não tem corpo: nada vai para lá.
+    expect(no.bodyLatex).toBe("");
+
+    // O arquivo é da questão — é por `questionId` que o render dela acha os assets.
+    const asset = await seeded.prisma.asset.findUniqueOrThrow({ where: { id: String(figura.metadata["figureAsset"]) } });
+    expect(asset.questionId).toBe(no.question?.id);
+    // E a âncora de ilustração é do nó da questão.
+    const ancoras = await seeded.prisma.documentNodeAnchor.findMany({
+      where: { documentNodeId: no.id },
+      select: { role: true, sourceAnchor: { select: { cropAssetId: true } } },
+    });
+    expect(ancoras.some((link) => link.role === "ILLUSTRATION" && link.sourceAnchor.cropAssetId === asset.id)).toBe(true);
+    expect((await store.findRun(run.id))?.state).toBe("APPROVED");
+  });
 });
