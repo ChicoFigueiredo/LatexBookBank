@@ -384,7 +384,7 @@ describe("plano da aprovação em rodadas", () => {
     const { steps } = plan({
       items: [grupo, exercicio],
       existingNodes: [noGrupo],
-      existingAnchors: [{ nodeId: "no-grupo", pageNumber: 1, box: pagina }],
+      existingAnchors: [{ nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY" }],
     });
 
     expect(steps.map((step) => step.type)).toEqual(["createNode"]);
@@ -396,8 +396,8 @@ describe("plano da aprovação em rodadas", () => {
       items: [grupo, exercicio],
       existingNodes: [noGrupo, { id: "q2", parentId: "no-grupo", kind: "QUESTION", title: null, originalLabel: "2" }],
       existingAnchors: [
-        { nodeId: "no-grupo", pageNumber: 1, box: pagina },
-        { nodeId: "q2", pageNumber: 1, box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 } },
+        { nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY" },
+        { nodeId: "q2", pageNumber: 1, box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 }, role: "PRIMARY" },
       ],
     });
 
@@ -471,13 +471,33 @@ describe("plano da aprovação em rodadas", () => {
     expect(steps).toEqual([expect.objectContaining({ type: "appendStatement", target: { type: "existing", id: "q2" } })]);
   });
 
+  it("a figura que ocupa a página de continuação do exercício não é 'já no acervo' (406 do Fundamentos)", () => {
+    // A página 2 do exercício só tem o desenho: a âncora de continuação do nó e a da figura
+    // coincidem. Coincidir com âncora **estrutural** não diz nada — figura repetida coincide com
+    // a âncora de ilustração que a figura aprovada deixou.
+    const desenho = { x: 0.2, y: 0.45, width: 0.4, height: 0.2 };
+    const noQuestao = { id: "q2", parentId: "no-grupo", kind: "QUESTION" as const, title: null, originalLabel: "2" };
+    const jaAprovado = { ...exercicio, documentNodeId: "q2" };
+    const continua = { nodeId: "q2", pageNumber: 1, box: desenho, role: "CONTINUATION" };
+
+    const nova = plan({ items: [grupo, jaAprovado, figura("E")], existingNodes: [noGrupo, noQuestao], existingAnchors: [continua] });
+    expect(nova.steps.map((step) => step.type)).toEqual(["appendStatement"]);
+
+    const repetida = plan({
+      items: [grupo, jaAprovado, figura("E")],
+      existingNodes: [noGrupo, noQuestao],
+      existingAnchors: [continua, { ...continua, role: "ILLUSTRATION" }],
+    });
+    expect(repetida.steps).toEqual([{ type: "alreadyInCollection", itemIds: ["f"], nodeId: "q2" }]);
+  });
+
   it("o segundo bloco 'Exercícios' do capítulo não se funde no primeiro só pelo título", () => {
     // Bloco sem número: o título se repete em todo capítulo. Quem diz se é o mesmo é a âncora.
     const caixa = { x: 0.1, y: 0.1, width: 0.8, height: 0.3 };
     const existente = { id: "g1", parentId: null, kind: "QUESTION_GROUP" as const, title: "Exercícios", originalLabel: null };
     const bloco = (pageNumber: number) =>
       item({ id: `b${pageNumber}`, key: `B${pageNumber}`, kind: "EXERCISE_GROUP", reviewState: "APPROVED", title: "Exercícios", regions: [{ pageNumber, role: "PRIMARY", box: caixa }] });
-    const acervo = { existingNodes: [existente], existingAnchors: [{ nodeId: "g1", pageNumber: 3, box: caixa }] };
+    const acervo = { existingNodes: [existente], existingAnchors: [{ nodeId: "g1", pageNumber: 3, box: caixa, role: "PRIMARY" }] };
 
     expect(plan({ items: [bloco(7)], ...acervo }).steps[0]?.type).toBe("createNode");
     expect(plan({ items: [bloco(3)], ...acervo }).steps[0]).toMatchObject({ type: "reuseNode", nodeId: "g1" });

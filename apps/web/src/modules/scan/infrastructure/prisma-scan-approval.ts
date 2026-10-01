@@ -37,6 +37,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
         },
         select: {
           documentNodeId: true,
+          role: true,
           sourceAnchor: {
             select: {
               pageNumber: true,
@@ -54,6 +55,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
       nodes: nodes.map((node) => ({ ...node, kind: isNodeKind(node.kind) ? node.kind : "CONTENT" })),
       anchors: links.map((link) => ({
         nodeId: link.documentNodeId,
+        role: link.role,
         pageNumber: link.sourceAnchor.pageNumber,
         box: {
           x: link.sourceAnchor.xNormalized,

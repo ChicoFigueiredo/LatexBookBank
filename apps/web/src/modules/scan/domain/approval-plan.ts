@@ -33,6 +33,8 @@ export interface ExistingAnchor {
   readonly nodeId: string;
   readonly pageNumber: number;
   readonly box: NormalizedBox;
+  /** O papel da âncora no nó (`AnchorRole`): é o que diz se ela é do nó ou de um trecho que ele recebeu. */
+  readonly role: string;
 }
 
 export type NodeRef =
@@ -203,21 +205,31 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
 
     Duas travas contra o falso positivo da aprovação em rodadas (#247), em que o exercício
     aprovado na segunda rodada virava "já no acervo" apontando para o **grupo** — e nenhuma questão
-    era criada: coincidir é interseção sobre união, e não estar contido; e exercício ou questão só
-    coincide com nó de questão. O texto do corpo (teoria, figura) coincide com a âncora de
-    continuação que ele deixou no nó que o recebeu, seja qual for o tipo desse nó.
+    era criada: coincidir é interseção sobre união, e não estar contido; e cada tipo de item só se
+    compara com o tipo de âncora que ele deixaria (`comparable`, logo abaixo).
   */
   const kindOfNode = new Map(input.existingNodes.map((node) => [node.id, node.kind]));
   /** As questões criadas nesta aprovação, pelo `ref` do passo que as cria. */
   const plannedQuestions = new Set<string>();
   const isQuestionNode = (ref: NodeRef): boolean =>
     ref.type === "planned" ? plannedQuestions.has(ref.ref) : ref.type === "existing" && kindOfNode.get(ref.id) === "QUESTION";
+  /*
+    Com que âncora cada tipo de item pode coincidir.
+
+    Questão e exercício, com âncora de nó de questão. O que vai para o corpo ou para o enunciado,
+    com a âncora que ele mesmo deixou ao entrar: a figura, de ilustração; o texto, de continuação
+    num nó que não é questão. Coincidir com âncora **estrutural** não diz nada — no Fundamentos, a
+    figura que ocupa sozinha a página de continuação do exercício 406 coincidia com a âncora do
+    próprio exercício, e virava "já no acervo" sem ter entrado em lugar nenhum.
+  */
+  const comparable = (item: ScanItem, anchor: ExistingAnchor): boolean => {
+    const nodeKind = kindOfNode.get(anchor.nodeId);
+    if (QUESTION_KINDS.has(item.kind)) return nodeKind === "QUESTION";
+    if (item.kind === "FIGURE") return anchor.role === "ILLUSTRATION";
+    return anchor.role === "CONTINUATION" && nodeKind !== "QUESTION";
+  };
   const duplicateOf = (item: ScanItem): string | null => {
-    const match = input.existingAnchors.find(
-      (anchor) =>
-        (!QUESTION_KINDS.has(item.kind) || kindOfNode.get(anchor.nodeId) === "QUESTION") &&
-        coincides(item, anchor),
-    );
+    const match = input.existingAnchors.find((anchor) => comparable(item, anchor) && coincides(item, anchor));
     return match?.nodeId ?? null;
   };
 
