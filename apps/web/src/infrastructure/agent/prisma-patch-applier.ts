@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import {
-  AlternativaDeOutraQuestaoError,
+  OptionFromAnotherQuestionError,
   type PatchApplier,
   type PatchTransaction,
 } from "@modules/agents/application/apply-question-patch";
@@ -43,7 +43,7 @@ export class PrismaPatchApplier implements PatchApplier {
 }
 
 /** Lança se algum dos ids não for uma alternativa desta questão. */
-async function exigirDaQuestao(
+async function requireOwnOptions(
   client: Tx,
   questionId: string,
   optionIds: readonly string[],
@@ -51,7 +51,7 @@ async function exigirDaQuestao(
   const ids = [...new Set(optionIds)];
   if (ids.length === 0) return;
 
-  const daQuestao = new Set(
+  const ownIds = new Set(
     (
       await client.questionOption.findMany({
         where: { questionId, id: { in: ids } },
@@ -59,8 +59,8 @@ async function exigirDaQuestao(
       })
     ).map((row) => row.id),
   );
-  const estranhos = ids.filter((id) => !daQuestao.has(id));
-  if (estranhos.length > 0) throw new AlternativaDeOutraQuestaoError(questionId, estranhos);
+  const foreignIds = ids.filter((id) => !ownIds.has(id));
+  if (foreignIds.length > 0) throw new OptionFromAnotherQuestionError(questionId, foreignIds);
 }
 
 function makeTransaction(client: Tx): PatchTransaction {
@@ -96,7 +96,7 @@ function makeTransaction(client: Tx): PatchTransaction {
     async applyOptions(questionId, options) {
       // Antes de gravar qualquer linha: ignorar só o id estranho e gravar o resto deixava um
       // gabarito exclusivo sem correta (a antiga desmarcada, a nova em outra questão).
-      await exigirDaQuestao(
+      await requireOwnOptions(
         client,
         questionId,
         options.map((option) => option.id),
@@ -122,7 +122,7 @@ function makeTransaction(client: Tx): PatchTransaction {
     },
 
     async applyReorder(questionId, optionIds) {
-      await exigirDaQuestao(client, questionId, optionIds);
+      await requireOwnOptions(client, questionId, optionIds);
 
       // Chaves novas para todas: reescrever a lista inteira é barato para uma questão (dezenas de
       // alternativas, não milhares) e evita a aritmética de inserção entre vizinhos, que é onde

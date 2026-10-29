@@ -186,7 +186,7 @@ describe("aplicar o patch aprovado", () => {
     // adaptador: o id veio de um patch, e a lista é recusada antes de qualquer escrita.
     const { question } = await questaoNoLivro();
     const outra = await questaoNoLivro();
-    const { AlternativaDeOutraQuestaoError } =
+    const { OptionFromAnotherQuestionError } =
       await import("@modules/agents/application/apply-question-patch");
 
     await expect(
@@ -195,7 +195,7 @@ describe("aplicar o patch aprovado", () => {
           { id: outra.dois, statementLatex: "invadido", isCorrect: true },
         ]),
       ),
-    ).rejects.toThrow(AlternativaDeOutraQuestaoError);
+    ).rejects.toThrow(OptionFromAnotherQuestionError);
 
     expect((await estado(outra.question.id)).options).toEqual([
       ["1\\%", true],
@@ -210,7 +210,7 @@ describe("aplicar o patch aprovado", () => {
     // por isso o adaptador recusa a lista toda, e a transação leva a revisão junto.
     const { question, um } = await questaoNoLivro();
     const outra = await questaoNoLivro();
-    const { AlternativaDeOutraQuestaoError } =
+    const { OptionFromAnotherQuestionError } =
       await import("@modules/agents/application/apply-question-patch");
 
     await expect(
@@ -227,7 +227,7 @@ describe("aplicar o patch aprovado", () => {
           { id: um, isCorrect: false },
         ]);
       }),
-    ).rejects.toThrow(AlternativaDeOutraQuestaoError);
+    ).rejects.toThrow(OptionFromAnotherQuestionError);
 
     expect((await estado(question.id)).options).toEqual([
       ["1\\%", true],
@@ -243,7 +243,7 @@ describe("aplicar o patch aprovado", () => {
   it("reordenar com um id de outra questão é recusado, e a ordem fica como estava", async () => {
     const { question, um, dois, tres } = await questaoNoLivro();
     const outra = await questaoNoLivro();
-    const { AlternativaDeOutraQuestaoError } =
+    const { OptionFromAnotherQuestionError } =
       await import("@modules/agents/application/apply-question-patch");
     const chaves = async () =>
       (
@@ -257,7 +257,7 @@ describe("aplicar o patch aprovado", () => {
 
     await expect(
       applier.transact((tx) => tx.applyReorder(question.id, [tres, outra.um, dois, um])),
-    ).rejects.toThrow(AlternativaDeOutraQuestaoError);
+    ).rejects.toThrow(OptionFromAnotherQuestionError);
 
     expect(await chaves()).toEqual(antes);
   });

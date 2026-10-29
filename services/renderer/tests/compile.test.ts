@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_RENDER_OPTIONS, type RenderBundle } from "@latexbookbank/render-contract";
 
 import { buildDocument, compile } from "../src/compile.ts";
-import { describeComTex } from "./tex.ts";
+import { describeWithTex } from "./tex.ts";
 
 /**
  * A compilação, contra o `pdflatex` de verdade.
@@ -101,7 +101,7 @@ describe("compile — recusas antes do TeX", () => {
   });
 });
 
-describeComTex("compile", () => {
+describeWithTex("compile", () => {
   it("compila um documento simples e devolve PDF e PNG", async () => {
     const { result, artifacts } = await compile(bundle(), new Map(), deps);
 
@@ -257,7 +257,7 @@ describeComTex("compile", () => {
  * Live, `\openin` abre qualquer caminho, e o que ele lê volta no log — que a aplicação grava, mostra
  * e manda ao modelo de IA. Na imagem do worker, `/proc/1/environ` trazia o `RENDERER_SECRET`.
  */
-describeComTex("compile — leitura de arquivo", () => {
+describeWithTex("compile — leitura de arquivo", () => {
   const leitura = (caminho: string) =>
     bundle({
       sourceLatex: [

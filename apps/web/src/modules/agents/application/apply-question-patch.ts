@@ -48,7 +48,7 @@ export interface PatchTransaction {
   applyFields(questionId: string, fields: Readonly<Record<string, string | null>>): Promise<void>;
   /**
    * Grava texto e gabarito das alternativas. Um id que não é desta questão recusa a lista
-   * inteira com `AlternativaDeOutraQuestaoError`: gravar o resto deixaria um gabarito exclusivo
+   * inteira com `OptionFromAnotherQuestionError`: gravar o resto deixaria um gabarito exclusivo
    * com a antiga desmarcada e a nova em lugar nenhum.
    */
   applyOptions(
@@ -86,12 +86,12 @@ export class QuestionGoneError extends Error {
  * O patch citou uma alternativa que não é da questão. O plano já descarta esse id; este erro é a
  * segunda barreira, no adaptador, e lançado dentro da transação desfaz também a revisão.
  */
-export class AlternativaDeOutraQuestaoError extends Error {
+export class OptionFromAnotherQuestionError extends Error {
   constructor(questionId: string, optionIds: readonly string[]) {
     super(
       `As alternativas ${optionIds.map((id) => `\`${id}\``).join(", ")} não são da questão \`${questionId}\`.`,
     );
-    this.name = "AlternativaDeOutraQuestaoError";
+    this.name = "OptionFromAnotherQuestionError";
   }
 }
 

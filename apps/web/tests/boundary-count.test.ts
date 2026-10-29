@@ -24,7 +24,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const portsDir = path.join(root, "src/shared/ports");
 
 /** Uma "fronteira" é uma interface com verbos — não um formato de entrada ou de saída. */
-const FRONTEIRAS = [
+const BOUNDARIES = [
   "StorageProvider",
   "RenderExecutor",
   "AiProvider",
@@ -37,36 +37,36 @@ const FRONTEIRAS = [
   "LibraryCatalogProvider",
 ] as const;
 
-const arquivos = readdirSync(portsDir)
+const portFiles = readdirSync(portsDir)
   .filter((file) => file.endsWith(".ts") && file !== "index.ts")
   .map((file) => path.join(portsDir, file));
 
-const codigo = arquivos.map((file) => readFileSync(file, "utf8")).join("\n");
+const portsCode = portFiles.map((file) => readFileSync(file, "utf8")).join("\n");
 
 describe("as fronteiras de infraestrutura", () => {
   it("são exatamente as quatro da D23, a da Fase 15 e a do Beta Editorial", () => {
-    for (const nome of FRONTEIRAS) {
-      expect(codigo, `${nome} sumiu`).toContain(`export interface ${nome} {`);
+    for (const name of BOUNDARIES) {
+      expect(portsCode, `${name} sumiu`).toContain(`export interface ${name} {`);
     }
   });
 
   it("**toda** interface de porta ou é fronteira ou é forma de dado", () => {
     // Forma de dado — `PutAssetInput`, `AgentResult` — não é abstração: é o contrato do que
     // atravessa. O que a regra proíbe é a interface com verbo que ninguém implementa.
-    expect(interfacesComVerbo(codigo).sort()).toEqual([...FRONTEIRAS].sort());
+    expect(interfacesWithVerbs(portsCode).sort()).toEqual([...BOUNDARIES].sort());
   });
 
   it("cada fronteira tem implementação — abstração sem implementação é cerimônia", () => {
     // Foi o que pegou o `TransactionRunner`: interface exportada, zero implementações, zero
     // chamadores. Cinco fases depois, ninguém lembrava por que ela existia.
-    const fontes = varrer(path.join(root, "src"));
+    const sources = walk(path.join(root, "src"));
 
-    for (const nome of FRONTEIRAS) {
-      const implementa = fontes.filter((file) =>
-        readFileSync(file, "utf8").includes(`implements ${nome}`),
+    for (const name of BOUNDARIES) {
+      const implementations = sources.filter((file) =>
+        readFileSync(file, "utf8").includes(`implements ${name}`),
       );
 
-      expect(implementa.length, `${nome} sem implementação`).toBeGreaterThanOrEqual(1);
+      expect(implementations.length, `${name} sem implementação`).toBeGreaterThanOrEqual(1);
     }
   });
 });
@@ -78,7 +78,7 @@ describe("as fronteiras de infraestrutura", () => {
  * (TST-12 da revisão de 2026-09-23). Cada forma aqui é uma porta que ele tem de ver.
  */
 describe("o detector de interface com verbo", () => {
-  const casos: ReadonlyArray<readonly [string, string, string]> = [
+  const cases: ReadonlyArray<readonly [string, string, string]> = [
     [
       "genérica",
       "TransactionRunner",
@@ -102,20 +102,20 @@ describe("o detector de interface com verbo", () => {
     ],
   ];
 
-  for (const [forma, nome, fonte] of casos) {
-    it(`vê a porta ${forma}`, () => {
-      expect(interfacesComVerbo(fonte)).toEqual([nome]);
+  for (const [shape, name, source] of cases) {
+    it(`vê a porta ${shape}`, () => {
+      expect(interfacesWithVerbs(source)).toEqual([name]);
     });
   }
 
   it("não confunde forma de dado com porta", () => {
-    const fonte = [
+    const source = [
       "export interface PutAssetInput {\n  key: string;\n  meta: { size: number };\n}",
       "export type AiMessage = { role: string } | { tool: string };",
       "/** export interface Fantasma {\n  run(): void;\n} */",
     ].join("\n");
 
-    expect(interfacesComVerbo(fonte)).toEqual([]);
+    expect(interfacesWithVerbs(source)).toEqual([]);
   });
 });
 
@@ -124,52 +124,52 @@ describe("o detector de interface com verbo", () => {
  * propriedade cujo tipo é função. Pela árvore do TypeScript, e não por texto: comentário não
  * conta, genérico, `extends` e objeto aninhado não atrapalham.
  */
-function interfacesComVerbo(codigo: string): string[] {
-  const fonte = ts.createSourceFile("portas.ts", codigo, ts.ScriptTarget.Latest, true);
-  const nomes: string[] = [];
+function interfacesWithVerbs(code: string): string[] {
+  const sourceFile = ts.createSourceFile("portas.ts", code, ts.ScriptTarget.Latest, true);
+  const names: string[] = [];
 
-  const temVerbo = (membros: ts.NodeArray<ts.TypeElement>) =>
-    membros.some(
-      (membro) =>
-        ts.isMethodSignature(membro) ||
-        ts.isCallSignatureDeclaration(membro) ||
-        (ts.isPropertySignature(membro) &&
-          membro.type !== undefined &&
-          ts.isFunctionTypeNode(membro.type)),
+  const hasVerb = (members: ts.NodeArray<ts.TypeElement>) =>
+    members.some(
+      (member) =>
+        ts.isMethodSignature(member) ||
+        ts.isCallSignatureDeclaration(member) ||
+        (ts.isPropertySignature(member) &&
+          member.type !== undefined &&
+          ts.isFunctionTypeNode(member.type)),
     );
 
-  const exportada = (node: ts.Node) =>
+  const isExported = (node: ts.Node) =>
     ts.canHaveModifiers(node) &&
     (ts.getModifiers(node) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 
-  for (const node of fonte.statements) {
-    if (!exportada(node)) continue;
+  for (const node of sourceFile.statements) {
+    if (!isExported(node)) continue;
 
-    if (ts.isInterfaceDeclaration(node) && temVerbo(node.members)) {
-      nomes.push(node.name.text);
+    if (ts.isInterfaceDeclaration(node) && hasVerb(node.members)) {
+      names.push(node.name.text);
     } else if (
       ts.isTypeAliasDeclaration(node) &&
       ts.isTypeLiteralNode(node.type) &&
-      temVerbo(node.type.members)
+      hasVerb(node.type.members)
     ) {
-      nomes.push(node.name.text);
+      names.push(node.name.text);
     }
   }
 
-  return nomes;
+  return names;
 }
 
-function varrer(dir: string): string[] {
-  const encontrados: string[] = [];
+function walk(dir: string): string[] {
+  const found: string[] = [];
 
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     // `generated` é código do Prisma: varrê-lo custa segundos e não diz nada sobre o desenho.
     if (entry.isDirectory() && entry.name !== "generated") {
-      encontrados.push(...varrer(path.join(dir, entry.name)));
+      found.push(...walk(path.join(dir, entry.name)));
     } else if (entry.isFile() && entry.name.endsWith(".ts")) {
-      encontrados.push(path.join(dir, entry.name));
+      found.push(path.join(dir, entry.name));
     }
   }
 
-  return encontrados;
+  return found;
 }

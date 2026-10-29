@@ -101,7 +101,7 @@ export async function describeConflicts(
   const publicationIds = colisoes.filter((c) => c.kind === "publication").map((c) => c.existingId);
   const questionIds = colisoes.filter((c) => c.kind === "question").map((c) => c.existingId);
 
-  const [bibliotecas, publicacoes, contagens, questoes] = await Promise.all([
+  const [libraries, publicacoes, contagens, questoes] = await Promise.all([
     prisma.workspace.findMany({ where: { id: { in: workspaceIds } }, select: { id: true, name: true } }),
     prisma.publication.findMany({
       where: { id: { in: publicationIds } },
@@ -140,37 +140,37 @@ export async function describeConflicts(
     if (isbn !== null) noArquivo.set(`isbn:${isbn}`, quantas);
   }
 
-  const bibliotecaPorId = new Map(bibliotecas.map((row) => [row.id, row.name]));
+  const libraryNameById = new Map(libraries.map((row) => [row.id, row.name]));
 
-  return colisoes.map((colisao): ImportConflict => {
-    if (colisao.kind === "workspace") {
+  return colisoes.map((collision): ImportConflict => {
+    if (collision.kind === "workspace") {
       return {
         kind: "workspace",
-        title: bibliotecaPorId.get(colisao.existingId) ?? portable.name,
+        title: libraryNameById.get(collision.existingId) ?? portable.name,
         existingQuestions: null,
         incomingQuestions: null,
-        existingId: colisao.existingId,
+        existingId: collision.existingId,
       };
     }
 
-    if (colisao.kind === "question") {
-      const questao = questaoPorId.get(colisao.existingId);
+    if (collision.kind === "question") {
+      const questao = questaoPorId.get(collision.existingId);
 
       return {
         kind: "question",
-        title: questao?.nickname ?? `Questão ${colisao.value}`,
+        title: questao?.nickname ?? `Questão ${collision.value}`,
         existingQuestions: null,
         incomingQuestions: null,
-        existingId: colisao.existingId,
+        existingId: collision.existingId,
       };
     }
 
-    const publicacao = porId.get(colisao.existingId);
+    const publicacao = porId.get(collision.existingId);
     // A chave da comparação é a **mesma** por onde a colisão foi detectada: um livro que casou por
     // ISBN pode não ter chave legada nenhuma, e procurar por `uuid:` daria contagem vazia.
     const chave =
-      colisao.by === "isbn"
-        ? `isbn:${colisao.value}`
+      collision.by === "isbn"
+        ? `isbn:${collision.value}`
         : publicacao?.legacyId !== null && publicacao?.legacyId !== undefined
           ? `id:${publicacao.legacyId}`
           : `uuid:${publicacao?.legacyUuid ?? ""}`;
@@ -180,9 +180,9 @@ export async function describeConflicts(
       // O apelido primeiro: “FME 1” é como o protótipo escreve a frase, e é como o livro é
       // chamado. O título da capa entra quando não há apelido.
       title: publicacao?.nickname ?? publicacao?.title ?? "Livro",
-      existingQuestions: contagemPorId.get(colisao.existingId) ?? 0,
+      existingQuestions: contagemPorId.get(collision.existingId) ?? 0,
       incomingQuestions: noArquivo.get(chave) ?? null,
-      existingId: colisao.existingId,
+      existingId: collision.existingId,
     };
   });
 }

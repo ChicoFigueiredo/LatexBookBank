@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   AgentRunOutOfScopeError,
-  AlternativaDeOutraQuestaoError,
+  OptionFromAnotherQuestionError,
   QuestionGoneError,
 } from "@modules/agents/application/apply-question-patch";
 import { NothingApprovedError } from "@modules/agents/domain/apply-patch";
@@ -284,7 +284,7 @@ const rules = (): readonly ErrorRule[] =>
     on(QuestionGoneError, 409, "question_gone"),
     // A segunda barreira do aplicador: o plano já descarta o id, e chegar aqui é pedido montado à
     // mão. 400 — o que está errado é o patch, não o estado da questão.
-    on(AlternativaDeOutraQuestaoError, 400, "option_from_another_question"),
+    on(OptionFromAnotherQuestionError, 400, "option_from_another_question"),
     // O turno citado no patch não é desta questão (SEC-06): 404, sem dizer se existe noutra.
     on(AgentRunOutOfScopeError, 404, "agent_run_not_found"),
 

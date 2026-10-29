@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { InvalidSortKeyError } from "@/shared/ordering/fractional-index";
-import { AlternativaDeOutraQuestaoError } from "@modules/agents/application/apply-question-patch";
+import { OptionFromAnotherQuestionError } from "@modules/agents/application/apply-question-patch";
 import { VisionNotConfiguredError } from "@modules/recognition/application/recognize-crop";
 import { RenderArtifactNotFoundError } from "@modules/rendering/domain/render-artifact-not-found";
 import { RendererNotConfiguredError } from "@modules/rendering/domain/renderer-not-configured";
@@ -78,7 +78,7 @@ describe("a tabela única de erro para HTTP", () => {
     // sempre.
     [
       "patch com alternativa de outra questão",
-      new AlternativaDeOutraQuestaoError("q1", ["o9"]),
+      new OptionFromAnotherQuestionError("q1", ["o9"]),
       400,
       { error: "option_from_another_question" },
     ],
