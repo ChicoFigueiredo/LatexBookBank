@@ -8,6 +8,8 @@
  * Cor vai em `var(--token)`. Se falta um token, o certo é acrescentá-lo ao contrato.
  */
 
+import { RAW_SQL, RUNTIME_LOAD } from "./eslint.boundaries.mjs";
+
 const HEX = String.raw`#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b`;
 const FUNCS = String.raw`\b(?:rgb|rgba|hsl|hsla|oklch|lab|lch)\(`;
 
@@ -24,11 +26,30 @@ const selectors = [
   { selector: `TemplateElement[value.raw=/${FUNCS}/]`, message },
 ];
 
+const restrictSyntax = (list) => ({ "no-restricted-syntax": ["error", ...list] });
+
+/**
+ * Este bloco vem **depois** do de fronteira, e as duas regras são `no-restricted-syntax`: em flat
+ * config o último bloco que casa substitui a regra inteira. Escrito só com os seletores de cor,
+ * ele apagava o SQL cru na UI dos módulos e nas telas de `app/`, e o `import()`/`require` do
+ * agente em `agents/ui` (H3). Por isso cada bloco repete o que a fronteira já exigia ali, e o do
+ * agente vem por último, para valer sobre o genérico da UI dos módulos.
+ */
 const tokenAdherence = [
   {
+    name: "tokens/adherence-design-system",
+    files: ["src/design-system/**/*.{ts,tsx}"],
+    rules: restrictSyntax(selectors),
+  },
+  {
     name: "tokens/adherence",
-    files: ["src/design-system/**/*.{ts,tsx}", "src/modules/*/ui/**/*.{ts,tsx}", "app/**/*.tsx"],
-    rules: { "no-restricted-syntax": ["error", ...selectors] },
+    files: ["src/modules/*/ui/**/*.{ts,tsx}", "app/**/*.tsx"],
+    rules: restrictSyntax([RAW_SQL, ...selectors]),
+  },
+  {
+    name: "tokens/adherence-agents",
+    files: ["src/modules/agents/ui/**/*.{ts,tsx}"],
+    rules: restrictSyntax([RAW_SQL, ...RUNTIME_LOAD("O agente"), ...selectors]),
   },
 ];
 
