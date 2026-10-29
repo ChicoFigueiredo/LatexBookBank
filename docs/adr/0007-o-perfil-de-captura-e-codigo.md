@@ -64,3 +64,8 @@ subir seria ajustar heurística até o número mentir.
 
 E `/api/capture-profiles` foi apagada pelo mesmo critério aplicado a um endpoint: não tinha um
 consumidor sequer, porque a tela é componente de servidor e lê o registro direto.
+
+**Revisto pela Fase 25.** O *Fundamentos* deixou de ser a exceção: ganhou perfil próprio
+(`book-fme-v1`, com zonas — [ADR 0009](0009-a-zona-do-documento.md)), voltou à asserção do corpus
+e é sugerido por ela. A medição de hoje é a do `scan-corpus.test.ts` — 568 exercícios e 361
+questões de vestibular, sem buraco na numeração —, e não a nota de 0,05 do `book-v1` citada acima.
