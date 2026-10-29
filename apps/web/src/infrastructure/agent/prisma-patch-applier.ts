@@ -1,9 +1,10 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import type {
-  PatchApplier,
-  PatchTransaction,
+import {
+  AlternativaDeOutraQuestaoError,
+  type PatchApplier,
+  type PatchTransaction,
 } from "@modules/agents/application/apply-question-patch";
 import type { QuestionState } from "@modules/agents/domain/patch-diff";
 import { rebalanceKeys } from "@modules/document-tree/domain/fractional-index";
@@ -37,6 +38,27 @@ export class PrismaPatchApplier implements PatchApplier {
   async transact<T>(run: (tx: PatchTransaction) => Promise<T>): Promise<T> {
     return prisma.$transaction(async (client) => run(makeTransaction(client)));
   }
+}
+
+/** Lança se algum dos ids não for uma alternativa desta questão. */
+async function exigirDaQuestao(
+  client: Tx,
+  questionId: string,
+  optionIds: readonly string[],
+): Promise<void> {
+  const ids = [...new Set(optionIds)];
+  if (ids.length === 0) return;
+
+  const daQuestao = new Set(
+    (
+      await client.questionOption.findMany({
+        where: { questionId, id: { in: ids } },
+        select: { id: true },
+      })
+    ).map((row) => row.id),
+  );
+  const estranhos = ids.filter((id) => !daQuestao.has(id));
+  if (estranhos.length > 0) throw new AlternativaDeOutraQuestaoError(questionId, estranhos);
 }
 
 function makeTransaction(client: Tx): PatchTransaction {
@@ -122,6 +144,14 @@ function makeTransaction(client: Tx): PatchTransaction {
     },
 
     async applyOptions(questionId, options) {
+      // Antes de gravar qualquer linha: ignorar só o id estranho e gravar o resto deixava um
+      // gabarito exclusivo sem correta (a antiga desmarcada, a nova em outra questão).
+      await exigirDaQuestao(
+        client,
+        questionId,
+        options.map((option) => option.id),
+      );
+
       for (const option of options) {
         // `updateMany` com o `questionId` no `where`: `update` pela chave primária gravaria numa
         // alternativa de **outra** questão se o id viesse trocado, e o id veio de um patch.
@@ -142,6 +172,8 @@ function makeTransaction(client: Tx): PatchTransaction {
     },
 
     async applyReorder(questionId, optionIds) {
+      await exigirDaQuestao(client, questionId, optionIds);
+
       // Chaves novas para todas: reescrever a lista inteira é barato para uma questão (dezenas de
       // alternativas, não milhares) e evita a aritmética de inserção entre vizinhos, que é onde
       // reordenação por índice fracionário costuma errar.
