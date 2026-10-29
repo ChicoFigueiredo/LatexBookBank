@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 
-import { agentApi } from "@modules/agents/ui/agent-client";
 import type { QuestionFieldId } from "@modules/latex/domain/latex-language";
 import { diffSnapshots, type RevisionChange } from "@modules/questions/domain/revision-diff";
 
@@ -25,6 +24,12 @@ export interface QuestionHistoryOptions {
   readonly draft: Readonly<Record<QuestionFieldId, string>>;
   /** Depois de restaurar. No editor, recarregar a página inteira. */
   readonly onRestored: () => void;
+  /**
+   * Restaurar é desfazer pela rota do agente (`/api/agents/patches/revert`). Quem compõe a tela
+   * passa a função: importar o cliente do agente daqui fecharia o ciclo questions → agents →
+   * questions entre módulos (I6).
+   */
+  readonly revert: (input: { questionId: string; revisionNumber: number }) => Promise<unknown>;
 }
 
 export interface QuestionHistory {
@@ -42,6 +47,7 @@ export function useQuestionHistory({
   questionId,
   draft,
   onRestored,
+  revert,
 }: QuestionHistoryOptions): QuestionHistory {
   const [revisions, setRevisions] = useState<readonly RevisionRow[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -77,12 +83,12 @@ export function useQuestionHistory({
 
   const restore = useCallback(
     async (revisionNumber: number) => {
-      await agentApi.revertPatch({ questionId, revisionNumber });
+      await revert({ questionId, revisionNumber });
       // Recarregar em vez de aplicar no estado local: restaurar mexe em alternativas, metadados e
       // tags, que esta tela não guarda — e um estado meio atualizado é pior que um recarregado.
       onRestored();
     },
-    [onRestored, questionId],
+    [onRestored, questionId, revert],
   );
 
   return { revisions, selected, changes, load, select, restore };

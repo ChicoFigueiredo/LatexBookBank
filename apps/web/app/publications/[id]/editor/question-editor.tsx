@@ -17,6 +17,7 @@ import { QuestionSourcePane } from "@modules/scan/ui/QuestionSourcePane";
 import { useEditorColumns } from "./editor-columns";
 import { HistoryPanel } from "@modules/questions/ui/HistoryPanel";
 import { useQuestionDraft, type SaveState } from "@modules/questions/ui/use-question-draft";
+import { agentApi } from "@modules/agents/ui/agent-client";
 import { useQuestionHistory } from "@modules/questions/ui/use-question-history";
 import { figureSnippet } from "@modules/assets/domain/asset-ingestion";
 import type { Provenance } from "@modules/assets/domain/provenance";
@@ -213,6 +214,7 @@ export function QuestionEditor({
     questionId,
     draft,
     onRestored: () => window.location.reload(),
+    revert: agentApi.revertPatch,
   });
 
   const editor = useRef<LatexEditorApi | null>(null);

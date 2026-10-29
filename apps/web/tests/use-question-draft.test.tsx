@@ -7,6 +7,7 @@ import {
   RETRY_DELAY_MS,
   useQuestionDraft,
 } from "@modules/questions/ui/use-question-draft";
+import { agentApi } from "@modules/agents/ui/agent-client";
 import { useQuestionHistory } from "@modules/questions/ui/use-question-history";
 
 /**
@@ -220,6 +221,7 @@ describe("o histórico", () => {
         questionId: "q-1",
         draft: { statementLatex: "na tela", solutionLatex: "b", complementLatex: "c" },
         onRestored: () => {},
+        revert: agentApi.revertPatch,
       }),
     );
 
@@ -241,7 +243,12 @@ describe("o histórico", () => {
   it("revisão sem um dos lados deixa o diff vazio de carregamento", async () => {
     stubFetch(() => json({ error: "revision_not_found", message: "não tem" }, 404));
     const { result } = renderHook(() =>
-      useQuestionHistory({ questionId: "q-1", draft: INITIAL, onRestored: () => {} }),
+      useQuestionHistory({
+        questionId: "q-1",
+        draft: INITIAL,
+        onRestored: () => {},
+        revert: agentApi.revertPatch,
+      }),
     );
 
     await act(() => result.current.select(9));
@@ -253,7 +260,12 @@ describe("o histórico", () => {
     const fetch = stubFetch(() => json({ error: "question_gone", message: "x" }, 409));
     const onRestored = vi.fn();
     const { result } = renderHook(() =>
-      useQuestionHistory({ questionId: "q-1", draft: INITIAL, onRestored }),
+      useQuestionHistory({
+        questionId: "q-1",
+        draft: INITIAL,
+        onRestored,
+        revert: agentApi.revertPatch,
+      }),
     );
 
     await act(() => result.current.restore(2));
