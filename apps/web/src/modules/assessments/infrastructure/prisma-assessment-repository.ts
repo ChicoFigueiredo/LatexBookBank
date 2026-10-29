@@ -8,6 +8,8 @@ import { assessmentContentOf } from "@modules/assessments/domain/question-conten
 import type { AssessmentQuestionContent } from "@modules/assessments/domain/assessment-template";
 import type { Variant } from "@modules/assessments/domain/variant";
 import type { AssessmentRecord } from "@modules/assessments/application/compose-assessment";
+import type { AssessmentStore } from "@modules/assessments/application/manage-assessments";
+import type { QuestionStanding } from "@modules/assessments/domain/admission";
 
 /**
  * Persistência de avaliações.
@@ -119,47 +121,25 @@ function parseIds(raw: string): readonly string[] {
 }
 
 /**
- * O resultado de acrescentar.
+ * A questão vista da prova: é desta biblioteca, e está na lixeira? `null` quando a prova não existe.
  *
- * `foreign` é um caso próprio e não um `added: false` qualquer: os dois significam coisas opostas
- * para quem monta a prova. "Já estava" é um clique repetido; "é de outra biblioteca" é um engano
- * que precisa aparecer.
+ * A decisão é do domínio (`admissionRefusal`); aqui só os fatos — e na **mesma** consulta, porque
+ * duas idas ao banco poderiam ler estados diferentes.
  */
-export type AddQuestionResult =
-  | { readonly added: true }
-  | {
-      readonly added: false;
-      readonly reason: "already" | "no_section" | "foreign" | "in_trash";
-    };
-
-export async function addQuestion(
+export async function standingOf(
   assessmentId: string,
   questionId: string,
-): Promise<AddQuestionResult> {
-  /**
-   * **A questão é desta biblioteca?** (#177)
-   *
-   * Não era conferido, e o efeito é pior que o desalinho: `AssessmentItem → Question` é
-   * `onDelete: Restrict`, então uma prova da biblioteca A **trava a exclusão** de uma questão da
-   * biblioteca B — e quem tenta apagar não tem como descobrir por quê, porque a prova que segura
-   * não aparece em lugar nenhum do acervo dele.
-   *
-   * A prova sairia com a questão impressa e o gabarito certo; nada quebra. É exatamente o tipo de
-   * mistura que só se percebe quando as duas bibliotecas são de donos diferentes.
-   *
-   * Verificado com duas bibliotecas de verdade: sem este guarda, a rota respondia `201 added:true`.
-   */
+): Promise<QuestionStanding | null> {
   const escopo = await prisma.assessment.findUnique({
     where: { id: assessmentId },
     select: {
-      // A questão vem pela **mesma** consulta: duas idas ao banco poderiam ler estados diferentes.
       workspace: {
         select: {
           publications: {
             where: { nodes: { some: { questionId } } },
             take: 1,
             // O nó vem junto para a conferência da lixeira: é da biblioteca, mas pode estar
-            // excluído — e aí entrar na prova é imprimir uma questão que a pessoa excluiu (#263).
+            // excluído (#263).
             select: { id: true, nodes: { where: { questionId }, select: { deletedAt: true } } },
           },
         },
@@ -167,13 +147,17 @@ export async function addQuestion(
     },
   });
 
-  if (escopo === null) return { added: false, reason: "no_section" };
+  if (escopo === null) return null;
   const [publication] = escopo.workspace.publications;
-  if (publication === undefined) return { added: false, reason: "foreign" };
-  if (publication.nodes.some((node) => node.deletedAt !== null)) {
-    return { added: false, reason: "in_trash" };
-  }
+  if (publication === undefined) return { kind: "foreign" };
+  return { kind: "own", inTrash: publication.nodes.some((node) => node.deletedAt !== null) };
+}
 
+/** Põe a questão no fim da primeira seção. */
+export async function appendItem(
+  assessmentId: string,
+  questionId: string,
+): Promise<"added" | "already" | "no_section"> {
   const section = await prisma.assessmentSection.findFirst({
     where: { assessmentId },
     orderBy: { sortKey: "asc" },
@@ -182,7 +166,7 @@ export async function addQuestion(
       items: { orderBy: { sortKey: "desc" }, take: 1, select: { sortKey: true } },
     },
   });
-  if (section === null) return { added: false, reason: "no_section" };
+  if (section === null) return "no_section";
 
   // A mesma questão duas vezes na mesma prova é engano, e o schema já recusa pelo par único —
   // mas devolver "não acrescentei" é melhor que estourar uma constraint por um clique repetido.
@@ -190,7 +174,7 @@ export async function addQuestion(
     where: { sectionId_questionId: { sectionId: section.id, questionId } },
     select: { id: true },
   });
-  if (existing !== null) return { added: false, reason: "already" };
+  if (existing !== null) return "already";
 
   await prisma.assessmentItem.create({
     data: {
@@ -201,39 +185,24 @@ export async function addQuestion(
     },
   });
 
-  return { added: true };
+  return "added";
 }
 
-export async function removeQuestion(assessmentId: string, questionId: string): Promise<void> {
+export async function removeItem(assessmentId: string, questionId: string): Promise<void> {
   await prisma.assessmentItem.deleteMany({
     where: { questionId, section: { assessmentId } },
   });
 }
 
 /**
- * Apaga a avaliação inteira.
+ * Apaga a avaliação inteira: seções, itens, variantes e mapas de letra vão junto por cascade.
  *
- * Seções, itens, variantes e mapas de letra vão junto por cascade do schema — e é justamente por
- * isso que quem chama precisa saber **quantas variantes** existiam. O mapa de letras de uma
- * variante **é o gabarito** de uma prova que pode já ter sido impressa e entregue; apagá-lo em
- * silêncio destrói a única cópia de como aquela prova foi embaralhada.
- *
- * A questão em si nunca é tocada: `AssessmentItem` referencia, nunca copia (D9/§18), e a relação
- * com `Question` é `onDelete: Restrict` no outro sentido.
+ * Sem trava aqui: avisar antes de destruir o gabarito das variantes é regra, e mora no caso de uso
+ * (`deleteAssessment` em `manage-assessments`). A questão em si nunca é tocada: `AssessmentItem`
+ * referencia, nunca copia (D9/§18).
  */
-export async function deleteAssessment(
-  assessmentId: string,
-): Promise<{ readonly deleted: boolean; readonly variantLabels: readonly string[] }> {
-  const assessment = await prisma.assessment.findUnique({
-    where: { id: assessmentId },
-    select: { variants: { select: { label: true }, orderBy: { label: "asc" } } },
-  });
-
-  if (assessment === null) return { deleted: false, variantLabels: [] };
-
-  await prisma.assessment.delete({ where: { id: assessmentId } });
-
-  return { deleted: true, variantLabels: assessment.variants.map((variant) => variant.label) };
+export async function deleteAssessmentRow(assessmentId: string): Promise<void> {
+  await prisma.assessment.deleteMany({ where: { id: assessmentId } });
 }
 
 /** As variantes já sorteadas, para quem precisa avisar antes de destruir o gabarito delas. */
@@ -352,4 +321,17 @@ export async function listCandidateQuestions(
     id: row.id,
     title: row.nickname ?? row.statementLatex.slice(0, 80) ?? row.id,
   }));
+}
+
+/** O acervo das avaliações, na forma que os casos de uso de `manage-assessments` pedem. */
+export class PrismaAssessmentStore implements AssessmentStore {
+  create = createAssessment;
+  find = findAssessment;
+  standingOf = standingOf;
+  appendItem = appendItem;
+  removeItem = removeItem;
+  variantLabelsOf = variantLabelsOf;
+  delete = deleteAssessmentRow;
+  contentFor = contentFor;
+  saveVariant = saveVariant;
 }

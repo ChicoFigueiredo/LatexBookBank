@@ -4,8 +4,8 @@ import { createPublication } from "@modules/publications/application/manage-publ
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
-import { readJson } from "../../../tree-http";
-import { toLibraryErrorResponse } from "../../library-http";
+import { readJson } from "../../../http";
+import { toErrorResponse } from "../../../http";
 
 /** Cadastrar um livro dentro de uma biblioteca. */
 export const dynamic = "force-dynamic";
@@ -33,6 +33,6 @@ export async function POST(
 
     return NextResponse.json({ publication }, { status: 201 });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

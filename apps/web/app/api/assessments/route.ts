@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { createAssessment } from "@modules/assessments/application/manage-assessments";
 import {
-  createAssessment,
   listAssessments,
+  PrismaAssessmentStore,
 } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../http";
 
 /**
  * As avaliações de um workspace.
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       throw new BadRequestError("`title` é obrigatório.");
     }
 
-    const created = await createAssessment({
+    const created = await createAssessment(new PrismaAssessmentStore(), {
       workspaceId,
       title: title.trim(),
       subtitle: asText(body["subtitle"]),

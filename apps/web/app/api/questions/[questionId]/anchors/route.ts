@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { addQuestionAnchor, AnchorEditError } from "@modules/assets/application/edit-node-anchors";
-import { InvalidAnchorError } from "@modules/assets/domain/source-anchor";
+import { addQuestionAnchor } from "@modules/assets/application/edit-node-anchors";
 import { PrismaNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * As âncoras de uma questão, em ordem e com papel (D50) — o que o *Ver fonte* do editor marca no
@@ -48,9 +47,6 @@ export async function POST(request: Request, { params }: Params) {
     });
     return NextResponse.json({ anchorId }, { status: 201 });
   } catch (error) {
-    if (error instanceof AnchorEditError || error instanceof InvalidAnchorError) {
-      return NextResponse.json({ error: "bad_request", message: error.message }, { status: 400 });
-    }
     return toErrorResponse(error);
   }
 }

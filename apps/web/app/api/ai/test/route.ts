@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { OpenAiCompatibleProvider } from "@infrastructure/ai/openai-compatible/openai-compatible-provider";
+import { aiProvider } from "@infrastructure/composition";
 import { env as appEnv } from "@/shared/config/env";
 import { AiCredentialMissingError, AiProviderError } from "@/shared/ports";
 
-import { toErrorResponse } from "../../tree-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * "Testar conexão" — a única coisa que faltava da Fase 8.
@@ -24,19 +24,14 @@ export async function POST() {
   try {
     const env = appEnv();
 
-    if (env.aiBaseUrl === null) {
+    // Curto de propósito: testar conexão que demora um minuto não é teste, é espera.
+    const provider = aiProvider({ timeoutMs: 10_000 });
+    if (provider === null) {
       return NextResponse.json(
         { ok: false, message: "`AI_BASE_URL` não está definido em `apps/web/.env.local`." },
         { status: 503 },
       );
     }
-
-    const provider = new OpenAiCompatibleProvider({
-      baseUrl: env.aiBaseUrl,
-      apiKey: env.aiApiKey,
-      // Curto de propósito: testar conexão que demora um minuto não é teste, é espera.
-      timeoutMs: 10_000,
-    });
 
     const models = await provider.listModels();
     const names = models.map((model) => model.id);

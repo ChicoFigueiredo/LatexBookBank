@@ -11,7 +11,7 @@ import type {
   RevisionListResponse,
 } from "@modules/questions/application/question-contract";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * O histórico de uma questão.

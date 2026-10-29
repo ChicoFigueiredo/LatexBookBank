@@ -3,11 +3,10 @@ import { NextResponse } from "next/server";
 import { LibraryNotFoundError } from "@modules/workspaces/domain/library";
 import { deleteLibrary, renameLibrary } from "@modules/workspaces/application/manage-libraries";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 
-import { readJson } from "../../tree-http";
-import { toLibraryErrorResponse } from "../library-http";
+import { readJson } from "../../http";
+import { toErrorResponse } from "../../http";
 
 /** Uma biblioteca — o que ela tem dentro, renomear e excluir. */
 export const dynamic = "force-dynamic";
@@ -30,7 +29,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ lib
     const contents = await repository.contentsOf(libraryId);
     return NextResponse.json({ library, contents });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }
 
@@ -46,7 +45,7 @@ export async function PATCH(
 
     return NextResponse.json({ library });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }
 
@@ -67,13 +66,13 @@ export async function DELETE(
     const body = await readJson(request);
     const deleted = await deleteLibrary(
       new PrismaLibraryRepository(),
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+      storage(),
       libraryId,
       { name: body["name"] },
     );
 
     return NextResponse.json({ deleted });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

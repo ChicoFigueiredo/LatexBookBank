@@ -1,15 +1,13 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { capabilitiesFor, profileForBaseUrl } from "@modules/agents/domain/ai-profile";
-import {
-  describeBackupStatus,
-  type BackupStatusFile,
-} from "@modules/diagnostics/domain/backup-status";
+import { describeBackupStatus } from "@modules/diagnostics/domain/backup-status";
 import type { Diagnostics, SectionStatus } from "@modules/diagnostics/domain/diagnostics";
 import { probeHostTex, type HostTex } from "@modules/diagnostics/infrastructure/host-tex";
+import {
+  probeRendererHealth,
+  readBackupStatusFile,
+} from "@modules/diagnostics/infrastructure/service-probes";
 import {
   renderStats,
   type RenderStats,
@@ -32,15 +30,12 @@ import { formatarTamanho } from "@/shared/format/bytes";
  * Ver spec §25 · issue #119.
  */
 
-/** Um segundo é o bastante: a página não pode ficar presa esperando um serviço morto. */
-const PROBE_TIMEOUT_MS = 2_000;
-
 export async function collectDiagnostics(): Promise<Diagnostics> {
   const env = appEnv();
 
   const [renderer, backup, hostTex, stats] = await Promise.all([
     probeRenderer(env.rendererBaseUrl, env.rendererSecret),
-    readBackupStatus(),
+    readBackupStatus(env.backupDestination, env.backupIntervalHours),
     probeHostTex(),
     // O cache é derivado e a consulta é de contagem: falhar aqui não pode derrubar a página, que
     // é justamente aonde se vai quando as coisas já estão estranhas.
@@ -50,7 +45,7 @@ export async function collectDiagnostics(): Promise<Diagnostics> {
   return {
     app: {
       health: "ok",
-      summary: `LatexBookBank ${process.env["npm_package_version"] ?? "0.0.0"}`,
+      summary: `LatexBookBank ${env.appVersion}`,
       details: [
         { label: "Node/Bun", value: process.version },
         { label: "Ambiente", value: process.env["NODE_ENV"] ?? "development" },
@@ -151,31 +146,9 @@ async function probeRenderer(
     };
   }
 
-  try {
-    const response = await fetch(`${baseUrl}/health`, {
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    });
-    if (!response.ok) {
-      return {
-        health: "off",
-        summary: `Worker respondeu HTTP ${response.status}`,
-        details: [{ label: "Endereço", value: baseUrl }],
-      };
-    }
+  const probe = await probeRendererHealth(baseUrl);
 
-    const payload = (await response.json()) as Record<string, unknown>;
-
-    return {
-      health: "ok",
-      summary: "Worker de render no ar",
-      details: [
-        { label: "Endereço", value: baseUrl },
-        ...["rendererVersion", "pdfLatexVersion", "pdfToCairoVersion", "profileCount"].flatMap(
-          (key) => (key in payload ? [{ label: key, value: String(payload[key]) }] : []),
-        ),
-      ],
-    };
-  } catch {
+  if (probe.kind === "unreachable") {
     // Configurado e fora do ar é diferente de não configurado: aqui a solução é subir o
     // contêiner, não editar variável.
     return {
@@ -187,6 +160,25 @@ async function probeRenderer(
       ],
     };
   }
+
+  if (probe.kind === "http-error") {
+    return {
+      health: "off",
+      summary: `Worker respondeu HTTP ${probe.status}`,
+      details: [{ label: "Endereço", value: baseUrl }],
+    };
+  }
+
+  return {
+    health: "ok",
+    summary: "Worker de render no ar",
+    details: [
+      { label: "Endereço", value: baseUrl },
+      ...["rendererVersion", "pdfLatexVersion", "pdfToCairoVersion", "profileCount"].flatMap(
+        (key) => (key in probe.payload ? [{ label: key, value: String(probe.payload[key]) }] : []),
+      ),
+    ],
+  };
 }
 
 function describeAi(
@@ -226,15 +218,16 @@ function describeAi(
 }
 
 /**
- * Lê o estado que o serviço de backup deixou.
+ * O backup, a partir do estado que o serviço deixou no destino.
  *
- * Um arquivo, e não uma consulta ao serviço: o backup roda fora do app e pode estar parado
- * justamente quando se quer saber dele. O arquivo continua lá — e "o último backup foi há seis
- * dias" é exatamente a informação que importa nessa hora.
+ * Sem arquivo de estado — ou com um que não se lê — o serviço nunca rodou. Dizer isso é melhor que
+ * "erro ao ler", que mandaria procurar defeito onde há só ausência.
  */
-async function readBackupStatus(): Promise<SectionStatus> {
-  const destination = process.env["BACKUP_DESTINATION"];
-  if (!destination) {
+async function readBackupStatus(
+  destination: string | null,
+  intervalHours: number,
+): Promise<SectionStatus> {
+  if (destination === null) {
     return {
       health: "unconfigured",
       summary: "Backup automático não configurado",
@@ -242,28 +235,25 @@ async function readBackupStatus(): Promise<SectionStatus> {
     };
   }
 
-  try {
-    const raw = await readFile(join(destination, "backup-status.json"), "utf8");
-    const status = JSON.parse(raw) as BackupStatusFile;
+  const neverRan: SectionStatus = {
+    health: "off",
+    summary: "Backup configurado, mas nunca executado",
+    details: [{ label: "Destino", value: destination }],
+  };
 
+  const status = await readBackupStatusFile(destination);
+  if (status === null) return neverRan;
+
+  try {
     // Verde só enquanto o último sucesso é recente (PLT-13): um "ok" de vinte dias atrás é um
     // serviço parado, não um backup em dia.
-    const described = describeBackupStatus(status, {
-      now: new Date(),
-      intervalHours: Number(process.env["BACKUP_INTERVAL_HOURS"] ?? "24") || 24,
-    });
+    const described = describeBackupStatus(status, { now: new Date(), intervalHours });
     return {
       ...described,
       details: [{ label: "Destino", value: destination }, ...described.details],
     };
   } catch {
-    // Destino configurado e sem arquivo de estado: o serviço nunca rodou. Dizer isso é melhor que
-    // "erro ao ler", que mandaria procurar defeito onde há só ausência.
-    return {
-      health: "off",
-      summary: "Backup configurado, mas nunca executado",
-      details: [{ label: "Destino", value: destination }],
-    };
+    return neverRan;
   }
 }
 

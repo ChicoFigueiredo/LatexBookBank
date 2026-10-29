@@ -207,6 +207,40 @@ describe("os furos medidos na revisão de 2026-09-23", () => {
   });
 });
 
+/**
+ * O bloco de tokens vem depois do de fronteira e também define `no-restricted-syntax`: escrito só
+ * com os seletores de cor, ele apagava ali o SQL cru e, em `agents/ui`, o `import()`/`require`
+ * (H3). Cada caso prova que as duas regras valem juntas no mesmo arquivo.
+ */
+describe("a aderência aos tokens não apaga a fronteira", () => {
+  const SQL_CRU = `export const q = (db: { $queryRaw: unknown }) => db.$queryRaw;`;
+  const COR_LITERAL = `export const cor = "#ff0000";`;
+
+  for (const filePath of [
+    "src/modules/questions/ui/Violation.tsx",
+    "app/publications/violation.tsx",
+  ]) {
+    it(`SQL cru e cor literal são recusados juntos em ${filePath}`, async () => {
+      const messages = (await lintAs(filePath, `${SQL_CRU}\n${COR_LITERAL}`)).join("\n");
+      expect(messages).toMatch(/SQL cru fora de infrastructure/);
+      expect(messages).toMatch(/Cor literal fora do contrato de tokens/);
+    });
+  }
+
+  it("a UI do agente continua sem import() nem require, e sem cor literal", async () => {
+    const messages = (
+      await lintAs(
+        "src/modules/agents/ui/Violation.tsx",
+        `export async function ler() {\n  return [await import("node:fs"), require("node:fs")];\n}\n${SQL_CRU}\n${COR_LITERAL}`,
+      )
+    ).join("\n");
+    expect(messages).toMatch(/O agente não carrega módulo em tempo de execução: import\(\)/);
+    expect(messages).toMatch(/O agente não carrega módulo em tempo de execução: require/);
+    expect(messages).toMatch(/SQL cru fora de infrastructure/);
+    expect(messages).toMatch(/Cor literal fora do contrato de tokens/);
+  });
+});
+
 describe("a camada de application continua livre", () => {
   it("pode orquestrar infraestrutura", async () => {
     const messages = await lintAs(

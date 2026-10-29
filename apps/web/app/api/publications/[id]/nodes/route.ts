@@ -4,13 +4,8 @@ import { createNode } from "@modules/document-tree/application/mutate-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 
-import {
-  parseNodeKind,
-  parsePlacement,
-  parseTitle,
-  readJson,
-  toErrorResponse,
-} from "../../../tree-http";
+import { readJson, toErrorResponse } from "../../../http";
+import { parseNodeKind, parsePlacement, parseTitle } from "../../../tree-parsers";
 
 /** Cria um nó na árvore de uma publicação. */
 export const dynamic = "force-dynamic";

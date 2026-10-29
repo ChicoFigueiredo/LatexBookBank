@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { env } from "@/shared/config/env";
+import { env, visionConfigured } from "@/shared/config/env";
 import { describeAiSetup } from "@modules/agents/application/describe-ai-setup";
 import { fraseDaLocalidade, localidadeDaIa } from "@modules/agents/domain/ai-locality";
 import { readBookSource } from "@modules/assets/infrastructure/prisma-book-source";
@@ -72,7 +72,7 @@ export default async function ScanPage({
       hasMemory={remembered !== null && rememberedMissing === null}
       runs={runs.map((run) => scanRunDto(run, runner.isRunning(run.id)))}
       aiConfigured={appEnv.aiBaseUrl !== null && appEnv.aiModel !== null}
-      visionConfigured={appEnv.aiBaseUrl !== null && Boolean(process.env["AI_VISION_MODEL"])}
+      visionConfigured={visionConfigured(appEnv)}
       aviso={fraseDaLocalidade(localidadeDaIa(appEnv.aiBaseUrl), ai?.providerLabel ?? null)}
       importRemoved={importacao === "apagada"}
     />

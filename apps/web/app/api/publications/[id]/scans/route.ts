@@ -4,8 +4,7 @@ import { startScan } from "@modules/scan/application/start-scan";
 import { scanRunDto } from "@modules/scan/application/scan-run-dto";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { toScanErrorResponse } from "../../../scans/scan-http";
-import { readJson } from "../../../tree-http";
+import { readJson, toErrorResponse } from "../../../http";
 
 /**
  * As execuções de scan de um livro, e o pedido de uma nova (D49, D53).
@@ -23,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const runs = await store.listRuns(id);
     return NextResponse.json({ runs: runs.map((run) => scanRunDto(run, runner.isRunning(run.id))) });
   } catch (error) {
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }
 
@@ -48,6 +47,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       { status: reused ? 200 : 201 },
     );
   } catch (error) {
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

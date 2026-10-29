@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { toCompletionCandidate } from "@modules/latex-knowledge/domain/snippet-completion";
 import { PrismaLatexKnowledgeReader } from "@modules/latex-knowledge/infrastructure/prisma-latex-knowledge-reader";
 
+import { withErrors } from "../../http";
+
 /**
  * Os itens de autocomplete do LaTeX.
  *
@@ -15,8 +17,8 @@ import { PrismaLatexKnowledgeReader } from "@modules/latex-knowledge/infrastruct
  */
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withErrors(async function GET() {
   const snippets = await new PrismaLatexKnowledgeReader().listSnippets();
 
   return NextResponse.json({ snippets: snippets.map(toCompletionCandidate) });
-}
+});

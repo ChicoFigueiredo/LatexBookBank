@@ -11,13 +11,8 @@ import {
   type AiProvider,
   type AiToolCall,
 } from "@/shared/ports";
-import { env } from "@/shared/config/env";
 
-import {
-  capabilitiesFor,
-  profileForBaseUrl,
-  type AiProfile,
-} from "@modules/agents/domain/ai-profile";
+import { profileForBaseUrl, type AiProfile } from "@modules/agents/domain/ai-profile";
 
 /**
  * O provider — **um só**, com `baseURL` configurável (D3).
@@ -229,25 +224,6 @@ export class OpenAiCompatibleProvider implements AiProvider {
 
     return response;
   }
-}
-
-/**
- * O provider configurado pelo ambiente, ou `null` quando não há IA configurada.
- *
- * `null` e não exceção: o app inteiro funciona sem IA — o painel agêntico é um acessório, não um
- * requisito. Quem chama decide o que dizer ("configure `AI_BASE_URL`"), e a Fase 8 termina com o
- * painel desabilitado em vez de a aplicação não subir.
- */
-export function providerFromEnv(): OpenAiCompatibleProvider | null {
-  const { aiBaseUrl, aiApiKey, aiModel, aiToolCalling } = env();
-  if (!aiBaseUrl) return null;
-
-  return new OpenAiCompatibleProvider({
-    baseUrl: aiBaseUrl,
-    apiKey: aiApiKey,
-    capabilities: capabilitiesFor(aiBaseUrl, { toolCalling: aiToolCalling }),
-    ...(aiModel ? { defaultModel: aiModel } : {}),
-  });
 }
 
 /**

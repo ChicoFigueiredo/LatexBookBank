@@ -5,8 +5,9 @@ import { CalibreCatalogProvider } from "@modules/publications/infrastructure/cal
 import { existingPublicationsOf } from "@modules/publications/infrastructure/prisma-catalog-import";
 import type { BrowseCatalogResponse } from "@modules/publications/application/catalog-contract";
 
-import { readJson } from "../tree-http";
-import { resolveCatalogRoot, toCatalogErrorResponse } from "./catalog-http";
+import { readJson } from "../http";
+import { resolveCatalogRoot } from "./catalog-http";
+import { toErrorResponse } from "../http";
 
 /**
  * Abre um catálogo Calibre e lista o que há dentro.
@@ -36,6 +37,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ summary, entries } satisfies BrowseCatalogResponse);
   } catch (error) {
-    return toCatalogErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

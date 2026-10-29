@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { saveNodeBody } from "@modules/document-tree/application/save-node-body";
-import { canHaveBody, InvalidNodeBodyError } from "@modules/document-tree/domain/node-body";
+import { canHaveBody } from "@modules/document-tree/domain/node-body";
 import { PrismaNodeBodyRepository } from "@modules/document-tree/infrastructure/prisma-node-body";
 import { PrismaNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
-import { ConcurrencyConflictError } from "@/shared/ports/repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../../../http";
 
 /**
  * O corpo de um nó estrutural (D42, ADR 0001): ler, com o histórico e as âncoras, e salvar com
@@ -60,21 +59,6 @@ export async function PUT(request: Request, { params }: Params) {
 
     return NextResponse.json({ version: record.updatedAt.toISOString(), written });
   } catch (error) {
-    if (error instanceof ConcurrencyConflictError) {
-      return NextResponse.json(
-        {
-          error: "conflict",
-          // Renomear e mover já não chegam aqui (#259): o que sobra é o corpo salvo em outra aba.
-          message: "Este corpo foi salvo em outro lugar desde que você abriu.",
-          expectedVersion: String(error.expectedVersion),
-          actualVersion: String(error.actualVersion),
-        },
-        { status: 409 },
-      );
-    }
-    if (error instanceof InvalidNodeBodyError) {
-      return NextResponse.json({ error: "bad_request", message: error.message }, { status: 400 });
-    }
     return toErrorResponse(error);
   }
 }

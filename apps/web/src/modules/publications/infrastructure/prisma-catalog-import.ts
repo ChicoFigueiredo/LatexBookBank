@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { storage } from "@infrastructure/composition";
 import { storeAsset } from "@modules/assets/application/store-asset";
 import { createAsset } from "@modules/assets/infrastructure/prisma-asset-writer";
 import type {
@@ -12,7 +12,6 @@ import type {
 import type { CatalogAssetWriter } from "@modules/publications/application/catalog-source";
 import type { PublicationOriginWriter } from "@modules/publications/application/import-from-catalog";
 import type { ExistingPublication } from "@modules/publications/domain/catalog-import";
-import { env as appEnv } from "@/shared/config/env";
 
 /**
  * Os dois lados de escrita da importação de catálogo, e a leitura que a duplicata precisa.
@@ -34,7 +33,7 @@ export class PrismaCatalogAssetWriter implements CatalogAssetWriter {
         content: input.content,
         kind: input.kind,
       },
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+      storage(),
     );
 
     return createAsset({

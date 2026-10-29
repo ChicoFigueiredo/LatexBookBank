@@ -7,8 +7,9 @@ import { questionRenderSource } from "@modules/rendering/infrastructure/prisma-q
 import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
 import type { CandidateRenderResponse } from "@modules/agents/application/agent-contract";
 
-import { rendererNotConfigured, renderErrorResponse } from "../../render-http";
-import { BadRequestError, readJson } from "../../tree-http";
+import { rendererNotConfigured } from "../../render-http";
+import { toErrorResponse } from "../../http";
+import { BadRequestError, readJson } from "../../http";
 
 /**
  * Compila um candidato para a **tela** — o "antes" e o "depois" da revisão.
@@ -73,6 +74,6 @@ export async function POST(request: Request) {
       png: bytes ? `data:image/png;base64,${Buffer.from(bytes).toString("base64")}` : null,
     } satisfies CandidateRenderResponse);
   } catch (error) {
-    return renderErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { normalizeQuery } from "@modules/questions/domain/search-query";
 import { PrismaQuestionSearch } from "@modules/questions/infrastructure/prisma-question-search";
 
-import { toErrorResponse } from "../tree-http";
+import { toErrorResponse } from "../http";
 
 /**
  * Busca no acervo.

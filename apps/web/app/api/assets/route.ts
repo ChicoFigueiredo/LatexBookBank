@@ -2,18 +2,15 @@ import { NextResponse } from "next/server";
 
 import { assetLatexName } from "@modules/assets/domain/asset-latex-name";
 
-import { UploadRejectedError } from "@modules/assets/domain/asset-ingestion";
 import { registerUploadedAsset } from "@modules/assets/application/register-uploaded-asset";
 import { inferKind, storeAsset } from "@modules/assets/application/store-asset";
 import { isAssetKind } from "@modules/assets/domain/asset-kind";
 import { PrismaAssetWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { storage } from "@infrastructure/composition";
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
-import { env as appEnv } from "@/shared/config/env";
-import { StorageKeyEscapeError } from "@/shared/ports";
 import type { UploadAssetResponse } from "@modules/assets/application/asset-contract";
 
-import { BadRequestError, toErrorResponse } from "../tree-http";
+import { BadRequestError, toErrorResponse } from "../http";
 
 /**
  * Sobe um arquivo.
@@ -80,7 +77,7 @@ export async function POST(request: Request) {
         content: new Uint8Array(await file.arrayBuffer()),
         kind,
       },
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+      storage(),
     );
 
     const asset = await registerUploadedAsset(
@@ -117,25 +114,6 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof UploadRejectedError) {
-      return NextResponse.json(
-        { error: `upload_${error.reason}`, message: error.message },
-        { status: 415 },
-      );
-    }
-    if (error instanceof StorageKeyEscapeError) {
-      // A tentativa foi barrada pelo provider — mas devolvê-la como 500 esconderia uma recusa de
-      // isolamento dentro de um erro genérico, e quem chamou não saberia que o `workspaceId` é
-      // que estava errado. Recusa de entrada é 400.
-      return NextResponse.json(
-        {
-          error: "invalid_workspace",
-          message:
-            "`workspaceId` inválido: ele vira segmento de caminho e não pode conter `/` nem `..`.",
-        },
-        { status: 400 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

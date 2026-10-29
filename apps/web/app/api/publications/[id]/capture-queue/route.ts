@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { countByState, pendingQueue } from "@modules/recognition/domain/capture-queue";
 import { readCaptureFacts } from "@modules/recognition/infrastructure/prisma-capture-queue";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * A fila de captura de uma publicação — os recortes que ainda não viraram questão.

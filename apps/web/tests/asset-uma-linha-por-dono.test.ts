@@ -131,7 +131,8 @@ describe("o mesmo arquivo, uma linha por dono", () => {
 
   it("descartar a cópia de um recorte não tira a imagem do recorte que ficou", async () => {
     const { POST } = await import("../app/api/assets/crop/route");
-    const { discardCapture, readCaptureFacts } =
+    const { discardCapture } = await import("@modules/recognition/application/discard-capture");
+    const { PrismaCaptureDiscarder, readCaptureFacts } =
       await import("@modules/recognition/infrastructure/prisma-capture-queue");
     const { GET } = await import("../app/api/assets/[assetId]/content/route");
 
@@ -156,7 +157,7 @@ describe("o mesmo arquivo, uma linha por dono", () => {
     const fica = await recortar();
     const copia = await recortar();
 
-    expect(await discardCapture(copia.anchorId)).toBe("discarded");
+    await discardCapture(new PrismaCaptureDiscarder(), copia.anchorId);
 
     const fila = await readCaptureFacts(publication.id);
     expect(fila.map((item) => [item.anchorId, item.cropAssetId])).toEqual([

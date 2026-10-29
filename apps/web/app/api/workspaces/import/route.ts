@@ -2,21 +2,14 @@ import { NextResponse } from "next/server";
 
 import { importArchive } from "@modules/portability/application/import-archive";
 import {
-  ArchiveTooLargeError,
-  CorruptArchiveError,
-  RetiredFormatVersionError,
-  UnknownFormatVersionError,
-} from "@modules/portability/domain/portable-schema";
-import {
   describeConflicts,
   readExistingIndex,
 } from "@modules/portability/infrastructure/prisma-import-index";
 import { writeImportedWorkspace } from "@modules/portability/infrastructure/prisma-workspace-sink";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
-import { PayloadTooLargeError, readCappedBody } from "@/shared/http/read-capped-body";
+import { storage } from "@infrastructure/composition";
+import { readCappedBody } from "@/shared/http/read-capped-body";
 
-import { toErrorResponse } from "../../tree-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * Importa um `.lbb`.
@@ -50,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const params = new URL(request.url).searchParams;
-    const storage = new LocalFileStorageProvider({ rootDir: appEnv().storageRoot });
+    const files = storage();
     const outcome = await importArchive(
       bytes,
       {
@@ -60,7 +53,7 @@ export async function POST(request: Request) {
       {
         readIndex: readExistingIndex,
         describeConflicts,
-        write: (plan, assets) => writeImportedWorkspace(plan, assets, storage),
+        write: (plan, assets) => writeImportedWorkspace(plan, assets, files),
       },
     );
 
@@ -93,33 +86,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ dryRun: false, ...seen, report: outcome.report });
     }
   } catch (error) {
-    if (error instanceof PayloadTooLargeError) {
-      return NextResponse.json(
-        { error: "too_large", message: "O arquivo passa de 512 MB." },
-        { status: 413 },
-      );
-    }
-    if (error instanceof ArchiveTooLargeError) {
-      return NextResponse.json({ error: "too_large", message: error.message }, { status: 413 });
-    }
-    if (error instanceof RetiredFormatVersionError) {
-      return NextResponse.json(
-        { error: "retired_format_version", message: error.message },
-        { status: 422 },
-      );
-    }
-    if (error instanceof UnknownFormatVersionError) {
-      return NextResponse.json(
-        { error: "unknown_format_version", message: error.message },
-        { status: 422 },
-      );
-    }
-    if (error instanceof CorruptArchiveError) {
-      return NextResponse.json(
-        { error: "corrupt_archive", message: error.message },
-        { status: 422 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

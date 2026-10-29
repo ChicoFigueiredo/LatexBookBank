@@ -3,13 +3,8 @@ import { NextResponse } from "next/server";
 import { deleteNode, moveNode, renameNode } from "@modules/document-tree/application/mutate-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 
-import {
-  BadRequestError,
-  parsePlacement,
-  parseTitle,
-  readJson,
-  toErrorResponse,
-} from "../../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../../http";
+import { parsePlacement, parseTitle } from "../../../../tree-parsers";
 
 /**
  * Um nó dentro de uma publicação.

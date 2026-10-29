@@ -4,6 +4,8 @@ import { getPublicationTree } from "@modules/document-tree/application/get-publi
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 
+import { withErrors } from "../../../http";
+
 /**
  * Árvore de uma publicação.
  *
@@ -18,7 +20,10 @@ import { PrismaPublicationRepository } from "@modules/publications/infrastructur
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withErrors(async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
 
   const publication = await new PrismaPublicationRepository().findById(id);
@@ -39,4 +44,4 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       headers: { "Cache-Control": "no-store" },
     },
   );
-}
+});

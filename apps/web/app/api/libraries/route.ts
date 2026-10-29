@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { createLibrary } from "@modules/workspaces/application/manage-libraries";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
-import { readJson } from "../tree-http";
-import { toLibraryErrorResponse } from "./library-http";
+import { readJson } from "../http";
+import { toErrorResponse } from "../http";
 
 /**
  * As bibliotecas do acervo — listar e criar.
@@ -30,6 +30,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ library }, { status: 201 });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

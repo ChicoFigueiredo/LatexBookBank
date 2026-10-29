@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { findAssetContentRef } from "@modules/assets/infrastructure/prisma-provenance-reader";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 import { servedContentHeaders } from "@/shared/http/served-content";
-import { asStorageKey, AssetNotFoundError } from "@/shared/ports";
+import { asStorageKey } from "@/shared/ports";
+
+import { withErrors } from "../../../http";
 
 /**
  * Serve os bytes de um asset.
@@ -26,7 +27,10 @@ import { asStorageKey, AssetNotFoundError } from "@/shared/ports";
  */
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ assetId: string }> }) {
+export const GET = withErrors(async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ assetId: string }> },
+) {
   const { assetId } = await params;
 
   const asset = await findAssetContentRef(assetId);
@@ -37,32 +41,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ass
     );
   }
 
-  try {
-    const stored = await new LocalFileStorageProvider({
-      rootDir: appEnv().storageRoot,
-    }).get(asStorageKey(asset.storageKey));
+  // Linha no banco sem arquivo no storage vira `asset_evicted` no tradutor: para um derivado é
+  // legítimo (D29), e a resposta certa é 404 com a razão — não 500 opaco.
+  const stored = await storage().get(asStorageKey(asset.storageKey));
 
-    // `nosniff` sempre, e SVG (ou qualquer tipo que não seja imagem comum ou PDF) em sandbox: o
-    // arquivo é de quem subiu ou de um `.lbb`, e aberto numa aba não pode rodar como o app (#257).
-    return new Response(new Uint8Array(stored.content), {
-      headers: servedContentHeaders({
-        mimeType: stored.mimeType,
-        sizeBytes: stored.sizeBytes,
-        filename: asset.filename ?? assetId,
-      }),
-    });
-  } catch (error) {
-    if (error instanceof AssetNotFoundError) {
-      // Linha no banco sem arquivo no storage. Para um derivado isso é legítimo (D29), e a
-      // resposta certa é 404 com a razão — não 500 opaco.
-      return NextResponse.json(
-        {
-          error: "asset_evicted",
-          message: "O arquivo não está mais no storage.",
-        },
-        { status: 404 },
-      );
-    }
-    throw error;
-  }
-}
+  // `nosniff` sempre, e SVG (ou qualquer tipo que não seja imagem comum ou PDF) em sandbox: o
+  // arquivo é de quem subiu ou de um `.lbb`, e aberto numa aba não pode rodar como o app (#257).
+  return new Response(new Uint8Array(stored.content), {
+    headers: servedContentHeaders({
+      mimeType: stored.mimeType,
+      sizeBytes: stored.sizeBytes,
+      filename: asset.filename ?? assetId,
+    }),
+  });
+});

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+import { requireQuestionScope } from "@/shared/authorization/question-scope";
 
 import { renderDocument } from "@modules/rendering/application/render-document";
 import { questionRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
@@ -8,11 +8,11 @@ import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wi
 
 import {
   parseRenderProfile,
-  renderErrorResponse,
-  renderJobResponse,
   rendererNotConfigured,
+  renderJobResponse,
 } from "../../../../../render-http";
-import { readJson } from "../../../../../tree-http";
+import { toErrorResponse } from "../../../../../http";
+import { readJson } from "../../../../../http";
 
 /**
  * Compila uma questão.
@@ -34,18 +34,7 @@ export async function POST(
   const { id, questionId } = await params;
 
   try {
-    const escopo = await resolveQuestionScope(id, questionId);
-    if (escopo === null) {
-      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
-      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
-      return NextResponse.json(
-        {
-          error: "not_found",
-          message: `Questão ${questionId} não existe nesta publicação.`,
-        },
-        { status: 404 },
-      );
-    }
+    const escopo = await requireQuestionScope(id, questionId);
 
     const wiring = renderWiringFromEnv();
     if (wiring === null) return rendererNotConfigured();
@@ -78,6 +67,6 @@ export async function POST(
 
     return renderJobResponse(rendered);
   } catch (error) {
-    return renderErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

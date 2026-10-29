@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import type { RenderDocumentResult } from "@modules/rendering/application/render-document";
 import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
 import { RENDERER_NOT_CONFIGURED_MESSAGE } from "@modules/rendering/infrastructure/render-wiring";
-import { RendererUnavailableError, type RenderProfile } from "@/shared/ports";
+import type { RenderProfile } from "@/shared/ports";
 
-import { BadRequestError, toErrorResponse } from "./tree-http";
+import { BadRequestError } from "./http";
 
 /**
  * O HTTP das rotas de render, num lugar só.
@@ -59,15 +59,4 @@ export function renderJobResponse({ job, cacheHit, sourceLatex, sourceMap }: Ren
       height: artifact.height,
     })),
   });
-}
-
-/** 503 e não 500 quando o worker não respondeu: é indisponibilidade, e o texto está salvo. */
-export function renderErrorResponse(error: unknown): NextResponse {
-  if (error instanceof RendererUnavailableError) {
-    return NextResponse.json(
-      { error: "renderer_unavailable", message: error.message },
-      { status: 503 },
-    );
-  }
-  return toErrorResponse(error);
 }

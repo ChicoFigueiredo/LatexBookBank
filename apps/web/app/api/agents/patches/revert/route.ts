@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 
-import {
-  QuestionGoneError,
-  revertQuestion,
-} from "@modules/agents/application/apply-question-patch";
+import { revertQuestion } from "@modules/agents/application/apply-question-patch";
 import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 import { findRevision } from "@modules/revisions/infrastructure/prisma-revision-reader";
 import type { RevertPatchResponse } from "@modules/agents/application/agent-contract";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * Volta a questão a uma revisão.
@@ -61,9 +58,6 @@ export async function POST(request: Request) {
       revertedTo: revisionNumber,
     } satisfies RevertPatchResponse);
   } catch (error) {
-    if (error instanceof QuestionGoneError) {
-      return NextResponse.json({ error: "question_gone", message: error.message }, { status: 409 });
-    }
     return toErrorResponse(error);
   }
 }

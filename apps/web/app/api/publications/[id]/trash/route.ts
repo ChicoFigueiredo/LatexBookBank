@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { listTrash } from "@modules/document-tree/application/list-trash";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * A lixeira de uma publicação.
@@ -12,10 +13,8 @@ import { toErrorResponse } from "../../../tree-http";
  * foi excluído. A §33 pede o contrário, e a §49 chama isto pelo nome: endpoint pronto, jornada
  * inexistente.
  *
- * O que sai é o que a lixeira precisa mostrar. `restorable` responde a regra que o `restoreNode`
- * aplica: um nó cujo ancestral também está na lixeira não pode voltar sozinho — ele voltaria
- * apontando para um pai invisível, sumiria da árvore de novo, e o usuário concluiria que a
- * restauração falhou sem nada dizer.
+ * O que sai é o que a lixeira precisa mostrar. `restorable` é a regra que o `restoreNode` aplica,
+ * e vem do caso de uso (`listTrash`), que usa a mesma função do domínio.
  */
 export const dynamic = "force-dynamic";
 
@@ -23,17 +22,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   try {
-    const deleted = await new PrismaDocumentTreeRepository().listDeleted(id);
-    const naLixeira = new Set(deleted.map((node) => node.id));
+    const items = await listTrash(new PrismaDocumentTreeRepository(), id);
 
     return NextResponse.json({
-      items: deleted.map((node) => ({
-        id: node.id,
-        title: node.title,
-        kind: node.kind,
-        deletedAt: node.deletedAt.toISOString(),
-        restorable: node.parentId === null || !naLixeira.has(node.parentId),
-      })),
+      items: items.map((item) => ({ ...item, deletedAt: item.deletedAt.toISOString() })),
     });
   } catch (error) {
     return toErrorResponse(error);

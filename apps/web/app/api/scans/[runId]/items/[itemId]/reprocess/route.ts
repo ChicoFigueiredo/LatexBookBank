@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { env as appEnv } from "@/shared/config/env";
 import { asStorageKey } from "@/shared/ports/storage-provider";
 import { reprocessItem } from "@modules/scan/application/review-scan";
-import { InvalidReviewError } from "@modules/scan/domain/review";
 import { storageKeyOfAsset } from "@modules/scan/infrastructure/prisma-scan-store";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 import { mathPassFromEnv, semanticPassFromEnv } from "@modules/scan/infrastructure/scan-passes";
 
-import { toScanErrorResponse } from "../../../../scan-http";
-import { BadRequestError, readJson } from "../../../../../tree-http";
+import { toErrorResponse } from "../../../../../http";
+import { BadRequestError, readJson } from "../../../../../http";
 
 /** Reprocessar um item com IA ou com o reconhecimento matemático (§36). Síncrono: é um item só. */
 export const dynamic = "force-dynamic";
@@ -26,7 +24,6 @@ export async function POST(
       throw new BadRequestError("`what` precisa ser `ai`, `math` ou `figure`.");
     }
 
-    const env = appEnv();
     const { store, storage, opener, figures } = scanDeps();
     const item = await reprocessItem(
       {
@@ -36,8 +33,8 @@ export async function POST(
           const key = await storageKeyOfAsset(assetId);
           return key ? (await storage.get(asStorageKey(key))).content : null;
         },
-        semantic: semanticPassFromEnv(env),
-        math: mathPassFromEnv(env),
+        semantic: semanticPassFromEnv(),
+        math: mathPassFromEnv(),
         figures,
       },
       runId,
@@ -46,9 +43,6 @@ export async function POST(
     );
     return NextResponse.json({ item });
   } catch (error) {
-    if (error instanceof InvalidReviewError) {
-      return NextResponse.json({ error: "invalid_review", message: error.message }, { status: 409 });
-    }
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

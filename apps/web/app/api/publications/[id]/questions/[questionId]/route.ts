@@ -1,28 +1,22 @@
 import { NextResponse } from "next/server";
 
-import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+import { requireQuestionScope } from "@/shared/authorization/question-scope";
 
-import { QuestionNotFoundError, saveQuestion } from "@modules/questions/application/save-question";
+import { saveQuestion } from "@modules/questions/application/save-question";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
-import {
-  MetadataError,
-  normalizeMetadata,
-  type MetadataInput,
-} from "@modules/questions/domain/question-metadata";
+import { normalizeMetadata, type MetadataInput } from "@modules/questions/domain/question-metadata";
 import {
   isQuestionType,
   QUESTION_STATUSES,
   type QuestionStatus,
 } from "@modules/questions/domain/question-type";
 import { PrismaQuestionRepository } from "@modules/questions/infrastructure/prisma-question-repository";
-import { ConcurrencyConflictError } from "@/shared/ports/repository";
 import type {
   QuestionDetailResponse,
-  SaveQuestionConflict,
   SaveQuestionResponse,
 } from "@modules/questions/application/question-contract";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../../http";
 
 /**
  * Salva o conteúdo de uma questão.
@@ -81,18 +75,7 @@ export async function GET(
   const { id, questionId } = await params;
 
   try {
-    const escopo = await resolveQuestionScope(id, questionId);
-    if (escopo === null) {
-      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
-      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
-      return NextResponse.json(
-        {
-          error: "not_found",
-          message: `Questão ${questionId} não existe nesta publicação.`,
-        },
-        { status: 404 },
-      );
-    }
+    await requireQuestionScope(id, questionId);
 
     const snapshot = await new PrismaQuestionRepository().findById(questionId);
     if (snapshot === null) {
@@ -127,18 +110,7 @@ export async function PATCH(
   const { id, questionId } = await params;
 
   try {
-    const escopo = await resolveQuestionScope(id, questionId);
-    if (escopo === null) {
-      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
-      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
-      return NextResponse.json(
-        {
-          error: "not_found",
-          message: `Questão ${questionId} não existe nesta publicação.`,
-        },
-        { status: 404 },
-      );
-    }
+    await requireQuestionScope(id, questionId);
 
     const body = await readJson(request);
 
@@ -218,29 +190,6 @@ export async function PATCH(
       written: result.written,
     } satisfies SaveQuestionResponse);
   } catch (error) {
-    if (error instanceof MetadataError) {
-      // Recusa em vez de correção silenciosa: ano `20244` é erro de digitação, e gravar `2024`
-      // seria adivinhação — que é como um acervo perde a confiabilidade.
-      return NextResponse.json(
-        { error: "invalid_metadata", field: error.field, message: error.message },
-        { status: 400 },
-      );
-    }
-    if (error instanceof QuestionNotFoundError) {
-      return NextResponse.json({ error: "not_found", message: error.message }, { status: 404 });
-    }
-    if (error instanceof ConcurrencyConflictError) {
-      return NextResponse.json(
-        {
-          error: "conflict",
-          message:
-            "Esta questão mudou desde que você abriu. Recarregue para ver a versão atual antes de salvar.",
-          expectedVersion: String(error.expectedVersion),
-          actualVersion: String(error.actualVersion),
-        } satisfies SaveQuestionConflict,
-        { status: 409 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

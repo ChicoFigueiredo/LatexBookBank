@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server";
 
-import {
-  composeVariant,
-  composeVersions,
-  EmptyAssessmentError,
-  MissingQuestionError,
-  QuestionsInTrashError,
-  UnsupportedQuestionTypeError,
-} from "@modules/assessments/application/compose-assessment";
-import {
-  contentFor,
-  findAssessment,
-  saveVariant,
-} from "@modules/assessments/infrastructure/prisma-assessment-repository";
+import { drawVariant } from "@modules/assessments/application/manage-assessments";
+import { PrismaAssessmentStore } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * Sorteia uma variante e guarda **o mapa de letras**.
@@ -60,14 +49,6 @@ export async function POST(
     }
     const seed = rawSeed ?? Date.now() % MAX_SEED;
 
-    const assessment = await findAssessment(assessmentId);
-    if (assessment === null) {
-      return NextResponse.json(
-        { error: "not_found", message: "Esta avaliação não existe." },
-        { status: 404 },
-      );
-    }
-
     const spec = {
       label,
       seed,
@@ -75,11 +56,11 @@ export async function POST(
       shuffleOptions: body["shuffleOptions"] !== false,
     };
 
-    const content = await contentFor(assessment.items.map((item) => item.questionId));
-    const variant = composeVariant(assessment, spec, content);
-    const versions = composeVersions(assessment, variant, content);
-
-    await saveVariant(assessmentId, variant, spec);
+    const { variant, versions } = await drawVariant(
+      new PrismaAssessmentStore(),
+      assessmentId,
+      spec,
+    );
 
     return NextResponse.json(
       {
@@ -93,28 +74,6 @@ export async function POST(
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof UnsupportedQuestionTypeError) {
-      return NextResponse.json(
-        {
-          error: "unsupported_question_type",
-          message: error.message,
-          questionIds: error.questionIds,
-        },
-        { status: 409 },
-      );
-    }
-    if (error instanceof QuestionsInTrashError) {
-      return NextResponse.json(
-        { error: "questions_in_trash", message: error.message, questionIds: error.questionIds },
-        { status: 409 },
-      );
-    }
-    if (error instanceof EmptyAssessmentError || error instanceof MissingQuestionError) {
-      return NextResponse.json(
-        { error: "cannot_compose", message: error.message },
-        { status: 409 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

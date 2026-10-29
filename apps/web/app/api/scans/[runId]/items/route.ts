@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { reviewScan } from "@modules/scan/application/review-scan";
-import { InvalidReviewError, type ReviewOperation } from "@modules/scan/domain/review";
+import { type ReviewOperation } from "@modules/scan/domain/review";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { toScanErrorResponse } from "../../scan-http";
-import { BadRequestError, readJson } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
+import { BadRequestError, readJson } from "../../../http";
 
 /**
  * Uma operação de revisão sobre a proposta (§36). O corpo é a operação; a resposta, os itens que
@@ -62,9 +62,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ru
     );
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof InvalidReviewError) {
-      return NextResponse.json({ error: "invalid_review", message: error.message }, { status: 409 });
-    }
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

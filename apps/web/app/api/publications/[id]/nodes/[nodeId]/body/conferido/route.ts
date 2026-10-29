@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { confirmNodeBody } from "@modules/document-tree/application/save-node-body";
-import { InvalidNodeBodyError } from "@modules/document-tree/domain/node-body";
 import { PrismaNodeBodyRepository } from "@modules/document-tree/infrastructure/prisma-node-body";
 
-import { toErrorResponse } from "../../../../../../tree-http";
+import { toErrorResponse } from "../../../../../../http";
 
 /**
  * Conferir o corpo de um nó (D40, #252): o exemplo ou a teoria que o scan escreveu foi lido, e sai
@@ -21,9 +20,6 @@ export async function POST(
     await confirmNodeBody(new PrismaNodeBodyRepository(), { publicationId: id, nodeId });
     return NextResponse.json({ confirmed: true });
   } catch (error) {
-    if (error instanceof InvalidNodeBodyError) {
-      return NextResponse.json({ error: "bad_request", message: error.message }, { status: 400 });
-    }
     return toErrorResponse(error);
   }
 }

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
 import {
-  addQuestion,
-  removeQuestion,
-} from "@modules/assessments/infrastructure/prisma-assessment-repository";
+  addQuestionToAssessment,
+  removeQuestionFromAssessment,
+} from "@modules/assessments/application/manage-assessments";
+import { PrismaAssessmentStore } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * Acrescenta ou tira uma questão da prova.
@@ -30,7 +31,11 @@ export async function POST(
       throw new BadRequestError("`questionId` é obrigatório.");
     }
 
-    const result = await addQuestion(assessmentId, questionId);
+    const result = await addQuestionToAssessment(
+      new PrismaAssessmentStore(),
+      assessmentId,
+      questionId,
+    );
 
     if (!result.added && result.reason === "foreign") {
       // 400 e não 200: uma questão de **outra biblioteca** numa prova daqui é engano, e ele custa
@@ -77,7 +82,7 @@ export async function DELETE(
       throw new BadRequestError("`questionId` é obrigatório.");
     }
 
-    await removeQuestion(assessmentId, questionId);
+    await removeQuestionFromAssessment(new PrismaAssessmentStore(), assessmentId, questionId);
     return new Response(null, { status: 204 });
   } catch (error) {
     return toErrorResponse(error);
