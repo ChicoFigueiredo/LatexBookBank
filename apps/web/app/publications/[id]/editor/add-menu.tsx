@@ -4,7 +4,9 @@ import { useState } from "react";
 
 import { Button, Icon, Popover, injectCss, type IconName } from "@/design-system";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
+import "@modules/questions/domain/plugins";
 import type { QuestionType } from "@modules/questions/domain/question-type";
+import { registeredPlugins } from "@modules/questions/domain/question-type-plugin";
 
 /**
  * O menu `+ Adicionar` do design (§7 dos ajustes finais).
@@ -38,16 +40,13 @@ const STRUCTURE: readonly { kind: NodeKind; label: string; icon: IconName }[] = 
 ];
 
 /**
- * Os três tipos mínimos do Beta (§12), com o vocabulário do design.
+ * Os tipos que o produto sabe tratar, com o vocabulário do design — lidos do registry.
  *
- * `MULTIPLE_CHOICE` é "Escolha simples" e `MULTIPLE_CORRECT` é "Múltipla escolha" — os nomes
- * internos vêm do mapa do import legado e não são o que o usuário lê.
+ * `MULTIPLE_CHOICE` é "Escolha simples" e `MULTIPLE_CORRECT` é "Múltipla escolha": os nomes
+ * internos vêm do mapa do import legado e não são o que o usuário lê. Rótulo e dica são do plugin,
+ * e a ordem é a do registro: um tipo novo entra no menu sem que este arquivo saiba dele.
  */
-const QUESTIONS: readonly { type: QuestionType; label: string; hint: string }[] = [
-  { type: "MULTIPLE_CHOICE", label: "Escolha simples", hint: "uma correta" },
-  { type: "MULTIPLE_CORRECT", label: "Múltipla escolha", hint: "uma ou mais corretas" },
-  { type: "DISCURSIVE", label: "Discursiva", hint: "sem alternativas" },
-];
+const QUESTIONS = registeredPlugins();
 
 export interface AddMenuProps {
   readonly disabled?: boolean;

@@ -101,8 +101,14 @@ export async function discardCapture(anchorId: string): Promise<"discarded" | "i
 
     // O `Asset` do crop sai junto, e só ele. O `sourceAssetId` — o PDF ou a imagem de origem —
     // fica: ele é a fonte, e outras âncoras apontam para ela.
+    //
+    // E o crop só sai quando nenhuma outra âncora o usa (#254, CAP-14): o mesmo recorte salvo duas
+    // vezes é **uma** linha, e descartar a cópia apagava a imagem do que ficou. A condição está na
+    // própria exclusão, depois de a âncora descartada já ter saído.
     if (anchor.cropAssetId !== null) {
-      await tx.asset.deleteMany({ where: { id: anchor.cropAssetId, kind: "CROP" } });
+      await tx.asset.deleteMany({
+        where: { id: anchor.cropAssetId, kind: "CROP", anchorsAsCrop: { none: {} } },
+      });
     }
   });
 

@@ -8,6 +8,7 @@ import { inferKind, storeAsset } from "@modules/assets/application/store-asset";
 import { isAssetKind } from "@modules/assets/domain/asset-kind";
 import { PrismaAssetWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
 import { env as appEnv } from "@/shared/config/env";
 import { StorageKeyEscapeError } from "@/shared/ports";
 
@@ -19,8 +20,11 @@ import { BadRequestError, toErrorResponse } from "../tree-http";
  * `multipart/form-data`, porque é o que file picker, drag-and-drop e `Ctrl+V` produzem sem
  * conversão — os três gestos da spec §10 chegam aqui pelo mesmo caminho.
  *
- * O `workspaceId` vem do corpo e **não** é opcional: a chave de storage é prefixada por ele, e um
- * upload sem workspace não teria onde morar sem escapar do isolamento.
+ * A biblioteca é **resolvida no servidor** (#256): a chave de storage é prefixada por ela, e um
+ * upload sem biblioteca não teria onde morar sem escapar do isolamento. Quando o livro vem, ela sai
+ * dele, e o `workspaceId` do formulário, se vier, precisa concordar; sem livro, o `workspaceId` é
+ * obrigatório e precisa existir. Livro, biblioteca ou questão que não batem viram 404 **antes** de
+ * um byte ir para o storage.
  *
  * Ver spec §10 · issue #123.
  */
@@ -34,10 +38,32 @@ export async function POST(request: Request) {
     const file = form.get("file");
     if (!(file instanceof File)) throw new BadRequestError("O campo `file` é obrigatório.");
 
-    const workspaceId = form.get("workspaceId");
-    if (typeof workspaceId !== "string" || workspaceId.trim() === "") {
-      throw new BadRequestError("O campo `workspaceId` é obrigatório.");
+    const publicationId = optionalText(form.get("publicationId"));
+    const claimedWorkspace = optionalText(form.get("workspaceId"));
+    if (publicationId === null && claimedWorkspace === null) {
+      throw new BadRequestError(
+        "Informe o livro (`publicationId`) ou a biblioteca (`workspaceId`).",
+      );
     }
+
+    // O livro de onde o upload partiu. Opcional na rota — `/api/assets` é o upload do produto
+    // inteiro — mas é ele que decide se este PDF vira o PDF fonte do livro. A regra mora no
+    // `registerUploadedAsset`; aqui se confere que livro, biblioteca e questão são um só dono.
+    const owner = await resolveAssetOwner({
+      workspaceId: claimedWorkspace,
+      publicationId,
+      questionId: optionalText(form.get("questionId")),
+    });
+    if (owner === null) {
+      return NextResponse.json(
+        {
+          error: "owner_not_found",
+          message: "O livro, a biblioteca ou a questão não existem, ou não são do mesmo dono.",
+        },
+        { status: 404 },
+      );
+    }
+    const { workspaceId } = owner;
 
     const declaredKind = form.get("kind");
     const kind =
@@ -56,20 +82,13 @@ export async function POST(request: Request) {
       new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
     );
 
-    const questionId = form.get("questionId");
-    // O livro de onde o upload partiu. Opcional na rota — `/api/assets` é o upload do produto
-    // inteiro — mas é ele que decide se este PDF vira o PDF fonte do livro. A regra mora no
-    // `registerUploadedAsset`; aqui só se lê o campo do formulário.
-    const publicationId = form.get("publicationId");
-
     const asset = await registerUploadedAsset(
       { assets: new PrismaAssetWriter() },
       {
         record,
         workspaceId,
-        questionId: typeof questionId === "string" && questionId !== "" ? questionId : null,
-        publicationId:
-          typeof publicationId === "string" && publicationId !== "" ? publicationId : null,
+        questionId: owner.questionId,
+        publicationId: owner.publicationId,
       },
     );
 
@@ -119,3 +138,6 @@ export async function POST(request: Request) {
     return toErrorResponse(error);
   }
 }
+
+const optionalText = (value: FormDataEntryValue | null): string | null =>
+  typeof value === "string" && value.trim() !== "" ? value : null;

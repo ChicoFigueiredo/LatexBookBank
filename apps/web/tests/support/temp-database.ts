@@ -23,7 +23,12 @@ export async function createTempDatabase(): Promise<{
   const dir = mkdtempSync(path.join(tmpdir(), "lbb-test-db-"));
   const url = `file:${path.join(dir, "test.db")}`;
 
-  const migrations = fileURLToPath(new URL("../../prisma/migrations", import.meta.url));
+  // `path` sobre o caminho do arquivo, e não `new URL(relativo, import.meta.url)`: sob
+  // `happy-dom` o `URL` global é o do DOM, e o `fileURLToPath` do Node não o reconhece.
+  const migrations = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../prisma/migrations",
+  );
   const client = createClient({ url });
 
   for (const entry of readdirSync(migrations, { withFileTypes: true })

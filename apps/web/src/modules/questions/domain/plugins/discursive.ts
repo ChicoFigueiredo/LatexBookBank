@@ -1,7 +1,7 @@
 import { block, type QuestionLatexBlock } from "../question-latex";
 import type { QuestionTypePlugin } from "../question-type-plugin";
 
-import { commonPreview, validateCommon } from "./shared";
+import { validateCommon } from "./shared";
 
 /**
  * Questão discursiva.
@@ -13,6 +13,8 @@ import { commonPreview, validateCommon } from "./shared";
 export const discursivePlugin: QuestionTypePlugin = {
   type: "DISCURSIVE",
   label: "Discursiva",
+  hint: "sem alternativas",
+  options: null,
 
   validate(question) {
     const issues = [...validateCommon(question)];
@@ -52,9 +54,5 @@ export const discursivePlugin: QuestionTypePlugin = {
     }
 
     return blocks;
-  },
-
-  buildFastPreview(question) {
-    return commonPreview(question);
   },
 };

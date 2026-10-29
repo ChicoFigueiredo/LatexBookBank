@@ -15,9 +15,12 @@ import { multipleCorrectPlugin } from "./multiple-correct";
  * (`MULTIPLE_CHOICE`, uma correta), múltipla escolha (`MULTIPLE_CORRECT`, uma ou mais) e
  * discursiva. Os outros quatro do vocabulário legado têm zero linhas no acervo e entram quando
  * houver questão real para exercitá-los.
+ *
+ * A ordem é a do menu de criação e do seletor de tipo: quem lista os tipos lê o registry, e não
+ * uma lista própria.
  */
-registerQuestionType(discursivePlugin);
 registerQuestionType(multipleChoicePlugin);
 registerQuestionType(multipleCorrectPlugin);
+registerQuestionType(discursivePlugin);
 
 export { discursivePlugin, multipleChoicePlugin, multipleCorrectPlugin };

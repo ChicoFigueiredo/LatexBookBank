@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { asStorageKey, type StorageProvider } from "@/shared/ports";
 import type { RenderBundle } from "@latexbookbank/render-contract";
@@ -33,7 +34,25 @@ export async function loadQuestionAssets(
   sourceLatex: string,
   storage: StorageProvider,
 ): Promise<ResolvedAssets> {
-  return await load({ questionId, renderJobId: null }, sourceLatex, storage);
+  // Os da questão, e os recortes das âncoras dela (#255). O crop nasce da âncora, sem questão nem
+  // livro, e é ele que "Inserir como figura" cita: a origem da questão (`sourceAnchor`) e as
+  // âncoras do nó dela (D50), que guardam também a continuação e a ilustração.
+  return await load(
+    {
+      renderJobId: null,
+      OR: [
+        { questionId },
+        { anchorsAsCrop: { some: { questions: { some: { id: questionId } } } } },
+        {
+          anchorsAsCrop: {
+            some: { nodeAnchors: { some: { documentNode: { questionId } } } },
+          },
+        },
+      ],
+    },
+    sourceLatex,
+    storage,
+  );
 }
 
 /**
@@ -53,7 +72,7 @@ export async function loadPublicationAssets(
 }
 
 async function load(
-  where: { readonly questionId?: string; readonly publicationId?: string; readonly renderJobId: null },
+  where: Prisma.AssetWhereInput & { readonly renderJobId: null },
   sourceLatex: string,
   storage: StorageProvider,
 ): Promise<ResolvedAssets> {

@@ -52,8 +52,12 @@ export async function GET(
           excerpt: (question?.statementLatex ?? "").slice(0, EXCERPT),
           optionCount: Object.keys(question?.options ?? {}).length,
           // Sem correta marcada, a prova sai — mas o gabarito daquela questão fica em branco, e
-          // quem monta precisa ver isso **antes** de imprimir.
-          hasCorrect: question?.correctOptionId != null,
+          // quem monta precisa ver isso **antes** de imprimir. Só vale para tipo com alternativas:
+          // pedir a correta de uma discursiva é mandar fazer algo impossível (#262).
+          missingCorrect:
+            question !== undefined && question.hasOptions && question.correctOptionIds.length === 0,
+          // Na lixeira, a variante não sai: a tela precisa dizer qual é antes de alguém tentar.
+          inTrash: question?.inTrash === true,
         };
       }),
     });
