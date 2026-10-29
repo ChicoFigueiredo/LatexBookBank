@@ -8,7 +8,7 @@ import { optionsOf, pluginFor } from "@modules/questions/domain/question-type-pl
 
 import { bodyPieceLatex, exampleBody, exampleTitle, questionLatex } from "./approval-latex";
 import { boxRect, intersectionOverUnion } from "./geometry";
-import type { ProposedRegion, ScanKind } from "./proposal";
+import { kindsWhere, SCAN_KIND_TRAITS, SCAN_KINDS, type ProposedRegion, type ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
 import { foldText } from "./text";
 
@@ -152,19 +152,17 @@ export const MIN_ALTERNATIVES = 4;
  */
 export const DUPLICATE_OVERLAP = 0.8;
 
-const NODE_KIND: Partial<Record<ScanKind, NodeKind>> = {
-  PART: "PART",
-  CHAPTER: "CHAPTER",
-  SECTION: "SECTION",
-  SUBSECTION: "SUBSECTION",
-  EXERCISE_GROUP: "QUESTION_GROUP",
-  // D56: o exemplo tem endereço próprio, e por isso é nó — e não mais texto no corpo da seção.
-  EXAMPLE: "EXAMPLE",
-};
+/** O que a aprovação faz de cada tipo vem da tabela de traços (`SCAN_KIND_TRAITS`). */
+const NODE_KIND: Partial<Record<ScanKind, NodeKind>> = Object.fromEntries(
+  SCAN_KINDS.flatMap((kind) => {
+    const nodeKind = SCAN_KIND_TRAITS[kind].nodeKind;
+    return nodeKind === null ? [] : [[kind, nodeKind]];
+  }),
+);
 
-const BODY_KINDS: ReadonlySet<ScanKind> = new Set(["CONTENT", "NOTE", "FIGURE"]);
-const QUESTION_KINDS: ReadonlySet<ScanKind> = new Set(["EXERCISE", "QUESTION"]);
-const FOLDED_KINDS: ReadonlySet<ScanKind> = new Set(["ITEM", "SUBITEM"]);
+const BODY_KINDS = kindsWhere((traits) => traits.approvesAs === "body");
+const QUESTION_KINDS = kindsWhere((traits) => traits.approvesAs === "question");
+const FOLDED_KINDS = kindsWhere((traits) => traits.approvesAs === "folded");
 
 /** O item está no mesmo lugar da âncora: mesma página, e interseção sobre união acima do limite. */
 const coincides = (item: ScanItem, anchor: ExistingAnchor): boolean =>
