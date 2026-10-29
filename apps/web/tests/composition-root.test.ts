@@ -49,6 +49,20 @@ describe("os adaptadores concretos nascem na raiz de composição", () => {
       expect(fora).toEqual([]);
     });
   }
+
+  it("as fábricas devolvem a porta, e não a classe concreta", () => {
+    // `aiProvider()` devolvia `OpenAiCompatibleProvider`: quem chamava podia usar o que a porta
+    // não promete, e trocar o adaptador quebraria o chamador em vez de ser só trocar a fábrica.
+    const composition = readFileSync(path.join(root, "src/infrastructure/composition.ts"), "utf8");
+    const returnTypes = [...composition.matchAll(/\)\s*:\s*([^=;{]*?)\s*\{\n/g)].map(
+      (match) => match[1] ?? "",
+    );
+
+    expect(returnTypes.length).toBeGreaterThan(0);
+    expect(
+      returnTypes.filter((type) => DONOS.some(([concrete]) => type.includes(concrete))),
+    ).toEqual([]);
+  });
 });
 
 /**

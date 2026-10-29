@@ -3,7 +3,11 @@ import "server-only";
 import { capabilitiesFor } from "@modules/agents/domain/ai-profile";
 import { VisionMathRecognizer } from "@modules/recognition/infrastructure/vision-math-recognizer";
 import { env as appEnv } from "@/shared/config/env";
-import type { MathRecognitionProvider, StorageProvider } from "@/shared/ports";
+import type {
+  ConfiguredAiProvider,
+  MathRecognitionProvider,
+  StorageProvider,
+} from "@/shared/ports";
 
 import { OpenAiCompatibleProvider } from "./ai/openai-compatible/openai-compatible-provider";
 import { LocalFileStorageProvider } from "./storage/local/local-file-storage-provider";
@@ -39,7 +43,7 @@ export function storage(): StorageProvider {
  */
 export function aiProvider(
   options: { readonly timeoutMs?: number } = {},
-): OpenAiCompatibleProvider | null {
+): ConfiguredAiProvider | null {
   const { aiBaseUrl, aiApiKey, aiModel, aiToolCalling } = appEnv();
   if (aiBaseUrl === null) return null;
 

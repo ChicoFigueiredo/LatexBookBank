@@ -62,6 +62,7 @@ export type {
   AiModelCapabilities,
   AiProvider,
   AiToolCall,
+  ConfiguredAiProvider,
   AiToolDefinition,
   AiToolResult,
   AiUsage,
