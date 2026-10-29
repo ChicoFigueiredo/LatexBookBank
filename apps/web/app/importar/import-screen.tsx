@@ -4,12 +4,11 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Banner, Button, Callout, Field, Icon, Select } from "@/design-system";
-import {
-  type ImportConflict,
-  describeConflict,
-  formatCount,
-} from "@modules/portability/domain/import-conflicts";
+import { describeConflict, formatCount } from "@modules/portability/domain/import-conflicts";
 import { LBB_CARRIES, LBB_LEAVES } from "@modules/portability/domain/backup-scope";
+import type { ImportSimulationResponse } from "@modules/portability/application/import-contract";
+import { importApi } from "@modules/portability/ui/import-client";
+import { ApiError } from "@/shared/http/api-client";
 import { formatarTamanho } from "@/shared/format/bytes";
 
 import { useAcervoStyles } from "../acervo-styles";
@@ -30,20 +29,11 @@ import { AppShell } from "../app-shell";
  * nada é sobrescrito sem escolha.
  */
 
-interface Manifest {
-  readonly workspaceName?: string;
-  readonly counts?: Record<string, number>;
-}
-
-interface DryRunResult {
-  readonly manifest: Manifest;
-  readonly conflicts: readonly ImportConflict[];
-  readonly wouldCreate: Record<string, number>;
-  readonly sizeBytes?: number;
-}
-
 /** As quatro células do protótipo, nesta ordem. `conflitos` é a única em warn. */
-const CELULAS: readonly { readonly key: string; readonly label: string }[] = [
+const CELULAS: readonly {
+  readonly key: keyof ImportSimulationResponse["wouldCreate"];
+  readonly label: string;
+}[] = [
   { key: "publications", label: "livros" },
   { key: "questions", label: "questões" },
   { key: "assets", label: "arquivos" },
@@ -60,7 +50,7 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
   const input = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<DryRunResult | null>(null);
+  const [preview, setPreview] = useState<ImportSimulationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -76,31 +66,19 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
     try {
       // Gravar depois de ver conflitos leva o aceite: o servidor recusa sem ele (#270), e um
       // conflito que surja entre a simulação e a gravação volta como recusa, não passa calado.
-      const query = dryRun
-        ? "?dryRun=1"
-        : (preview?.conflicts.length ?? 0) > 0
-          ? "?acceptCollisions=1"
-          : "";
-      const response = await fetch(`/api/workspaces/import${query}`, {
-        method: "POST",
-        headers: { "content-type": "application/zip" },
-        body: chosen,
-      });
-      const payload = (await response.json()) as DryRunResult & { message?: string };
-
-      if (!response.ok) {
-        setError(payload.message ?? "Não deu para ler o arquivo.");
-        setPreview(null);
-        return;
-      }
-
-      if (dryRun) setPreview(payload);
+      if (dryRun) setPreview(await importApi.simulate(chosen));
       else {
+        await importApi.run(chosen, { acceptCollisions: (preview?.conflicts.length ?? 0) > 0 });
         setDone(true);
         router.refresh();
       }
-    } catch {
-      setError("Não deu para falar com o servidor.");
+    } catch (failure) {
+      if (failure instanceof ApiError) {
+        setError(failure.serverMessage ?? "Não deu para ler o arquivo.");
+        setPreview(null);
+      } else {
+        setError("Não deu para falar com o servidor.");
+      }
     } finally {
       setBusy(false);
     }
