@@ -21,10 +21,11 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
  * Os casos de uso da árvore contra o adaptador Prisma e um SQLite com as migrações reais (TST-05
  * da revisão de 2026-09-23).
  *
- * `mutate-tree.test.ts` prova as regras com um dublê em memória, e o dublê não reproduz o que só
- * o banco tem: transação, FK, cascata, o `deletedAt` de cada ato e a cópia de questão,
- * alternativas, tags e âncoras que `duplicateSubtree` faz numa transação de cem linhas. Uma
- * mudança de schema que quebrasse duplicar ou restaurar deixava a suíte verde. Aqui, não.
+ * As regras da árvore estão no contrato (`tree-contract.test.ts`), que roda contra o dublê e
+ * contra este adaptador. Aqui fica o que só o banco tem: transação, FK, cascata, o `deletedAt` de
+ * cada ato e a cópia de questão, alternativas, tags e âncoras que `duplicateSubtree` faz numa
+ * transação de cem linhas. Uma mudança de schema que quebrasse duplicar ou restaurar deixava a
+ * suíte verde. Aqui, não.
  */
 
 type Prisma = PrismaClient;
