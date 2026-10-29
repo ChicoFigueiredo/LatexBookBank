@@ -5,6 +5,7 @@ import type {
 } from "@modules/document-tree/domain/document-tree-repository";
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
+import { deletedAncestorOf } from "@modules/document-tree/domain/restoration";
 import {
   NodeNotFoundError,
   assertMoveIsLegal,
@@ -145,9 +146,8 @@ export async function restoreNode(
   const node = byId.get(nodeId);
   if (!node) throw new NodeNotFoundError(nodeId);
 
-  if (node.parentId !== null && byId.has(node.parentId)) {
-    throw new DeletedAncestorError(nodeId, node.parentId);
-  }
+  const ancestor = deletedAncestorOf(node, byId);
+  if (ancestor !== null) throw new DeletedAncestorError(nodeId, ancestor);
 
   const instante = node.deletedAt.getTime();
   const childrenOf = new Map<string | null, string[]>();
