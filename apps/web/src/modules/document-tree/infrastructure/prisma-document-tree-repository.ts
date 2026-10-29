@@ -33,6 +33,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         sortKey: true,
         numberingStyle: true,
         originalLabel: true,
+        // A âncora principal do nó: com a última revisão, responde se o corpo é *a revisar*.
+        sourceAnchor: { select: { extractionMethod: true } },
         question: {
           select: {
             id: true,
@@ -67,6 +69,30 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
       },
     });
 
+    /*
+      O corpo *a revisar* (#252) precisa de dois fatos que a linha do nó não traz: se o corpo tem
+      texto — sem carregar o texto de todos os corpos para desenhar a árvore — e a origem da última
+      revisão de cada nó. Duas consultas a mais, e nenhuma coluna nova (D40).
+    */
+    const withBody = new Set(
+      (
+        await prisma.documentNode.findMany({
+          where: { publicationId, deletedAt: null, questionId: null, bodyLatex: { not: "" } },
+          select: { id: true },
+        })
+      ).map((row) => row.id),
+    );
+    const lastOrigin = new Map<string, string>();
+    for (const ids of inChunks([...withBody])) {
+      const revisions = await prisma.revision.findMany({
+        where: { entityType: "DOCUMENT_NODE", entityId: { in: ids } },
+        orderBy: { revisionNumber: "asc" },
+        select: { entityId: true, origin: true },
+      });
+      // Em ordem crescente, a última escrita de cada nó é a que fica no mapa.
+      for (const revision of revisions) lastOrigin.set(revision.entityId, revision.origin);
+    }
+
     return rows.map((row) => {
       if (!isNodeKind(row.kind)) {
         throw new Error(`NodeKind desconhecido no nó ${row.id}: ${row.kind}`);
@@ -84,6 +110,13 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         numberingStyle: row.numberingStyle,
         originalLabel: row.originalLabel,
         question: row.question,
+        body: withBody.has(row.id)
+          ? {
+              hasBody: true,
+              anchorMethod: row.sourceAnchor?.extractionMethod ?? null,
+              lastRevisionOrigin: lastOrigin.get(row.id) ?? null,
+            }
+          : null,
       };
     });
   }
