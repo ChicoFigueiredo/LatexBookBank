@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { env, visionConfigured } from "@/shared/config/env";
 import { describeAiSetup } from "@modules/agents/application/describe-ai-setup";
-import { fraseDaLocalidade, localidadeDaIa } from "@modules/agents/domain/ai-locality";
+import { describeAiLocality, aiLocality } from "@modules/agents/domain/ai-locality";
 import { readBookSource } from "@modules/assets/infrastructure/prisma-book-source";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { scanRunDto } from "@modules/scan/application/scan-run-dto";
@@ -73,7 +73,7 @@ export default async function ScanPage({
       runs={runs.map((run) => scanRunDto(run, runner.isRunning(run.id)))}
       aiConfigured={appEnv.aiBaseUrl !== null && appEnv.aiModel !== null}
       visionConfigured={visionConfigured(appEnv)}
-      aviso={fraseDaLocalidade(localidadeDaIa(appEnv.aiBaseUrl), ai?.providerLabel ?? null)}
+      aviso={describeAiLocality(aiLocality(appEnv.aiBaseUrl), ai?.providerLabel ?? null)}
       importRemoved={importacao === "apagada"}
     />
   );

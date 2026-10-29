@@ -64,16 +64,16 @@ async function main(): Promise<void> {
 
     // Órfã com histórico (asset, render, agente ou avaliação) não é resíduo de seed — é sinal de
     // que alguém trabalhou nela, e apagar seria destruir trabalho, não limpar lixo. Aborta.
-    const comHistorico = orphans.filter(
+    const withHistory = orphans.filter(
       (q) =>
         q._count.assets > 0 ||
         q._count.renderJobs > 0 ||
         q._count.agentRuns > 0 ||
         q._count.assessmentItems > 0,
     );
-    if (comHistorico.length > 0) {
+    if (withHistory.length > 0) {
       console.error(
-        `\n${comHistorico.length} órfã(s) com histórico (assets/render/agente/avaliação) — ` +
+        `\n${withHistory.length} órfã(s) com histórico (assets/render/agente/avaliação) — ` +
           `não são resíduo de seed. Nada foi apagado; investigue antes.`,
       );
       process.exitCode = 1;

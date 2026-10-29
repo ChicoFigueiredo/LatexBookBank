@@ -2,12 +2,12 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import {
-  type CapituloDoLivro,
-  type NoDaEstrutura,
-  type ProgressoDeCaptura,
-  faixaRevisada,
-  resumirCaptura,
-  sumarizarCapitulos,
+  type BookChapter,
+  type StructureNode,
+  type CaptureProgress,
+  describeReviewedRange,
+  summarizeCapture,
+  summarizeChapters,
 } from "@modules/publications/domain/book-overview";
 import { formatarEdicao } from "@modules/publications/domain/shelf-labels";
 import { formatarTamanho } from "@/shared/format/bytes";
@@ -21,7 +21,7 @@ import { formatarTamanho } from "@/shared/format/bytes";
  * resumo que os casos de uso de escrita precisam carregar.
  */
 
-export interface PendenciaDoLivro {
+export interface BookIssue {
   readonly kind: "invalidas" | "captura" | "sem-questoes" | "sem-fonte";
   readonly label: string;
   /** Onde está — o texto mono à direita, no protótipo. */
@@ -31,7 +31,7 @@ export interface PendenciaDoLivro {
   readonly icon: "triangle-alert" | "scan-text" | "file-text" | "circle-help";
 }
 
-export interface FonteEditorial {
+export interface SourcePdfSummary {
   readonly filename: string;
   readonly size: string;
   /** De onde veio e quando — a linha em cinza abaixo do arquivo. */
@@ -45,7 +45,7 @@ export interface FonteEditorial {
  * PDF de onde saíram, e sumir da tela faria a aba Origem de uma questão antiga referenciar um
  * arquivo que a interface nega existir.
  */
-export interface FonteAnterior {
+export interface PreviousSourcePdf {
   readonly id: string;
   readonly filename: string;
   readonly size: string;
@@ -63,13 +63,13 @@ export interface BookOverview {
   /** O carimbo da lombada, para a capa desenhada. */
   readonly mark: string;
   readonly meta: readonly { readonly k: string; readonly v: string }[];
-  readonly chapters: readonly CapituloDoLivro[];
+  readonly chapters: readonly BookChapter[];
   readonly questionCount: number;
   readonly invalidCount: number;
-  readonly issues: readonly PendenciaDoLivro[];
-  readonly source: FonteEditorial | null;
-  readonly previousSources: readonly FonteAnterior[];
-  readonly capture: ProgressoDeCaptura | null;
+  readonly issues: readonly BookIssue[];
+  readonly source: SourcePdfSummary | null;
+  readonly previousSources: readonly PreviousSourcePdf[];
+  readonly capture: CaptureProgress | null;
   readonly reviewedRange: string | null;
   /**
    * Livro sem capítulo e sem questão — o estado `LIVRO · vazio` do protótipo (601–642).
@@ -159,7 +159,7 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
     }),
   ]);
 
-  const estrutura: NoDaEstrutura[] = nos.map((no) => ({
+  const estrutura: StructureNode[] = nos.map((no) => ({
     id: no.id,
     parentId: no.parentId,
     kind: no.kind,
@@ -170,7 +170,7 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
     isInvalid: no.question?.validationStatus === "INVALID",
   }));
 
-  const chapters = sumarizarCapitulos(estrutura);
+  const chapters = summarizeChapters(estrutura);
   const questionCount = estrutura.filter((no) => no.isQuestion).length;
   const invalidCount = estrutura.filter((no) => no.isInvalid).length;
 
@@ -218,8 +218,8 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
         filename: asset.originalFilename ?? "fonte.pdf",
         size: formatarTamanho(asset.sizeBytes),
       })),
-    capture: resumirCaptura(capturados, naFila, ultimaPagina),
-    reviewedRange: faixaRevisada(chapters),
+    capture: summarizeCapture(capturados, naFila, ultimaPagina),
+    reviewedRange: describeReviewedRange(chapters),
     isEmpty: chapters.length === 0 && questionCount === 0,
     justCreated: Date.now() - publication.createdAt.getTime() < RECEM_CRIADO_MS,
   };
@@ -290,8 +290,8 @@ function pendencias(facts: {
   naFila: number;
   questionCount: number;
   temFonte: boolean;
-}): readonly PendenciaDoLivro[] {
-  const issues: PendenciaDoLivro[] = [];
+}): readonly BookIssue[] {
+  const issues: BookIssue[] = [];
   const editor = `/publications/${facts.publicationId}/editor`;
 
   if (facts.invalidCount > 0 && facts.primeiraInvalidaId) {

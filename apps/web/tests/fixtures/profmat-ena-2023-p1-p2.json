@@ -1,4829 +1,4829 @@
 [
  {
-  "largura": 595.28,
-  "altura": 841.89,
-  "palavras": [
+  "width": 595.28,
+  "height": 841.89,
+  "words": [
    {
-    "texto": "MESTRADO",
+    "text": "MESTRADO",
     "x": 144.79,
     "y": 55.62,
-    "largura": 56.8,
-    "altura": 9.93
+    "width": 56.8,
+    "height": 9.93
    },
    {
-    "texto": "PROFISSIONAL",
+    "text": "PROFISSIONAL",
     "x": 204.07,
     "y": 55.62,
-    "largura": 73.17,
-    "altura": 9.93
+    "width": 73.17,
+    "height": 9.93
    },
    {
-    "texto": "EM",
+    "text": "EM",
     "x": 279.73,
     "y": 55.62,
-    "largura": 15.51,
-    "altura": 9.93
+    "width": 15.51,
+    "height": 9.93
    },
    {
-    "texto": "MATEMÁTICA",
+    "text": "MATEMÁTICA",
     "x": 297.73,
     "y": 55.62,
-    "largura": 70.09,
-    "altura": 9.93
+    "width": 70.09,
+    "height": 9.93
    },
    {
-    "texto": "EM",
+    "text": "EM",
     "x": 370.31,
     "y": 55.62,
-    "largura": 15.51,
-    "altura": 9.93
+    "width": 15.51,
+    "height": 9.93
    },
    {
-    "texto": "REDE",
+    "text": "REDE",
     "x": 388.31,
     "y": 55.62,
-    "largura": 26.54,
-    "altura": 9.93
+    "width": 26.54,
+    "height": 9.93
    },
    {
-    "texto": "NACIONAL",
+    "text": "NACIONAL",
     "x": 417.34,
     "y": 55.62,
-    "largura": 56.4,
-    "altura": 9.93
+    "width": 56.4,
+    "height": 9.93
    },
    {
-    "texto": "ENA",
+    "text": "ENA",
     "x": 208.07,
     "y": 88.91,
-    "largura": 26.56,
-    "altura": 11.64
+    "width": 26.56,
+    "height": 11.64
    },
    {
-    "texto": "–",
+    "text": "–",
     "x": 237.62,
     "y": 88.91,
-    "largura": 5.98,
-    "altura": 11.64
+    "width": 5.98,
+    "height": 11.64
    },
    {
-    "texto": "2023",
+    "text": "2023",
     "x": 246.59,
     "y": 88.91,
-    "largura": 23.91,
-    "altura": 11.64
+    "width": 23.91,
+    "height": 11.64
    },
    {
-    "texto": "–",
+    "text": "–",
     "x": 273.49,
     "y": 88.91,
-    "largura": 5.98,
-    "altura": 11.64
+    "width": 5.98,
+    "height": 11.64
    },
    {
-    "texto": "Gabarito",
+    "text": "Gabarito",
     "x": 282.45,
     "y": 88.91,
-    "largura": 48.48,
-    "altura": 11.64
+    "width": 48.48,
+    "height": 11.64
    },
    {
-    "texto": "com",
+    "text": "com",
     "x": 333.92,
     "y": 88.91,
-    "largura": 22.58,
-    "altura": 11.64
+    "width": 22.58,
+    "height": 11.64
    },
    {
-    "texto": "Soluções",
+    "text": "Soluções",
     "x": 359.49,
     "y": 88.91,
-    "largura": 48.48,
-    "altura": 11.64
+    "width": 48.48,
+    "height": 11.64
    },
    {
-    "texto": "1.",
+    "text": "1.",
     "x": 51.02,
     "y": 140.25,
-    "largura": 7.47,
-    "altura": 9.7
+    "width": 7.47,
+    "height": 9.7
    },
    {
-    "texto": "A",
+    "text": "A",
     "x": 64.67,
     "y": 140.18,
-    "largura": 7.75,
-    "altura": 9.93
+    "width": 7.75,
+    "height": 9.93
    },
    {
-    "texto": "área",
+    "text": "área",
     "x": 74.91,
     "y": 140.18,
-    "largura": 18.49,
-    "altura": 9.93
+    "width": 18.49,
+    "height": 9.93
    },
    {
-    "texto": "do",
+    "text": "do",
     "x": 95.9,
     "y": 140.18,
-    "largura": 11.53,
-    "altura": 9.93
+    "width": 11.53,
+    "height": 9.93
    },
    {
-    "texto": "triângulo",
+    "text": "triângulo",
     "x": 109.91,
     "y": 140.18,
-    "largura": 40.75,
-    "altura": 9.93
+    "width": 40.75,
+    "height": 9.93
    },
    {
-    "texto": "cujos",
+    "text": "cujos",
     "x": 153.15,
     "y": 140.18,
-    "largura": 22.43,
-    "altura": 9.93
+    "width": 22.43,
+    "height": 9.93
    },
    {
-    "texto": "lados",
+    "text": "lados",
     "x": 178.07,
     "y": 140.18,
-    "largura": 23.63,
-    "altura": 9.93
+    "width": 23.63,
+    "height": 9.93
    },
    {
-    "texto": "medem",
+    "text": "medem",
     "x": 204.19,
     "y": 140.18,
-    "largura": 33.23,
-    "altura": 9.93
+    "width": 33.23,
+    "height": 9.93
    },
    {
-    "texto": "5,",
+    "text": "5,",
     "x": 239.9,
     "y": 140.18,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "12",
+    "text": "12",
     "x": 249.87,
     "y": 140.18,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "e",
+    "text": "e",
     "x": 262.32,
     "y": 140.18,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "13",
+    "text": "13",
     "x": 269.58,
     "y": 140.18,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 282.04,
     "y": 140.18,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 289.3,
     "y": 140.18,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 314.12,
     "y": 140.18,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "(A)",
+    "text": "(A)",
     "x": 56.56,
     "y": 162.1,
-    "largura": 14.39,
-    "altura": 9.93
+    "width": 14.39,
+    "height": 9.93
    },
    {
-    "texto": "28.",
+    "text": "28.",
     "x": 75.93,
     "y": 162.1,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "(B)",
+    "text": "(B)",
     "x": 58.23,
     "y": 182.03,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "29.",
+    "text": "29.",
     "x": 75.93,
     "y": 182.03,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "(C)",
+    "text": "(C)",
     "x": 57.25,
     "y": 201.95,
-    "largura": 13.7,
-    "altura": 9.93
+    "width": 13.7,
+    "height": 9.93
    },
    {
-    "texto": "30.",
+    "text": "30.",
     "x": 75.93,
     "y": 201.95,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "(D)",
+    "text": "(D)",
     "x": 56.6,
     "y": 221.88,
-    "largura": 14.35,
-    "altura": 9.93
+    "width": 14.35,
+    "height": 9.93
    },
    {
-    "texto": "31.",
+    "text": "31.",
     "x": 75.93,
     "y": 221.88,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "(E)",
+    "text": "(E)",
     "x": 58.23,
     "y": 241.8,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "32.",
+    "text": "32.",
     "x": 75.93,
     "y": 241.8,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "Solução",
+    "text": "Solução",
     "x": 51.02,
     "y": 263.79,
-    "largura": 35.97,
-    "altura": 9.7
+    "width": 35.97,
+    "height": 9.7
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 89.49,
     "y": 263.79,
-    "largura": 11.07,
-    "altura": 9.7
+    "width": 11.07,
+    "height": 9.7
    },
    {
-    "texto": "questão",
+    "text": "questão",
     "x": 103.05,
     "y": 263.79,
-    "largura": 35.42,
-    "altura": 9.7
+    "width": 35.42,
+    "height": 9.7
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 140.96,
     "y": 263.79,
-    "largura": 4.98,
-    "altura": 9.7
+    "width": 4.98,
+    "height": 9.7
    },
    {
-    "texto": "Resposta:",
+    "text": "Resposta:",
     "x": 51.02,
     "y": 275.74,
-    "largura": 43.44,
-    "altura": 9.7
+    "width": 43.44,
+    "height": 9.7
    },
    {
-    "texto": "C",
+    "text": "C",
     "x": 97.55,
     "y": 275.74,
-    "largura": 7.19,
-    "altura": 9.7
+    "width": 7.19,
+    "height": 9.7
    },
    {
-    "texto": "Como",
+    "text": "Como",
     "x": 51.02,
     "y": 299.58,
-    "largura": 26.74,
-    "altura": 9.93
+    "width": 26.74,
+    "height": 9.93
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 80.25,
     "y": 299.58,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 85.23,
     "y": 297.68,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 91.58,
     "y": 299.5,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "12",
+    "text": "12",
     "x": 101.71,
     "y": 299.58,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 111.67,
     "y": 297.68,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 118.85,
     "y": 299.5,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "25",
+    "text": "25",
     "x": 129.81,
     "y": 299.58,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 141.84,
     "y": 299.5,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "144",
+    "text": "144",
     "x": 151.97,
     "y": 299.58,
-    "largura": 14.94,
-    "altura": 9.93
+    "width": 14.94,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 169.8,
     "y": 299.5,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "169",
+    "text": "169",
     "x": 180.76,
     "y": 299.58,
-    "largura": 14.94,
-    "altura": 9.93
+    "width": 14.94,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 198.6,
     "y": 299.5,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "13",
+    "text": "13",
     "x": 209.56,
     "y": 299.58,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 219.53,
     "y": 297.68,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": ",",
+    "text": ",",
     "x": 223.81,
     "y": 299.58,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "o",
+    "text": "o",
     "x": 228.79,
     "y": 299.58,
-    "largura": 5.44,
-    "altura": 9.93
+    "width": 5.44,
+    "height": 9.93
    },
    {
-    "texto": "triângulo",
+    "text": "triângulo",
     "x": 236.72,
     "y": 299.58,
-    "largura": 40.75,
-    "altura": 9.93
+    "width": 40.75,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 279.96,
     "y": 299.58,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "retângulo.",
+    "text": "retângulo.",
     "x": 287.22,
     "y": 299.58,
-    "largura": 44.93,
-    "altura": 9.93
+    "width": 44.93,
+    "height": 9.93
    },
    {
-    "texto": "Portanto,",
+    "text": "Portanto,",
     "x": 51.02,
     "y": 326.23,
-    "largura": 40.6,
-    "altura": 9.93
+    "width": 40.6,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 94.11,
     "y": 326.23,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "área",
+    "text": "área",
     "x": 101.58,
     "y": 326.23,
-    "largura": 18.49,
-    "altura": 9.93
+    "width": 18.49,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 122.56,
     "y": 326.23,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 129.83,
     "y": 326.23,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 154.64,
     "y": 326.23,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 163.31,
     "y": 319.49,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "·",
+    "text": "·",
     "x": 170.35,
     "y": 318.83,
-    "largura": 2.88,
-    "altura": 9.8
+    "width": 2.88,
+    "height": 9.8
    },
    {
-    "texto": "12",
+    "text": "12",
     "x": 175.3,
     "y": 319.49,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 189.34,
     "y": 326.15,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "30.",
+    "text": "30.",
     "x": 200.31,
     "y": 326.23,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 171.79,
     "y": 333.07,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "2.",
+    "text": "2.",
     "x": 51.02,
     "y": 362.17,
-    "largura": 7.47,
-    "altura": 9.7
+    "width": 7.47,
+    "height": 9.7
    },
    {
-    "texto": "Numa",
+    "text": "Numa",
     "x": 61.58,
     "y": 362.1,
-    "largura": 28.06,
-    "altura": 9.93
+    "width": 28.06,
+    "height": 9.93
    },
    {
-    "texto": "classe",
+    "text": "classe",
     "x": 92.14,
     "y": 362.1,
-    "largura": 25.52,
-    "altura": 9.93
+    "width": 25.52,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 120.15,
     "y": 362.1,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "50",
+    "text": "50",
     "x": 133.5,
     "y": 362.1,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "alunos,",
+    "text": "alunos,",
     "x": 145.96,
     "y": 362.1,
-    "largura": 31.84,
-    "altura": 9.93
+    "width": 31.84,
+    "height": 9.93
    },
    {
-    "texto": "36",
+    "text": "36",
     "x": 180.29,
     "y": 362.1,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "foram",
+    "text": "foram",
     "x": 192.74,
     "y": 362.1,
-    "largura": 26.47,
-    "altura": 9.93
+    "width": 26.47,
+    "height": 9.93
    },
    {
-    "texto": "aprovados.",
+    "text": "aprovados.",
     "x": 221.7,
     "y": 362.1,
-    "largura": 49.02,
-    "altura": 9.93
+    "width": 49.02,
+    "height": 9.93
    },
    {
-    "texto": "O",
+    "text": "O",
     "x": 273.81,
     "y": 362.1,
-    "largura": 7.83,
-    "altura": 9.93
+    "width": 7.83,
+    "height": 9.93
    },
    {
-    "texto": "percentual",
+    "text": "percentual",
     "x": 284.13,
     "y": 362.1,
-    "largura": 46.64,
-    "altura": 9.93
+    "width": 46.64,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 333.26,
     "y": 362.1,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "alunos",
+    "text": "alunos",
     "x": 346.61,
     "y": 362.1,
-    "largura": 29.35,
-    "altura": 9.93
+    "width": 29.35,
+    "height": 9.93
    },
    {
-    "texto": "reprovados",
+    "text": "reprovados",
     "x": 378.45,
     "y": 362.17,
-    "largura": 50.93,
-    "altura": 9.7
+    "width": 50.93,
+    "height": 9.7
    },
    {
-    "texto": "nesta",
+    "text": "nesta",
     "x": 431.87,
     "y": 362.1,
-    "largura": 23.02,
-    "altura": 9.93
+    "width": 23.02,
+    "height": 9.93
    },
    {
-    "texto": "classe",
+    "text": "classe",
     "x": 457.39,
     "y": 362.1,
-    "largura": 25.52,
-    "altura": 9.93
+    "width": 25.52,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 485.4,
     "y": 362.1,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "(A)",
+    "text": "(A)",
     "x": 56.56,
     "y": 384.02,
-    "largura": 14.39,
-    "altura": 9.93
+    "width": 14.39,
+    "height": 9.93
    },
    {
-    "texto": "14%.",
+    "text": "14%.",
     "x": 75.93,
     "y": 384.02,
-    "largura": 20.82,
-    "altura": 9.93
+    "width": 20.82,
+    "height": 9.93
    },
    {
-    "texto": "(B)",
+    "text": "(B)",
     "x": 58.23,
     "y": 403.94,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "28%.",
+    "text": "28%.",
     "x": 75.93,
     "y": 403.94,
-    "largura": 20.82,
-    "altura": 9.93
+    "width": 20.82,
+    "height": 9.93
    },
    {
-    "texto": "(C)",
+    "text": "(C)",
     "x": 57.25,
     "y": 423.87,
-    "largura": 13.7,
-    "altura": 9.93
+    "width": 13.7,
+    "height": 9.93
    },
    {
-    "texto": "36%.",
+    "text": "36%.",
     "x": 75.93,
     "y": 423.87,
-    "largura": 20.82,
-    "altura": 9.93
+    "width": 20.82,
+    "height": 9.93
    },
    {
-    "texto": "(D)",
+    "text": "(D)",
     "x": 56.6,
     "y": 443.79,
-    "largura": 14.35,
-    "altura": 9.93
+    "width": 14.35,
+    "height": 9.93
    },
    {
-    "texto": "50%.",
+    "text": "50%.",
     "x": 75.93,
     "y": 443.79,
-    "largura": 20.82,
-    "altura": 9.93
+    "width": 20.82,
+    "height": 9.93
    },
    {
-    "texto": "(E)",
+    "text": "(E)",
     "x": 58.23,
     "y": 463.72,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "72%.",
+    "text": "72%.",
     "x": 75.93,
     "y": 463.72,
-    "largura": 20.82,
-    "altura": 9.93
+    "width": 20.82,
+    "height": 9.93
    },
    {
-    "texto": "Solução",
+    "text": "Solução",
     "x": 51.02,
     "y": 485.71,
-    "largura": 35.97,
-    "altura": 9.7
+    "width": 35.97,
+    "height": 9.7
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 89.49,
     "y": 485.71,
-    "largura": 11.07,
-    "altura": 9.7
+    "width": 11.07,
+    "height": 9.7
    },
    {
-    "texto": "questão",
+    "text": "questão",
     "x": 103.05,
     "y": 485.71,
-    "largura": 35.42,
-    "altura": 9.7
+    "width": 35.42,
+    "height": 9.7
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 140.96,
     "y": 485.71,
-    "largura": 4.98,
-    "altura": 9.7
+    "width": 4.98,
+    "height": 9.7
    },
    {
-    "texto": "Resposta:",
+    "text": "Resposta:",
     "x": 51.02,
     "y": 497.66,
-    "largura": 43.44,
-    "altura": 9.7
+    "width": 43.44,
+    "height": 9.7
    },
    {
-    "texto": "B",
+    "text": "B",
     "x": 97.55,
     "y": 497.66,
-    "largura": 6.65,
-    "altura": 9.7
+    "width": 6.65,
+    "height": 9.7
    },
    {
-    "texto": "Foram",
+    "text": "Foram",
     "x": 51.02,
     "y": 524.24,
-    "largura": 28.69,
-    "altura": 9.93
+    "width": 28.69,
+    "height": 9.93
    },
    {
-    "texto": "reprovados",
+    "text": "reprovados",
     "x": 82.21,
     "y": 524.24,
-    "largura": 50.07,
-    "altura": 9.93
+    "width": 50.07,
+    "height": 9.93
    },
    {
-    "texto": "50",
+    "text": "50",
     "x": 134.77,
     "y": 524.24,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 146.79,
     "y": 523.58,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "36",
+    "text": "36",
     "x": 156.93,
     "y": 524.24,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 169.78,
     "y": 524.16,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "14",
+    "text": "14",
     "x": 180.74,
     "y": 524.24,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "e",
+    "text": "e",
     "x": 193.19,
     "y": 524.24,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "assim",
+    "text": "assim",
     "x": 200.46,
     "y": 524.24,
-    "largura": 25.13,
-    "altura": 9.93
+    "width": 25.13,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 228.07,
     "y": 524.24,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "porcentagem",
+    "text": "porcentagem",
     "x": 235.55,
     "y": 524.24,
-    "largura": 57.51,
-    "altura": 9.93
+    "width": 57.51,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 295.55,
     "y": 524.24,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "alunos",
+    "text": "alunos",
     "x": 308.9,
     "y": 524.24,
-    "largura": 29.35,
-    "altura": 9.93
+    "width": 29.35,
+    "height": 9.93
    },
    {
-    "texto": "reprovados",
+    "text": "reprovados",
     "x": 340.74,
     "y": 524.24,
-    "largura": 50.07,
-    "altura": 9.93
+    "width": 50.07,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 393.3,
     "y": 524.24,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "dada",
+    "text": "dada",
     "x": 400.56,
     "y": 524.24,
-    "largura": 22.14,
-    "altura": 9.93
+    "width": 22.14,
+    "height": 9.93
    },
    {
-    "texto": "por",
+    "text": "por",
     "x": 425.19,
     "y": 524.24,
-    "largura": 15.36,
-    "altura": 9.93
+    "width": 15.36,
+    "height": 9.93
    },
    {
-    "texto": "14",
+    "text": "14",
     "x": 444.24,
     "y": 517.5,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "28",
+    "text": "28",
     "x": 472.94,
     "y": 517.5,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 458.29,
     "y": 524.16,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 489.48,
     "y": 524.16,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "28%.",
+    "text": "28%.",
     "x": 500.44,
     "y": 524.24,
-    "largura": 20.82,
-    "altura": 9.93
+    "width": 20.82,
+    "height": 9.93
    },
    {
-    "texto": "50",
+    "text": "50",
     "x": 444.24,
     "y": 531.08,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "100",
+    "text": "100",
     "x": 470.45,
     "y": 531.08,
-    "largura": 14.94,
-    "altura": 9.93
+    "width": 14.94,
+    "height": 9.93
    },
    {
-    "texto": "3.",
+    "text": "3.",
     "x": 51.02,
     "y": 560.18,
-    "largura": 7.47,
-    "altura": 9.7
+    "width": 7.47,
+    "height": 9.7
    },
    {
-    "texto": "O",
+    "text": "O",
     "x": 61.48,
     "y": 560.11,
-    "largura": 7.83,
-    "altura": 9.93
+    "width": 7.83,
+    "height": 9.93
    },
    {
-    "texto": "gráfico",
+    "text": "gráfico",
     "x": 71.51,
     "y": 560.11,
-    "largura": 30.34,
-    "altura": 9.93
+    "width": 30.34,
+    "height": 9.93
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 104.04,
     "y": 560.11,
-    "largura": 11.07,
-    "altura": 9.93
+    "width": 11.07,
+    "height": 9.93
    },
    {
-    "texto": "função",
+    "text": "função",
     "x": 117.3,
     "y": 560.11,
-    "largura": 29.96,
-    "altura": 9.93
+    "width": 29.96,
+    "height": 9.93
    },
    {
-    "texto": "f",
+    "text": "f",
     "x": 150.88,
     "y": 560.04,
-    "largura": 2.77,
-    "altura": 9.79
+    "width": 2.77,
+    "height": 9.79
    },
    {
-    "texto": ":",
+    "text": ":",
     "x": 158.01,
     "y": 560.11,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "R",
+    "text": "R",
     "x": 163.39,
     "y": 557.77,
-    "largura": 8.07,
-    "altura": 12.95
+    "width": 8.07,
+    "height": 12.95
    },
    {
-    "texto": "→",
+    "text": "→",
     "x": 174.35,
     "y": 559.45,
-    "largura": 10.38,
-    "altura": 9.8
+    "width": 10.38,
+    "height": 9.8
    },
    {
-    "texto": "R,",
+    "text": "R,",
     "x": 187.62,
     "y": 557.77,
-    "largura": 10.56,
-    "altura": 12.95
+    "width": 10.56,
+    "height": 12.95
    },
    {
-    "texto": "definida",
+    "text": "definida",
     "x": 200.44,
     "y": 560.11,
-    "largura": 36.65,
-    "altura": 9.93
+    "width": 36.65,
+    "height": 9.93
    },
    {
-    "texto": "por",
+    "text": "por",
     "x": 239.28,
     "y": 560.11,
-    "largura": 15.36,
-    "altura": 9.93
+    "width": 15.36,
+    "height": 9.93
    },
    {
-    "texto": "f",
+    "text": "f",
     "x": 258.25,
     "y": 560.04,
-    "largura": 2.77,
-    "altura": 9.79
+    "width": 2.77,
+    "height": 9.79
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 262.61,
     "y": 560.03,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 267.06,
     "y": 560.04,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 272.39,
     "y": 560.03,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 279.42,
     "y": 560.03,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "ax",
+    "text": "ax",
     "x": 290.66,
     "y": 560.04,
-    "largura": 9.82,
-    "altura": 9.79
+    "width": 9.82,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 302.5,
     "y": 560.03,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "b,",
+    "text": "b,",
     "x": 312.47,
     "y": 560.04,
-    "largura": 7.23,
-    "altura": 9.79
+    "width": 7.23,
+    "height": 9.79
    },
    {
-    "texto": "intersecta",
+    "text": "intersecta",
     "x": 321.95,
     "y": 560.11,
-    "largura": 42.3,
-    "altura": 9.93
+    "width": 42.3,
+    "height": 9.93
    },
    {
-    "texto": "o",
+    "text": "o",
     "x": 366.45,
     "y": 560.11,
-    "largura": 5.44,
-    "altura": 9.93
+    "width": 5.44,
+    "height": 9.93
    },
    {
-    "texto": "eixo",
+    "text": "eixo",
     "x": 374.07,
     "y": 560.11,
-    "largura": 18.25,
-    "altura": 9.93
+    "width": 18.25,
+    "height": 9.93
    },
    {
-    "texto": "horizontal",
+    "text": "horizontal",
     "x": 394.51,
     "y": 560.11,
-    "largura": 45.42,
-    "altura": 9.93
+    "width": 45.42,
+    "height": 9.93
    },
    {
-    "texto": "OX",
+    "text": "OX",
     "x": 442.0,
     "y": 560.04,
-    "largura": 15.34,
-    "altura": 9.79
+    "width": 15.34,
+    "height": 9.79
    },
    {
-    "texto": "no",
+    "text": "no",
     "x": 459.87,
     "y": 560.11,
-    "largura": 11.24,
-    "altura": 9.93
+    "width": 11.24,
+    "height": 9.93
    },
    {
-    "texto": "ponto",
+    "text": "ponto",
     "x": 473.3,
     "y": 560.11,
-    "largura": 25.91,
-    "altura": 9.93
+    "width": 25.91,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 501.41,
     "y": 560.11,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "abscissa",
+    "text": "abscissa",
     "x": 514.46,
     "y": 560.11,
-    "largura": 35.47,
-    "altura": 9.93
+    "width": 35.47,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 61.37,
     "y": 584.02,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 86.19,
     "y": 584.02,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 93.66,
     "y": 584.02,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "e",
+    "text": "e",
     "x": 101.13,
     "y": 584.02,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "o",
+    "text": "o",
     "x": 108.4,
     "y": 584.02,
-    "largura": 5.44,
-    "altura": 9.93
+    "width": 5.44,
+    "height": 9.93
    },
    {
-    "texto": "eixo",
+    "text": "eixo",
     "x": 116.33,
     "y": 584.02,
-    "largura": 18.25,
-    "altura": 9.93
+    "width": 18.25,
+    "height": 9.93
    },
    {
-    "texto": "vertical",
+    "text": "vertical",
     "x": 137.07,
     "y": 584.02,
-    "largura": 32.79,
-    "altura": 9.93
+    "width": 32.79,
+    "height": 9.93
    },
    {
-    "texto": "OY",
+    "text": "OY",
     "x": 172.22,
     "y": 583.95,
-    "largura": 14.45,
-    "altura": 9.79
+    "width": 14.45,
+    "height": 9.79
    },
    {
-    "texto": "no",
+    "text": "no",
     "x": 189.46,
     "y": 584.02,
-    "largura": 11.24,
-    "altura": 9.93
+    "width": 11.24,
+    "height": 9.93
    },
    {
-    "texto": "ponto",
+    "text": "ponto",
     "x": 203.19,
     "y": 584.02,
-    "largura": 25.91,
-    "altura": 9.93
+    "width": 25.91,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 231.59,
     "y": 584.02,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "ordenada",
+    "text": "ordenada",
     "x": 244.94,
     "y": 584.02,
-    "largura": 41.9,
-    "altura": 9.93
+    "width": 41.9,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 289.34,
     "y": 584.02,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 314.15,
     "y": 584.02,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 321.75,
     "y": 583.36,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "12.",
+    "text": "12.",
     "x": 329.94,
     "y": 584.02,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "O",
+    "text": "O",
     "x": 345.48,
     "y": 584.02,
-    "largura": 7.83,
-    "altura": 9.93
+    "width": 7.83,
+    "height": 9.93
    },
    {
-    "texto": "valor",
+    "text": "valor",
     "x": 355.8,
     "y": 584.02,
-    "largura": 22.88,
-    "altura": 9.93
+    "width": 22.88,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 381.18,
     "y": 584.02,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 394.8,
     "y": 583.95,
-    "largura": 4.42,
-    "altura": 9.79
+    "width": 4.42,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 401.41,
     "y": 583.94,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "b",
+    "text": "b",
     "x": 411.67,
     "y": 583.95,
-    "largura": 4.61,
-    "altura": 9.79
+    "width": 4.61,
+    "height": 9.79
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 418.9,
     "y": 584.02,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 426.16,
     "y": 584.02,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 450.98,
     "y": 584.02,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "(A)",
+    "text": "(A)",
     "x": 56.56,
     "y": 605.94,
-    "largura": 14.39,
-    "altura": 9.93
+    "width": 14.39,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 76.06,
     "y": 605.27,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "5.",
+    "text": "5.",
     "x": 84.25,
     "y": 605.94,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(B)",
+    "text": "(B)",
     "x": 58.23,
     "y": 625.86,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 76.06,
     "y": 625.2,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "6.",
+    "text": "6.",
     "x": 84.25,
     "y": 625.86,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(C)",
+    "text": "(C)",
     "x": 57.25,
     "y": 645.79,
-    "largura": 13.7,
-    "altura": 9.93
+    "width": 13.7,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 76.06,
     "y": 645.12,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "7.",
+    "text": "7.",
     "x": 84.25,
     "y": 645.79,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(D)",
+    "text": "(D)",
     "x": 56.6,
     "y": 665.71,
-    "largura": 14.35,
-    "altura": 9.93
+    "width": 14.35,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 76.06,
     "y": 665.05,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "8.",
+    "text": "8.",
     "x": 84.25,
     "y": 665.71,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(E)",
+    "text": "(E)",
     "x": 58.23,
     "y": 685.64,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 76.06,
     "y": 684.97,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "9.",
+    "text": "9.",
     "x": 84.25,
     "y": 685.64,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "Solução",
+    "text": "Solução",
     "x": 51.02,
     "y": 707.62,
-    "largura": 35.97,
-    "altura": 9.7
+    "width": 35.97,
+    "height": 9.7
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 89.49,
     "y": 707.62,
-    "largura": 11.07,
-    "altura": 9.7
+    "width": 11.07,
+    "height": 9.7
    },
    {
-    "texto": "questão",
+    "text": "questão",
     "x": 103.05,
     "y": 707.62,
-    "largura": 35.42,
-    "altura": 9.7
+    "width": 35.42,
+    "height": 9.7
    },
    {
-    "texto": "3",
+    "text": "3",
     "x": 140.96,
     "y": 707.62,
-    "largura": 4.98,
-    "altura": 9.7
+    "width": 4.98,
+    "height": 9.7
    },
    {
-    "texto": "Resposta:",
+    "text": "Resposta:",
     "x": 51.02,
     "y": 719.58,
-    "largura": 43.44,
-    "altura": 9.7
+    "width": 43.44,
+    "height": 9.7
    },
    {
-    "texto": "E",
+    "text": "E",
     "x": 97.55,
     "y": 719.58,
-    "largura": 6.09,
-    "altura": 9.7
+    "width": 6.09,
+    "height": 9.7
    },
    {
-    "texto": "Tem-se",
+    "text": "Tem-se",
     "x": 51.02,
     "y": 743.42,
-    "largura": 31.07,
-    "altura": 9.93
+    "width": 31.07,
+    "height": 9.93
    },
    {
-    "texto": "que",
+    "text": "que",
     "x": 84.59,
     "y": 743.42,
-    "largura": 16.36,
-    "altura": 9.93
+    "width": 16.36,
+    "height": 9.93
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 103.44,
     "y": 743.42,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "·",
+    "text": "·",
     "x": 110.48,
     "y": 742.76,
-    "largura": 2.88,
-    "altura": 9.8
+    "width": 2.88,
+    "height": 9.8
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 115.69,
     "y": 743.35,
-    "largura": 4.42,
-    "altura": 9.79
+    "width": 4.42,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 122.3,
     "y": 743.34,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "b",
+    "text": "b",
     "x": 132.56,
     "y": 743.35,
-    "largura": 4.61,
-    "altura": 9.79
+    "width": 4.61,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 140.19,
     "y": 743.34,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "0",
+    "text": "0",
     "x": 151.15,
     "y": 743.42,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "e",
+    "text": "e",
     "x": 158.62,
     "y": 743.42,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "0",
+    "text": "0",
     "x": 165.88,
     "y": 743.42,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "·",
+    "text": "·",
     "x": 172.93,
     "y": 742.76,
-    "largura": 2.88,
-    "altura": 9.8
+    "width": 2.88,
+    "height": 9.8
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 178.14,
     "y": 743.35,
-    "largura": 4.42,
-    "altura": 9.79
+    "width": 4.42,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 184.75,
     "y": 743.34,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "b",
+    "text": "b",
     "x": 195.01,
     "y": 743.35,
-    "largura": 4.61,
-    "altura": 9.79
+    "width": 4.61,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 202.64,
     "y": 743.34,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 213.72,
     "y": 742.76,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "12.",
+    "text": "12.",
     "x": 221.92,
     "y": 743.42,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "Logo",
+    "text": "Logo",
     "x": 51.02,
     "y": 767.33,
-    "largura": 22.51,
-    "altura": 9.93
+    "width": 22.51,
+    "height": 9.93
    },
    {
-    "texto": "b",
+    "text": "b",
     "x": 76.14,
     "y": 767.26,
-    "largura": 4.61,
-    "altura": 9.79
+    "width": 4.61,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 83.77,
     "y": 767.25,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 94.86,
     "y": 766.67,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "12",
+    "text": "12",
     "x": 103.05,
     "y": 767.33,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "e",
+    "text": "e",
     "x": 115.51,
     "y": 767.33,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 123.04,
     "y": 767.26,
-    "largura": 4.42,
-    "altura": 9.79
+    "width": 4.42,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 130.48,
     "y": 767.25,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "3,",
+    "text": "3,",
     "x": 141.44,
     "y": 767.33,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "portanto",
+    "text": "portanto",
     "x": 151.41,
     "y": 767.33,
-    "largura": 38.08,
-    "altura": 9.93
+    "width": 38.08,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 192.25,
     "y": 767.26,
-    "largura": 4.42,
-    "altura": 9.79
+    "width": 4.42,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 198.86,
     "y": 767.25,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "b",
+    "text": "b",
     "x": 209.11,
     "y": 767.26,
-    "largura": 4.61,
-    "altura": 9.79
+    "width": 4.61,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 216.74,
     "y": 767.25,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 227.83,
     "y": 766.67,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "9.",
+    "text": "9.",
     "x": 236.02,
     "y": 767.33,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    }
   ]
  },
  {
-  "largura": 595.28,
-  "altura": 841.89,
-  "palavras": [
+  "width": 595.28,
+  "height": 841.89,
+  "words": [
    {
-    "texto": "4.",
+    "text": "4.",
     "x": 51.02,
     "y": 45.43,
-    "largura": 7.47,
-    "altura": 9.7
+    "width": 7.47,
+    "height": 9.7
    },
    {
-    "texto": "Todas",
+    "text": "Todas",
     "x": 61.58,
     "y": 45.36,
-    "largura": 25.92,
-    "altura": 9.93
+    "width": 25.92,
+    "height": 9.93
    },
    {
-    "texto": "as",
+    "text": "as",
     "x": 90.0,
     "y": 45.36,
-    "largura": 9.21,
-    "altura": 9.93
+    "width": 9.21,
+    "height": 9.93
    },
    {
-    "texto": "funções",
+    "text": "funções",
     "x": 101.69,
     "y": 45.36,
-    "largura": 33.98,
-    "altura": 9.93
+    "width": 33.98,
+    "height": 9.93
    },
    {
-    "texto": "abaixo",
+    "text": "abaixo",
     "x": 138.17,
     "y": 45.36,
-    "largura": 28.95,
-    "altura": 9.93
+    "width": 28.95,
+    "height": 9.93
    },
    {
-    "texto": "têm",
+    "text": "têm",
     "x": 169.61,
     "y": 45.36,
-    "largura": 16.82,
-    "altura": 9.93
+    "width": 16.82,
+    "height": 9.93
    },
    {
-    "texto": "como",
+    "text": "como",
     "x": 188.92,
     "y": 45.36,
-    "largura": 24.1,
-    "altura": 9.93
+    "width": 24.1,
+    "height": 9.93
    },
    {
-    "texto": "gráficos",
+    "text": "gráficos",
     "x": 215.51,
     "y": 45.36,
-    "largura": 34.57,
-    "altura": 9.93
+    "width": 34.57,
+    "height": 9.93
    },
    {
-    "texto": "parábolas",
+    "text": "parábolas",
     "x": 252.57,
     "y": 45.36,
-    "largura": 42.94,
-    "altura": 9.93
+    "width": 42.94,
+    "height": 9.93
    },
    {
-    "texto": "cujos",
+    "text": "cujos",
     "x": 298.0,
     "y": 45.36,
-    "largura": 22.43,
-    "altura": 9.93
+    "width": 22.43,
+    "height": 9.93
    },
    {
-    "texto": "vértices",
+    "text": "vértices",
     "x": 322.91,
     "y": 45.36,
-    "largura": 33.9,
-    "altura": 9.93
+    "width": 33.9,
+    "height": 9.93
    },
    {
-    "texto": "estão",
+    "text": "estão",
     "x": 359.3,
     "y": 45.36,
-    "largura": 22.66,
-    "altura": 9.93
+    "width": 22.66,
+    "height": 9.93
    },
    {
-    "texto": "no",
+    "text": "no",
     "x": 384.46,
     "y": 45.36,
-    "largura": 11.24,
-    "altura": 9.93
+    "width": 11.24,
+    "height": 9.93
    },
    {
-    "texto": "primeiro",
+    "text": "primeiro",
     "x": 398.19,
     "y": 45.36,
-    "largura": 38.49,
-    "altura": 9.93
+    "width": 38.49,
+    "height": 9.93
    },
    {
-    "texto": "quadrante,",
+    "text": "quadrante,",
     "x": 439.16,
     "y": 45.36,
-    "largura": 47.88,
-    "altura": 9.93
+    "width": 47.88,
+    "height": 9.93
    },
    {
-    "texto": "exceto:",
+    "text": "exceto:",
     "x": 489.54,
     "y": 45.43,
-    "largura": 30.71,
-    "altura": 9.7
+    "width": 30.71,
+    "height": 9.7
    },
    {
-    "texto": "(A)",
+    "text": "(A)",
     "x": 56.56,
     "y": 67.28,
-    "largura": 14.39,
-    "altura": 9.93
+    "width": 14.39,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 76.06,
     "y": 67.21,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 84.05,
     "y": 67.2,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−(",
+    "text": "−(",
     "x": 95.14,
     "y": 66.61,
-    "largura": 12.36,
-    "altura": 9.8
+    "width": 12.36,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 107.9,
     "y": 67.21,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 115.17,
     "y": 67.2,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 125.3,
     "y": 67.28,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")(",
+    "text": ")(",
     "x": 130.41,
     "y": 67.2,
-    "largura": 8.31,
-    "altura": 9.22
+    "width": 8.31,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 138.83,
     "y": 67.28,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 145.87,
     "y": 66.61,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 156.3,
     "y": 67.21,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 161.63,
     "y": 67.2,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "(B)",
+    "text": "(B)",
     "x": 58.23,
     "y": 87.2,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 76.06,
     "y": 87.13,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 84.05,
     "y": 87.12,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 95.14,
     "y": 87.12,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 99.58,
     "y": 87.13,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 106.85,
     "y": 87.12,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 116.98,
     "y": 87.2,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")(",
+    "text": ")(",
     "x": 122.09,
     "y": 87.12,
-    "largura": 8.31,
-    "altura": 9.22
+    "width": 8.31,
+    "height": 9.22
    },
    {
-    "texto": "3",
+    "text": "3",
     "x": 130.51,
     "y": 87.2,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 137.55,
     "y": 86.54,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 147.98,
     "y": 87.13,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 153.31,
     "y": 87.12,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "(C)",
+    "text": "(C)",
     "x": 57.25,
     "y": 107.13,
-    "largura": 13.7,
-    "altura": 9.93
+    "width": 13.7,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 76.06,
     "y": 107.06,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 84.05,
     "y": 107.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 95.14,
     "y": 106.47,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "3x",
+    "text": "3x",
     "x": 103.33,
     "y": 107.13,
-    "largura": 10.26,
-    "altura": 9.93
+    "width": 10.26,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 113.81,
     "y": 105.22,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 120.16,
     "y": 107.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "6x",
+    "text": "6x",
     "x": 130.29,
     "y": 107.13,
-    "largura": 10.26,
-    "altura": 9.93
+    "width": 10.26,
+    "height": 9.93
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 142.83,
     "y": 107.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "7",
+    "text": "7",
     "x": 152.96,
     "y": 107.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "(D)",
+    "text": "(D)",
     "x": 56.6,
     "y": 127.05,
-    "largura": 14.35,
-    "altura": 9.93
+    "width": 14.35,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 76.06,
     "y": 126.98,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 84.05,
     "y": 126.97,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 95.01,
     "y": 127.05,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 100.12,
     "y": 126.97,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 104.56,
     "y": 126.98,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 111.83,
     "y": 126.39,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 121.96,
     "y": 127.05,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 127.07,
     "y": 126.97,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 131.22,
     "y": 125.15,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 137.56,
     "y": 126.97,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "3",
+    "text": "3",
     "x": 147.69,
     "y": 127.05,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "(E)",
+    "text": "(E)",
     "x": 58.23,
     "y": 152.47,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 76.06,
     "y": 152.4,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 84.05,
     "y": 152.39,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 95.31,
     "y": 152.4,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 100.51,
     "y": 150.57,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 106.86,
     "y": 151.81,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "20x",
+    "text": "20x",
     "x": 116.99,
     "y": 152.47,
-    "largura": 15.24,
-    "altura": 9.93
+    "width": 15.24,
+    "height": 9.93
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 134.51,
     "y": 152.39,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "201",
+    "text": "201",
     "x": 145.84,
     "y": 145.73,
-    "largura": 14.94,
-    "altura": 9.93
+    "width": 14.94,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 150.82,
     "y": 159.31,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "Solução",
+    "text": "Solução",
     "x": 51.02,
     "y": 177.55,
-    "largura": 35.97,
-    "altura": 9.7
+    "width": 35.97,
+    "height": 9.7
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 89.49,
     "y": 177.55,
-    "largura": 11.07,
-    "altura": 9.7
+    "width": 11.07,
+    "height": 9.7
    },
    {
-    "texto": "questão",
+    "text": "questão",
     "x": 103.05,
     "y": 177.55,
-    "largura": 35.42,
-    "altura": 9.7
+    "width": 35.42,
+    "height": 9.7
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 140.96,
     "y": 177.55,
-    "largura": 4.98,
-    "altura": 9.7
+    "width": 4.98,
+    "height": 9.7
    },
    {
-    "texto": "Resposta:",
+    "text": "Resposta:",
     "x": 51.02,
     "y": 189.51,
-    "largura": 43.44,
-    "altura": 9.7
+    "width": 43.44,
+    "height": 9.7
    },
    {
-    "texto": "A",
+    "text": "A",
     "x": 97.55,
     "y": 189.51,
-    "largura": 7.75,
-    "altura": 9.7
+    "width": 7.75,
+    "height": 9.7
    },
    {
-    "texto": "Denotemos",
+    "text": "Denotemos",
     "x": 51.02,
     "y": 213.35,
-    "largura": 50.2,
-    "altura": 9.93
+    "width": 50.2,
+    "height": 9.93
    },
    {
-    "texto": "por",
+    "text": "por",
     "x": 103.72,
     "y": 213.35,
-    "largura": 15.36,
-    "altura": 9.93
+    "width": 15.36,
+    "height": 9.93
    },
    {
-    "texto": "V",
+    "text": "V",
     "x": 121.59,
     "y": 213.28,
-    "largura": 7.19,
-    "altura": 9.79
+    "width": 7.19,
+    "height": 9.79
    },
    {
-    "texto": "o",
+    "text": "o",
     "x": 131.82,
     "y": 213.35,
-    "largura": 5.44,
-    "altura": 9.93
+    "width": 5.44,
+    "height": 9.93
    },
    {
-    "texto": "vértice",
+    "text": "vértice",
     "x": 139.75,
     "y": 213.35,
-    "largura": 29.68,
-    "altura": 9.93
+    "width": 29.68,
+    "height": 9.93
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 171.92,
     "y": 213.35,
-    "largura": 11.07,
-    "altura": 9.93
+    "width": 11.07,
+    "height": 9.93
    },
    {
-    "texto": "parábola,",
+    "text": "parábola,",
     "x": 185.48,
     "y": 213.35,
-    "largura": 41.2,
-    "altura": 9.93
+    "width": 41.2,
+    "height": 9.93
    },
    {
-    "texto": "então",
+    "text": "então",
     "x": 229.17,
     "y": 213.35,
-    "largura": 24.24,
-    "altura": 9.93
+    "width": 24.24,
+    "height": 9.93
    },
    {
-    "texto": "segue",
+    "text": "segue",
     "x": 255.9,
     "y": 213.35,
-    "largura": 25.31,
-    "altura": 9.93
+    "width": 25.31,
+    "height": 9.93
    },
    {
-    "texto": "que",
+    "text": "que",
     "x": 283.71,
     "y": 213.35,
-    "largura": 16.36,
-    "altura": 9.93
+    "width": 16.36,
+    "height": 9.93
    },
    {
-    "texto": "os",
+    "text": "os",
     "x": 302.56,
     "y": 213.35,
-    "largura": 9.66,
-    "altura": 9.93
+    "width": 9.66,
+    "height": 9.93
    },
    {
-    "texto": "vértices",
+    "text": "vértices",
     "x": 314.71,
     "y": 213.35,
-    "largura": 33.9,
-    "altura": 9.93
+    "width": 33.9,
+    "height": 9.93
    },
    {
-    "texto": "das",
+    "text": "das",
     "x": 351.11,
     "y": 213.35,
-    "largura": 15.29,
-    "altura": 9.93
+    "width": 15.29,
+    "height": 9.93
    },
    {
-    "texto": "parábolas",
+    "text": "parábolas",
     "x": 368.89,
     "y": 213.35,
-    "largura": 42.94,
-    "altura": 9.93
+    "width": 42.94,
+    "height": 9.93
    },
    {
-    "texto": "são",
+    "text": "são",
     "x": 414.32,
     "y": 213.35,
-    "largura": 14.65,
-    "altura": 9.93
+    "width": 14.65,
+    "height": 9.93
    },
    {
-    "texto": "dadas",
+    "text": "dadas",
     "x": 431.45,
     "y": 213.35,
-    "largura": 26.36,
-    "altura": 9.93
+    "width": 26.36,
+    "height": 9.93
    },
    {
-    "texto": "abaixo:",
+    "text": "abaixo:",
     "x": 460.31,
     "y": 213.35,
-    "largura": 31.44,
-    "altura": 9.93
+    "width": 31.44,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 51.15,
     "y": 242.92,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 59.15,
     "y": 242.91,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−(",
+    "text": "−(",
     "x": 70.23,
     "y": 242.33,
-    "largura": 12.36,
-    "altura": 9.8
+    "width": 12.36,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 82.99,
     "y": 242.92,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 90.26,
     "y": 242.91,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 100.39,
     "y": 242.99,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")(",
+    "text": ")(",
     "x": 105.5,
     "y": 242.91,
-    "largura": 8.31,
-    "altura": 9.22
+    "width": 8.31,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 113.92,
     "y": 242.99,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 120.97,
     "y": 242.33,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 131.39,
     "y": 242.92,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 136.72,
     "y": 242.91,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 143.76,
     "y": 242.91,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 155.02,
     "y": 242.92,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 160.22,
     "y": 241.08,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 166.57,
     "y": 242.33,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 176.99,
     "y": 242.92,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 184.26,
     "y": 242.33,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 194.39,
     "y": 242.99,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 202.26,
     "y": 242.91,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "\u0012",
+    "text": "\u0012",
     "x": 213.35,
     "y": 235.66,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 221.1,
     "y": 242.92,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 228.37,
     "y": 242.33,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 51.15,
     "y": 281.07,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 59.15,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 70.23,
     "y": 281.05,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 74.67,
     "y": 281.07,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 81.94,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 92.07,
     "y": 281.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")(",
+    "text": ")(",
     "x": 97.18,
     "y": 281.05,
-    "largura": 8.31,
-    "altura": 9.22
+    "width": 8.31,
+    "height": 9.22
    },
    {
-    "texto": "3",
+    "text": "3",
     "x": 105.6,
     "y": 281.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 112.65,
     "y": 280.47,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 123.07,
     "y": 281.07,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 128.4,
     "y": 281.05,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 135.44,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 146.53,
     "y": 280.47,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 155.02,
     "y": 281.07,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 160.22,
     "y": 279.23,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 166.57,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 176.99,
     "y": 281.07,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 184.26,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "6",
+    "text": "6",
     "x": 194.39,
     "y": 281.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 202.26,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 213.35,
     "y": 280.47,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "\u0012",
+    "text": "\u0012",
     "x": 223.33,
     "y": 273.81,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 239.69,
     "y": 236.24,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 239.69,
     "y": 249.82,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "\u0013",
+    "text": "\u0013",
     "x": 246.0,
     "y": 235.66,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 253.45,
     "y": 233.18,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 249.67,
     "y": 274.39,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 231.08,
     "y": 281.07,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 238.35,
     "y": 280.47,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 249.67,
     "y": 287.97,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "9",
+    "text": "9",
     "x": 271.12,
     "y": 236.25,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "=⇒",
+    "text": "=⇒",
     "x": 280.19,
     "y": 242.91,
-    "largura": 16.79,
-    "altura": 9.22
+    "width": 16.79,
+    "height": 9.22
    },
    {
-    "texto": "V",
+    "text": "V",
     "x": 299.9,
     "y": 242.92,
-    "largura": 7.19,
-    "altura": 9.79
+    "width": 7.19,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 310.53,
     "y": 242.91,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 271.12,
     "y": 249.82,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 259.8,
     "y": 242.33,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "\u0013",
+    "text": "\u0013",
     "x": 255.97,
     "y": 273.81,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 263.43,
     "y": 271.33,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "\u0012",
+    "text": "\u0012",
     "x": 321.62,
     "y": 235.66,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "\u0013",
+    "text": "\u0013",
     "x": 358.07,
     "y": 235.66,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 330.27,
     "y": 236.25,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "9",
+    "text": "9",
     "x": 351.77,
     "y": 236.25,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ",",
+    "text": ",",
     "x": 336.44,
     "y": 242.99,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 342.38,
     "y": 242.33,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": ".",
+    "text": ".",
     "x": 365.53,
     "y": 242.99,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 330.27,
     "y": 249.82,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 351.77,
     "y": 249.82,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "25",
+    "text": "25",
     "x": 281.1,
     "y": 274.39,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "=⇒",
+    "text": "=⇒",
     "x": 295.15,
     "y": 281.05,
-    "largura": 16.79,
-    "altura": 9.22
+    "width": 16.79,
+    "height": 9.22
    },
    {
-    "texto": "V",
+    "text": "V",
     "x": 314.86,
     "y": 281.07,
-    "largura": 7.19,
-    "altura": 9.79
+    "width": 7.19,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 325.49,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 269.78,
     "y": 281.05,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 283.6,
     "y": 287.97,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "\u0012",
+    "text": "\u0012",
     "x": 336.57,
     "y": 273.81,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "\u0013",
+    "text": "\u0013",
     "x": 369.69,
     "y": 273.81,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 345.23,
     "y": 274.39,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "25",
+    "text": "25",
     "x": 358.41,
     "y": 274.39,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": ",",
+    "text": ",",
     "x": 351.4,
     "y": 281.13,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": ".",
+    "text": ".",
     "x": 377.15,
     "y": 281.13,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 345.23,
     "y": 287.97,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 360.9,
     "y": 287.97,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 51.15,
     "y": 313.48,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 59.15,
     "y": 313.47,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 70.23,
     "y": 312.89,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "3x",
+    "text": "3x",
     "x": 78.43,
     "y": 313.55,
-    "largura": 10.26,
-    "altura": 9.93
+    "width": 10.26,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 88.91,
     "y": 311.64,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 95.25,
     "y": 313.47,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "6x",
+    "text": "6x",
     "x": 105.38,
     "y": 313.55,
-    "largura": 10.26,
-    "altura": 9.93
+    "width": 10.26,
+    "height": 9.93
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 117.93,
     "y": 313.47,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "7",
+    "text": "7",
     "x": 128.06,
     "y": 313.55,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 135.93,
     "y": 313.47,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 147.02,
     "y": 312.89,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "3",
+    "text": "3",
     "x": 155.21,
     "y": 313.55,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 160.32,
     "y": 313.47,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 164.76,
     "y": 313.48,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 172.03,
     "y": 312.89,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 182.16,
     "y": 313.55,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 187.26,
     "y": 313.47,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 191.41,
     "y": 311.64,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 197.76,
     "y": 313.47,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "10",
+    "text": "10",
     "x": 207.89,
     "y": 313.55,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": "=⇒",
+    "text": "=⇒",
     "x": 220.75,
     "y": 313.47,
-    "largura": 16.79,
-    "altura": 9.22
+    "width": 16.79,
+    "height": 9.22
    },
    {
-    "texto": "V",
+    "text": "V",
     "x": 240.45,
     "y": 313.48,
-    "largura": 7.19,
-    "altura": 9.79
+    "width": 7.19,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 251.08,
     "y": 313.47,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 262.16,
     "y": 313.47,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "1,",
+    "text": "1,",
     "x": 266.31,
     "y": 313.55,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "10",
+    "text": "10",
     "x": 277.1,
     "y": 313.55,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 287.19,
     "y": 313.47,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": ".",
+    "text": ".",
     "x": 291.34,
     "y": 313.55,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 51.15,
     "y": 337.39,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 59.15,
     "y": 337.38,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 70.11,
     "y": 337.46,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 75.21,
     "y": 337.38,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 79.66,
     "y": 337.39,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 86.92,
     "y": 336.8,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 97.06,
     "y": 337.46,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 102.16,
     "y": 337.38,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 106.31,
     "y": 335.55,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 112.66,
     "y": 337.38,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "3",
+    "text": "3",
     "x": 122.79,
     "y": 337.46,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "=⇒",
+    "text": "=⇒",
     "x": 130.66,
     "y": 337.38,
-    "largura": 16.79,
-    "altura": 9.22
+    "width": 16.79,
+    "height": 9.22
    },
    {
-    "texto": "V",
+    "text": "V",
     "x": 150.37,
     "y": 337.39,
-    "largura": 7.19,
-    "altura": 9.79
+    "width": 7.19,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 161.0,
     "y": 337.38,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 172.08,
     "y": 337.38,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "1,",
+    "text": "1,",
     "x": 176.23,
     "y": 337.46,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "3",
+    "text": "3",
     "x": 185.37,
     "y": 337.46,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 190.47,
     "y": 337.38,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": ".",
+    "text": ".",
     "x": 194.62,
     "y": 337.46,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "y",
+    "text": "y",
     "x": 51.15,
     "y": 364.78,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 59.15,
     "y": 364.77,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 70.4,
     "y": 364.78,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 75.61,
     "y": 362.95,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 81.95,
     "y": 364.19,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "20x",
+    "text": "20x",
     "x": 92.08,
     "y": 364.85,
-    "largura": 15.24,
-    "altura": 9.93
+    "width": 15.24,
+    "height": 9.93
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 109.61,
     "y": 364.77,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "201",
+    "text": "201",
     "x": 120.93,
     "y": 358.11,
-    "largura": 14.94,
-    "altura": 9.93
+    "width": 14.94,
+    "height": 9.93
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 204.8,
     "y": 358.11,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 139.97,
     "y": 364.77,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 151.05,
     "y": 364.77,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "x",
+    "text": "x",
     "x": 155.5,
     "y": 364.78,
-    "largura": 4.98,
-    "altura": 9.79
+    "width": 4.98,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 162.76,
     "y": 364.19,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "10",
+    "text": "10",
     "x": 172.89,
     "y": 364.85,
-    "largura": 9.96,
-    "altura": 9.93
+    "width": 9.96,
+    "height": 9.93
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 182.98,
     "y": 364.77,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 187.13,
     "y": 362.95,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "+",
+    "text": "+",
     "x": 193.47,
     "y": 364.77,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "=⇒",
+    "text": "=⇒",
     "x": 213.87,
     "y": 364.77,
-    "largura": 16.79,
-    "altura": 9.22
+    "width": 16.79,
+    "height": 9.22
    },
    {
-    "texto": "V",
+    "text": "V",
     "x": 233.58,
     "y": 364.78,
-    "largura": 7.19,
-    "altura": 9.79
+    "width": 7.19,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 244.21,
     "y": 364.77,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 125.92,
     "y": 371.69,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 204.8,
     "y": 371.69,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "\u0012",
+    "text": "\u0012",
     "x": 255.29,
     "y": 357.52,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": "10,",
+    "text": "10,",
     "x": 262.75,
     "y": 364.85,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 279.72,
     "y": 358.11,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 279.72,
     "y": 371.69,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "\u0013",
+    "text": "\u0013",
     "x": 286.02,
     "y": 357.52,
-    "largura": 7.33,
-    "altura": 6.38
+    "width": 7.33,
+    "height": 6.38
    },
    {
-    "texto": ".",
+    "text": ".",
     "x": 295.14,
     "y": 364.85,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "Portanto",
+    "text": "Portanto",
     "x": 51.02,
     "y": 397.27,
-    "largura": 38.11,
-    "altura": 9.93
+    "width": 38.11,
+    "height": 9.93
    },
    {
-    "texto": "todas",
+    "text": "todas",
     "x": 91.62,
     "y": 397.27,
-    "largura": 23.98,
-    "altura": 9.93
+    "width": 23.98,
+    "height": 9.93
    },
    {
-    "texto": "as",
+    "text": "as",
     "x": 118.09,
     "y": 397.27,
-    "largura": 9.21,
-    "altura": 9.93
+    "width": 9.21,
+    "height": 9.93
    },
    {
-    "texto": "parábolas",
+    "text": "parábolas",
     "x": 129.79,
     "y": 397.27,
-    "largura": 42.94,
-    "altura": 9.93
+    "width": 42.94,
+    "height": 9.93
    },
    {
-    "texto": "têm",
+    "text": "têm",
     "x": 175.22,
     "y": 397.27,
-    "largura": 16.82,
-    "altura": 9.93
+    "width": 16.82,
+    "height": 9.93
    },
    {
-    "texto": "vértice",
+    "text": "vértice",
     "x": 194.52,
     "y": 397.27,
-    "largura": 29.68,
-    "altura": 9.93
+    "width": 29.68,
+    "height": 9.93
    },
    {
-    "texto": "no",
+    "text": "no",
     "x": 226.69,
     "y": 397.27,
-    "largura": 11.24,
-    "altura": 9.93
+    "width": 11.24,
+    "height": 9.93
    },
    {
-    "texto": "primeiro",
+    "text": "primeiro",
     "x": 240.42,
     "y": 397.27,
-    "largura": 38.49,
-    "altura": 9.93
+    "width": 38.49,
+    "height": 9.93
    },
    {
-    "texto": "quadrante,",
+    "text": "quadrante,",
     "x": 281.4,
     "y": 397.27,
-    "largura": 47.88,
-    "altura": 9.93
+    "width": 47.88,
+    "height": 9.93
    },
    {
-    "texto": "exceto",
+    "text": "exceto",
     "x": 331.77,
     "y": 397.34,
-    "largura": 28.22,
-    "altura": 9.7
+    "width": 28.22,
+    "height": 9.7
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 362.48,
     "y": 397.27,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "do",
+    "text": "do",
     "x": 369.95,
     "y": 397.27,
-    "largura": 11.53,
-    "altura": 9.93
+    "width": 11.53,
+    "height": 9.93
    },
    {
-    "texto": "item",
+    "text": "item",
     "x": 383.97,
     "y": 397.27,
-    "largura": 19.72,
-    "altura": 9.93
+    "width": 19.72,
+    "height": 9.93
    },
    {
-    "texto": "(A).",
+    "text": "(A).",
     "x": 406.18,
     "y": 397.27,
-    "largura": 16.88,
-    "altura": 9.93
+    "width": 16.88,
+    "height": 9.93
    },
    {
-    "texto": "5.",
+    "text": "5.",
     "x": 51.02,
     "y": 433.2,
-    "largura": 7.47,
-    "altura": 9.7
+    "width": 7.47,
+    "height": 9.7
    },
    {
-    "texto": "Considere",
+    "text": "Considere",
     "x": 61.58,
     "y": 433.13,
-    "largura": 44.81,
-    "altura": 9.93
+    "width": 44.81,
+    "height": 9.93
    },
    {
-    "texto": "uma",
+    "text": "uma",
     "x": 108.89,
     "y": 433.13,
-    "largura": 19.79,
-    "altura": 9.93
+    "width": 19.79,
+    "height": 9.93
    },
    {
-    "texto": "progressão",
+    "text": "progressão",
     "x": 131.16,
     "y": 433.13,
-    "largura": 48.12,
-    "altura": 9.93
+    "width": 48.12,
+    "height": 9.93
    },
    {
-    "texto": "geométrica",
+    "text": "geométrica",
     "x": 181.77,
     "y": 433.13,
-    "largura": 48.81,
-    "altura": 9.93
+    "width": 48.81,
+    "height": 9.93
    },
    {
-    "texto": "cujo",
+    "text": "cujo",
     "x": 233.07,
     "y": 433.13,
-    "largura": 18.2,
-    "altura": 9.93
+    "width": 18.2,
+    "height": 9.93
    },
    {
-    "texto": "primeiro",
+    "text": "primeiro",
     "x": 253.76,
     "y": 433.13,
-    "largura": 38.49,
-    "altura": 9.93
+    "width": 38.49,
+    "height": 9.93
    },
    {
-    "texto": "termo",
+    "text": "termo",
     "x": 294.74,
     "y": 433.13,
-    "largura": 26.19,
-    "altura": 9.93
+    "width": 26.19,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 323.42,
     "y": 433.13,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 330.68,
     "y": 433.13,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 355.5,
     "y": 433.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 362.97,
     "y": 433.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "e",
+    "text": "e",
     "x": 370.44,
     "y": 433.13,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 377.71,
     "y": 433.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "razão",
+    "text": "razão",
     "x": 385.18,
     "y": 433.13,
-    "largura": 24.32,
-    "altura": 9.93
+    "width": 24.32,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 411.99,
     "y": 433.13,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 419.25,
     "y": 433.13,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 444.07,
     "y": 433.13,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "5.",
+    "text": "5.",
     "x": 451.54,
     "y": 433.13,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "O",
+    "text": "O",
     "x": 61.37,
     "y": 457.04,
-    "largura": 7.83,
-    "altura": 9.93
+    "width": 7.83,
+    "height": 9.93
    },
    {
-    "texto": "menor",
+    "text": "menor",
     "x": 71.69,
     "y": 457.04,
-    "largura": 28.74,
-    "altura": 9.93
+    "width": 28.74,
+    "height": 9.93
    },
    {
-    "texto": "valor",
+    "text": "valor",
     "x": 102.93,
     "y": 457.04,
-    "largura": 22.88,
-    "altura": 9.93
+    "width": 22.88,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 128.3,
     "y": 457.04,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 141.77,
     "y": 456.97,
-    "largura": 5.54,
-    "altura": 9.79
+    "width": 5.54,
+    "height": 9.79
    },
    {
-    "texto": "para",
+    "text": "para",
     "x": 149.93,
     "y": 457.04,
-    "largura": 19.89,
-    "altura": 9.93
+    "width": 19.89,
+    "height": 9.93
    },
    {
-    "texto": "o",
+    "text": "o",
     "x": 172.31,
     "y": 457.04,
-    "largura": 5.44,
-    "altura": 9.93
+    "width": 5.44,
+    "height": 9.93
    },
    {
-    "texto": "qual",
+    "text": "qual",
     "x": 180.24,
     "y": 457.04,
-    "largura": 19.47,
-    "altura": 9.93
+    "width": 19.47,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 202.19,
     "y": 457.04,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "soma",
+    "text": "soma",
     "x": 209.66,
     "y": 457.11,
-    "largura": 23.8,
-    "altura": 9.7
+    "width": 23.8,
+    "height": 9.7
    },
    {
-    "texto": "dos",
+    "text": "dos",
     "x": 235.96,
     "y": 457.04,
-    "largura": 15.75,
-    "altura": 9.93
+    "width": 15.75,
+    "height": 9.93
    },
    {
-    "texto": "primeiros",
+    "text": "primeiros",
     "x": 254.2,
     "y": 457.04,
-    "largura": 42.71,
-    "altura": 9.93
+    "width": 42.71,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 299.52,
     "y": 456.97,
-    "largura": 5.54,
-    "altura": 9.79
+    "width": 5.54,
+    "height": 9.79
    },
    {
-    "texto": "termos",
+    "text": "termos",
     "x": 307.68,
     "y": 457.04,
-    "largura": 30.42,
-    "altura": 9.93
+    "width": 30.42,
+    "height": 9.93
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 340.58,
     "y": 457.04,
-    "largura": 11.07,
-    "altura": 9.93
+    "width": 11.07,
+    "height": 9.93
    },
    {
-    "texto": "progressão",
+    "text": "progressão",
     "x": 354.14,
     "y": 457.04,
-    "largura": 48.12,
-    "altura": 9.93
+    "width": 48.12,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 404.75,
     "y": 457.04,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "maior",
+    "text": "maior",
     "x": 412.01,
     "y": 457.04,
-    "largura": 26.05,
-    "altura": 9.93
+    "width": 26.05,
+    "height": 9.93
    },
    {
-    "texto": "que",
+    "text": "que",
     "x": 440.56,
     "y": 457.04,
-    "largura": 16.36,
-    "altura": 9.93
+    "width": 16.36,
+    "height": 9.93
    },
    {
-    "texto": "2600",
+    "text": "2600",
     "x": 459.41,
     "y": 457.04,
-    "largura": 19.93,
-    "altura": 9.93
+    "width": 19.93,
+    "height": 9.93
    },
    {
-    "texto": "é:",
+    "text": "é:",
     "x": 481.82,
     "y": 457.04,
-    "largura": 7.26,
-    "altura": 9.93
+    "width": 7.26,
+    "height": 9.93
    },
    {
-    "texto": "(A)",
+    "text": "(A)",
     "x": 56.56,
     "y": 478.96,
-    "largura": 14.39,
-    "altura": 9.93
+    "width": 14.39,
+    "height": 9.93
    },
    {
-    "texto": "3.",
+    "text": "3.",
     "x": 75.93,
     "y": 478.96,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(B)",
+    "text": "(B)",
     "x": 58.23,
     "y": 498.88,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "4.",
+    "text": "4.",
     "x": 75.93,
     "y": 498.88,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(C)",
+    "text": "(C)",
     "x": 57.25,
     "y": 518.81,
-    "largura": 13.7,
-    "altura": 9.93
+    "width": 13.7,
+    "height": 9.93
    },
    {
-    "texto": "5.",
+    "text": "5.",
     "x": 75.93,
     "y": 518.81,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(D)",
+    "text": "(D)",
     "x": 56.6,
     "y": 538.74,
-    "largura": 14.35,
-    "altura": 9.93
+    "width": 14.35,
+    "height": 9.93
    },
    {
-    "texto": "6.",
+    "text": "6.",
     "x": 75.93,
     "y": 538.74,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "(E)",
+    "text": "(E)",
     "x": 58.23,
     "y": 558.66,
-    "largura": 12.72,
-    "altura": 9.93
+    "width": 12.72,
+    "height": 9.93
    },
    {
-    "texto": "7.",
+    "text": "7.",
     "x": 75.93,
     "y": 558.66,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "Solução",
+    "text": "Solução",
     "x": 51.02,
     "y": 580.65,
-    "largura": 35.97,
-    "altura": 9.7
+    "width": 35.97,
+    "height": 9.7
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 89.49,
     "y": 580.65,
-    "largura": 11.07,
-    "altura": 9.7
+    "width": 11.07,
+    "height": 9.7
    },
    {
-    "texto": "questão",
+    "text": "questão",
     "x": 103.05,
     "y": 580.65,
-    "largura": 35.42,
-    "altura": 9.7
+    "width": 35.42,
+    "height": 9.7
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 140.96,
     "y": 580.65,
-    "largura": 4.98,
-    "altura": 9.7
+    "width": 4.98,
+    "height": 9.7
    },
    {
-    "texto": "Resposta:",
+    "text": "Resposta:",
     "x": 51.02,
     "y": 592.6,
-    "largura": 43.44,
-    "altura": 9.7
+    "width": 43.44,
+    "height": 9.7
    },
    {
-    "texto": "C",
+    "text": "C",
     "x": 97.55,
     "y": 592.6,
-    "largura": 7.19,
-    "altura": 9.7
+    "width": 7.19,
+    "height": 9.7
    },
    {
-    "texto": "A",
+    "text": "A",
     "x": 51.02,
     "y": 620.02,
-    "largura": 7.75,
-    "altura": 9.93
+    "width": 7.75,
+    "height": 9.93
    },
    {
-    "texto": "expressão",
+    "text": "expressão",
     "x": 61.27,
     "y": 620.02,
-    "largura": 43.3,
-    "altura": 9.93
+    "width": 43.3,
+    "height": 9.93
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 107.05,
     "y": 620.02,
-    "largura": 11.07,
-    "altura": 9.93
+    "width": 11.07,
+    "height": 9.93
    },
    {
-    "texto": "soma",
+    "text": "soma",
     "x": 120.61,
     "y": 620.09,
-    "largura": 23.8,
-    "altura": 9.7
+    "width": 23.8,
+    "height": 9.7
    },
    {
-    "texto": "dos",
+    "text": "dos",
     "x": 146.9,
     "y": 620.02,
-    "largura": 15.75,
-    "altura": 9.93
+    "width": 15.75,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 165.27,
     "y": 619.95,
-    "largura": 5.54,
-    "altura": 9.79
+    "width": 5.54,
+    "height": 9.79
    },
    {
-    "texto": "primeiros",
+    "text": "primeiros",
     "x": 173.42,
     "y": 620.02,
-    "largura": 42.71,
-    "altura": 9.93
+    "width": 42.71,
+    "height": 9.93
    },
    {
-    "texto": "termos",
+    "text": "termos",
     "x": 218.62,
     "y": 620.02,
-    "largura": 30.42,
-    "altura": 9.93
+    "width": 30.42,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 251.53,
     "y": 620.02,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "uma",
+    "text": "uma",
     "x": 264.88,
     "y": 620.02,
-    "largura": 19.79,
-    "altura": 9.93
+    "width": 19.79,
+    "height": 9.93
    },
    {
-    "texto": "progressão",
+    "text": "progressão",
     "x": 287.16,
     "y": 620.02,
-    "largura": 48.12,
-    "altura": 9.93
+    "width": 48.12,
+    "height": 9.93
    },
    {
-    "texto": "geométrica",
+    "text": "geométrica",
     "x": 337.77,
     "y": 620.02,
-    "largura": 48.81,
-    "altura": 9.93
+    "width": 48.81,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 389.06,
     "y": 620.02,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "dada",
+    "text": "dada",
     "x": 396.33,
     "y": 620.02,
-    "largura": 22.14,
-    "altura": 9.93
+    "width": 22.14,
+    "height": 9.93
    },
    {
-    "texto": "por",
+    "text": "por",
     "x": 420.95,
     "y": 620.02,
-    "largura": 15.36,
-    "altura": 9.93
+    "width": 15.36,
+    "height": 9.93
    },
    {
-    "texto": "Pelo",
+    "text": "Pelo",
     "x": 51.02,
     "y": 643.93,
-    "largura": 19.13,
-    "altura": 9.93
+    "width": 19.13,
+    "height": 9.93
    },
    {
-    "texto": "enunciado,",
+    "text": "enunciado,",
     "x": 72.64,
     "y": 643.93,
-    "largura": 48.7,
-    "altura": 9.93
+    "width": 48.7,
+    "height": 9.93
    },
    {
-    "texto": "devemos",
+    "text": "devemos",
     "x": 123.83,
     "y": 643.93,
-    "largura": 39.72,
-    "altura": 9.93
+    "width": 39.72,
+    "height": 9.93
    },
    {
-    "texto": "ter",
+    "text": "ter",
     "x": 166.04,
     "y": 643.93,
-    "largura": 11.96,
-    "altura": 9.93
+    "width": 11.96,
+    "height": 9.93
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 180.49,
     "y": 643.93,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 185.56,
     "y": 641.97,
-    "largura": 4.21,
-    "altura": 7.44
+    "width": 4.21,
+    "height": 7.44
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 192.43,
     "y": 643.27,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 202.56,
     "y": 643.93,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ">",
+    "text": ">",
     "x": 210.43,
     "y": 643.85,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "2600",
+    "text": "2600",
     "x": 221.39,
     "y": 643.93,
-    "largura": 19.93,
-    "altura": 9.93
+    "width": 19.93,
+    "height": 9.93
    },
    {
-    "texto": ",",
+    "text": ",",
     "x": 243.81,
     "y": 643.93,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "ou",
+    "text": "ou",
     "x": 248.79,
     "y": 643.93,
-    "largura": 11.45,
-    "altura": 9.93
+    "width": 11.45,
+    "height": 9.93
    },
    {
-    "texto": "seja,",
+    "text": "seja,",
     "x": 262.73,
     "y": 643.93,
-    "largura": 18.8,
-    "altura": 9.93
+    "width": 18.8,
+    "height": 9.93
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 284.02,
     "y": 643.93,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 289.09,
     "y": 641.97,
-    "largura": 4.21,
-    "altura": 7.44
+    "width": 4.21,
+    "height": 7.44
    },
    {
-    "texto": ">",
+    "text": ">",
     "x": 296.79,
     "y": 643.85,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "2601.",
+    "text": "2601.",
     "x": 307.75,
     "y": 643.93,
-    "largura": 22.42,
-    "altura": 9.93
+    "width": 22.42,
+    "height": 9.93
    },
    {
-    "texto": "Portanto",
+    "text": "Portanto",
     "x": 51.02,
     "y": 667.84,
-    "largura": 38.11,
-    "altura": 9.93
+    "width": 38.11,
+    "height": 9.93
    },
    {
-    "texto": "o",
+    "text": "o",
     "x": 91.62,
     "y": 667.84,
-    "largura": 5.44,
-    "altura": 9.93
+    "width": 5.44,
+    "height": 9.93
    },
    {
-    "texto": "menor",
+    "text": "menor",
     "x": 99.55,
     "y": 667.91,
-    "largura": 29.34,
-    "altura": 9.7
+    "width": 29.34,
+    "height": 9.7
    },
    {
-    "texto": "valor",
+    "text": "valor",
     "x": 131.38,
     "y": 667.84,
-    "largura": 22.88,
-    "altura": 9.93
+    "width": 22.88,
+    "height": 9.93
    },
    {
-    "texto": "de",
+    "text": "de",
     "x": 156.76,
     "y": 667.84,
-    "largura": 10.86,
-    "altura": 9.93
+    "width": 10.86,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 170.23,
     "y": 667.77,
-    "largura": 5.54,
-    "altura": 9.79
+    "width": 5.54,
+    "height": 9.79
    },
    {
-    "texto": "ocorre",
+    "text": "ocorre",
     "x": 178.38,
     "y": 667.84,
-    "largura": 27.77,
-    "altura": 9.93
+    "width": 27.77,
+    "height": 9.93
    },
    {
-    "texto": "para",
+    "text": "para",
     "x": 208.64,
     "y": 667.84,
-    "largura": 19.89,
-    "altura": 9.93
+    "width": 19.89,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 231.14,
     "y": 667.77,
-    "largura": 5.54,
-    "altura": 9.79
+    "width": 5.54,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 239.7,
     "y": 667.76,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 250.66,
     "y": 667.84,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ",",
+    "text": ",",
     "x": 258.13,
     "y": 667.84,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "já",
+    "text": "já",
     "x": 263.11,
     "y": 667.84,
-    "largura": 7.31,
-    "altura": 9.93
+    "width": 7.31,
+    "height": 9.93
    },
    {
-    "texto": "que",
+    "text": "que",
     "x": 272.91,
     "y": 667.84,
-    "largura": 16.36,
-    "altura": 9.93
+    "width": 16.36,
+    "height": 9.93
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 291.76,
     "y": 667.84,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 296.75,
     "y": 665.93,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 303.92,
     "y": 667.76,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "3125",
+    "text": "3125",
     "x": 314.88,
     "y": 667.84,
-    "largura": 19.93,
-    "altura": 9.93
+    "width": 19.93,
+    "height": 9.93
    },
    {
-    "texto": "e",
+    "text": "e",
     "x": 342.28,
     "y": 667.84,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "5",
+    "text": "5",
     "x": 354.52,
     "y": 667.84,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "4",
+    "text": "4",
     "x": 359.5,
     "y": 665.93,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 366.68,
     "y": 667.76,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "625.",
+    "text": "625.",
     "x": 377.64,
     "y": 667.84,
-    "largura": 17.43,
-    "altura": 9.93
+    "width": 17.43,
+    "height": 9.93
    },
    {
-    "texto": "Solução",
+    "text": "Solução",
     "x": 51.02,
     "y": 691.82,
-    "largura": 35.97,
-    "altura": 9.7
+    "width": 35.97,
+    "height": 9.7
    },
    {
-    "texto": "Alternativa",
+    "text": "Alternativa",
     "x": 89.49,
     "y": 691.82,
-    "largura": 51.47,
-    "altura": 9.7
+    "width": 51.47,
+    "height": 9.7
    },
    {
-    "texto": "Os",
+    "text": "Os",
     "x": 51.02,
     "y": 715.66,
-    "largura": 12.05,
-    "altura": 9.93
+    "width": 12.05,
+    "height": 9.93
    },
    {
-    "texto": "cinco",
+    "text": "cinco",
     "x": 65.57,
     "y": 715.66,
-    "largura": 22.98,
-    "altura": 9.93
+    "width": 22.98,
+    "height": 9.93
    },
    {
-    "texto": "primeiros",
+    "text": "primeiros",
     "x": 91.04,
     "y": 715.66,
-    "largura": 42.71,
-    "altura": 9.93
+    "width": 42.71,
+    "height": 9.93
    },
    {
-    "texto": "termos",
+    "text": "termos",
     "x": 136.24,
     "y": 715.66,
-    "largura": 30.42,
-    "altura": 9.93
+    "width": 30.42,
+    "height": 9.93
    },
    {
-    "texto": "da",
+    "text": "da",
     "x": 169.15,
     "y": 715.66,
-    "largura": 11.07,
-    "altura": 9.93
+    "width": 11.07,
+    "height": 9.93
    },
    {
-    "texto": "progressão",
+    "text": "progressão",
     "x": 182.71,
     "y": 715.66,
-    "largura": 48.12,
-    "altura": 9.93
+    "width": 48.12,
+    "height": 9.93
    },
    {
-    "texto": "geométrica",
+    "text": "geométrica",
     "x": 233.32,
     "y": 715.66,
-    "largura": 48.81,
-    "altura": 9.93
+    "width": 48.81,
+    "height": 9.93
    },
    {
-    "texto": "são:",
+    "text": "são:",
     "x": 284.62,
     "y": 715.66,
-    "largura": 17.13,
-    "altura": 9.93
+    "width": 17.13,
+    "height": 9.93
    },
    {
-    "texto": "4,",
+    "text": "4,",
     "x": 304.84,
     "y": 715.66,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "20,",
+    "text": "20,",
     "x": 314.8,
     "y": 715.66,
-    "largura": 12.45,
-    "altura": 9.93
+    "width": 12.45,
+    "height": 9.93
    },
    {
-    "texto": "100,",
+    "text": "100,",
     "x": 329.75,
     "y": 715.66,
-    "largura": 17.43,
-    "altura": 9.93
+    "width": 17.43,
+    "height": 9.93
    },
    {
-    "texto": "500,",
+    "text": "500,",
     "x": 349.67,
     "y": 715.66,
-    "largura": 17.43,
-    "altura": 9.93
+    "width": 17.43,
+    "height": 9.93
    },
    {
-    "texto": "2500.",
+    "text": "2500.",
     "x": 369.6,
     "y": 715.66,
-    "largura": 22.42,
-    "altura": 9.93
+    "width": 22.42,
+    "height": 9.93
    },
    {
-    "texto": "A",
+    "text": "A",
     "x": 51.02,
     "y": 739.57,
-    "largura": 7.75,
-    "altura": 9.93
+    "width": 7.75,
+    "height": 9.93
    },
    {
-    "texto": "soma",
+    "text": "soma",
     "x": 61.27,
     "y": 739.57,
-    "largura": 23.44,
-    "altura": 9.93
+    "width": 23.44,
+    "height": 9.93
    },
    {
-    "texto": "dos",
+    "text": "dos",
     "x": 87.2,
     "y": 739.57,
-    "largura": 15.75,
-    "altura": 9.93
+    "width": 15.75,
+    "height": 9.93
    },
    {
-    "texto": "quatro",
+    "text": "quatro",
     "x": 105.44,
     "y": 739.57,
-    "largura": 29.01,
-    "altura": 9.93
+    "width": 29.01,
+    "height": 9.93
    },
    {
-    "texto": "primeiros",
+    "text": "primeiros",
     "x": 136.94,
     "y": 739.57,
-    "largura": 42.71,
-    "altura": 9.93
+    "width": 42.71,
+    "height": 9.93
    },
    {
-    "texto": "termos",
+    "text": "termos",
     "x": 182.14,
     "y": 739.57,
-    "largura": 30.42,
-    "altura": 9.93
+    "width": 30.42,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 215.05,
     "y": 739.57,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 222.31,
     "y": 739.57,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 247.13,
     "y": 739.57,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "624.",
+    "text": "624.",
     "x": 254.6,
     "y": 739.57,
-    "largura": 17.43,
-    "altura": 9.93
+    "width": 17.43,
+    "height": 9.93
    },
    {
-    "texto": "A",
+    "text": "A",
     "x": 51.02,
     "y": 763.48,
-    "largura": 7.75,
-    "altura": 9.93
+    "width": 7.75,
+    "height": 9.93
    },
    {
-    "texto": "soma",
+    "text": "soma",
     "x": 61.27,
     "y": 763.48,
-    "largura": 23.44,
-    "altura": 9.93
+    "width": 23.44,
+    "height": 9.93
    },
    {
-    "texto": "dos",
+    "text": "dos",
     "x": 87.2,
     "y": 763.48,
-    "largura": 15.75,
-    "altura": 9.93
+    "width": 15.75,
+    "height": 9.93
    },
    {
-    "texto": "cinco",
+    "text": "cinco",
     "x": 105.44,
     "y": 763.48,
-    "largura": 22.98,
-    "altura": 9.93
+    "width": 22.98,
+    "height": 9.93
    },
    {
-    "texto": "primeiros",
+    "text": "primeiros",
     "x": 130.91,
     "y": 763.48,
-    "largura": 42.71,
-    "altura": 9.93
+    "width": 42.71,
+    "height": 9.93
    },
    {
-    "texto": "termos",
+    "text": "termos",
     "x": 176.11,
     "y": 763.48,
-    "largura": 30.42,
-    "altura": 9.93
+    "width": 30.42,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 209.02,
     "y": 763.48,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "igual",
+    "text": "igual",
     "x": 216.28,
     "y": 763.48,
-    "largura": 22.33,
-    "altura": 9.93
+    "width": 22.33,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 241.1,
     "y": 763.48,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "3124.",
+    "text": "3124.",
     "x": 248.57,
     "y": 763.48,
-    "largura": 22.42,
-    "altura": 9.93
+    "width": 22.42,
+    "height": 9.93
    },
    {
-    "texto": "Portanto,",
+    "text": "Portanto,",
     "x": 51.02,
     "y": 787.39,
-    "largura": 40.6,
-    "altura": 9.93
+    "width": 40.6,
+    "height": 9.93
    },
    {
-    "texto": "o",
+    "text": "o",
     "x": 94.11,
     "y": 787.39,
-    "largura": 5.44,
-    "altura": 9.93
+    "width": 5.44,
+    "height": 9.93
    },
    {
-    "texto": "menor",
+    "text": "menor",
     "x": 102.04,
     "y": 787.39,
-    "largura": 28.74,
-    "altura": 9.93
+    "width": 28.74,
+    "height": 9.93
    },
    {
-    "texto": "ı́ndice",
+    "text": "ı́ndice",
     "x": 133.27,
     "y": 787.39,
-    "largura": 26.84,
-    "altura": 9.93
+    "width": 26.84,
+    "height": 9.93
    },
    {
-    "texto": "cuja",
+    "text": "cuja",
     "x": 162.6,
     "y": 787.39,
-    "largura": 17.74,
-    "altura": 9.93
+    "width": 17.74,
+    "height": 9.93
    },
    {
-    "texto": "soma",
+    "text": "soma",
     "x": 182.84,
     "y": 787.39,
-    "largura": 23.44,
-    "altura": 9.93
+    "width": 23.44,
+    "height": 9.93
    },
    {
-    "texto": "dos",
+    "text": "dos",
     "x": 208.77,
     "y": 787.39,
-    "largura": 15.75,
-    "altura": 9.93
+    "width": 15.75,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 227.14,
     "y": 787.32,
-    "largura": 5.54,
-    "altura": 9.79
+    "width": 5.54,
+    "height": 9.79
    },
    {
-    "texto": "primeiros",
+    "text": "primeiros",
     "x": 235.29,
     "y": 787.39,
-    "largura": 42.71,
-    "altura": 9.93
+    "width": 42.71,
+    "height": 9.93
    },
    {
-    "texto": "termos",
+    "text": "termos",
     "x": 280.49,
     "y": 787.39,
-    "largura": 30.42,
-    "altura": 9.93
+    "width": 30.42,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 313.4,
     "y": 787.39,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "maior",
+    "text": "maior",
     "x": 320.66,
     "y": 787.39,
-    "largura": 26.05,
-    "altura": 9.93
+    "width": 26.05,
+    "height": 9.93
    },
    {
-    "texto": "do",
+    "text": "do",
     "x": 349.2,
     "y": 787.39,
-    "largura": 11.53,
-    "altura": 9.93
+    "width": 11.53,
+    "height": 9.93
    },
    {
-    "texto": "que",
+    "text": "que",
     "x": 363.22,
     "y": 787.39,
-    "largura": 16.36,
-    "altura": 9.93
+    "width": 16.36,
+    "height": 9.93
    },
    {
-    "texto": "2600",
+    "text": "2600",
     "x": 382.07,
     "y": 787.39,
-    "largura": 19.93,
-    "altura": 9.93
+    "width": 19.93,
+    "height": 9.93
    },
    {
-    "texto": "é",
+    "text": "é",
     "x": 404.49,
     "y": 787.39,
-    "largura": 4.77,
-    "altura": 9.93
+    "width": 4.77,
+    "height": 9.93
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 411.87,
     "y": 787.32,
-    "largura": 5.54,
-    "altura": 9.79
+    "width": 5.54,
+    "height": 9.79
    },
    {
-    "texto": "=",
+    "text": "=",
     "x": 420.43,
     "y": 787.31,
-    "largura": 8.07,
-    "altura": 9.22
+    "width": 8.07,
+    "height": 9.22
    },
    {
-    "texto": "5.",
+    "text": "5.",
     "x": 431.39,
     "y": 787.39,
-    "largura": 7.47,
-    "altura": 9.93
+    "width": 7.47,
+    "height": 9.93
    },
    {
-    "texto": "2",
+    "text": "2",
     "x": 297.98,
     "y": 827.4,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": "a",
+    "text": "a",
     "x": 440.27,
     "y": 613.21,
-    "largura": 4.42,
-    "altura": 9.79
+    "width": 4.42,
+    "height": 9.79
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 444.82,
     "y": 616.84,
-    "largura": 3.79,
-    "altura": 7.55
+    "width": 3.79,
+    "height": 7.55
    },
    {
-    "texto": "(",
+    "text": "(",
     "x": 449.23,
     "y": 613.19,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": "q",
+    "text": "q",
     "x": 453.51,
     "y": 613.21,
-    "largura": 4.61,
-    "altura": 9.79
+    "width": 4.61,
+    "height": 9.79
    },
    {
-    "texto": "n",
+    "text": "n",
     "x": 458.34,
     "y": 611.32,
-    "largura": 4.21,
-    "altura": 7.44
+    "width": 4.21,
+    "height": 7.44
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 465.2,
     "y": 612.61,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 475.33,
     "y": 613.28,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    },
    {
-    "texto": ")",
+    "text": ")",
     "x": 480.44,
     "y": 613.19,
-    "largura": 4.04,
-    "altura": 9.22
+    "width": 4.04,
+    "height": 9.22
    },
    {
-    "texto": ".",
+    "text": ".",
     "x": 488.27,
     "y": 620.02,
-    "largura": 2.49,
-    "altura": 9.93
+    "width": 2.49,
+    "height": 9.93
    },
    {
-    "texto": "q",
+    "text": "q",
     "x": 451.4,
     "y": 626.79,
-    "largura": 4.61,
-    "altura": 9.79
+    "width": 4.61,
+    "height": 9.79
    },
    {
-    "texto": "−",
+    "text": "−",
     "x": 458.2,
     "y": 626.19,
-    "largura": 8.07,
-    "altura": 9.8
+    "width": 8.07,
+    "height": 9.8
    },
    {
-    "texto": "1",
+    "text": "1",
     "x": 468.33,
     "y": 626.86,
-    "largura": 4.98,
-    "altura": 9.93
+    "width": 4.98,
+    "height": 9.93
    }
   ]
  }

@@ -28,7 +28,7 @@ import { AppShell } from "../../app-shell";
  * módulo no bundle do cliente na primeira vez que alguém trocar o `type` por um valor. A estante
  * declara o dela pelo mesmo motivo; o `page.tsx` liga os dois, e o `tsc` reclama se divergirem.
  */
-export interface CapituloDaTela {
+export interface ScreenChapter {
   readonly id: string;
   readonly label: string;
   readonly title: string;
@@ -38,7 +38,7 @@ export interface CapituloDaTela {
   readonly pct: number;
 }
 
-export interface PendenciaDaTela {
+export interface ScreenIssue {
   readonly kind: string;
   readonly label: string;
   readonly where: string;
@@ -58,10 +58,10 @@ export interface BookOverviewScreenProps {
     readonly librarySlug: string;
     readonly mark: string;
     readonly meta: readonly { readonly k: string; readonly v: string }[];
-    readonly chapters: readonly CapituloDaTela[];
+    readonly chapters: readonly ScreenChapter[];
     readonly questionCount: number;
     readonly invalidCount: number;
-    readonly issues: readonly PendenciaDaTela[];
+    readonly issues: readonly ScreenIssue[];
     readonly source: {
       readonly filename: string;
       readonly size: string;

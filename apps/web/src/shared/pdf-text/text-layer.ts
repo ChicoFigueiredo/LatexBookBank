@@ -12,33 +12,33 @@
  */
 
 /** Uma palavra da camada de texto, em pontos do PDF, origem no topo-esquerda. */
-export interface PalavraNaPagina {
-  readonly texto: string;
+export interface PageWord {
+  readonly text: string;
   readonly x: number;
   readonly y: number;
-  readonly largura: number;
-  readonly altura: number;
+  readonly width: number;
+  readonly height: number;
 }
 
-export interface PaginaDeTexto {
-  readonly largura: number;
-  readonly altura: number;
-  readonly palavras: readonly PalavraNaPagina[];
+export interface TextPage {
+  readonly width: number;
+  readonly height: number;
+  readonly words: readonly PageWord[];
 }
 
 /** A palavra a partir da linha de base e do corpo: o topo é a base menos o corpo. */
-export function palavraNaLinhaDeBase(trecho: {
-  readonly texto: string;
+export function wordFromBaseline(span: {
+  readonly text: string;
   readonly x: number;
-  readonly largura: number;
-  readonly linhaDeBase: number;
-  readonly corpo: number;
-}): PalavraNaPagina {
+  readonly width: number;
+  readonly baseline: number;
+  readonly fontSize: number;
+}): PageWord {
   return {
-    texto: trecho.texto,
-    x: trecho.x,
-    y: trecho.linhaDeBase - trecho.corpo,
-    largura: trecho.largura,
-    altura: trecho.corpo,
+    text: span.text,
+    x: span.x,
+    y: span.baseline - span.fontSize,
+    width: span.width,
+    height: span.fontSize,
   };
 }

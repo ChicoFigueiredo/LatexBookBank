@@ -19,16 +19,16 @@
  * cabeça de quem baixou — um gabarito que não está lá, numa prova que vai para a mão do aluno.
  */
 
-export type SaidaDoRender = "aluno" | "professor";
+export type RenderAudience = "aluno" | "professor";
 
-export interface SaidaDescrita {
-  readonly id: SaidaDoRender;
+export interface RenderAudienceOption {
+  readonly id: RenderAudience;
   readonly label: string;
   /** O `title` da pílula — o que muda no papel, não o nome do público. */
   readonly hint: string;
 }
 
-export const SAIDAS: readonly SaidaDescrita[] = [
+export const RENDER_AUDIENCES: readonly RenderAudienceOption[] = [
   { id: "aluno", label: "Aluno", hint: "Só enunciado e alternativas" },
   {
     id: "professor",
@@ -38,7 +38,7 @@ export const SAIDAS: readonly SaidaDescrita[] = [
 ];
 
 /** O que a rota recebe. Uma função, e não `saida === "professor"` espalhado por três arquivos. */
-export const incluiResolucao = (saida: SaidaDoRender): boolean => saida === "professor";
+export const includesSolution = (saida: RenderAudience): boolean => saida === "professor";
 
 /**
  * A linha em mono ao lado das pílulas (`outSummary` no protótipo).
@@ -46,7 +46,7 @@ export const incluiResolucao = (saida: SaidaDoRender): boolean => saida === "pro
  * Diz o que entra, e não para quem serve: “gabarito e resolução” é conferível olhando o papel;
  * “versão do professor” é um rótulo em que se acredita.
  */
-export function resumoDaSaida(saida: SaidaDoRender): string {
+export function audienceSummary(saida: RenderAudience): string {
   return saida === "professor"
     ? "enunciado · alternativas · gabarito · resolução"
     : "enunciado · alternativas";
@@ -58,14 +58,14 @@ export function resumoDaSaida(saida: SaidaDoRender): string {
  * `null` quando vale — e aí nada aparece. Um aviso permanente vira moldura, e moldura não é lida
  * no dia em que importa.
  */
-export function avisoDeSaidaVencida(
-  saidaAtual: SaidaDoRender,
-  saidaDoResultado: SaidaDoRender | null,
+export function staleAudienceWarning(
+  saidaAtual: RenderAudience,
+  saidaDoResultado: RenderAudience | null,
 ): string | null {
   if (saidaDoResultado === null || saidaDoResultado === saidaAtual) return null;
 
-  const compilada = SAIDAS.find((saida) => saida.id === saidaDoResultado)?.label ?? saidaDoResultado;
-  const pedida = SAIDAS.find((saida) => saida.id === saidaAtual)?.label ?? saidaAtual;
+  const compilada = RENDER_AUDIENCES.find((saida) => saida.id === saidaDoResultado)?.label ?? saidaDoResultado;
+  const pedida = RENDER_AUDIENCES.find((saida) => saida.id === saidaAtual)?.label ?? saidaAtual;
 
   return `Este resultado foi compilado na saída ${compilada}, e a escolhida agora é ${pedida}. Compile de novo antes de baixar.`;
 }
@@ -76,9 +76,9 @@ export function avisoDeSaidaVencida(
  * Dois PDFs da mesma questão na pasta de downloads, com o mesmo nome, são indistinguíveis no
  * momento em que a diferença importa: um tem o gabarito e o outro não.
  */
-export function nomeDoArquivo(
+export function downloadFileName(
   questaoId: string,
-  saida: SaidaDoRender,
+  saida: RenderAudience,
   extensao: "pdf" | "png",
 ): string {
   // Só o começo do id: o nome é para a pessoa reconhecer o arquivo, não para o sistema resolver.

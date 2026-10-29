@@ -8,7 +8,7 @@
  */
 
 /** A projeção mínima de um nó para a conta. O read model carrega isto e mais nada. */
-export interface NoDaEstrutura {
+export interface StructureNode {
   readonly id: string;
   readonly parentId: string | null;
   readonly kind: string;
@@ -21,7 +21,7 @@ export interface NoDaEstrutura {
   readonly isInvalid: boolean;
 }
 
-export interface CapituloDoLivro {
+export interface BookChapter {
   readonly id: string;
   /** "1", "II", "12" — o rótulo do próprio livro quando existe, senão a posição. */
   readonly label: string;
@@ -45,8 +45,8 @@ export interface CapituloDoLivro {
  * Nó órfão — pai apagado logicamente enquanto o filho ficou — não entra em capítulo nenhum em vez
  * de derrubar a tela. O acervo importado do legado tem alguns.
  */
-export function sumarizarCapitulos(nos: readonly NoDaEstrutura[]): readonly CapituloDoLivro[] {
-  const porPai = new Map<string | null, NoDaEstrutura[]>();
+export function summarizeChapters(nos: readonly StructureNode[]): readonly BookChapter[] {
+  const porPai = new Map<string | null, StructureNode[]>();
   for (const no of nos) {
     const irmaos = porPai.get(no.parentId);
     if (irmaos) irmaos.push(no);
@@ -81,13 +81,13 @@ export function sumarizarCapitulos(nos: readonly NoDaEstrutura[]): readonly Capi
  * ciclo — que não deveria existir, mas derrubaria a tela inteira se existisse.
  */
 function contarSubarvore(
-  raiz: NoDaEstrutura,
-  porPai: ReadonlyMap<string | null, readonly NoDaEstrutura[]>,
+  raiz: StructureNode,
+  porPai: ReadonlyMap<string | null, readonly StructureNode[]>,
 ): { questionCount: number; invalidCount: number } {
   let questionCount = 0;
   let invalidCount = 0;
 
-  const pilha: NoDaEstrutura[] = [raiz];
+  const pilha: StructureNode[] = [raiz];
   const visitados = new Set<string>([raiz.id]);
 
   while (pilha.length > 0) {
@@ -121,7 +121,7 @@ function contarSubarvore(
  * na fila, e até que página do livro alguém chegou. A barra usa o único denominador real que
  * existe — o total de recortes feitos.
  */
-export interface ProgressoDeCaptura {
+export interface CaptureProgress {
   /** Recortes que viraram questão. */
   readonly captured: number;
   /** Recortes feitos e ainda não convertidos — a fila. */
@@ -132,11 +132,11 @@ export interface ProgressoDeCaptura {
   readonly label: string;
 }
 
-export function resumirCaptura(
+export function summarizeCapture(
   captured: number,
   queued: number,
   lastPage: number | null,
-): ProgressoDeCaptura | null {
+): CaptureProgress | null {
   const total = captured + queued;
   if (total === 0) return null;
 
@@ -158,7 +158,7 @@ export function resumirCaptura(
  *
  * Capítulo sem questão nenhuma não conta como revisado: vazio não é pronto.
  */
-export function faixaRevisada(capitulos: readonly CapituloDoLivro[]): string | null {
+export function describeReviewedRange(capitulos: readonly BookChapter[]): string | null {
   let fim = 0;
   for (const capitulo of capitulos) {
     if (capitulo.questionCount === 0 || capitulo.invalidCount > 0) break;

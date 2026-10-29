@@ -13,7 +13,7 @@ import {
   type Point,
 } from "@modules/assets/domain/crop-interaction";
 import { normalizedBoxFrom, type NormalizedBox, type PixelRect } from "@modules/assets/domain/source-anchor";
-import type { Overlay, OverlayTone } from "@modules/scan/domain/workspace-view";
+import type { Overlay, OverlayTone } from "@modules/scan/domain/review-view";
 
 /**
  * O PDF fonte com as âncoras por cima (§33 do prompt 03): a página inteira, nunca só o recorte,

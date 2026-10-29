@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { segmentarPagina } from "@modules/recognition/domain/segmentar-pagina";
+import { segmentPage } from "@modules/recognition/domain/segment-page";
 import { assembleDocument } from "@modules/scan/domain/document";
-import { buildLines, toPaginaDeTexto } from "@modules/scan/domain/page";
+import { buildLines, toTextPage } from "@modules/scan/domain/page";
 import { captureProfile, registeredCaptureProfiles } from "@modules/scan/domain/profiles";
 import type { Proposal, ProposedItem, ScanKind } from "@modules/scan/domain/proposal";
 import { buildProposal } from "@modules/scan/domain/structure";
-import type { PaginaDeTexto } from "@/shared/pdf-text/text-layer";
+import type { TextPage } from "@/shared/pdf-text/text-layer";
 
 import ena from "./fixtures/profmat-ena-2023-p1-p2.json";
 import { fixturePages } from "./support/scan-fixtures";
@@ -296,27 +296,27 @@ describe("ENEM sintético", () => {
 });
 
 describe("exam-v1 — a segmentação da captura, sem mudança", () => {
-  it("dá as mesmas caixas que `segmentarPagina` nas páginas reais do ENA", () => {
-    for (const [index, original] of (ena as PaginaDeTexto[]).entries()) {
+  it("dá as mesmas caixas que `segmentPage` nas páginas reais do ENA", () => {
+    for (const [index, original] of (ena as TextPage[]).entries()) {
       const page = buildLines({
         pageNumber: index + 1,
-        width: original.largura,
-        height: original.altura,
-        spans: original.palavras.map((word) => ({
-          text: word.texto,
+        width: original.width,
+        height: original.height,
+        spans: original.words.map((word) => ({
+          text: word.text,
           x0: word.x,
-          x1: word.x + word.largura,
-          baseline: word.y + word.altura,
-          size: word.altura,
+          x1: word.x + word.width,
+          baseline: word.y + word.height,
+          size: word.height,
           fontName: "Regular",
           endsLine: false,
         })),
         graphics: [],
       });
 
-      const expected = segmentarPagina(original);
-      const actual = segmentarPagina(toPaginaDeTexto(page));
-      expect(actual.map((q) => q.numero)).toEqual(expected.map((q) => q.numero));
+      const expected = segmentPage(original);
+      const actual = segmentPage(toTextPage(page));
+      expect(actual.map((q) => q.number)).toEqual(expected.map((q) => q.number));
       actual.forEach((q, i) => {
         const e = expected[i]!;
         expect(q.box.x).toBeCloseTo(e.box.x, 4);
@@ -340,8 +340,8 @@ describe("exam-v1 — a segmentação da captura, sem mudança", () => {
       graphics: [],
     });
 
-    const palavras = toPaginaDeTexto(page).palavras;
-    expect(palavras.map((p) => [p.texto, p.y, p.altura])).toEqual([
+    const palavras = toTextPage(page).words;
+    expect(palavras.map((p) => [p.text, p.y, p.height])).toEqual([
       ["1.", 290, 10],
       ["∑", 290, 10],
     ]);

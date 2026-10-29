@@ -1,7 +1,7 @@
-import { segmentarPagina, type QuestaoEstimada } from "@modules/recognition/domain/segmentar-pagina";
+import { segmentPage, type EstimatedQuestion } from "@modules/recognition/domain/segment-page";
 
 import type { CaptureProfile, DraftItem } from "../capture-profile";
-import { toPaginaDeTexto, type PageModel } from "../page";
+import { toTextPage, type PageModel } from "../page";
 import type { ProposedRegion } from "../proposal";
 import { semanticPrompt } from "./semantic-prompt";
 
@@ -9,13 +9,13 @@ import { semanticPrompt } from "./semantic-prompt";
  * `exam-v1` — a prova de concurso de sempre: `1.` ou `Questão 12` na margem, sequência crescente,
  * "Solução da questão N" dentro da caixa (D46).
  *
- * É a segmentação da captura (`segmentar-pagina.ts`) **sem mudança nenhuma**: o perfil chama a
+ * É a segmentação da captura (`segment-page.ts`) **sem mudança nenhuma**: o perfil chama a
  * mesma função, página por página, e os 30 de 30 do ENA continuam sendo o teste de regressão. O
  * que o perfil acrescenta é só o que o scan precisa e a captura não: a continuação na página
  * seguinte como segunda âncora do mesmo item.
  */
 
-function region(pageNumber: number, estimate: QuestaoEstimada, role: ProposedRegion["role"]): ProposedRegion {
+function region(pageNumber: number, estimate: EstimatedQuestion, role: ProposedRegion["role"]): ProposedRegion {
   return { pageNumber, box: estimate.box, role };
 }
 
@@ -24,7 +24,7 @@ function buildItems(pages: readonly PageModel[]): DraftItem[] {
   let pending: number | null = null;
 
   for (const page of pages) {
-    const estimates = segmentarPagina(toPaginaDeTexto(page));
+    const estimates = segmentPage(toTextPage(page));
 
     // O que sobrou do alto desta página, antes da primeira questão, é a continuação da anterior.
     const first = estimates[0];
@@ -50,18 +50,18 @@ function buildItems(pages: readonly PageModel[]): DraftItem[] {
     pending = null;
 
     for (const [index, estimate] of estimates.entries()) {
-      const words = toPaginaDeTexto(page).palavras.filter(
+      const words = toTextPage(page).words.filter(
         (word) =>
           word.y / page.height >= estimate.box.y &&
-          (word.y + word.altura) / page.height <= estimate.box.y + estimate.box.height,
+          (word.y + word.height) / page.height <= estimate.box.y + estimate.box.height,
       );
-      const text = words.map((word) => word.texto).join(" ");
+      const text = words.map((word) => word.text).join(" ");
       drafts.push({
         key: `QUESTION:${page.pageNumber}:${index}`,
         parentKey: null,
         kind: "QUESTION",
-        originalLabel: estimate.numero !== null ? String(estimate.numero) : null,
-        number: estimate.numero !== null ? String(estimate.numero) : null,
+        originalLabel: estimate.number !== null ? String(estimate.number) : null,
+        number: estimate.number !== null ? String(estimate.number) : null,
         title: null,
         pageNumber: page.pageNumber,
         printedPage: null,
@@ -71,20 +71,20 @@ function buildItems(pages: readonly PageModel[]): DraftItem[] {
         needsMath: true,
         confidence: 0,
         confidenceParts: {
-          pattern: estimate.numero !== null ? 0.9 : 0.5,
-          layout: estimate.razao === "sobra-final" ? 0.6 : 0.9,
+          pattern: estimate.number !== null ? 0.9 : 0.5,
+          layout: estimate.reason === "sobra-final" ? 0.6 : 0.9,
         },
         evidence: [
-          estimate.razao === "enunciado-ate-solucao"
+          estimate.reason === "enunciado-ate-solucao"
             ? "enunciado até o fim da solução"
-            : estimate.razao === "enunciado-ate-proximo"
+            : estimate.reason === "enunciado-ate-proximo"
               ? "enunciado até a próxima questão"
               : "última questão da página",
         ],
         metadata: {},
         lines: [],
       });
-      if (estimate.continuaNaProxima) pending = drafts.length - 1;
+      if (estimate.continuesOnNextPage) pending = drafts.length - 1;
     }
   }
 

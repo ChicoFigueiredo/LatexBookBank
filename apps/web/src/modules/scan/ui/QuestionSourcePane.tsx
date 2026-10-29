@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, injectCss } from "@/design-system";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
-import { cycleRegion, type Overlay } from "@modules/scan/domain/workspace-view";
+import { cycleRegion, type Overlay } from "@modules/scan/domain/review-view";
 
 import { SourcePdfViewer } from "./SourcePdfViewer";
 

@@ -66,7 +66,7 @@ export interface AddMenuProps {
   /**
    * Banca e ano que a questão nova vai herdar — `"FUVEST · 2019"`, ou `null` quando não há.
    *
-   * Só vale para as questões: capítulo e seção não têm banca. Ver `herdar-metadados`.
+   * Só vale para as questões: capítulo e seção não têm banca. Ver `inherited-metadata`.
    */
   readonly inheritSource?: string | null;
 }

@@ -4,7 +4,7 @@ import { readBookSource } from "@modules/assets/infrastructure/prisma-book-sourc
 import { env } from "@/shared/config/env";
 
 import { describeAiSetup } from "@modules/agents/application/describe-ai-setup";
-import { fraseDaLocalidade, localidadeDaIa } from "@modules/agents/domain/ai-locality";
+import { describeAiLocality, aiLocality } from "@modules/agents/domain/ai-locality";
 import { getPublicationTree } from "@modules/document-tree/application/get-publication-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
@@ -27,13 +27,13 @@ export const dynamic = "force-dynamic";
 export default async function IngestionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const repositorio = new PrismaPublicationRepository();
-  const publication = await repositorio.findById(id);
+  const repository = new PrismaPublicationRepository();
+  const publication = await repository.findById(id);
   if (!publication) notFound();
 
   // O detalhe traz `sourcePdfAssetId`, que o resumo não carrega — e é ele que diz se o livro já
   // tem um PDF no acervo para recortar.
-  const detalhe = await repositorio.findDetailById(id);
+  const detail = await repository.findDetailById(id);
 
   // A árvore vem junto porque o destino se escolhe **na revisão** (design §14), e escolher exige
   // ver os capítulos e grupos que existem.
@@ -62,10 +62,10 @@ export default async function IngestionPage({ params }: { params: Promise<{ id: 
    * asset sumiu, e é esse `null` que mantém a área de arrastar em primeiro plano para o livro que
    * não tem PDF.
    */
-  const fonte = await readBookSource(detalhe?.sourcePdfAssetId ?? null);
+  const fonte = await readBookSource(detail?.sourcePdfAssetId ?? null);
 
   const ai = describeAiSetup();
-  const aviso = fraseDaLocalidade(localidadeDaIa(env().aiBaseUrl), ai?.providerLabel ?? null);
+  const aviso = describeAiLocality(aiLocality(env().aiBaseUrl), ai?.providerLabel ?? null);
 
   return (
     <IngestionScreen

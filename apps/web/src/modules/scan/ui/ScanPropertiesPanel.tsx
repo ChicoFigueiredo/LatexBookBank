@@ -8,7 +8,7 @@ import { PreviewPane } from "@modules/preview/ui/PreviewPane";
 import type { ScanKind } from "@modules/scan/domain/proposal";
 import type { ReviewOperation } from "@modules/scan/domain/review";
 import { effectiveLatex, effectiveText, type ScanItem } from "@modules/scan/domain/scan-item";
-import { KIND_LABELS, rowLabel, STATE_LABELS } from "@modules/scan/domain/workspace-view";
+import { KIND_LABELS, rowLabel, STATE_LABELS } from "@modules/scan/domain/review-view";
 
 /**
  * As propriedades do item escolhido (§34, área da direita) e as operações de revisão (§36).

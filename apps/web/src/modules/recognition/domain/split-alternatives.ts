@@ -15,15 +15,15 @@
  * não marcar: uma alternativa marcada errada passa por revisada. Quem marca é a pessoa, no editor.
  */
 
-export interface AlternativaLida {
+export interface SplitOption {
   /** O rótulo como estava no livro — "a", "B", "III". Insubstituível: é como se cita a questão. */
   readonly label: string;
   readonly statementLatex: string;
 }
 
-export interface QuestaoSeparada {
+export interface SplitQuestion {
   readonly statementLatex: string;
-  readonly options: readonly AlternativaLida[];
+  readonly options: readonly SplitOption[];
 }
 
 /**
@@ -48,7 +48,7 @@ const MINIMO = 2;
  * alternativa a partir de uma linha que começa com "e)" num parágrafo de prosa seria pior que não
  * separar nada.
  */
-export function separarAlternativas(latex: string): QuestaoSeparada {
+export function splitAlternatives(latex: string): SplitQuestion {
   const linhas = latex.split(/\r?\n/);
 
   const marcadas: { indice: number; label: string; resto: string }[] = [];
@@ -143,17 +143,17 @@ function sucede(anterior: string, proximo: string): boolean {
  * O que se procura é preciso, e não "qualquer rótulo dentro": é **o rótulo que deveria vir a
  * seguir**. `b)` contendo `c)` é bloco unido; `b)` contendo `a)` é citação, e fica quieto.
  */
-export interface BlocoUnido {
+export interface MergedBlock {
   /** Índice da alternativa que carrega as duas. */
   readonly indice: number;
   /** As duas, já separadas — o que o botão "Dividir em duas" grava. */
-  readonly partes: readonly AlternativaLida[];
+  readonly partes: readonly SplitOption[];
 }
 
-export function detectarBlocoUnido(
-  options: readonly AlternativaLida[],
-): readonly BlocoUnido[] {
-  const unidos: BlocoUnido[] = [];
+export function detectMergedBlocks(
+  options: readonly SplitOption[],
+): readonly MergedBlock[] {
+  const unidos: MergedBlock[] = [];
 
   for (const [indice, opcao] of options.entries()) {
     const esperado = proximoRotulo(opcao.label);
@@ -199,10 +199,10 @@ export function detectarBlocoUnido(
  *
  * Morava no `IngestionPanel`; veio para o domínio para ter teste sem montar a tela (STM-17).
  */
-export function aplicarDivisoes(
-  options: readonly AlternativaLida[],
-  divididos: ReadonlyMap<string, readonly AlternativaLida[]>,
-): readonly AlternativaLida[] {
+export function applySplits(
+  options: readonly SplitOption[],
+  divididos: ReadonlyMap<string, readonly SplitOption[]>,
+): readonly SplitOption[] {
   let atual = options;
 
   for (let passada = 0; passada < 5; passada += 1) {

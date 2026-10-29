@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { lerCamadaDeTexto } from "@modules/assets/ui/pdf-text-layer";
+import { readTextLayer } from "@modules/assets/ui/pdf-text-layer";
 
 /**
  * O adapter que lê a camada de texto do `pdf.js` para a estimativa de questões.
@@ -34,7 +34,7 @@ const paginaFake = (
   getTextContent: async () => ({ items }),
 });
 
-describe("lerCamadaDeTexto", () => {
+describe("readTextLayer", () => {
   it("converte a origem do pdf.js (inferior esquerdo, y para cima) para o topo (y para baixo)", async () => {
     // f=500, altura=12, página de 792pt: y_topo = 792 - 500 - 12 = 280.
     const pagina = paginaFake([item({ transform: [1, 0, 0, 1, 100, 500], height: 12 })], {
@@ -42,22 +42,22 @@ describe("lerCamadaDeTexto", () => {
       height: 792,
     });
 
-    const resultado = await lerCamadaDeTexto(pagina);
+    const resultado = await readTextLayer(pagina);
 
-    expect(resultado.palavras).toHaveLength(1);
-    expect(resultado.palavras[0]!.x).toBe(100);
-    expect(resultado.palavras[0]!.y).toBe(280);
-    expect(resultado.palavras[0]!.largura).toBe(40);
-    expect(resultado.palavras[0]!.altura).toBe(12);
+    expect(resultado.words).toHaveLength(1);
+    expect(resultado.words[0]!.x).toBe(100);
+    expect(resultado.words[0]!.y).toBe(280);
+    expect(resultado.words[0]!.width).toBe(40);
+    expect(resultado.words[0]!.height).toBe(12);
   });
 
   it("devolve a página inteira nas dimensões do viewport em escala 1", async () => {
     const pagina = paginaFake([], { width: 595, height: 842 });
 
-    const resultado = await lerCamadaDeTexto(pagina);
+    const resultado = await readTextLayer(pagina);
 
-    expect(resultado.largura).toBe(595);
-    expect(resultado.altura).toBe(842);
+    expect(resultado.width).toBe(595);
+    expect(resultado.height).toBe(842);
   });
 
   it("normaliza para NFC — o texto de PDF gerado por LaTeX costuma vir decomposto (NFD)", async () => {
@@ -66,17 +66,17 @@ describe("lerCamadaDeTexto", () => {
     expect(decomposto).not.toBe(decomposto.normalize("NFC")); // confirma que o dublê é mesmo NFD
 
     const pagina = paginaFake([item({ str: decomposto })]);
-    const resultado = await lerCamadaDeTexto(pagina);
+    const resultado = await readTextLayer(pagina);
 
-    expect(resultado.palavras[0]!.texto).toBe("questão");
+    expect(resultado.words[0]!.text).toBe("questão");
   });
 
   it("descarta item com `str` vazio ou só espaço", async () => {
     const pagina = paginaFake([item({ str: "" }), item({ str: "   " }), item({ str: "ok" })]);
 
-    const resultado = await lerCamadaDeTexto(pagina);
+    const resultado = await readTextLayer(pagina);
 
-    expect(resultado.palavras.map((palavra) => palavra.texto)).toEqual(["ok"]);
+    expect(resultado.words.map((palavra) => palavra.text)).toEqual(["ok"]);
   });
 
   it("descarta item sem a forma de `TextItem` — marcação de estrutura não é palavra", async () => {
@@ -85,13 +85,13 @@ describe("lerCamadaDeTexto", () => {
     const marcacao = { type: "beginMarkedContent", id: "P" };
     const pagina = paginaFake([marcacao, item({ str: "sobrevive" })]);
 
-    const resultado = await lerCamadaDeTexto(pagina);
+    const resultado = await readTextLayer(pagina);
 
-    expect(resultado.palavras.map((palavra) => palavra.texto)).toEqual(["sobrevive"]);
+    expect(resultado.words.map((palavra) => palavra.text)).toEqual(["sobrevive"]);
   });
 
   it("recusa algo que não é uma página do pdf.js", async () => {
-    await expect(lerCamadaDeTexto(null)).rejects.toThrow();
-    await expect(lerCamadaDeTexto({})).rejects.toThrow();
+    await expect(readTextLayer(null)).rejects.toThrow();
+    await expect(readTextLayer({})).rejects.toThrow();
   });
 });

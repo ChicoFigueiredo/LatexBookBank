@@ -1,6 +1,6 @@
 import {
-  deduplicarColisoes,
-  type ConflitoDeImportacao,
+  dedupeCollisions,
+  type ImportConflict,
   type ImportCollision,
 } from "../domain/import-conflicts";
 import {
@@ -41,7 +41,7 @@ export interface ImportArchivePorts {
   readonly describeConflicts: (
     collisions: readonly ImportCollision[],
     portable: PortableWorkspace,
-  ) => Promise<readonly ConflitoDeImportacao[]>;
+  ) => Promise<readonly ImportConflict[]>;
   readonly write: (plan: ImportPlan, assets: readonly ArchiveAsset[]) => Promise<ImportReport>;
 }
 
@@ -55,7 +55,7 @@ export interface ImportDecision {
 interface Seen {
   readonly manifest: PortableManifest;
   /** Uma linha por item, não por chave — o que a tela mostra. */
-  readonly conflicts: readonly ConflitoDeImportacao[];
+  readonly conflicts: readonly ImportConflict[];
   /** Uma por chave que bateu — o que o domínio detectou. */
   readonly collisions: readonly ImportCollision[];
 }
@@ -76,7 +76,7 @@ export async function importArchive(
 
   // Uma linha por item, não por chave: um livro que casa por `legacyId` **e** por `legacyUuid`
   // produz duas colisões, e "2 conflitos" para um livro só faz procurar o segundo que não há.
-  const conflicts = await ports.describeConflicts(deduplicarColisoes(plan.collisions), workspace);
+  const conflicts = await ports.describeConflicts(dedupeCollisions(plan.collisions), workspace);
   const seen: Seen = { manifest, conflicts, collisions: plan.collisions };
 
   if (decision.dryRun) return { ...seen, kind: "simulated" };

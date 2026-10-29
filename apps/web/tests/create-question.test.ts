@@ -102,7 +102,7 @@ describe("criar questão", () => {
     );
 
     // `inherited: null` — a árvore do teste não tem questão anterior com banca. Ver
-    // `herdar-metadados.test.ts` para a herança em si.
+    // `inherited-metadata.test.ts` para a herança em si.
     expect(created).toEqual({
       questionId: "q1",
       nodeId: "n-novo",

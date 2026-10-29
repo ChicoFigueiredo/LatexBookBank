@@ -1,4 +1,4 @@
-import type { PaginaDeTexto, PalavraNaPagina } from "@/shared/pdf-text/text-layer";
+import type { TextPage, PageWord } from "@/shared/pdf-text/text-layer";
 
 /**
  * Onde estão as questões numa página de PDF que já veio com camada de texto.
@@ -17,15 +17,15 @@ import type { PaginaDeTexto, PalavraNaPagina } from "@/shared/pdf-text/text-laye
  * recusa mais do que aceita, e página sem marcador reconhecível devolve lista vazia — que é uma
  * resposta, não uma falha.
  *
- * Mesmo espírito de `separar-alternativas.ts`: regra explícita e testada contra o documento real,
+ * Mesmo espírito de `split-alternatives.ts`: regra explícita e testada contra o documento real,
  * em vez de um prompt que às vezes obedece.
  */
 
 
 /** Um recorte proposto — a caixa é normalizada 0..1, como manda o D28. */
-export interface QuestaoEstimada {
+export interface EstimatedQuestion {
   /** O número impresso na prova, quando dá para afirmar. Nunca inventado. */
-  readonly numero: number | null;
+  readonly number: number | null;
   /** Caixa normalizada 0..1 sobre a página: {x, y, width, height}. */
   readonly box: {
     readonly x: number;
@@ -34,13 +34,13 @@ export interface QuestaoEstimada {
     readonly height: number;
   };
   /** Por que este recorte foi proposto — some na tela como explicação, e serve ao teste. */
-  readonly razao: "enunciado-ate-solucao" | "enunciado-ate-proximo" | "sobra-final";
+  readonly reason: "enunciado-ate-solucao" | "enunciado-ate-proximo" | "sobra-final";
   /**
    * `true` quando a questão claramente continua na página seguinte: a caixa vai até o pé da mancha
    * de texto **e** o bloco está visivelmente cortado. Os dois sinais, e o porquê de não bastar o
    * primeiro, estão medidos no cálculo.
    */
-  readonly continuaNaProxima: boolean;
+  readonly continuesOnNextPage: boolean;
 }
 
 /**
@@ -105,10 +105,10 @@ const VAO_DE_RODAPE = 1.6;
  * solução. Cortar nas alternativas deixaria a solução órfã na página, e ela é metade do valor
  * deste acervo; quem quiser só o enunciado tira a solução depois, no editor, que é barato.
  */
-export function segmentarPagina(pagina: PaginaDeTexto): readonly QuestaoEstimada[] {
-  if (pagina.largura <= 0 || pagina.altura <= 0) return [];
+export function segmentPage(pagina: TextPage): readonly EstimatedQuestion[] {
+  if (pagina.width <= 0 || pagina.height <= 0) return [];
 
-  const linhas = agruparEmLinhas(pagina.palavras);
+  const linhas = agruparEmLinhas(pagina.words);
   const primeira = linhas[0];
   if (!primeira) return [];
 
@@ -119,7 +119,7 @@ export function segmentarPagina(pagina: PaginaDeTexto): readonly QuestaoEstimada
   // deste acervo tem margem de baixo menor que a de cima. Espelhar a margem superior dá o limite
   // do corpo sem chutar constante, e é ele que separa rodapé de texto e responde se a última
   // questão foi até o fim da página.
-  const limiteDoCorpo = pagina.altura - primeira.topo;
+  const limiteDoCorpo = pagina.height - primeira.topo;
   const corpo = semRodape(linhas, limiteDoCorpo, entrelinha);
 
   const marcadores = maiorSequenciaCrescente(marcadoresDeEnunciado(corpo, alturaTipica));
@@ -145,7 +145,7 @@ export function segmentarPagina(pagina: PaginaDeTexto): readonly QuestaoEstimada
     base: Math.max(...doBloco.map((linha) => linha.base)),
   }));
 
-  const estimadas: QuestaoEstimada[] = [];
+  const estimadas: EstimatedQuestion[] = [];
 
   for (const [ordem, bloco] of blocos.entries()) {
     const atual = extremos[ordem];
@@ -191,16 +191,16 @@ export function segmentarPagina(pagina: PaginaDeTexto): readonly QuestaoEstimada
       // O número só é afirmado quando nada na página o contradiz. Enunciado dizendo `1.` com
       // "Solução da questão 7" dentro da mesma caixa é uma leitura errada, e não dá para saber
       // qual das duas — a questão entraria no acervo citada com o número de outra.
-      numero: solucoes.some((numero) => numero !== bloco.marcador.numero)
+      number: solucoes.some((numero) => numero !== bloco.marcador.numero)
         ? null
         : bloco.marcador.numero,
       box: caixaNormalizada(esquerda - folga, topo, direita + folga, base, pagina),
-      razao: chegaAoFimDaMancha
+      reason: chegaAoFimDaMancha
         ? "sobra-final"
         : solucoes.length > 0
           ? "enunciado-ate-solucao"
           : "enunciado-ate-proximo",
-      continuaNaProxima,
+      continuesOnNextPage: continuaNaProxima,
     });
   }
 
@@ -226,15 +226,15 @@ interface Linha {
  * com `ç` no editor simplesmente não casa. Falha em silêncio — nenhuma exceção, nenhum marcador,
  * nenhuma proposta —, e é um bug que este projeto já pagou uma vez.
  */
-function agruparEmLinhas(palavras: readonly PalavraNaPagina[]): readonly Linha[] {
+function agruparEmLinhas(palavras: readonly PageWord[]): readonly Linha[] {
   const ordenadas = [...palavras].sort((a, b) => a.y - b.y || a.x - b.x);
-  const grupos: PalavraNaPagina[][] = [];
+  const grupos: PageWord[][] = [];
 
   for (const palavra of ordenadas) {
     const grupo = grupos[grupos.length - 1];
     const referencia = grupo?.[0];
 
-    if (grupo && referencia && palavra.y - referencia.y <= referencia.altura * TOLERANCIA_DE_LINHA) {
+    if (grupo && referencia && palavra.y - referencia.y <= referencia.height * TOLERANCIA_DE_LINHA) {
       grupo.push(palavra);
       continue;
     }
@@ -247,12 +247,12 @@ function agruparEmLinhas(palavras: readonly PalavraNaPagina[]): readonly Linha[]
 
     return {
       topo: Math.min(...grupo.map((p) => p.y)),
-      base: Math.max(...grupo.map((p) => p.y + p.altura)),
+      base: Math.max(...grupo.map((p) => p.y + p.height)),
       esquerda: Math.min(...grupo.map((p) => p.x)),
-      direita: Math.max(...grupo.map((p) => p.x + p.largura)),
-      altura: mediana(grupo.map((p) => p.altura)),
+      direita: Math.max(...grupo.map((p) => p.x + p.width)),
+      altura: mediana(grupo.map((p) => p.height)),
       texto: emOrdem
-        .map((p) => p.texto.normalize("NFC").trim())
+        .map((p) => p.text.normalize("NFC").trim())
         .filter((texto) => texto !== "")
         .join(" "),
     };
@@ -308,7 +308,7 @@ function numeroDaSolucao(linha: Linha): number | null {
  *
  * É o que sobra de defesa quando a margem falha: uma solução que enumera casos como `3. se x < 0`
  * está na margem e tem a cara de enunciado. O que ela não consegue é respeitar a numeração da
- * prova — questão nenhuma volta atrás. Mesma ideia da `maiorSequencia` de `separar-alternativas`,
+ * prova — questão nenhuma volta atrás. Mesma ideia da `maiorSequencia` de `split-alternatives`,
  * e pela mesma razão: sequência é o que distingue estrutura de coincidência.
  */
 function maiorSequenciaCrescente(
@@ -384,21 +384,21 @@ function caixaNormalizada(
   y0: number,
   x1: number,
   y1: number,
-  pagina: PaginaDeTexto,
-): QuestaoEstimada["box"] {
-  const esquerda = Math.max(0, Math.min(x0, pagina.largura));
-  const topo = Math.max(0, Math.min(y0, pagina.altura));
-  const direita = Math.max(esquerda, Math.min(x1, pagina.largura));
-  const base = Math.max(topo, Math.min(y1, pagina.altura));
+  pagina: TextPage,
+): EstimatedQuestion["box"] {
+  const esquerda = Math.max(0, Math.min(x0, pagina.width));
+  const topo = Math.max(0, Math.min(y0, pagina.height));
+  const direita = Math.max(esquerda, Math.min(x1, pagina.width));
+  const base = Math.max(topo, Math.min(y1, pagina.height));
 
-  const x = arredondar(esquerda / pagina.largura);
-  const y = arredondar(topo / pagina.altura);
+  const x = arredondar(esquerda / pagina.width);
+  const y = arredondar(topo / pagina.height);
 
   return {
     x,
     y,
-    width: Math.min(arredondar((direita - esquerda) / pagina.largura), arredondar(1 - x)),
-    height: Math.min(arredondar((base - topo) / pagina.altura), arredondar(1 - y)),
+    width: Math.min(arredondar((direita - esquerda) / pagina.width), arredondar(1 - x)),
+    height: Math.min(arredondar((base - topo) / pagina.height), arredondar(1 - y)),
   };
 }
 

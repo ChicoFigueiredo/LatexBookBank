@@ -23,7 +23,7 @@ export interface ImportCollision {
  * sem medo. "2 item(ns) já existem no acervo" — o que a tela dizia — não tem nenhum dos três.
  */
 
-export interface ConflitoDeImportacao {
+export interface ImportConflict {
   readonly kind: "workspace" | "publication" | "question";
   /** Como o item se chama no acervo — é por ele que a pessoa reconhece o que está em jogo. */
   readonly title: string;
@@ -40,9 +40,7 @@ export interface ConflitoDeImportacao {
  * A deduplicação é por `existingId`: é o item do destino que está em jogo, e duas chaves apontando
  * para ele são o mesmo conflito visto de dois ângulos.
  */
-export function deduplicarColisoes(
-  colisoes: readonly ImportCollision[],
-): readonly ImportCollision[] {
+export function dedupeCollisions(colisoes: readonly ImportCollision[]): readonly ImportCollision[] {
   const vistos = new Set<string>();
   const unicas: ImportCollision[] = [];
 
@@ -64,7 +62,7 @@ export function deduplicarColisoes(
  * verdade e continua identificando. O que ela nunca faz é somir com a garantia — é a garantia que
  * transforma o aviso em algo sobre o que se pode decidir.
  */
-export function fraseDoConflito(conflito: ConflitoDeImportacao): string {
+export function describeConflict(conflito: ImportConflict): string {
   const nome = `“${conflito.title}”`;
 
   if (conflito.kind === "workspace") {
@@ -91,7 +89,7 @@ export function fraseDoConflito(conflito: ConflitoDeImportacao): string {
  * "3 bibliotecas · 64 publicações · 1.247 questões" — os números do cabeçalho, com separador de
  * milhar em pt-BR, porque `1247` num painel de decisão se lê errado na primeira olhada.
  */
-export const numero = (valor: number): string => new Intl.NumberFormat("pt-BR").format(valor);
+export const formatCount = (valor: number): string => new Intl.NumberFormat("pt-BR").format(valor);
 
 const plural = (n: number, um: string, muitos: string): string =>
-  `${numero(n)} ${n === 1 ? um : muitos}`;
+  `${formatCount(n)} ${n === 1 ? um : muitos}`;

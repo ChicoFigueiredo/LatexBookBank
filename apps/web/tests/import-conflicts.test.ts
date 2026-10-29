@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { ImportCollision } from "@modules/portability/domain/import-conflicts";
 import {
-  type ConflitoDeImportacao,
-  deduplicarColisoes,
-  fraseDoConflito,
-  numero,
+  type ImportConflict,
+  dedupeCollisions,
+  describeConflict,
+  formatCount,
 } from "@modules/portability/domain/import-conflicts";
 
 /**
@@ -25,8 +25,8 @@ const colisao = (parcial: Partial<ImportCollision> & { existingId: string }): Im
 });
 
 const conflito = (
-  parcial: Partial<ConflitoDeImportacao> & { title: string },
-): ConflitoDeImportacao => ({
+  parcial: Partial<ImportConflict> & { title: string },
+): ImportConflict => ({
   kind: "publication",
   existingQuestions: null,
   incomingQuestions: null,
@@ -34,7 +34,7 @@ const conflito = (
   ...parcial,
 });
 
-describe("deduplicarColisoes", () => {
+describe("dedupeCollisions", () => {
   it("um livro que casa por duas chaves é UM conflito", () => {
     // `toRuntime` empurra uma colisão por chave que bateu. "2 conflitos" para um livro só faz o
     // usuário procurar o segundo livro, que não existe.
@@ -43,13 +43,13 @@ describe("deduplicarColisoes", () => {
       colisao({ existingId: "pub-1", by: "legacyUuid", value: "abc" }),
     ];
 
-    expect(deduplicarColisoes(colisoes)).toHaveLength(1);
+    expect(dedupeCollisions(colisoes)).toHaveLength(1);
   });
 
   it("livros diferentes continuam conflitos diferentes", () => {
     const colisoes = [colisao({ existingId: "pub-1" }), colisao({ existingId: "pub-2" })];
 
-    expect(deduplicarColisoes(colisoes)).toHaveLength(2);
+    expect(dedupeCollisions(colisoes)).toHaveLength(2);
   });
 
   it("questão e publicação com o mesmo id não se confundem", () => {
@@ -58,18 +58,18 @@ describe("deduplicarColisoes", () => {
       colisao({ existingId: "mesmo", kind: "question" }),
     ];
 
-    expect(deduplicarColisoes(colisoes)).toHaveLength(2);
+    expect(dedupeCollisions(colisoes)).toHaveLength(2);
   });
 
   it("lista vazia continua vazia", () => {
-    expect(deduplicarColisoes([])).toEqual([]);
+    expect(dedupeCollisions([])).toEqual([]);
   });
 });
 
-describe("fraseDoConflito", () => {
+describe("describeConflict", () => {
   it("é a frase do protótipo, com os dois números", () => {
     expect(
-      fraseDoConflito(
+      describeConflict(
         conflito({ title: "FME 1", existingQuestions: 148, incomingQuestions: 152 }),
       ),
     ).toBe(
@@ -78,40 +78,40 @@ describe("fraseDoConflito", () => {
   });
 
   it("sem as contagens, encolhe em vez de inventar — mas nunca perde a garantia", () => {
-    const frase = fraseDoConflito(conflito({ title: "FME 2" }));
+    const frase = describeConflict(conflito({ title: "FME 2" }));
 
     expect(frase).toBe("“FME 2” já existe no acervo. Nada será sobrescrito sem sua escolha.");
     expect(frase).toContain("Nada será sobrescrito");
   });
 
   it("uma questão só diz o que acontece com ela", () => {
-    expect(fraseDoConflito(conflito({ title: "Questão 27", kind: "question" }))).toBe(
+    expect(describeConflict(conflito({ title: "Questão 27", kind: "question" }))).toBe(
       "“Questão 27” já existe no acervo. A questão do arquivo entra como cópia.",
     );
   });
 
   it("a biblioteca de mesma origem diz que o arquivo entra ao lado, sem tocar nela", () => {
-    expect(fraseDoConflito(conflito({ title: "Fundamentos", kind: "workspace" }))).toBe(
+    expect(describeConflict(conflito({ title: "Fundamentos", kind: "workspace" }))).toBe(
       "A biblioteca “Fundamentos” já veio desta mesma origem. O arquivo entra como uma biblioteca nova, ao lado dela.",
     );
   });
 
   it("singular de “1 questão”", () => {
     expect(
-      fraseDoConflito(conflito({ title: "X", existingQuestions: 1, incomingQuestions: 2 })),
+      describeConflict(conflito({ title: "X", existingQuestions: 1, incomingQuestions: 2 })),
     ).toContain("já existe com 1 questão —");
   });
 
   it("livro vazio no destino ainda é conflito, e diz zero sem rodeio", () => {
     expect(
-      fraseDoConflito(conflito({ title: "X", existingQuestions: 0, incomingQuestions: 152 })),
+      describeConflict(conflito({ title: "X", existingQuestions: 0, incomingQuestions: 152 })),
     ).toContain("já existe com 0 questões —");
   });
 });
 
 describe("numero", () => {
   it("separa milhar em pt-BR: 1247 num painel de decisão se lê errado de relance", () => {
-    expect(numero(1247)).toBe("1.247");
-    expect(numero(64)).toBe("64");
+    expect(formatCount(1247)).toBe("1.247");
+    expect(formatCount(64)).toBe("64");
   });
 });

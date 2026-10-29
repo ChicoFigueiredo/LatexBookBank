@@ -26,14 +26,14 @@ import type {
  *     dossiê encontra em toda página: o produto sabia e não disse.
  */
 
-export interface MetadadosHerdados {
+export interface InheritedMetadata {
   readonly board: string | null;
   readonly year: number | null;
   readonly difficulty: number;
 }
 
 /** Posição onde a questão nova vai entrar, já resolvida pelo domínio da árvore. */
-export interface PosicaoNova {
+export interface NewPosition {
   readonly parentId: string | null;
   readonly sortKey: string;
 }
@@ -54,9 +54,9 @@ const MARCADOR = "lbb:posicao-nova";
  * comparar `sortKey` entre irmãos à mão — daria a resposta errada justamente na inserção no fim de
  * um capítulo, onde a anterior está **dentro** do irmão de cima, e não é o irmão de cima.
  */
-export function questaoAnterior(
+export function previousQuestion(
   records: readonly TreeNodeRecord[],
-  posicao: PosicaoNova,
+  posicao: NewPosition,
 ): TreeQuestionRecord | null {
   /*
    * Destino que não existe nesta árvore é caso de rota, e não de herança: `buildTree` promoveria o
@@ -91,7 +91,7 @@ export function questaoAnterior(
 }
 
 /** Os campos herdáveis da anterior — ou `null` quando não há o que herdar. */
-export function metadadosHerdados(anterior: TreeQuestionRecord | null): MetadadosHerdados | null {
+export function inheritMetadata(anterior: TreeQuestionRecord | null): InheritedMetadata | null {
   if (anterior === null) return null;
   if (anterior.board === null && anterior.year === null) return null;
 
@@ -105,7 +105,7 @@ export function metadadosHerdados(anterior: TreeQuestionRecord | null): Metadado
  * o erro no lugar errado quando ele estiver errado. A frase nomeia o que vai junto — e some
  * inteira quando não há herança, em vez de dizer “herda nada”.
  */
-export function fraseDaHeranca(metadados: MetadadosHerdados | null): string | null {
+export function describeInheritance(metadados: InheritedMetadata | null): string | null {
   if (metadados === null) return null;
 
   const partes = [metadados.board, metadados.year === null ? null : String(metadados.year)].filter(
@@ -127,7 +127,7 @@ export function fraseDaHeranca(metadados: MetadadosHerdados | null): string | nu
  * anterior” obriga a fechar o menu e ir conferir qual é a anterior. Se as duas divergirem, quem
  * vale é a questão criada — e é por isso que a frase nomeia os valores em vez de prometer regra.
  */
-export function fonteDaAnterior(
+export function previousSource(
   nodes: readonly { readonly depth: number; readonly question: { readonly source: string | null } | null }[],
   selecionado: number | null,
 ): string | null {

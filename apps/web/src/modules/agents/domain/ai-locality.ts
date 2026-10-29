@@ -15,9 +15,9 @@
 /** Os hosts que são, por definição, esta máquina. */
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
 
-export type LocalidadeDaIa = "local" | "remota" | "sem-ia";
+export type AiLocality = "local" | "remota" | "sem-ia";
 
-export function localidadeDaIa(baseUrl: string | null | undefined): LocalidadeDaIa {
+export function aiLocality(baseUrl: string | null | undefined): AiLocality {
   if (!baseUrl) return "sem-ia";
 
   try {
@@ -41,10 +41,7 @@ export function localidadeDaIa(baseUrl: string | null | undefined): LocalidadeDa
  * um serviço é uma escolha legítima de configuração, e pintar de perigo o que o próprio dono
  * configurou seria alarme falso. É informação, e informação no momento certo.
  */
-export function fraseDaLocalidade(
-  localidade: LocalidadeDaIa,
-  providerLabel: string | null,
-): string {
+export function describeAiLocality(localidade: AiLocality, providerLabel: string | null): string {
   switch (localidade) {
     case "local":
       return "O reconhecimento roda no seu computador. Nada é enviado para fora.";

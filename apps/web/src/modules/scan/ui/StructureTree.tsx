@@ -9,7 +9,7 @@ import {
   KIND_LABELS,
   rowLabel,
   STATE_LABELS,
-} from "@modules/scan/domain/workspace-view";
+} from "@modules/scan/domain/review-view";
 
 /**
  * A estrutura proposta (§34, área da esquerda). Uma linha por item, recuada pela profundidade, com

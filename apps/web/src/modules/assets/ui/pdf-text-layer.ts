@@ -1,19 +1,19 @@
 import {
-  palavraNaLinhaDeBase,
-  type PaginaDeTexto,
-  type PalavraNaPagina,
+  wordFromBaseline,
+  type TextPage,
+  type PageWord,
 } from "@/shared/pdf-text/text-layer";
 
 /**
  * O adapter que lê a camada de texto do `pdf.js` e devolve o formato comum da camada de texto
- * (`shared/pdf-text`), o mesmo que o motor do scan produz e que `segmentarPagina` lê.
+ * (`shared/pdf-text`), o mesmo que o motor do scan produz e que `segmentPage` lê.
  *
  * Por que um adapter e não a chamada direta na tela: o `pdf.js` fala a língua dele — origem no
  * canto **inferior** esquerdo, y crescendo para cima, e um item por `TextItem` **ou**
  * `TextMarkedContent` misturados no mesmo array. O domínio fala outra — origem no **topo**, y
  * para baixo, só palavras de verdade. A conversão mora aqui, isolada, para o domínio continuar
  * puro e para um erro de sinal (inverter o y) aparecer num teste de coordenada, não escondido
- * dentro de `segmentarPagina`.
+ * dentro de `segmentPage`.
  *
  * Ver spec da estimativa de questões · issue da segmentação.
  */
@@ -35,13 +35,13 @@ interface PaginaDoPdf {
  */
 function comoPaginaDoPdf(page: unknown): PaginaDoPdf {
   if (typeof page !== "object" || page === null) {
-    throw new TypeError("lerCamadaDeTexto espera uma página do pdf.js, recebeu " + typeof page);
+    throw new TypeError("readTextLayer espera uma página do pdf.js, recebeu " + typeof page);
   }
 
   const candidata = page as Record<string, unknown>;
   if (typeof candidata.getViewport !== "function" || typeof candidata.getTextContent !== "function") {
     throw new TypeError(
-      "lerCamadaDeTexto espera uma página do pdf.js (com getViewport e getTextContent).",
+      "readTextLayer espera uma página do pdf.js (com getViewport e getTextContent).",
     );
   }
 
@@ -90,7 +90,7 @@ function camposDeTexto(item: unknown): CamposDeTexto | null {
 }
 
 /**
- * Lê a camada de texto de uma página do `pdf.js` no formato que `segmentarPagina` espera.
+ * Lê a camada de texto de uma página do `pdf.js` no formato que `segmentPage` espera.
  *
  * A conversão que importa: `transform[4]` e `transform[5]` (o `e` e o `f` da matriz) são a
  * origem do item em pontos do PDF, com o canto **inferior** esquerdo como zero e y crescendo
@@ -101,13 +101,13 @@ function camposDeTexto(item: unknown): CamposDeTexto | null {
  * sinal não dá erro nenhum — só desenha tudo de cabeça para baixo, por isso está coberto por
  * teste de coordenada, não só de forma.
  */
-export async function lerCamadaDeTexto(page: unknown): Promise<PaginaDeTexto> {
+export async function readTextLayer(page: unknown): Promise<TextPage> {
   const pdfPage = comoPaginaDoPdf(page);
 
   const viewport = pdfPage.getViewport({ scale: 1 });
   const conteudo = await pdfPage.getTextContent();
 
-  const palavras: PalavraNaPagina[] = [];
+  const palavras: PageWord[] = [];
 
   for (const item of conteudo.items) {
     const campos = camposDeTexto(item);
@@ -123,17 +123,17 @@ export async function lerCamadaDeTexto(page: unknown): Promise<PaginaDeTexto> {
     const [, , , , e, f] = campos.transform;
 
     // `f` é a linha de base no eixo do PDF; virada para o eixo do domínio, a palavra sai pela
-    // mesma conta do motor do scan (`palavraNaLinhaDeBase`): topo = base − corpo.
+    // mesma conta do motor do scan (`wordFromBaseline`): topo = base − corpo.
     palavras.push(
-      palavraNaLinhaDeBase({
-        texto,
+      wordFromBaseline({
+        text: texto,
         x: e,
-        largura: campos.width,
-        linhaDeBase: viewport.height - f,
-        corpo: campos.height,
+        width: campos.width,
+        baseline: viewport.height - f,
+        fontSize: campos.height,
       }),
     );
   }
 
-  return { largura: viewport.width, altura: viewport.height, palavras };
+  return { width: viewport.width, height: viewport.height, words: palavras };
 }

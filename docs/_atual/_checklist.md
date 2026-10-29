@@ -78,7 +78,7 @@ posição do repo, e as figuras do legado** — das 11 figuras citadas pelo acer
 questão no banco foram gravadas como `Asset` e o LaTeX reescrito para o nome da Fase 14; as 7
 órfãs (nó estrutural e ProfMat 9) ficam fora, por decisão. As 100 issues abertas no GitHub tinham,
 todas, branch mesclada na `main` (inclusive as 23 auditorias de 10-11/08); ninguém as fechou depois
-do merge. Foram **fechadas em lote** por `scripts/fechar-issues-mescladas.sh`, com o commit citado
+do merge. Foram **fechadas em lote** por `scripts/close-merged-issues.sh`, com o commit citado
 em cada uma; só o épico #1 segue aberto, até a Fase 6 ter o preâmbulo embutido. As Fases 1 e 5 foram aceitas **sem conferência
 visual**, por decisão do Chico: um mês de uso sem reclamação registrada. A Fase 6.5 foi reescrita
 para só o que não depende de storage — os 42 `[ ]` que ninguém ia tocar viraram um ⛔ explícito.
@@ -92,7 +92,7 @@ que quebrou foi o entorno: o **Node caiu para 20.11.0** e matava a suíte inteir
 são), agora fixado em 24 pelo `mise.toml` do repositório; o **modelo de visão sumiu** do Ollama e
 voltou (`gemma3:12b`, transcrição de questão real conferida em 11,4 s); o **acervo legado mudou de
 drive** (`/mnt/t` → `/mnt/bak`) e os 11 caminhos foram religados por
-`religar-acervo-legado.ts` — 10 religados e 1 intocado por falta do arquivo no backup (Análise
+`relink-legacy-library.ts` — 10 religados e 1 intocado por falta do arquivo no backup (Análise
 Elon, que tinha 0 questões); e o **worker de render** foi reconstruído e subiu, compilando LaTeX
 real em 0,5 s. Suíte de volta ao verde: 131 arquivos, 1582 testes.
 
@@ -1420,7 +1420,7 @@ e eles escondiam o que falta de verdade)*
 > linha igual a um enunciado — o que separa marcador de aritmética é a **margem esquerda**, não a
 > expressão regular.
 
-- ✅ **Segmentação por camada de texto** *(2026-09-02 — `segmentar-pagina.ts` (domínio puro, 26
+- ✅ **Segmentação por camada de texto** *(2026-09-02 — `segment-page.ts` (domínio puro, 26
   testes), `pdf-text-layer.ts` (adapter do pdf.js, com o eixo y invertido e NFC), botões "Estimar
   questões" e "Recortar as N" no visualizador. O lote salva e transcreve **em série** — o
   reconhecedor local é uma GPU só — e **para em transcrição guardada**: nenhuma questão nasce sem

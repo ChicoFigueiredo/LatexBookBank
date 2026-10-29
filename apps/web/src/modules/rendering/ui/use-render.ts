@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { createCoalescer } from "@modules/rendering/domain/coalescer";
-import { incluiResolucao, type SaidaDoRender } from "@modules/rendering/domain/saida-do-render";
+import { includesSolution, type RenderAudience } from "@modules/rendering/domain/render-audience";
 
 import type { RenderStatus } from "./RenderPanel";
 
@@ -23,7 +23,7 @@ export interface UseRenderOptions {
    * O que entra no documento. `aluno` por padrão — é o que o app fazia antes de existir a escolha,
    * e é a saída que não pode vazar gabarito por engano.
    */
-  readonly saida?: SaidaDoRender;
+  readonly saida?: RenderAudience;
   /**
    * Para onde pedir a compilação. A questão por padrão; o corpo do nó (ADR 0001) usa a rota dele,
    * com o mesmo formato de resposta.
@@ -32,7 +32,7 @@ export interface UseRenderOptions {
 }
 
 /** Traduz a resposta HTTP no estado que o painel entende. */
-async function toStatus(response: Response, saida: SaidaDoRender): Promise<RenderStatus> {
+async function toStatus(response: Response, saida: RenderAudience): Promise<RenderStatus> {
   const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
   if (response.status === 503) {
@@ -88,7 +88,7 @@ export function useRender({
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 ...(profileId === undefined ? {} : { profileId }),
-                ...(incluiResolucao(saida) ? { includeSolution: true } : {}),
+                ...(includesSolution(saida) ? { includeSolution: true } : {}),
               }),
               // Abortar aqui **chega ao worker**: a rota escuta `request.signal` e manda o
               // `DELETE` do job. Sem isso, desistir seria só parar de olhar.

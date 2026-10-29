@@ -48,11 +48,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   try {
     const body = await readJson(request);
-    const removida = await deletePublication(new PrismaPublicationRepository(), storage(), id, {
+    const deleted = await deletePublication(new PrismaPublicationRepository(), storage(), id, {
       title: body["title"],
     });
 
-    return NextResponse.json({ deleted: removida });
+    return NextResponse.json({ deleted: deleted });
   } catch (error) {
     return toErrorResponse(error);
   }

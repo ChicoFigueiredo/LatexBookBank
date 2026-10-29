@@ -5,12 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Banner, Button, Segmented, Tabs } from "@/design-system";
 import type { RenderDiagnostic } from "@latexbookbank/render-contract";
 import {
-  avisoDeSaidaVencida,
-  nomeDoArquivo,
-  resumoDaSaida,
-  SAIDAS,
-  type SaidaDoRender,
-} from "@modules/rendering/domain/saida-do-render";
+  staleAudienceWarning,
+  downloadFileName,
+  audienceSummary,
+  RENDER_AUDIENCES,
+  type RenderAudience,
+} from "@modules/rendering/domain/render-audience";
 import {
   locateBodyLine,
   type RenderSourceField,
@@ -66,8 +66,8 @@ export type RenderStatus =
   | {
       readonly kind: "done";
       readonly outcome: RenderOutcomeView;
-      /** Sob qual saída este resultado foi compilado. Ver `saida-do-render`. */
-      readonly saida: SaidaDoRender;
+      /** Sob qual saída este resultado foi compilado. Ver `render-audience`. */
+      readonly saida: RenderAudience;
     }
   /** Worker fora do ar ou não configurado — **não** é erro do documento. */
   | { readonly kind: "unavailable"; readonly message: string }
@@ -98,8 +98,8 @@ export interface RenderPanelProps {
    *
    * Ausente na prévia do agente, que não tem escolha a oferecer: lá o painel é só o resultado.
    */
-  readonly saida?: SaidaDoRender;
-  readonly onSaidaChange?: (saida: SaidaDoRender) => void;
+  readonly saida?: RenderAudience;
+  readonly onSaidaChange?: (saida: RenderAudience) => void;
 }
 
 type PanelTab = "pdf" | "png" | "log" | "source";
@@ -156,7 +156,7 @@ export function RenderPanel({
    */
   const [ultimoBom, setUltimoBom] = useState<RenderOutcomeView | null>(null);
   /** A saída sob a qual `ultimoBom` foi compilado — anda junto com ele, e não com a tela. */
-  const [saidaDoUltimoBom, setSaidaDoUltimoBom] = useState<SaidaDoRender | null>(null);
+  const [saidaDoUltimoBom, setSaidaDoUltimoBom] = useState<RenderAudience | null>(null);
   const [chaveVista, setChaveVista] = useState(questionKey);
 
   /*
@@ -195,7 +195,7 @@ export function RenderPanel({
           ? status.saida
           : null;
 
-  const avisoDeSaida = saida === undefined ? null : avisoDeSaidaVencida(saida, saidaExibida);
+  const avisoDeSaida = saida === undefined ? null : staleAudienceWarning(saida, saidaExibida);
 
   // O corpo de verdade quando existe; o enunciado da tela enquanto não se compilou nada. A
   // diferença aparece assim que a questão tem alternativas — elas entram no documento e não no
@@ -305,9 +305,13 @@ export function RenderPanel({
           }}
         >
           <Segmented
-            options={SAIDAS.map((opcao) => ({ id: opcao.id, label: opcao.label, showLabel: true }))}
+            options={RENDER_AUDIENCES.map((opcao) => ({
+              id: opcao.id,
+              label: opcao.label,
+              showLabel: true,
+            }))}
             value={saida}
-            onChange={(id) => onSaidaChange(id as SaidaDoRender)}
+            onChange={(id) => onSaidaChange(id as RenderAudience)}
             aria-label="O que entra no render"
           />
           <span
@@ -321,9 +325,9 @@ export function RenderPanel({
               overflow: "hidden",
               textOverflow: "ellipsis",
             }}
-            title={resumoDaSaida(saida)}
+            title={audienceSummary(saida)}
           >
-            {resumoDaSaida(saida)}
+            {audienceSummary(saida)}
           </span>
         </div>
       )}
@@ -563,7 +567,7 @@ function PdfView({
   questionKey,
 }: {
   readonly outcome: RenderOutcomeView;
-  readonly saida: SaidaDoRender | null;
+  readonly saida: RenderAudience | null;
   readonly questionKey: string | undefined;
 }) {
   const pdf = outcome.artifacts.find((artifact) => artifact.kind === "RENDER_PDF");
@@ -596,7 +600,7 @@ function PdfView({
           variant="secondary"
           href={href}
           {...(saida !== null && questionKey !== undefined
-            ? { download: nomeDoArquivo(questionKey, saida, "pdf") }
+            ? { download: downloadFileName(questionKey, saida, "pdf") }
             : { download: pdf.name })}
         >
           Baixar o PDF ({Math.round(pdf.sizeBytes / 1024)} KB)

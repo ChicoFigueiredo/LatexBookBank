@@ -48,7 +48,7 @@ vi.mock("@modules/assets/ui/PdfCropViewer", () => ({
           página — ler o `pdf.js` é de `pdf-text-layer` —, e a tela estima nela. A página 1 do ENA
           tem três questões; a escaneada não tem palavra nenhuma. */}
       <button onClick={() => onEstimar?.(paginaDoEna)}>estimar</button>
-      <button onClick={() => onEstimar?.({ largura: 595, altura: 842, palavras: [] })}>
+      <button onClick={() => onEstimar?.({ width: 595, height: 842, words: [] })}>
         estimar vazio
       </button>
       <button
