@@ -25,6 +25,7 @@ export interface OptionPatch {
   readonly id: string;
   readonly sortKey?: string;
   readonly isCorrect?: boolean;
+  readonly statementLatex?: string;
 }
 
 export class OptionNotFoundError extends Error {
@@ -32,6 +33,66 @@ export class OptionNotFoundError extends Error {
     super(`Alternativa ${optionId} não existe nesta questão.`);
     this.name = "OptionNotFoundError";
   }
+}
+
+/** O teto do texto de uma alternativa — o mesmo do enunciado, que é onde o LaTeX longo mora. */
+export const OPTION_TEXT_LIMIT = 200_000;
+
+/** Pedido de edição malformado. Recusado inteiro, antes de qualquer escrita. */
+export class InvalidOptionEditError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidOptionEditError";
+  }
+}
+
+/** O que um pedido de edição de alternativa pode mudar, já conferido. */
+export interface OptionEdit {
+  readonly targetIndex?: number;
+  /** Só `true` marca. Não há "desmarcar": a questão fica sem gabarito removendo ou marcando outra. */
+  readonly markCorrect: boolean;
+  readonly statementLatex?: string;
+}
+
+/**
+ * Confere o pedido **inteiro** antes da primeira escrita (STE-15).
+ *
+ * A rota aplicava cada campo à medida que o lia: com `targetIndex` válido e `statementLatex`
+ * numérico, a alternativa se movia e só depois vinha o 400 — meia escrita, com a resposta dizendo
+ * que nada tinha dado certo.
+ */
+export function parseOptionEdit(raw: {
+  readonly targetIndex?: unknown;
+  readonly isCorrect?: unknown;
+  readonly statementLatex?: unknown;
+}): OptionEdit {
+  const { targetIndex, isCorrect, statementLatex } = raw;
+
+  if (
+    targetIndex !== undefined &&
+    (typeof targetIndex !== "number" || !Number.isInteger(targetIndex))
+  ) {
+    throw new InvalidOptionEditError("`targetIndex` precisa ser inteiro.");
+  }
+  if (isCorrect !== undefined && typeof isCorrect !== "boolean") {
+    throw new InvalidOptionEditError("`isCorrect` precisa ser verdadeiro ou falso.");
+  }
+  if (statementLatex !== undefined) {
+    if (typeof statementLatex !== "string") {
+      throw new InvalidOptionEditError("`statementLatex` precisa ser texto.");
+    }
+    if (statementLatex.length > OPTION_TEXT_LIMIT) {
+      throw new InvalidOptionEditError(
+        `\`statementLatex\` passa de ${OPTION_TEXT_LIMIT} caracteres.`,
+      );
+    }
+  }
+
+  return {
+    ...(targetIndex === undefined ? {} : { targetIndex }),
+    markCorrect: isCorrect === true,
+    ...(statementLatex === undefined ? {} : { statementLatex }),
+  };
 }
 
 /** Ordena por `sortKey`, em bytes — a mesma ordem que o banco usa (D38). */

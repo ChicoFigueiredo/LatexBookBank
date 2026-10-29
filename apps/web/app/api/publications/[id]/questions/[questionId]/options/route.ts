@@ -4,6 +4,7 @@ import { resolveQuestionScope } from "@/shared/authorization/question-scope";
 
 import { addOption } from "@modules/questions/application/mutate-options";
 import { PrismaOptionWriter } from "@modules/questions/infrastructure/prisma-option-writer";
+import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 
 import { readJson, toErrorResponse } from "../../../../../tree-http";
 
@@ -72,7 +73,12 @@ export async function POST(
     const body = await readJson(request).catch(() => ({}) as Record<string, unknown>);
     const statementLatex = typeof body["statementLatex"] === "string" ? body["statementLatex"] : "";
 
-    const option = await addOption(new PrismaOptionWriter(), questionId, statementLatex);
+    const option = await addOption(
+      new PrismaOptionWriter(),
+      questionId,
+      statementLatex,
+      new PrismaValidationWriter(),
+    );
     return NextResponse.json(option, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);

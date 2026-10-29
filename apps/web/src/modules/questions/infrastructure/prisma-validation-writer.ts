@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import type { ValidationWriter } from "@modules/questions/application/validate-question";
+import type { QuestionValidation } from "@modules/questions/application/validate-question";
 import type { QuestionForPlugin } from "@modules/questions/domain/question-type-plugin";
 import { isQuestionType, type ValidationStatus } from "@modules/questions/domain/question-type";
 
@@ -14,7 +14,11 @@ import { isQuestionType, type ValidationStatus } from "@modules/questions/domain
  *
  * Ver spec §4.1 · issue #147.
  */
-export class PrismaValidationWriter implements ValidationWriter {
+export class PrismaValidationWriter implements QuestionValidation {
+  questionForValidation(questionId: string): Promise<QuestionForPlugin | null> {
+    return questionForValidation(questionId);
+  }
+
   async setValidationStatus(
     questionId: string,
     status: ValidationStatus,
