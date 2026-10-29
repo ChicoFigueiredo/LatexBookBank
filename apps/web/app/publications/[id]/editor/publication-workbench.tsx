@@ -25,18 +25,9 @@ import {
   type TreeNode,
 } from "@/design-system";
 import type { AiSetupDescription } from "@modules/agents/domain/ai-setup";
-import {
-  attach,
-  clearContext,
-  detach,
-  EMPTY_CONTEXT,
-  ContextTooLargeError,
-  selectionItem,
-  type AgentContext,
-} from "@modules/agents/domain/agent-context";
-import type { AgentMode } from "@modules/agents/domain/agent-run";
-import type { Change } from "@modules/agents/domain/patch-diff";
-import { AgentPanel, type AgentTurn } from "@modules/agents/ui/AgentPanel";
+import { selectionItem } from "@modules/agents/domain/agent-context";
+import { AgentPanel } from "@modules/agents/ui/AgentPanel";
+import { useAgentSession } from "@modules/agents/ui/use-agent-session";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 import { isContainerKind, placementForAdd } from "@modules/document-tree/domain/add-placement";
@@ -214,22 +205,6 @@ export function PublicationWorkbench({
   const [trashOpen, setTrashOpen] = useState(false);
 
   /**
-   * O contexto do agente — montado por gesto, nunca por dedução.
-   *
-   * Vive no workbench e não dentro do painel porque quem tem os dados para anexar é esta tela: o
-   * nó corrente, o editor, o render. O painel só mostra e remove.
-   *
-   * **Não** persiste entre sessões, ao contrário de quase tudo aqui. Reabrir o app amanhã com um
-   * trecho de outra questão pendurado no contexto, sem lembrar de tê-lo anexado, é exatamente o
-   * tipo de surpresa que o contexto explícito existe para impedir.
-   */
-  const [agentContext, setAgentContext] = useState<AgentContext>(EMPTY_CONTEXT);
-  const [agentError, setAgentError] = useState<string | null>(null);
-  const [agentTurns, setAgentTurns] = useState<readonly AgentTurn[]>([]);
-  const [agentBusy, setAgentBusy] = useState(false);
-  const [agentMode, setAgentMode] = useState<AgentMode>("ASK");
-
-  /**
    * Resultados da busca no acervo, para a paleta (`Ctrl+K`).
    *
    * A busca acontece **no servidor** a cada tecla, e não sobre a árvore em memória: a árvore é de
@@ -266,35 +241,6 @@ export function PublicationWorkbench({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  /**
-   * A proposta pendente — uma de cada vez.
-   *
-   * Revisar duas propostas concorrentes sobre a mesma questão é revisar um diff contra um estado
-   * que a outra vai mudar. Quando o agente propõe mais de uma coisa no mesmo turno, a primeira é
-   * a que vale, e as outras voltam se ele for perguntado de novo.
-   */
-  const [proposal, setProposal] = useState<{
-    summary: string;
-    warnings: readonly string[];
-    changes: readonly Change[];
-    patch: unknown;
-  } | null>(null);
-
-  /** Anexa recusando com mensagem em vez de estourar o teto em silêncio. */
-  const attachToAgent = useCallback((item: Parameters<typeof attach>[1]) => {
-    setAgentContext((current) => {
-      try {
-        setAgentError(null);
-        return attach(current, item);
-      } catch (problem) {
-        setAgentError(
-          problem instanceof ContextTooLargeError ? problem.message : "Não deu para anexar.",
-        );
-        return current;
-      }
-    });
   }, []);
 
   const allNodes = useMemo(() => nest(nodes, unsavedQuestionId), [nodes, unsavedQuestionId]);
@@ -390,166 +336,18 @@ export function PublicationWorkbench({
   const selected = nodes.find((n) => n.id === selectedId) ?? nodes[0] ?? null;
 
   /**
-   * Manda a pergunta e o contexto para o servidor, que tem a chave e as tools.
+   * A sessão do agente: contexto, conversa e proposta (`useAgentSession`).
    *
-   * A pergunta do usuário entra na conversa **antes** da resposta chegar: uma requisição que
-   * demora vinte segundos com a tela em branco parece travada, e a pergunta na tela é o que diz
-   * que ela foi recebida.
-   */
-  const askAgent = useCallback(
-    async (prompt: string) => {
-      const mine = `u-${prompt.length}-${agentTurns.length}`;
-      setAgentTurns((turns) => [...turns, { id: mine, role: "user", text: prompt }]);
-      setAgentBusy(true);
-      setAgentError(null);
-
-      try {
-        const response = await fetch("/api/agents/ask", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            prompt,
-            mode: agentMode,
-            questionId: selected?.question?.id ?? null,
-            context: agentContext.items,
-          }),
-        });
-
-        const payload = (await response.json()) as {
-          answer?: string;
-          message?: string;
-          toolCalls?: AgentTurn["toolCalls"];
-          usage?: AgentTurn["usage"];
-          error?: string | null;
-          proposals?: {
-            patch: unknown;
-            summary: string;
-            warnings: readonly string[];
-            changes: readonly Change[];
-          }[];
-        };
-
-        if (!response.ok) {
-          // A pergunta do usuário fica na tela. Perder o que ele escreveu por causa de um
-          // endpoint fora do ar seria cobrar dele o preço da nossa configuração.
-          setAgentError(payload.message ?? "O agente não respondeu.");
-          return;
-        }
-
-        // Só propostas que de fato mudam alguma coisa: um patch que reescreve o campo com o
-        // mesmo texto viraria uma tela de revisão sem conteúdo.
-        const first = payload.proposals?.find((entry) => entry.changes.length > 0);
-        if (first) setProposal(first);
-
-        setAgentTurns((turns) => [
-          ...turns,
-          {
-            id: `a-${mine}`,
-            role: "assistant",
-            text: payload.answer ?? payload.error ?? "(sem resposta)",
-            ...(payload.toolCalls ? { toolCalls: payload.toolCalls } : {}),
-            ...(payload.usage ? { usage: payload.usage } : {}),
-          },
-        ]);
-      } catch {
-        setAgentError("Não deu para falar com o servidor.");
-      } finally {
-        setAgentBusy(false);
-      }
-    },
-    [agentContext, agentMode, agentTurns.length, selected],
-  );
-
-  /**
-   * Compila o antes e o depois de uma linha de LaTeX, para a revisão.
+   * O contexto vive no workbench e não dentro do painel porque quem tem os dados para anexar é
+   * esta tela: o nó corrente, o editor, o render. O painel só mostra e remove.
    *
-   * Duas compilações em paralelo: o worker aguenta, e serializá-las dobraria a espera de quem só
-   * quer ver se a mudança quebrou a questão.
+   * Aplicar recarrega a árvore **e** o editor: sem o refresh, a tela mostraria o estado velho. O
+   * editor volta pelo `key` (ver `NodeDetail`), que muda junto com a versão que o servidor mandou.
    */
-  const previewChange = useCallback(
-    async (change: { id: string; before: string; after: string }) => {
-      const questionId = selected?.question?.id;
-      // O id é `field:<campo>:<impressão do antes>` — a impressão não é parte do nome do campo.
-      const [kind, target] = change.id.split(":");
-      const field = kind === "field" && target !== undefined ? target : null;
-      if (!questionId || field === null) throw new Error("Esta linha não é um campo de texto.");
-
-      const compile = async (value: string) => {
-        const response = await fetch("/api/agents/candidate-render", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ questionId, field, value }),
-        });
-        const payload = (await response.json()) as {
-          png?: string | null;
-          success?: boolean;
-          diagnostics?: { severity: string; message: string }[];
-          message?: string;
-        };
-
-        return {
-          png: payload.png ?? null,
-          success: payload.success ?? false,
-          diagnostics: payload.diagnostics ?? [
-            { severity: "error", message: payload.message ?? "" },
-          ],
-        };
-      };
-
-      const [before, after] = await Promise.all([compile(change.before), compile(change.after)]);
-      return { before, after };
-    },
-    [selected],
-  );
-
-  /** Aplica só o que foi marcado. O servidor recalcula o diff e recusa se nada sobrou. */
-  const applyProposal = useCallback(
-    async (approvedChangeIds: readonly string[]) => {
-      const questionId = selected?.question?.id;
-      if (!questionId || !proposal) return;
-
-      setAgentBusy(true);
-      try {
-        const response = await fetch("/api/agents/patches/apply", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ questionId, approvedChangeIds, patch: proposal.patch }),
-        });
-        const payload = (await response.json()) as {
-          message?: string;
-          revisionNumber?: number;
-          stale?: string[];
-        };
-
-        if (!response.ok) {
-          setAgentError(payload.message ?? "Não deu para aplicar.");
-          return;
-        }
-
-        setProposal(null);
-        setAgentTurns((turns) => [
-          ...turns,
-          {
-            id: `sys-${turns.length}`,
-            role: "assistant",
-            text:
-              `Aplicado. Revisão ${payload.revisionNumber} guarda o estado anterior.` +
-              (payload.stale?.length
-                ? ` ${payload.stale.length} mudança(s) já não existiam e foram ignoradas.`
-                : ""),
-          },
-        ]);
-        // A árvore **e** o editor: sem o refresh, a tela mostraria o estado velho. O editor
-        // volta pelo `key` (ver `NodeDetail`), que muda junto com a versão que o servidor mandou.
-        router.refresh();
-      } catch {
-        setAgentError("Não deu para falar com o servidor.");
-      } finally {
-        setAgentBusy(false);
-      }
-    },
-    [proposal, router, selected],
-  );
+  const agent = useAgentSession({
+    questionId: selected?.question?.id ?? null,
+    onApplied: () => router.refresh(),
+  });
 
   const titleOf = useCallback(
     (nodeId: string) => nodes.find((n) => n.id === nodeId)?.title ?? "este nó",
@@ -980,31 +778,28 @@ export function PublicationWorkbench({
       asideTitle="Agente"
       aside={
         <AgentPanel
-          context={agentContext}
-          onDetach={(id) => setAgentContext(detach(agentContext, id))}
-          onClear={() => setAgentContext(clearContext())}
+          context={agent.context}
+          onDetach={agent.detach}
+          onClear={agent.clear}
           providerLabel={ai?.providerLabel ?? null}
           model={ai?.model ?? null}
-          error={agentError}
-          turns={agentTurns}
-          busy={agentBusy}
-          proposal={proposal}
-          mode={agentMode}
-          onModeChange={setAgentMode}
-          onApplyProposal={(ids) => void applyProposal(ids)}
-          onRejectProposal={() => setProposal(null)}
+          error={agent.error}
+          turns={agent.turns}
+          busy={agent.busy}
+          proposal={agent.proposal}
+          mode={agent.mode}
+          onModeChange={agent.setMode}
+          onApplyProposal={(ids) => void agent.applyProposal(ids)}
+          onRejectProposal={agent.rejectProposal}
           {...(ai && selected?.question
             ? {
-                onPreviewChange: previewChange,
+                onPreviewChange: agent.previewChange,
               }
             : {})}
-          onRequestRevision={(feedback) => {
-            // A proposta sai da tela e o feedback vira a próxima pergunta: revisar uma proposta
-            // que o agente já foi convidado a substituir é revisar o que vai ser descartado.
-            setProposal(null);
-            void askAgent(feedback);
-          }}
-          {...(ai ? { onSend: (prompt: string) => void askAgent(prompt) } : {})}
+          // A proposta sai da tela e o feedback vira a próxima pergunta: revisar uma proposta que
+          // o agente já foi convidado a substituir é revisar o que vai ser descartado.
+          onRequestRevision={(feedback) => void agent.requestRevision(feedback)}
+          {...(ai ? { onSend: (prompt: string) => void agent.ask(prompt) } : {})}
         />
       }
       statusLeft={
@@ -1048,7 +843,7 @@ export function PublicationWorkbench({
             workspaceId={workspaceId}
             onDirtyChange={setUnsavedQuestionId}
             {...(ai
-              ? { onAttachSelection: (selection) => attachToAgent(selectionItem(selection)) }
+              ? { onAttachSelection: (selection) => agent.attach(selectionItem(selection)) }
               : {})}
           />
         ) : null}
