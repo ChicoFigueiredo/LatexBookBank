@@ -7,6 +7,7 @@ import {
 } from "@modules/agents/application/render-candidate";
 import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
 import type { QuestionForRender } from "@modules/rendering/domain/build-render-bundle";
+import type { RenderSource } from "@modules/rendering/domain/render-source";
 import type { RenderExecutor } from "@/shared/ports";
 
 /**
@@ -26,12 +27,20 @@ const question: QuestionForRender = {
   options: [{ id: "o1", statementLatex: "1\\%", isCorrect: true }],
 };
 
+/** A questão como fonte, sem figura nenhuma: estes testes são sobre o candidato, não os assets. */
+const sourceOf = (document: QuestionForRender): RenderSource => ({
+  workspaceId: "ws-1",
+  questionId: document.id,
+  document,
+  loadAssets: () => Promise.resolve({ manifest: [], bytes: new Map() }),
+});
+
 function fakeExecutor(over: Partial<{ success: boolean; diagnostics: unknown[] }> = {}) {
-  const calls: { sourceLatex: string; assets: unknown }[] = [];
+  const calls: { sourceLatex: string; jobId: string; assets: unknown }[] = [];
 
   const executor = {
-    render: vi.fn((bundle: { sourceLatex: string }, assets: unknown) => {
-      calls.push({ sourceLatex: bundle.sourceLatex, assets });
+    render: vi.fn((bundle: { sourceLatex: string; jobId: string }, assets: unknown) => {
+      calls.push({ sourceLatex: bundle.sourceLatex, jobId: bundle.jobId, assets });
       return Promise.resolve({
         result: {
           jobId: "candidate-1",
@@ -50,11 +59,14 @@ function fakeExecutor(over: Partial<{ success: boolean; diagnostics: unknown[] }
   return { executor, calls };
 }
 
-const toolFor = (executor: RenderExecutor, load = () => Promise.resolve(question)) =>
+const toolFor = (
+  executor: RenderExecutor,
+  load: () => Promise<RenderSource | null> = () => Promise.resolve(sourceOf(question)),
+) =>
   buildCandidateRenderTool({
     executor,
     profile: QUESTION_PREVIEW_PROFILE,
-    loadQuestion: load as () => Promise<QuestionForRender | null>,
+    loadSource: load,
   });
 
 describe("nada é persistido", () => {
@@ -94,11 +106,14 @@ describe("o que é compilado", () => {
     expect(calls[0]?.sourceLatex).toContain("1\\%");
   });
 
-  it("sem assets — o candidato é texto", async () => {
+  it("cada compilação tem o próprio jobId, mesmo entre turnos", async () => {
+    // O worker guarda o job pelo id. `candidate-1` em dois turnos paralelos trocava os artefatos
+    // de um pelos do outro (PLT-12).
     const { executor, calls } = fakeExecutor();
-    await toolFor(executor).execute({ field: "solutionLatex", value: "x" });
+    await toolFor(executor).execute({ field: "statementLatex", value: "a" });
+    await toolFor(executor).execute({ field: "statementLatex", value: "b" });
 
-    expect((calls[0]?.assets as Map<string, unknown>).size).toBe(0);
+    expect(calls[0]?.jobId).not.toBe(calls[1]?.jobId);
   });
 
   it("campo fora da lista é recusado", async () => {
@@ -111,7 +126,7 @@ describe("o que é compilado", () => {
 
   it("sem questão aberta, diz isso e não compila", async () => {
     const { executor, calls } = fakeExecutor();
-    const tool = toolFor(executor, () => Promise.resolve(null as never));
+    const tool = toolFor(executor, () => Promise.resolve(null));
 
     expect(await tool.execute({ field: "statementLatex", value: "x" })).toMatch(/Nenhuma questão/);
     expect(calls).toHaveLength(0);

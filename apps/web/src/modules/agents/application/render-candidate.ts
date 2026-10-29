@@ -1,6 +1,10 @@
 import type { RenderDiagnostic, RenderProfile } from "@latexbookbank/render-contract";
-import { buildRenderBundle } from "@modules/rendering/domain/build-render-bundle";
-import type { QuestionForRender } from "@modules/rendering/domain/build-render-bundle";
+import { compileDraft } from "@modules/rendering/application/render-document";
+import {
+  isLatexField,
+  type LatexField,
+  type RenderSource,
+} from "@modules/rendering/domain/render-source";
 import type { RenderExecutor } from "@/shared/ports";
 
 import { truncateOutput, type AgentTool } from "../domain/tool-contract";
@@ -13,9 +17,13 @@ import { truncateOutput, type AgentTool } from "../domain/tool-contract";
  * pior, daria a ele um caminho de escrita por via indireta, contornando a regra de que o agente
  * propõe e o humano aplica.
  *
- * Aqui o executor é usado direto (D35: ele recebe o bundle e devolve bytes, sem persistir), os
- * bytes são descartados e só os **diagnósticos** voltam. É o bastante para o agente saber se o
- * LaTeX que ele escreveu compila, que é a única pergunta que ele precisa fazer.
+ * Aqui a compilação passa por `compileDraft` (D35: o executor recebe o bundle e devolve bytes, sem
+ * persistir), os bytes são descartados e só os **diagnósticos** voltam. É o bastante para o agente
+ * saber se o LaTeX que ele escreveu compila, que é a única pergunta que ele precisa fazer.
+ *
+ * As figuras da questão viajam junto, como no editor. Sem elas, toda questão com
+ * `\includegraphics` voltava "File not found", e o modelo gastava as três tentativas
+ * "corrigindo" — ou apagando — uma figura que não tinha nada de errado (issue #265).
  *
  * Ver spec §35 · issue #105.
  */
@@ -23,8 +31,8 @@ import { truncateOutput, type AgentTool } from "../domain/tool-contract";
 export interface CandidateRenderDeps {
   readonly executor: RenderExecutor;
   readonly profile: RenderProfile;
-  /** A questão em foco, para compilar o candidato no contexto dela. */
-  readonly loadQuestion: () => Promise<QuestionForRender | null>;
+  /** A questão em foco, com as figuras dela, para compilar o candidato no contexto dela. */
+  readonly loadSource: () => Promise<RenderSource | null>;
 }
 
 /** Só o resultado da compilação — nenhum artefato atravessa. */
@@ -72,28 +80,19 @@ export function buildCandidateRenderTool(deps: CandidateRenderDeps): AgentTool {
 
       const { field, value } = parseInput(input);
 
-      const question = await deps.loadQuestion();
-      if (question === null) return "Nenhuma questão está aberta para compilar o candidato.";
+      const source = await deps.loadSource();
+      if (source === null) return "Nenhuma questão está aberta para compilar o candidato.";
 
       used += 1;
 
       // A questão inteira, com o campo substituído: compilar o trecho sozinho esconderia erro de
       // ambiente aberto num campo e fechado em outro, que é justamente o que costuma quebrar.
-      const candidate: QuestionForRender = { ...question, [field]: value };
-
-      const bundle = buildRenderBundle({
-        // `jobId` só para o worker nomear o diretório temporário — nada é gravado com ele.
-        jobId: `candidate-${used}`,
-        question: candidate,
+      const started = Date.now();
+      const { result } = await compileDraft({ executor: deps.executor }, source, {
         profile: deps.profile,
+        overrides: { [field]: value },
         includeSolution: field !== "statementLatex",
       });
-
-      const started = Date.now();
-      // Sem assets: o candidato é texto, e uma figura que já existe na questão não muda o que se
-      // quer saber aqui — se o LaTeX compila. Resolver assets custaria uma leitura de storage por
-      // tentativa, e o agente pode tentar três vezes.
-      const { result } = await deps.executor.render(bundle, new Map());
       const durationMs = Date.now() - started;
 
       return truncateOutput(
@@ -127,20 +126,18 @@ export function formatOutcome(outcome: CandidateRenderOutcome): string {
   ].join("\n");
 }
 
-const FIELDS = new Set(["statementLatex", "solutionLatex", "complementLatex"]);
-
-function parseInput(input: unknown): { field: keyof QuestionForRender; value: string } {
+function parseInput(input: unknown): { field: LatexField; value: string } {
   const record =
     typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
 
   const field = record["field"];
   const value = record["value"];
 
-  if (typeof field !== "string" || !FIELDS.has(field)) {
+  if (!isLatexField(field)) {
     throw new Error("`field` precisa ser statementLatex, solutionLatex ou complementLatex.");
   }
   if (typeof value !== "string") throw new Error("`value` precisa ser o LaTeX candidato.");
   if (value.length > 200_000) throw new Error("`value` é grande demais para uma questão.");
 
-  return { field: field as keyof QuestionForRender, value };
+  return { field, value };
 }

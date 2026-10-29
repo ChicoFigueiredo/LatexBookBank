@@ -5,6 +5,7 @@ import { asStorageKey, type StorageProvider } from "@/shared/ports";
 import type { RenderBundle } from "@latexbookbank/render-contract";
 
 import { citedAssets } from "../domain/cited-assets";
+import type { ResolvedAssets } from "../domain/render-source";
 
 /**
  * As figuras que a questão referencia, prontas para viajar no bundle.
@@ -21,10 +22,7 @@ import { citedAssets } from "../domain/cited-assets";
  * Ver spec §13 · D35 · issue #173.
  */
 
-export interface ResolvedAssets {
-  readonly manifest: RenderBundle["assets"];
-  readonly bytes: ReadonlyMap<string, Uint8Array>;
-}
+export type { ResolvedAssets };
 
 const EMPTY: ResolvedAssets = { manifest: [], bytes: new Map() };
 
