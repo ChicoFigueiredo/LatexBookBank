@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     if (source === null) {
       return NextResponse.json(
-        { error: "workspace_not_found", message: "Este workspace não existe." },
+        { error: "workspace_not_found", message: "Esta biblioteca não existe." },
         { status: 404 },
       );
     }

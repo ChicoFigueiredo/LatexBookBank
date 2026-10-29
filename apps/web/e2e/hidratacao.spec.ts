@@ -111,7 +111,7 @@ test("o editor hidrata sem erro e responde a clique", async ({ page }) => {
    * mais caro de um bug se apresentar.
    */
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Módulos" }).getByRole("button", { name: "Publicações" }).click();
+  await page.getByRole("navigation", { name: "Módulos" }).getByRole("button", { name: "Livros" }).click();
   await expect(page).toHaveURL(/\/publicacoes/);
 
   const vigia = vigiar(page);

@@ -553,7 +553,7 @@ export function PublicationWorkbench({
    * o livro um degrau intermediário — e é verdade, porque agora são duas páginas.
    */
   const breadcrumb = [
-    { label: "Publicações", href: "/publicacoes" },
+    { label: "Livros", href: "/publicacoes" },
     { label: publicationTitle, href: `/publications/${publicationId}` },
     { label: "Editor", ...(selected ? { href: `/publications/${publicationId}/editor` } : {}) },
     ...(selected ? [{ label: selected.title }] : []),

@@ -9,7 +9,7 @@
  * de tipo; `multiple-choice.ts` monta `\textbf{Gabarito:}` e `\textbf{Resolução.}` a partir dele. E
  * o editor nunca pedia: `useRender` mandava `{}` no corpo, então o valor era sempre `false`.
  *
- * O efeito é o pior tipo de silêncio deste dossiê. Quem escreve a resolução na aba `Resposta` e
+ * O efeito é o pior tipo de silêncio deste dossiê. Quem escreve a resolução na aba `Resolução` e
  * compila recebe um PDF **sem ela** — e nada na tela diz que existe outra saída. A pessoa conclui
  * que o produto não sabe imprimir resolução, e o produto sabia o tempo todo.
  *

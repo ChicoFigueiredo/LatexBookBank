@@ -22,7 +22,7 @@ import { planQuestion, type QuestionBlueprint } from "@modules/questions/domain/
 
 export class DestinationNotFoundError extends Error {
   constructor(readonly nodeId: string) {
-    super(`O destino ${nodeId} não existe nesta publicação.`);
+    super(`O destino ${nodeId} não existe neste livro.`);
     this.name = "DestinationNotFoundError";
   }
 }

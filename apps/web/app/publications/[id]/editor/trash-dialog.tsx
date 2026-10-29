@@ -93,7 +93,7 @@ export function TrashDialog({ publicationId, open, onClose }: TrashDialogProps) 
   const now = new Date();
 
   return (
-    <Modal open={open} onClose={onClose} eyebrow="LIXEIRA" title="Excluídos desta publicação">
+    <Modal open={open} onClose={onClose} eyebrow="LIXEIRA" title="Excluídos deste livro">
       {error && (
         <Banner tone="danger" title="Não deu certo" onDismiss={() => setError(null)}>
           {error}

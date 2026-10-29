@@ -146,7 +146,7 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
 
       setImportReport(
         real.ok
-          ? `Importado: ${done.report?.["questions"] ?? 0} questão(ões) em um workspace novo.`
+          ? `Importado: ${done.report?.["questions"] ?? 0} questão(ões) numa biblioteca nova.`
           : (done.message ?? "Falhou."),
       );
     } catch {
@@ -164,7 +164,7 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
      */
     <main className="lbb-diag">
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)" }}>
-        Diagnóstico
+        Diagnóstico do app
       </h1>
 
       <Card title="Aplicativo" status={diagnostics.app} />
@@ -194,7 +194,7 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
         <div className="lbb-diag-head">
           <span className="lbb-diag-title">Portabilidade</span>
           <span className="lbb-diag-summary">
-            Exportar leva o acervo inteiro num `.lbb`; importar cria um workspace novo
+            Exportar leva uma biblioteca inteira num `.lbb`; importar cria uma biblioteca nova
           </span>
         </div>
 
@@ -241,7 +241,7 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
       <Modal
         open={pending !== null}
         onClose={cancelImport}
-        title="Importar como um workspace novo?"
+        title="Importar como uma biblioteca nova?"
         // Sem descarte por clique fora: importar cria um acervo inteiro, e o "não" precisa ser
         // explícito — a mesma regra da exclusão na árvore.
         closeOnScrim={false}
@@ -257,14 +257,14 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
         }
       >
         <p>
-          O arquivo traria <strong>{pending?.publications ?? 0}</strong> publicação(ões),{" "}
+          O arquivo traria <strong>{pending?.publications ?? 0}</strong> livro(s),{" "}
           <strong>{pending?.questions ?? 0}</strong> questão(ões) e{" "}
           <strong>{pending?.assets ?? 0}</strong> asset(s).
         </p>
         {(pending?.collisions ?? 0) > 0 && (
           <Banner tone="warn" title={`${pending?.collisions} colisão(ões) de identidade`}>
-            Nada é sobrescrito: o import cria um workspace <strong>novo</strong>, e as colisões vão
-            para o relatório.
+            Nada é sobrescrito: a importação cria uma biblioteca <strong>nova</strong>, e as
+            colisões vão para o relatório.
           </Banner>
         )}
         <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-body-sm)" }}>

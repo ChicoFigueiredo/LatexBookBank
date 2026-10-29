@@ -6,6 +6,10 @@ import { injectCss } from "@/design-system";
  * Num arquivo só porque estavam nascendo dentro da Home: a segunda tela que usasse `.lbb-card`
  * dependeria de a Home ter sido montada antes para o CSS existir, e essa dependência invisível
  * quebra exatamente quando alguém entra direto pela URL da segunda tela.
+ *
+ * As folhas são injetadas globalmente, então uma classe daqui com o nome de uma do design system
+ * soma as regras das duas: `.lbb-dot` daqui encolhia o `StatusDot` a um ponto de 3 px (STE-13).
+ * O que não é do DS leva o prefixo `lbb-acervo-`.
  */
 const CSS = `
 .lbb-acervo{padding:var(--space-6) var(--space-8) var(--space-12);max-width:72rem}
@@ -19,11 +23,6 @@ const CSS = `
 .lbb-card-actions{position:absolute;top:calc(var(--space-4) - 4px);right:calc(var(--space-4) - 6px)}
 .lbb-card-title{display:flex;align-items:center;gap:6px;font-weight:var(--weight-medium);color:var(--text-strong)}
 .lbb-card-meta{font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
-.lbb-banner-row{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4) var(--space-5);border:1px solid var(--accent-border);border-radius:var(--radius-md);background:var(--accent-surface)}
-.lbb-banner-row[data-tone="warn"]{border-color:var(--warn-border);background:var(--warn-surface)}
-.lbb-banner-body{flex:1;min-width:0}
-.lbb-banner-title{font-weight:var(--weight-medium);color:var(--text-strong)}
-.lbb-banner-sub{font-size:var(--text-body-sm);color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lbb-acervo-actions{display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-4)}
 /* ── Home recorrente: cartão de retomada ── */
 .lbb-greet{font-family:var(--font-mono);font-size:var(--text-micro);font-weight:var(--weight-medium);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--text-muted)}
@@ -36,7 +35,7 @@ const CSS = `
 .lbb-cover-vol{font-family:var(--font-mono);font-size:14px;font-weight:var(--weight-bold);color:var(--accent-warm)}
 .lbb-continue-body{flex:1;min-width:0}
 .lbb-continue-when{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-muted)}
-.lbb-dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.lbb-acervo-dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
 .lbb-continue-title{margin:6px 0 2px;font-family:var(--font-display);font-size:var(--text-section);font-weight:var(--weight-bold);color:var(--text-strong);line-height:var(--leading-tight)}
 .lbb-continue-path{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:var(--text-body-sm);color:var(--text-secondary)}
 .lbb-continue-leaf{color:var(--text-primary);font-weight:var(--weight-medium)}
@@ -63,10 +62,10 @@ const CSS = `
 .lbb-row-stats{font-family:var(--font-mono);font-size:var(--text-meta);color:var(--text-secondary)}
 .lbb-row-when{font-size:var(--text-body-sm);color:var(--text-muted);white-space:nowrap}
 .lbb-row-cta{display:flex;align-items:center;gap:4px;font-size:var(--text-body-sm);font-weight:var(--weight-medium);color:var(--accent-text);white-space:nowrap}
-.lbb-pill{font-family:var(--font-mono);font-size:var(--text-meta);padding:1px 7px;border-radius:999px;border:1px solid;white-space:nowrap}
-.lbb-pill[data-tone="ok"]{border-color:var(--ok-border);background:var(--ok-surface);color:var(--ok-text)}
-.lbb-pill[data-tone="warn"]{border-color:var(--warn-border);background:var(--warn-surface);color:var(--warn-text)}
-.lbb-pill[data-tone="neutral"]{border-color:var(--border-default);background:var(--surface-raised);color:var(--text-muted)}
+.lbb-acervo-pill{font-family:var(--font-mono);font-size:var(--text-meta);padding:1px 7px;border-radius:999px;border:1px solid;white-space:nowrap}
+.lbb-acervo-pill[data-tone="ok"]{border-color:var(--ok-border);background:var(--ok-surface);color:var(--ok-text)}
+.lbb-acervo-pill[data-tone="warn"]{border-color:var(--warn-border);background:var(--warn-surface);color:var(--warn-text)}
+.lbb-acervo-pill[data-tone="neutral"]{border-color:var(--border-default);background:var(--surface-raised);color:var(--text-muted)}
 /* O menu de ações só cabe se a linha reservar o lugar dele. */
 .lbb-row-actions{flex-shrink:0;margin:-4px -6px -4px 0}
 
@@ -74,6 +73,8 @@ const CSS = `
 .lbb-filterbar{display:flex;align-items:center;gap:var(--space-3);margin-top:var(--space-5)}
 .lbb-search{display:flex;align-items:center;gap:7px;height:var(--control-h-md);width:18rem;max-width:100%;padding:0 10px;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface)}
 .lbb-search input{flex:1;min-width:0;border:0;background:transparent;color:var(--text-primary);font:inherit;font-size:var(--text-body-sm);outline:none}
+/* O contorno sai do input e vai para a caixa inteira: sem isto, quem navega por teclado não vê o foco. */
+.lbb-search:focus-within{outline:2px solid var(--focus-ring);outline-offset:-1px}
 .lbb-shelf{margin-top:var(--space-4);background:var(--surface);border:1px solid var(--border-default);border-radius:var(--radius-md);overflow:hidden}
 /* Uma grade só, repetida no cabeçalho e na linha: é o que garante o alinhamento das colunas. */
 .lbb-shelf-row{display:grid;grid-template-columns:40px minmax(0,1fr) 8.5rem 6rem 5rem 8.5rem 7rem 32px;gap:var(--space-3);align-items:center;padding:9px var(--space-4);border-bottom:1px solid var(--border-subtle)}
@@ -92,7 +93,7 @@ a.lbb-shelf-row:focus-visible{outline:2px solid var(--focus-ring);outline-offset
 .lbb-shelf-cell{font-size:var(--text-body-sm);color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lbb-shelf-num{font-family:var(--font-mono);font-size:var(--text-body-sm);text-align:right;color:var(--text-primary)}
 .lbb-shelf-hint{display:flex;align-items:center;gap:7px;margin-top:var(--space-3);font-size:var(--text-body-sm);color:var(--text-muted)}
-.lbb-pill-icon{display:inline-flex;align-items:center;gap:5px}
+.lbb-acervo-pill-icon{display:inline-flex;align-items:center;gap:5px}
 @media (max-width:1100px){
   /* Autor e edição são os primeiros a sair: a decisão se sustenta com título, questões e estado. */
   .lbb-shelf-row{grid-template-columns:40px minmax(0,1fr) 5rem 8.5rem 7rem 32px}

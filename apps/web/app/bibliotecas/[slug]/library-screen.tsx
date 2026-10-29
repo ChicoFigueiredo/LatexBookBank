@@ -390,7 +390,7 @@ function ShelfRow({
       </span>
 
       <span role="cell">
-        <span className="lbb-pill lbb-pill-icon" data-tone={look.tone}>
+        <span className="lbb-acervo-pill lbb-acervo-pill-icon" data-tone={look.tone}>
           <Icon name={look.icon} size={11} />
           {/* A contagem entra no rótulo: "a revisar" sem número não diz se é uma ou quarenta. */}
           {book.state === "a-revisar" ? `${book.invalidCount} a revisar` : look.label}

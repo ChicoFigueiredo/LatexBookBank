@@ -54,13 +54,13 @@ const badge = (
 export const RAIL_MODULES: readonly WorkbenchModule[] = [
   { id: "inicio", label: "Início", icon: "house", group: "Acervo" },
   { id: "bibliotecas", label: "Bibliotecas", icon: "library", group: "Acervo" },
-  { id: "publicacoes", label: "Publicações", icon: "book-open", group: "Acervo" },
+  { id: "publicacoes", label: "Livros", icon: "book-open", group: "Acervo" },
   { id: "editor", label: "Editor do livro", icon: "list-tree", group: "Acervo" },
   { id: "captura", label: "Captura", icon: "scan-text", group: "Produção" },
   { id: "avaliacoes", label: "Avaliações", icon: "clipboard-list", group: "Produção" },
   { id: "importar", label: "Importar / exportar", icon: "download-cloud", group: "Sistema" },
   { id: "lixeira", label: "Lixeira", icon: "archive", group: "Sistema" },
-  { id: "diagnostico", label: "Diagnóstico", icon: "activity", group: "Sistema" },
+  { id: "diagnostico", label: "Diagnóstico do app", icon: "activity", group: "Sistema" },
 ];
 
 /**

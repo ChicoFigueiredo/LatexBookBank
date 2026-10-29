@@ -116,11 +116,20 @@ export const LATEX_MONARCH_TOKENS = {
 /** Campos editáveis de uma questão, na ordem das abas (spec §10). */
 export const QUESTION_FIELDS = [
   { id: "statementLatex", label: "Conteúdo" },
-  { id: "solutionLatex", label: "Resposta" },
+  { id: "solutionLatex", label: "Resolução" },
   { id: "complementLatex", label: "Complemento" },
 ] as const;
 
 export type QuestionFieldId = (typeof QUESTION_FIELDS)[number]["id"];
+
+/**
+ * O nome de cada campo como a aba o escreve. O editor, o preview rápido e o diagnóstico do render
+ * leem daqui: eram três mapas, e o da resolução dizia "Resposta", que o glossário separa do
+ * gabarito (STM-11).
+ */
+export const QUESTION_FIELD_LABELS: Readonly<Record<QuestionFieldId, string>> = Object.fromEntries(
+  QUESTION_FIELDS.map((field) => [field.id, field.label]),
+) as Record<QuestionFieldId, string>;
 
 export const isQuestionField = (value: string): value is QuestionFieldId =>
   QUESTION_FIELDS.some((field) => field.id === value);

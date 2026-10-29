@@ -164,7 +164,7 @@ export function OriginPanel({ questionId, onAction }: OriginPanelProps) {
             arquivo. Só a evidência sumiu.
             <div style={{ marginTop: "var(--space-2)" }}>
               <Button size="sm" variant="secondary" href="/diagnostico">
-                Ver o armazenamento no diagnóstico
+                Ver o armazenamento no diagnóstico do app
               </Button>
             </div>
           </Banner>

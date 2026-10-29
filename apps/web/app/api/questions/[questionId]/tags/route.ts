@@ -62,7 +62,7 @@ export async function POST(
     const workspaceId = await workspaceOfQuestion(questionId);
     if (workspaceId === null) {
       return NextResponse.json(
-        { error: "not_found", message: "Esta questão não existe ou não está numa publicação." },
+        { error: "not_found", message: "Esta questão não existe ou não está num livro." },
         { status: 404 },
       );
     }

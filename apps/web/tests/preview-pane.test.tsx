@@ -95,13 +95,13 @@ describe("PreviewPane", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Resposta" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Resolução" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Complemento" })).toBeTruthy();
   });
 
   it("omite a seção vazia em vez de deixar um título órfão", () => {
     render(<PreviewPane source={{ ...source, statementLatex: "só o enunciado" }} />);
-    expect(screen.queryByRole("heading", { name: "Resposta" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Resolução" })).toBeNull();
   });
 
   it("fórmula quebrada não derruba o preview — o MathJax desenha o próprio erro", () => {

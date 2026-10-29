@@ -106,7 +106,7 @@ export function AddMenu({
         </Button>
       }
     >
-      <div className="lbb-addmenu" role="menu" aria-label="Adicionar à publicação">
+      <div className="lbb-addmenu" role="menu" aria-label="Adicionar ao livro">
         {destinationLabel && (
           <div className="lbb-addmenu-group" title={destinationLabel}>
             em {destinationLabel}

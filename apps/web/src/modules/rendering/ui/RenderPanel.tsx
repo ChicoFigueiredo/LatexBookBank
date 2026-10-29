@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Badge, Banner, Button, Segmented, Tabs } from "@/design-system";
 import type { RenderDiagnostic } from "@latexbookbank/render-contract";
+import { QUESTION_FIELD_LABELS } from "@modules/latex/domain/latex-language";
 import {
-  staleAudienceWarning,
-  downloadFileName,
   audienceSummary,
+  downloadFileName,
   RENDER_AUDIENCES,
+  staleAudienceWarning,
   type RenderAudience,
 } from "@modules/rendering/domain/render-audience";
 import {
@@ -118,9 +119,7 @@ const TABS = [
  * "complementLatex" mandaria procurar uma aba que não existe com esse nome.
  */
 const FIELD_LABEL: Record<RenderSourceField, string> = {
-  statementLatex: "Conteúdo",
-  solutionLatex: "Resposta",
-  complementLatex: "Complemento",
+  ...QUESTION_FIELD_LABELS,
   options: "Alternativas",
 };
 

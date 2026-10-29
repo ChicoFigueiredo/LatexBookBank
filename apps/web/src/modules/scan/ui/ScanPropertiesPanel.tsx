@@ -8,7 +8,7 @@ import { PreviewPane } from "@modules/preview/ui/PreviewPane";
 import type { ScanKind } from "@modules/scan/domain/proposal";
 import type { ReviewOperation } from "@modules/scan/domain/review";
 import { effectiveLatex, effectiveText, type ScanItem } from "@modules/scan/domain/scan-item";
-import { KIND_LABELS, rowLabel, STATE_LABELS } from "@modules/scan/domain/review-view";
+import { DIAGNOSTIC_LABELS, KIND_LABELS, rowLabel, STATE_LABELS } from "@modules/scan/domain/review-view";
 
 /**
  * As propriedades do item escolhido (§34, área da direita) e as operações de revisão (§36).
@@ -250,8 +250,8 @@ function PanelBody({
 
       {item.diagnostic && (
         <div className="lbb-scan-props-section">
-          <strong>Diagnóstico</strong>
-          <Badge tone={item.diagnostic.status === "complete" ? "ok" : "warn"}>{item.diagnostic.status}</Badge>
+          <strong>Diagnóstico do item</strong>
+          <Badge tone={item.diagnostic.status === "complete" ? "ok" : "warn"}>{DIAGNOSTIC_LABELS[item.diagnostic.status]}</Badge>
           {item.diagnostic.reasons.length > 0 && (
             <ul>
               {item.diagnostic.reasons.map((reason) => (

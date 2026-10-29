@@ -169,7 +169,7 @@ export function BookOverviewScreen({ book }: BookOverviewScreenProps) {
                 reconhecimento do gesto que acabou de acontecer — passados alguns minutos vira
                 ruído, e volta a ser o endereço do livro. */}
             <div className="lbb-greet" data-tone={book.justCreated ? "ok" : undefined}>
-              {book.justCreated ? "Livro criado agora" : `Publicação · ${book.libraryName}`}
+              {book.justCreated ? "Livro criado agora" : `Livro · ${book.libraryName}`}
             </div>
             <h1 className="lbb-book-title">
               {book.title}

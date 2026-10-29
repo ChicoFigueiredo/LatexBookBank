@@ -44,7 +44,7 @@ interface DryRunResult {
 
 /** As quatro células do protótipo, nesta ordem. `conflitos` é a única em warn. */
 const CELULAS: readonly { readonly key: string; readonly label: string }[] = [
-  { key: "publications", label: "publicações" },
+  { key: "publications", label: "livros" },
   { key: "questions", label: "questões" },
   { key: "assets", label: "arquivos" },
 ];
@@ -160,7 +160,7 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
               <Origem
                 icon="library"
                 title="Absorver livro do Calibre"
-                desc="Cria uma publicação nova a partir de um livro já catalogado."
+                desc="Cria um livro novo a partir de um livro já catalogado."
                 href="/bibliotecas"
               />
               <Origem

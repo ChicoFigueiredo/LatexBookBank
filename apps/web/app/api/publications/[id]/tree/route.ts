@@ -29,7 +29,7 @@ export const GET = withErrors(async function GET(
   const publication = await new PrismaPublicationRepository().findById(id);
   if (!publication) {
     return NextResponse.json(
-      { error: "not_found", message: `Publicação ${id} não existe.` },
+      { error: "not_found", message: `Livro ${id} não existe.` },
       { status: 404 },
     );
   }
