@@ -6,9 +6,10 @@ import {
   type PatchApplier,
   type PatchTransaction,
 } from "@modules/agents/application/apply-question-patch";
-import type { QuestionState } from "@modules/agents/domain/patch-diff";
 import { rebalanceKeys } from "@/shared/ordering/fractional-index";
 import { appendRevision } from "@modules/revisions/infrastructure/prisma-revision-writer";
+
+import { readQuestionState } from "./prisma-question-state";
 
 /**
  * A aplicação do patch, sobre o Prisma — **a única escrita do fluxo agêntico**.
@@ -65,53 +66,8 @@ async function exigirDaQuestao(
 function makeTransaction(client: Tx): PatchTransaction {
   return {
     async readStateForUpdate(questionId) {
-      const row = await client.question.findUnique({
-        where: { id: questionId },
-        select: {
-          type: true,
-          statementLatex: true,
-          solutionLatex: true,
-          complementLatex: true,
-          nickname: true,
-          difficulty: true,
-          year: true,
-          board: true,
-          institution: true,
-          role: true,
-          roleLevel: true,
-          publisher: true,
-          videoUrl: true,
-          options: {
-            orderBy: { sortKey: "asc" },
-            select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },
-          },
-          tags: { select: { tag: { select: { name: true } } } },
-        },
-      });
-      if (!row) return null;
-
-      const {
-        type,
-        options,
-        tags,
-        statementLatex,
-        solutionLatex,
-        complementLatex,
-        nickname,
-        ...meta
-      } = row;
-
-      const state: QuestionState = {
-        type,
-        statementLatex,
-        solutionLatex,
-        complementLatex,
-        nickname,
-        options,
-        metadata: meta,
-        tags: tags.map((link) => link.tag.name),
-      };
-      return state;
+      // O mesmo estado do diff e da revisão, lido dentro desta transação.
+      return readQuestionState(questionId, client);
     },
 
     async writeRevision(input) {

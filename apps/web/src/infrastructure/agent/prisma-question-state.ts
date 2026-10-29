@@ -1,19 +1,25 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import type { QuestionState } from "@modules/agents/domain/patch-diff";
+import type { RevisionOrigin } from "@modules/revisions/domain/revision";
+import { appendRevision } from "@modules/revisions/infrastructure/prisma-revision-writer";
 
 /**
- * O estado da questão para calcular o diff — **fora** de transação.
+ * O estado da questão — o que o diff do agente compara e o que a revisão da questão guarda.
  *
- * Existe separado do aplicador porque serve a outro momento: aqui o diff é só para mostrar, e
- * mostrar não precisa de bloqueio. Quando o usuário aprovar, o estado é lido outra vez, dentro da
- * transação, e o diff é recalculado — é lá que a concorrência importa.
+ * Sem `client`, lê **fora** de transação: o diff da proposta é só para mostrar, e mostrar não
+ * precisa de bloqueio. Quando o usuário aprovar, o estado é lido outra vez, dentro da transação
+ * do aplicador, e o diff é recalculado — é lá que a concorrência importa.
  *
  * Ver spec §35 · issue #103.
  */
-export async function readQuestionState(questionId: string): Promise<QuestionState | null> {
-  const row = await prisma.question.findUnique({
+export async function readQuestionState(
+  questionId: string,
+  client: Prisma.TransactionClient = prisma,
+): Promise<QuestionState | null> {
+  const row = await client.question.findUnique({
     where: { id: questionId },
     select: {
       type: true,
@@ -59,4 +65,30 @@ export async function readQuestionState(questionId: string): Promise<QuestionSta
     metadata,
     tags: tags.map((link) => link.tag.name),
   };
+}
+
+/**
+ * A revisão da questão com o estado de agora, lido dentro da transação de quem vai mudá-la.
+ *
+ * O par de `appendNodeRevision` para a questão: quem muda o enunciado por fora do editor e do
+ * agente — a retirada de uma importação (CAP-09) — grava o mesmo `QuestionState` que o Histórico
+ * da questão sabe mostrar e restaurar. Devolve `null`, sem gravar nada, quando a questão sumiu.
+ */
+export async function appendQuestionRevision(
+  tx: Prisma.TransactionClient,
+  input: {
+    readonly questionId: string;
+    readonly origin: RevisionOrigin;
+    readonly summary: string;
+  },
+): Promise<number | null> {
+  const state = await readQuestionState(input.questionId, tx);
+  if (state === null) return null;
+  return appendRevision(tx, {
+    entityType: "QUESTION",
+    entityId: input.questionId,
+    origin: input.origin,
+    summary: input.summary,
+    snapshotJson: JSON.stringify(state),
+  });
 }

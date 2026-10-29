@@ -1,5 +1,6 @@
 import "server-only";
 
+import { appendQuestionRevision } from "@infrastructure/agent/prisma-question-state";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
@@ -176,9 +177,13 @@ export class PrismaScanImport implements ScanImportStore {
    * Tira de cada nó os trechos e as âncoras que a importação pôs ali, numa transação: o corpo (ou
    * o enunciado, quando o nó é de questão) volta a ser o que era, com o estado anterior no
    * histórico, e a âncora que ficou sem dono sai.
+   *
+   * Devolve as questões cujo enunciado mudou: revalidá-las é do caso de uso (D65), depois de a
+   * transação fechar.
    */
-  async detachPieces(entries: readonly DetachedPieces[]): Promise<void> {
-    if (entries.length === 0) return;
+  async detachPieces(entries: readonly DetachedPieces[]): Promise<readonly string[]> {
+    if (entries.length === 0) return [];
+    const changedQuestions: string[] = [];
     await prisma.$transaction(
       async (tx) => {
         for (const entry of entries) {
@@ -190,7 +195,14 @@ export class PrismaScanImport implements ScanImportStore {
           if (node.question) {
             const statementLatex = removeFromBody(node.question.statementLatex, entry.pieces);
             if (statementLatex !== node.question.statementLatex) {
+              // A questão não é desta importação: o enunciado de antes fica no Histórico dela (B5).
+              await appendQuestionRevision(tx, {
+                questionId: node.question.id,
+                origin: "SYSTEM",
+                summary: "enunciado do scan retirado com a importação",
+              });
               await tx.question.update({ where: { id: node.question.id }, data: { statementLatex } });
+              changedQuestions.push(node.question.id);
             }
           } else {
             const bodyLatex = removeFromBody(node.bodyLatex, entry.pieces);
@@ -228,6 +240,7 @@ export class PrismaScanImport implements ScanImportStore {
       },
       { timeout: 120_000, maxWait: 10_000 },
     );
+    return changedQuestions;
   }
 
   /**
