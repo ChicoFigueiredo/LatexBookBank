@@ -25,6 +25,7 @@ import { PrismaAgentReadPort } from "@infrastructure/agent/prisma-agent-read-por
 import { recordAgentRun, workspaceOfQuestion } from "@infrastructure/agent/prisma-agent-run-writer";
 import { env as appEnv } from "@/shared/config/env";
 import { AiCredentialMissingError } from "@/shared/ports";
+import type { AskAgentResponse } from "@modules/agents/application/agent-contract";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../tree-http";
 
@@ -173,7 +174,7 @@ export async function POST(request: Request) {
       durationMs: outcome.record.durationMs,
       error: outcome.record.error ?? null,
       runId,
-    });
+    } satisfies AskAgentResponse);
   } catch (error) {
     if (error instanceof AiCredentialMissingError) {
       return NextResponse.json(

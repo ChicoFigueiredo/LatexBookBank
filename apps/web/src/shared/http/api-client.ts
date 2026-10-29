@@ -1,0 +1,64 @@
+/**
+ * O lado do navegador das rotas, num lugar só.
+ *
+ * Cada tela fazia `(await response.json()) as {...}` com a forma da resposta escrita à mão, e o
+ * `tsc` não ligava essa forma à rota: renomear um campo no servidor passava limpo e a tela mostrava
+ * `undefined` (ARQ-10 da revisão de 2026-09-23). Os clientes tipados de cada módulo (`*-client.ts`)
+ * passam por aqui, com o tipo de resposta que a rota também anota.
+ */
+
+/** O corpo de erro que as rotas devolvem: `{ error, message }`, às vezes com campos a mais. */
+export interface ApiErrorBody {
+  readonly error?: string;
+  readonly message?: string;
+  readonly [extra: string]: unknown;
+}
+
+/**
+ * A rota respondeu, e respondeu que não.
+ *
+ * Diferente de falha de rede ou de corpo que não é JSON — essas sobem como o `TypeError` ou o
+ * `SyntaxError` de sempre, e a tela que quer distinguir "o servidor recusou" de "não deu para
+ * falar com o servidor" distingue pelo tipo.
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: ApiErrorBody,
+  ) {
+    super(typeof body.message === "string" ? body.message : `Falha (HTTP ${status}).`);
+    this.name = "ApiError";
+  }
+
+  /** A mensagem que a rota mandou, ou `null` quando ela não mandou nenhuma. */
+  get serverMessage(): string | null {
+    return typeof this.body.message === "string" ? this.body.message : null;
+  }
+}
+
+/**
+ * Faz a requisição e lê o JSON; recusa com `ApiError` quando o status não é 2xx.
+ *
+ * O JSON é lido **antes** de olhar o status, como as telas faziam: um 500 sem corpo JSON sobe como
+ * erro de leitura, não como `ApiError` sem mensagem.
+ */
+export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  const payload = (await response.json()) as unknown;
+  if (!response.ok) throw new ApiError(response.status, asErrorBody(payload));
+  return payload as T;
+}
+
+/** `POST`/`PATCH`/`PUT`/`DELETE` com corpo JSON. */
+export function sendJson<T>(url: string, method: string, body?: unknown): Promise<T> {
+  return requestJson<T>(url, {
+    method,
+    ...(body === undefined
+      ? {}
+      : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+  });
+}
+
+function asErrorBody(payload: unknown): ApiErrorBody {
+  return typeof payload === "object" && payload !== null ? (payload as ApiErrorBody) : {};
+}
