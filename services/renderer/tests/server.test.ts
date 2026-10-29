@@ -6,6 +6,7 @@ import { DEFAULT_RENDER_OPTIONS, type RenderBundle } from "@latexbookbank/render
 import { AUTH_HEADER, MissingSecretError, requireSecret } from "../src/auth.ts";
 import { JobStore } from "../src/jobs.ts";
 import { createHandler } from "../src/server.ts";
+import { describeComTex } from "./tex.ts";
 
 /**
  * As rotas, exercitadas de verdade — inclusive a compilação.
@@ -97,16 +98,6 @@ describe("GET /health", () => {
     expect(response.status).toBe(200);
   });
 
-  it("traz as versões dos binários e a do renderer", async () => {
-    const response = await createHandler(deps)(new Request("http://renderer/health"));
-    const health = (await response.json()) as Record<string, unknown>;
-
-    expect(health["status"]).toBe("ok");
-    expect(health["rendererVersion"]).toBe("teste-1");
-    expect(String(health["pdfLatexVersion"])).toContain("pdfTeX");
-    expect(String(health["pdfToCairoVersion"])).toContain("pdftocairo");
-  });
-
   it("`profileCount` é zero, e é a resposta honesta", async () => {
     // O worker não tem catálogo: o perfil vem resolvido dentro do bundle. Inventar um número aqui
     // sugeriria um estado que não existe.
@@ -117,20 +108,6 @@ describe("GET /health", () => {
 });
 
 describe("POST /render", () => {
-  it("compila e devolve o job concluído", async () => {
-    const payload = bundle();
-    const response = await createHandler(deps)(renderRequest(payload));
-    const status = (await response.json()) as {
-      state: string;
-      result: { success: boolean; pdf: { name: string } | null };
-    };
-
-    expect(response.status).toBe(200);
-    expect(status.state).toBe("done");
-    expect(status.result.success).toBe(true);
-    expect(status.result.pdf?.name).toBe("main.pdf");
-  });
-
   it("recusa corpo que não é multipart", async () => {
     const response = await createHandler(deps)(
       new Request("http://renderer/render", {
@@ -153,6 +130,48 @@ describe("POST /render", () => {
     expect(String(body["error"])).toContain("não veio no multipart");
   });
 
+  it("bundle inválido vira 422 com a razão, não exceção", async () => {
+    const response = await createHandler(deps)(renderRequest(bundle({ sourceLatex: "" })));
+    expect(response.status).toBe(422);
+  });
+});
+
+describe("GET /render/:id e artefatos", () => {
+  it("404 para job que não existe", async () => {
+    const response = await createHandler(deps)(
+      new Request("http://renderer/render/inexistente", { headers: { [AUTH_HEADER]: SECRET } }),
+    );
+    expect(response.status).toBe(404);
+  });
+});
+
+describeComTex("GET /health — versões dos binários", () => {
+  it("traz as versões dos binários e a do renderer", async () => {
+    const response = await createHandler(deps)(new Request("http://renderer/health"));
+    const health = (await response.json()) as Record<string, unknown>;
+
+    expect(health["status"]).toBe("ok");
+    expect(health["rendererVersion"]).toBe("teste-1");
+    expect(String(health["pdfLatexVersion"])).toContain("pdfTeX");
+    expect(String(health["pdfToCairoVersion"])).toContain("pdftocairo");
+  });
+});
+
+describeComTex("POST /render — compilação de verdade", () => {
+  it("compila e devolve o job concluído", async () => {
+    const payload = bundle();
+    const response = await createHandler(deps)(renderRequest(payload));
+    const status = (await response.json()) as {
+      state: string;
+      result: { success: boolean; pdf: { name: string } | null };
+    };
+
+    expect(response.status).toBe(200);
+    expect(status.state).toBe("done");
+    expect(status.result.success).toBe(true);
+    expect(status.result.pdf?.name).toBe("main.pdf");
+  });
+
   it("erro de LaTeX vira `failed` com diagnóstico, não 500", async () => {
     const response = await createHandler(deps)(
       renderRequest(bundle({ sourceLatex: "\\naoExiste" })),
@@ -162,11 +181,6 @@ describe("POST /render", () => {
     expect(response.status).toBe(200);
     expect(status.state).toBe("failed");
     expect(status.result.diagnostics.length).toBeGreaterThan(0);
-  });
-
-  it("bundle inválido vira 422 com a razão, não exceção", async () => {
-    const response = await createHandler(deps)(renderRequest(bundle({ sourceLatex: "" })));
-    expect(response.status).toBe(422);
   });
 
   it("recebe o asset pelo multipart e o LaTeX o encontra", async () => {
@@ -195,7 +209,7 @@ describe("POST /render", () => {
   });
 });
 
-describe("GET /render/:id e artefatos", () => {
+describeComTex("GET /render/:id — artefatos compilados", () => {
   it("devolve os bytes do PDF compilado", async () => {
     const handle = createHandler(deps);
     const payload = bundle();
@@ -211,13 +225,6 @@ describe("GET /render/:id e artefatos", () => {
     const bytes = Buffer.from(await response.arrayBuffer());
     // `%PDF` é a assinatura; se vier outra coisa, o worker devolveu o arquivo errado.
     expect(bytes.subarray(0, 4).toString()).toBe("%PDF");
-  });
-
-  it("404 para job que não existe", async () => {
-    const response = await createHandler(deps)(
-      new Request("http://renderer/render/inexistente", { headers: { [AUTH_HEADER]: SECRET } }),
-    );
-    expect(response.status).toBe(404);
   });
 });
 
