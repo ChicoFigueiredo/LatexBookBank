@@ -1,5 +1,3 @@
-import type { PreviewBlock } from "@modules/preview/domain/preview-model";
-
 import type { QuestionLatexBlock } from "./question-latex";
 import type { QuestionType } from "./question-type";
 
@@ -106,15 +104,6 @@ export interface QuestionTypePlugin {
     question: QuestionForPlugin,
     options?: BuildLatexOptions,
   ): readonly QuestionLatexBlock[];
-
-  /**
-   * @deprecated Ninguém chama, e nenhum plugin implementa. O preview rápido é o
-   * `buildPreviewModel`, que pergunta ao tipo só o que muda nele — se as alternativas aparecem
-   * (`visibleOptions`). Um tipo novo que implementasse isto acharia que controla o preview, e não
-   * controlaria nada (revisão de 2026-09-23, ARQ-05). Opcional, e não removido, só para não
-   * quebrar quem ainda declara o método; sai do contrato quando ninguém mais o declarar.
-   */
-  buildFastPreview?(question: QuestionForPlugin): readonly PreviewBlock[];
 
   /**
    * Embaralha o que puder ser embaralhado.
