@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
-import { createClient } from "@libsql/client";
+import { writeCalibreMetadata } from "../tests/support/calibre-library";
 
 /**
  * **O E2E do Calibre** (§43 do prompt do time).
@@ -12,9 +12,10 @@ import { createClient } from "@libsql/client";
  * catálogo → seleção → metadados → importar → publicação
  * ```
  *
- * A fixture é uma biblioteca Calibre mínima, **construída aqui**, com o esquema real que a spike
- * leu numa de 64 livros. Uma cópia da biblioteca do usuário no repositório versionaria o acervo
- * dele; construir o esquema deixa explícito o que o produto depende dele.
+ * A fixture é uma biblioteca Calibre mínima, **construída aqui**, com o esquema do Calibre de hoje
+ * (`user_version` 27: sem `books.isbn`, ISBN em `identifiers`). O esquema vem de
+ * `tests/support/calibre-library.ts`, o mesmo do teste de unidade do provider: este spec guardava
+ * uma cópia do esquema antigo, e o catálogo morria com `no such table: identifiers`.
  *
  * O que a §43 também pede — validação manual com biblioteca real — está registrado em
  * `docs/_atual/calibre-spike.md`: a spike rodou contra `/mnt/u/...`, 64 livros, 111 arquivos.
@@ -23,58 +24,37 @@ import { createClient } from "@libsql/client";
 
 let root = "";
 
-const SCHEMA = [
-  `create table books (id integer primary key, title text, sort text, timestamp text,
-    pubdate text, series_index real default 1.0, author_sort text, isbn text, lccn text,
-    path text, flags integer, uuid text, has_cover bool, last_modified text)`,
-  `create table authors (id integer primary key, name text, sort text, link text)`,
-  `create table books_authors_link (id integer primary key, book integer, author integer)`,
-  `create table publishers (id integer primary key, name text, sort text)`,
-  `create table books_publishers_link (id integer primary key, book integer, publisher integer)`,
-  `create table series (id integer primary key, name text, sort text)`,
-  `create table books_series_link (id integer primary key, book integer, series integer)`,
-  `create table languages (id integer primary key, lang_code text)`,
-  `create table books_languages_link (id integer primary key, book integer, lang_code integer,
-    item_order integer default 0)`,
-  `create table data (id integer primary key, book integer, format text,
-    uncompressed_size integer, name text)`,
-];
-
 const TITULO_PDF = "Fundamentos de Matemática Elementar";
 const TITULO_SEM_PDF = "Livro só em EPUB";
 
 test.beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), "lbb-e2e-calibre-"));
 
-  const client = createClient({ url: `file:${path.join(root, "metadata.db")}` });
-  for (const sql of SCHEMA) await client.execute(sql);
-
-  await client.execute(`insert into authors (id, name) values (1, 'Iezzi, Gelson')`);
-  await client.execute(`insert into publishers (id, name) values (1, 'Atual')`);
-  await client.execute(`insert into languages (id, lang_code) values (1, 'por')`);
-
-  await client.execute({
-    sql: `insert into books (id, title, author_sort, isbn, pubdate, path, uuid, has_cover)
-          values (1, ?1, 'Iezzi, Gelson', '9783161484100', '2013-01-27 02:00:00+00:00',
-                  'Gelson Iezzi/Fundamentos (1)', 'uuid-e2e-1', 1)`,
-    args: [TITULO_PDF],
-  });
-  await client.execute({
-    sql: `insert into books (id, title, author_sort, pubdate, path, uuid, has_cover)
-          values (2, ?1, 'Ninguém', '0101-01-01 00:00:00+00:00', 'Ninguem/So EPUB (2)',
-                  'uuid-e2e-2', 0)`,
-    args: [TITULO_SEM_PDF],
-  });
-
-  await client.execute(`insert into books_authors_link (book, author) values (1, 1)`);
-  await client.execute(`insert into books_publishers_link (book, publisher) values (1, 1)`);
-  await client.execute(`insert into books_languages_link (book, lang_code) values (1, 1)`);
-  await client.execute(
+  await writeCalibreMetadata(root, [
+    `insert into authors (id, name) values (1, 'Iezzi, Gelson')`,
+    `insert into publishers (id, name) values (1, 'Atual')`,
+    `insert into languages (id, lang_code) values (1, 'por')`,
+    {
+      sql: `insert into books (id, title, author_sort, pubdate, path, uuid, has_cover)
+            values (1, ?1, 'Iezzi, Gelson', '2013-01-27 02:00:00+00:00',
+                    'Gelson Iezzi/Fundamentos (1)', 'uuid-e2e-1', 1)`,
+      args: [TITULO_PDF],
+    },
+    {
+      sql: `insert into books (id, title, author_sort, pubdate, path, uuid, has_cover)
+            values (2, ?1, 'Ninguém', '0101-01-01 00:00:00+00:00', 'Ninguem/So EPUB (2)',
+                    'uuid-e2e-2', 0)`,
+      args: [TITULO_SEM_PDF],
+    },
+    // O ISBN mora em `identifiers`, como no Calibre de hoje — e a tela o mostra antes de importar.
+    `insert into identifiers (book, type, val) values (1, 'isbn', '9783161484100')`,
+    `insert into books_authors_link (book, author) values (1, 1)`,
+    `insert into books_publishers_link (book, publisher) values (1, 1)`,
+    `insert into books_languages_link (book, lang_code) values (1, 1)`,
     `insert into data (book, format, uncompressed_size, name)
      values (1, 'PDF', 4096, 'Fundamentos - Gelson Iezzi'),
             (2, 'EPUB', 2048, 'So EPUB - Ninguem')`,
-  );
-  client.close();
+  ]);
 
   const livro1 = path.join(root, "Gelson Iezzi", "Fundamentos (1)");
   await mkdir(livro1, { recursive: true });
