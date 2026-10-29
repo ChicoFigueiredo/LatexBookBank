@@ -8,7 +8,7 @@ import {
   type PatchTransaction,
 } from "@modules/agents/application/apply-question-patch";
 import { NothingApprovedError, planApply, snapshotOf } from "@modules/agents/domain/apply-patch";
-import type { QuestionState } from "@modules/agents/domain/patch-diff";
+import { diffPatch, type QuestionState } from "@modules/agents/domain/patch-diff";
 import { PATCH_SCHEMA_VERSION, parseQuestionPatch } from "@modules/agents/domain/question-patch";
 
 /**
@@ -19,13 +19,14 @@ import { PATCH_SCHEMA_VERSION, parseQuestionPatch } from "@modules/agents/domain
  */
 
 const state = (over: Partial<QuestionState> = {}): QuestionState => ({
+  type: "MULTIPLE_CHOICE",
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
   complementLatex: "",
   nickname: null,
   options: [
-    { id: "o-1", statementLatex: "1\\%", isCorrect: false },
-    { id: "o-2", statementLatex: "2\\%", isCorrect: true },
+    { id: "o-1", sortKey: "a0", statementLatex: "1\\%", isCorrect: false },
+    { id: "o-2", sortKey: "a1", statementLatex: "2\\%", isCorrect: true },
   ],
   metadata: { board: "CESPE", year: 2024 },
   tags: ["juros"],
@@ -44,9 +45,23 @@ const fullPatch = patch({
   metadata: { board: "CEBRASPE" },
 });
 
+/**
+ * Os ids que a tela aprovaria, a partir do que ela mostrou.
+ *
+ * O id da linha leva uma impressão do valor de antes; o teste nomeia a linha pelo começo dele
+ * (`field:statementLatex`) e pega o id inteiro do diff — ou o próprio nome, quando a linha não
+ * existe, que é o caso de quem aprova algo que não está na tela.
+ */
+const idsOf = (shown: QuestionState, proposal: typeof fullPatch, ...names: string[]) => {
+  const changes = diffPatch(shown, proposal);
+  return names.map(
+    (name) => changes.find((change) => change.id.startsWith(`${name}:`))?.id ?? name,
+  );
+};
+
 describe("o plano só contém o aprovado", () => {
   it("aprovar uma linha não arrasta as outras", () => {
-    const plan = planApply(state(), fullPatch, ["field:statementLatex"]);
+    const plan = planApply(state(), fullPatch, idsOf(state(), fullPatch, "field:statementLatex"));
 
     expect(Object.keys(plan.fields)).toEqual(["statementLatex"]);
     expect(plan.options).toEqual([]);
@@ -54,12 +69,18 @@ describe("o plano só contém o aprovado", () => {
   });
 
   it("aprovar tudo aplica tudo", () => {
-    const plan = planApply(state(), fullPatch, [
-      "field:statementLatex",
-      "field:solutionLatex",
-      "option:o-1:text",
-      "metadata:board",
-    ]);
+    const plan = planApply(
+      state(),
+      fullPatch,
+      idsOf(
+        state(),
+        fullPatch,
+        "field:statementLatex",
+        "field:solutionLatex",
+        "option:o-1:text",
+        "metadata:board",
+      ),
+    );
 
     expect(Object.keys(plan.fields).sort()).toEqual(["solutionLatex", "statementLatex"]);
     expect(plan.options).toEqual([{ id: "o-1", statementLatex: "1,5\\%" }]);
@@ -72,7 +93,9 @@ describe("o plano só contém o aprovado", () => {
   });
 
   it("aprovar um id que não está no diff não aplica nada", () => {
-    expect(() => planApply(state(), fullPatch, ["field:inventado"])).toThrow(NothingApprovedError);
+    expect(() =>
+      planApply(state(), fullPatch, idsOf(state(), fullPatch, "field:inventado")),
+    ).toThrow(NothingApprovedError);
   });
 
   it("texto e gabarito da mesma alternativa são aprovações separadas", () => {
@@ -80,20 +103,24 @@ describe("o plano só contém o aprovado", () => {
       options: [{ optionId: "o-1", statementLatex: "1,5\\%", isCorrect: true }],
     });
 
-    const onlyText = planApply(state(), both, ["option:o-1:text"]);
+    const onlyText = planApply(state(), both, idsOf(state(), both, "option:o-1:text"));
     expect(onlyText.options).toEqual([{ id: "o-1", statementLatex: "1,5\\%" }]);
 
-    const onlyMark = planApply(state(), both, ["option:o-1:correct"]);
-    expect(onlyMark.options).toEqual([{ id: "o-1", isCorrect: true }]);
+    const onlyMark = planApply(state(), both, idsOf(state(), both, "option:o-1:correct"));
+    // Múltipla escolha: a correta de hoje (o-2) deixa de ser, e isso vem no próprio plano — quem
+    // grava não decide regra de tipo.
+    expect(onlyMark.options).toEqual([
+      { id: "o-2", isCorrect: false },
+      { id: "o-1", isCorrect: true },
+    ]);
+    expect(onlyMark.options.map((option) => option.id)).not.toContain("o-3");
   });
 
   it("`nickname` esvaziado vira `null`, não string vazia", () => {
     // A coluna é anulável; `""` seria um apelido em branco em vez de nenhum apelido.
-    const plan = planApply(
-      state({ nickname: "antigo" }),
-      patch({ fields: [{ field: "nickname", value: "  " }] }),
-      ["field:nickname"],
-    );
+    const shown = state({ nickname: "antigo" });
+    const proposal = patch({ fields: [{ field: "nickname", value: "  " }] });
+    const plan = planApply(shown, proposal, idsOf(shown, proposal, "field:nickname"));
 
     expect(plan.fields["nickname"]).toBeNull();
   });
@@ -101,10 +128,11 @@ describe("o plano só contém o aprovado", () => {
   it("linha aprovada que sumiu do diff é reportada como obsoleta", () => {
     // O estado mudou entre a proposta e o clique — outra aba, o autosave. Gravar assim mesmo
     // passaria por cima de trabalho que ninguém pediu para desfazer.
+    const shown = idsOf(state(), fullPatch, "field:statementLatex", "metadata:board");
     const changed = state({ statementLatex: "Qual é a taxa à vista?" });
-    const plan = planApply(changed, fullPatch, ["field:statementLatex", "metadata:board"]);
+    const plan = planApply(changed, fullPatch, shown);
 
-    expect(plan.stale).toEqual(["field:statementLatex"]);
+    expect(plan.stale).toEqual([shown[0]]);
     expect(Object.keys(plan.fields)).toEqual([]);
   });
 });
@@ -137,6 +165,10 @@ function fakeApplier(initial: QuestionState = state()) {
     },
     applyReorder: (_id, ids) => {
       log.push(`reorder:${ids.join(",")}`);
+      return Promise.resolve();
+    },
+    restoreOptions: (_id, options) => {
+      log.push(`restore:${options.map((o) => o.id).join(",")}`);
       return Promise.resolve();
     },
     applyMetadata: (_id, metadata) => {
@@ -183,7 +215,7 @@ describe("a revisão vem antes da escrita, na mesma transação", () => {
     await applyQuestionPatch(applier, {
       questionId: "q-1",
       patch: fullPatch,
-      approvedChangeIds: ["field:statementLatex"],
+      approvedChangeIds: idsOf(state(), fullPatch, "field:statementLatex"),
     });
 
     expect(log[0]).toBe("begin");
@@ -201,7 +233,7 @@ describe("a revisão vem antes da escrita, na mesma transação", () => {
       applyQuestionPatch(fake.applier, {
         questionId: "q-1",
         patch: fullPatch,
-        approvedChangeIds: ["field:statementLatex"],
+        approvedChangeIds: idsOf(state(), fullPatch, "field:statementLatex"),
       }),
     ).rejects.toThrow("banco caiu");
 
@@ -231,7 +263,7 @@ describe("a revisão vem antes da escrita, na mesma transação", () => {
       applyQuestionPatch(fake.applier, {
         questionId: "q-1",
         patch: fullPatch,
-        approvedChangeIds: ["field:statementLatex"],
+        approvedChangeIds: idsOf(state(), fullPatch, "field:statementLatex"),
       }),
     ).rejects.toThrow(QuestionGoneError);
   });
@@ -248,7 +280,7 @@ describe("a revisão vem antes da escrita, na mesma transação", () => {
     await applyQuestionPatch(applier, {
       questionId: "q-1",
       patch: fullPatch,
-      approvedChangeIds: ["metadata:board"],
+      approvedChangeIds: idsOf(state(), fullPatch, "metadata:board"),
     });
 
     const snapshot = JSON.parse(write.mock.calls[0]?.[0].snapshotJson ?? "{}") as object;
@@ -257,9 +289,11 @@ describe("a revisão vem antes da escrita, na mesma transação", () => {
       "metadata",
       "nickname",
       "options",
+      "snapshotVersion",
       "solutionLatex",
       "statementLatex",
       "tags",
+      "type",
     ]);
   });
 
@@ -269,11 +303,11 @@ describe("a revisão vem antes da escrita, na mesma transação", () => {
     const result = await applyQuestionPatch(applier, {
       questionId: "q-1",
       patch: fullPatch,
-      approvedChangeIds: ["field:statementLatex"],
+      approvedChangeIds: idsOf(state(), fullPatch, "field:statementLatex"),
     });
 
     expect(result.summary).toBe("Corrige. (Enunciado)");
-    expect(result.applied).toEqual(["field:statementLatex"]);
+    expect(result.applied).toEqual(idsOf(state(), fullPatch, "field:statementLatex"));
   });
 });
 
@@ -291,7 +325,7 @@ describe("reverter", () => {
 
     expect(number).toBe(1);
     expect(log[2]).toMatch(/^revision:USER/);
-    expect(log).toContain("fields:statementLatex,solutionLatex,complementLatex,nickname");
+    expect(log).toContain("fields:statementLatex,solutionLatex,complementLatex,nickname,type");
   });
 
   it("restaura também alternativas, ordem, metadados e tags", async () => {
@@ -303,8 +337,7 @@ describe("reverter", () => {
       summary: "Reverte.",
     });
 
-    expect(log).toContain("options:o-1,o-2");
-    expect(log).toContain("reorder:o-1,o-2");
+    expect(log).toContain("restore:o-1,o-2");
     expect(log).toContain("tags:juros");
   });
 });

@@ -1,4 +1,5 @@
 import {
+  isExclusiveCorrect,
   keyForMove,
   keyForNewOption,
   patchesForCorrect,
@@ -16,23 +17,10 @@ import type { QuestionType } from "../domain/question-type";
  */
 
 /**
- * Tipos em que **só uma** alternativa pode ser correta.
- *
- * Tabela, e não `switch`: acrescentar um tipo é acrescentar uma linha, e o guard da #79 continua
- * valendo. `TRUE_FALSE` entra porque cada item é verdadeiro **ou** falso; `MULTIPLE_CORRECT` e
- * `SUM_OF_CORRECT` ficam de fora porque a natureza deles é ter várias.
+ * Qual tipo permite mais de uma correta. A tabela mora no domínio, porque o patch do agente e a
+ * restauração de revisão precisam da mesma regra; aqui ela segue exportada para quem já a usava.
  */
-const EXCLUSIVE_CORRECT: Readonly<Record<QuestionType, boolean>> = {
-  DISCURSIVE: true,
-  MULTIPLE_CHOICE: true,
-  TRUE_FALSE: true,
-  CESPE: true,
-  MULTIPLE_CORRECT: false,
-  SUM_OF_CORRECT: false,
-  RELATED_ITEMS: false,
-};
-
-export const isExclusiveCorrect = (type: QuestionType): boolean => EXCLUSIVE_CORRECT[type];
+export { isExclusiveCorrect };
 
 export interface OptionWriter {
   listOptions(questionId: string): Promise<readonly OptionRecord[]>;

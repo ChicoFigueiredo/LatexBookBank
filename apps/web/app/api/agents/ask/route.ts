@@ -98,6 +98,11 @@ export async function POST(request: Request) {
     const render = renderWiringFromEnv();
     // Quais tools o modo dá — a lista vem do perfil, não de um `if` por modo espalhado aqui.
     const toolSet = profileForMode(mode).tools;
+    // O tipo decide quantas corretas uma proposta de gabarito pode marcar.
+    const questionType =
+      toolSet === "read" || questionId === null
+        ? null
+        : ((await readQuestionState(questionId))?.type ?? null);
 
     const outcome = await runAgentTurn({
       provider,
@@ -106,7 +111,7 @@ export async function POST(request: Request) {
       // consegue inventar um.
       tools: [
         ...buildAgentTools(new PrismaAgentReadPort(), { questionId }),
-        ...(toolSet === "read" ? [] : buildProposeTools(collector)),
+        ...(toolSet === "read" ? [] : buildProposeTools(collector, { questionType })),
         // Compilar candidato só faz sentido quando ele pode propor, e só existe com worker
         // configurado — sem ele, oferecer a tool seria prometer o que não se cumpre.
         ...(toolSet === "read+propose+render" && questionId !== null && render !== null

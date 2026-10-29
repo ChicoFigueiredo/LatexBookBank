@@ -1,5 +1,7 @@
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
 
+import type { QuestionType } from "./question-type";
+
 /**
  * As operações sobre alternativas, como funções puras.
  *
@@ -75,6 +77,25 @@ export function keyForMove(
 
   return generateKeyBetween(others[index - 1]?.sortKey ?? null, others[index]?.sortKey ?? null);
 }
+
+/**
+ * Tipos em que **só uma** alternativa pode ser correta.
+ *
+ * Tabela, e não `switch`: acrescentar um tipo é acrescentar uma linha, e o guard da #79 continua
+ * valendo. `TRUE_FALSE` entra porque cada item é verdadeiro **ou** falso; `MULTIPLE_CORRECT` e
+ * `SUM_OF_CORRECT` ficam de fora porque a natureza deles é ter várias.
+ */
+const EXCLUSIVE_CORRECT: Readonly<Record<QuestionType, boolean>> = {
+  DISCURSIVE: true,
+  MULTIPLE_CHOICE: true,
+  TRUE_FALSE: true,
+  CESPE: true,
+  MULTIPLE_CORRECT: false,
+  SUM_OF_CORRECT: false,
+  RELATED_ITEMS: false,
+};
+
+export const isExclusiveCorrect = (type: QuestionType): boolean => EXCLUSIVE_CORRECT[type];
 
 /**
  * Marca uma alternativa como correta.

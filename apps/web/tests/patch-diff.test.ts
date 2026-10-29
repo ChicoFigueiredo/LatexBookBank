@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { diffPatch, type QuestionState } from "@modules/agents/domain/patch-diff";
+import { diffPatch, fingerprint, type QuestionState } from "@modules/agents/domain/patch-diff";
 import { PATCH_SCHEMA_VERSION, parseQuestionPatch } from "@modules/agents/domain/question-patch";
 import {
   buildProposeTools,
@@ -15,14 +15,15 @@ import { PatchRejectedError } from "@modules/agents/domain/question-patch";
  */
 
 const state: QuestionState = {
+  type: "MULTIPLE_CHOICE",
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
   complementLatex: "",
   nickname: null,
   options: [
-    { id: "o-1", statementLatex: "1\\%", isCorrect: false },
-    { id: "o-2", statementLatex: "2\\%", isCorrect: true },
-    { id: "o-3", statementLatex: "3\\%", isCorrect: false },
+    { id: "o-1", sortKey: "a0", statementLatex: "1\\%", isCorrect: false },
+    { id: "o-2", sortKey: "a1", statementLatex: "2\\%", isCorrect: true },
+    { id: "o-3", sortKey: "a2", statementLatex: "3\\%", isCorrect: false },
   ],
   metadata: { board: "CESPE", year: 2024, difficulty: 5 },
   tags: ["juros", "matemática"],
@@ -33,6 +34,9 @@ const patch = (over: Record<string, unknown>) =>
 
 const diff = (over: Record<string, unknown>) => diffPatch(state, patch(over));
 
+/** O id sem a impressão do valor de antes — que só existe para conferir o estado ao aplicar. */
+const stem = (id: string | undefined) => (id ?? "").replace(/:[0-9a-f]{8}$/, "");
+
 describe("só mudança de verdade vira linha", () => {
   it("reescrita idêntica não aparece", () => {
     // O agente devolve o campo inteiro mesmo quando mexeu numa vírgula.
@@ -42,12 +46,12 @@ describe("só mudança de verdade vira linha", () => {
           { field: "statementLatex", value: "Qual é a taxa?" },
           { field: "solutionLatex", value: "Nova resolução" },
         ],
-      }).map((change) => change.id),
+      }).map((change) => stem(change.id)),
     ).toEqual(["field:solutionLatex"]);
   });
 
   it("metadado com o mesmo valor não aparece", () => {
-    expect(diff({ metadata: { board: "CESPE", year: 2025 } }).map((c) => c.id)).toEqual([
+    expect(diff({ metadata: { board: "CESPE", year: 2025 } }).map((c) => stem(c.id))).toEqual([
       "metadata:year",
     ]);
   });
@@ -66,13 +70,29 @@ describe("só mudança de verdade vira linha", () => {
   });
 });
 
+describe("o id vale sobre o estado mostrado", () => {
+  it("o mesmo campo com outro valor de antes tem outro id", () => {
+    // É o que faz a aprovação de uma linha mostrada sobre S0 não valer sobre S1.
+    const proposal = patch({ fields: [{ field: "statementLatex", value: "Versão do agente." }] });
+    const [s0] = diffPatch(state, proposal);
+    const [s1] = diffPatch({ ...state, statementLatex: "Qual é a taxa, hoje?" }, proposal);
+
+    expect(stem(s0?.id)).toBe(stem(s1?.id));
+    expect(s0?.id).not.toBe(s1?.id);
+  });
+
+  it("a impressão do texto vazio é estável — o E2E do agente a usa", () => {
+    expect(fingerprint("")).toBe("811c9dc5");
+  });
+});
+
 describe("o que a linha mostra", () => {
   it("a letra da alternativa vem da posição atual, e é só rótulo", () => {
     const [change] = diff({ options: [{ optionId: "o-3", statementLatex: "4\\%" }] });
 
     expect(change?.label).toBe("Alternativa c)");
     // O endereço continua sendo o id.
-    expect(change?.id).toBe("option:o-3:text");
+    expect(stem(change?.id)).toBe("option:o-3:text");
   });
 
   it("LaTeX é marcado, texto curto não", () => {
@@ -82,8 +102,8 @@ describe("o que a linha mostra", () => {
       metadata: { board: "CEBRASPE" },
     });
 
-    expect(changes.find((c) => c.id === "field:statementLatex")?.latex).toBe(true);
-    expect(changes.find((c) => c.id === "metadata:board")?.latex).toBe(false);
+    expect(changes.find((c) => stem(c.id) === "field:statementLatex")?.latex).toBe(true);
+    expect(changes.find((c) => stem(c.id) === "metadata:board")?.latex).toBe(false);
   });
 
   it("a reordenação é mostrada por trecho, não por uuid", () => {
@@ -104,7 +124,7 @@ describe("o que a linha mostra", () => {
       options: [{ optionId: "o-1", statementLatex: "1,5\\%", isCorrect: true }],
     });
 
-    expect(changes.map((c) => c.id)).toEqual(["option:o-1:text", "option:o-1:correct"]);
+    expect(changes.map((c) => stem(c.id))).toEqual(["option:o-1:text", "option:o-1:correct"]);
   });
 
   it("alternativa que sumiu do estado não vira linha órfã", () => {
@@ -219,5 +239,23 @@ describe("as tools de proposta", () => {
 
     expect(output?.length).toBeLessThan(300);
     expect(output).toMatch(/Não proponha a mesma mudança de novo/);
+  });
+
+  it("duas corretas: a múltipla escolha recusa na proposta, a MULTIPLE_CORRECT aceita", async () => {
+    // A recusa volta para o modelo corrigir, antes de chegar à tela. Quem decide é o tipo.
+    const twoMarks = {
+      summary: "Marca as corretas.",
+      options: [
+        { optionId: "o-1", isCorrect: true },
+        { optionId: "o-3", isCorrect: true },
+      ],
+    };
+    const toolFor = (questionType: string) =>
+      buildProposeTools(createPatchCollector(), { questionType }).find(
+        (tool) => tool.name === "propose_option_patch",
+      );
+
+    await expect(toolFor("MULTIPLE_CHOICE")?.execute(twoMarks)).rejects.toThrow(/uma correta/);
+    await expect(toolFor("MULTIPLE_CORRECT")?.execute(twoMarks)).resolves.toMatch(/recebida/);
   });
 });
