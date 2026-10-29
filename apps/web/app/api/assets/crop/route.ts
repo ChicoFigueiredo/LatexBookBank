@@ -9,6 +9,7 @@ import {
   findAsset,
 } from "@modules/assets/infrastructure/prisma-asset-writer";
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
 import { env as appEnv } from "@/shared/config/env";
 
 import { BadRequestError, toErrorResponse } from "../../tree-http";
@@ -50,6 +51,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // O livro e a questão precisam ser da biblioteca do PDF recortado (#256): a âncora é do livro,
+    // e um recorte de um PDF de outra biblioteca levaria para ele um arquivo que não é dele.
+    const owner = await resolveAssetOwner({
+      workspaceId: source.workspaceId,
+      publicationId,
+      questionId: asOptionalText(form.get("questionId")),
+    });
+    if (owner === null) {
+      return NextResponse.json(
+        {
+          error: "owner_not_found",
+          message: "O livro ou a questão não existem, ou não são da biblioteca deste PDF.",
+        },
+        { status: 404 },
+      );
+    }
+
     const anchor = normalizeAnchor({
       pageNumber: Number(form.get("pageNumber")),
       box: {
@@ -84,9 +102,8 @@ export async function POST(request: Request) {
       sourceText: asOptionalText(form.get("sourceText")),
     });
 
-    const questionId = form.get("questionId");
-    if (typeof questionId === "string" && questionId !== "") {
-      await attachAnchorToQuestion(questionId, created.id);
+    if (owner.questionId !== null) {
+      await attachAnchorToQuestion(owner.questionId, created.id);
     }
 
     return NextResponse.json(
