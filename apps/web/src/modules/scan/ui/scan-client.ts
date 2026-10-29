@@ -1,8 +1,15 @@
 "use client";
 
+import type {
+  ImportPreviewResponse,
+  ImportRemovalResponse,
+  ProfileSuggestionResponse,
+  ScanApprovalResponse,
+} from "@modules/scan/application/scan-contract";
 import type { ScanRunDto } from "@modules/scan/application/scan-run-dto";
 import type { ReviewOperation } from "@modules/scan/domain/review";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
+import { ApiError, readLenientReply } from "@/shared/http/api-client";
 
 /** O que as rotas do scan devolvem, do jeito que a tela lê. */
 
@@ -12,72 +19,27 @@ import type { ScanItem } from "@modules/scan/domain/scan-item";
  */
 export type ScanRunView = ScanRunDto;
 
-/** O palpite de perfil, lido das primeiras páginas do PDF (ADR 0007). */
-export interface ProfileSuggestionView {
-  readonly ranking: readonly {
-    readonly id: string;
-    readonly label: string;
-    readonly documentKind: "BOOK" | "EXAM";
-    readonly score: number;
-    readonly evidence: string;
-  }[];
-  readonly sampledPages: number;
-}
+/**
+ * O palpite, a conferência, a remoção e a aprovação: os tipos do contrato do scan, que as rotas
+ * anotam com `satisfies` (ADR 0010). Os nomes daqui são os que as telas já usavam.
+ */
+export type ProfileSuggestionView = ProfileSuggestionResponse;
+export type ImportPreview = ImportPreviewResponse;
+export type RemovalResult = ImportRemovalResponse;
+export type ApprovalResult = ScanApprovalResponse;
 
-/** A conferência antes de apagar uma importação (D57): os números e quem fica, com o motivo. */
-export interface ImportPreview {
-  readonly runId: string;
-  readonly created: number;
-  readonly trash: readonly string[];
-  readonly counts: Readonly<Record<string, number>>;
-  /** As figuras que vão junto com os corpos — a figura do scan não é nó (ADR 0005). */
-  readonly figures: number;
-  readonly keptCount: number;
-  readonly keptRows: readonly { readonly id: string; readonly label: string; readonly reason: string }[];
-  /** Nós que já existiam e perdem o texto que a varredura lhes acrescentou. */
-  readonly detached: number;
-}
-
-export interface RemovalResult {
-  readonly scope: "proposal" | "import";
-  readonly trashed: number;
-  readonly kept: number;
-  readonly counts: Readonly<Record<string, number>>;
-  readonly figures: number;
-  readonly detached: number;
-}
-
-export interface ApprovalResult {
-  readonly summary: {
-    readonly createdNodes: number;
-    readonly createdQuestions: number;
-    readonly reusedNodes: number;
-    readonly bodyAppends: number;
-    readonly statementAppends: number;
-    readonly anchors: number;
-    readonly alreadyInCollection: number;
-    readonly materializedItems: number;
-  };
-  readonly skipped: readonly { readonly itemId: string; readonly reason: string }[];
-}
-
-export class ScanRequestError extends Error {
-  constructor(message: string, readonly status: number) {
-    super(message);
-    this.name = "ScanRequestError";
-  }
-}
-
+/**
+ * A requisição, com a recusa como `ApiError` — a mensagem da rota, ou "Falha (HTTP n)." quando
+ * ela não mandou nenhuma. Um corpo que não é JSON não vira erro de leitura: a recusa continua
+ * dizendo o status, e só a rede fora sobe como o erro do `fetch`.
+ */
 async function send<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
+  const reply = await readLenientReply<T>(url, {
     ...init,
     ...(init?.body ? { headers: { "content-type": "application/json" } } : {}),
   });
-  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!response.ok) {
-    throw new ScanRequestError(String(payload["message"] ?? `Falha (HTTP ${response.status}).`), response.status);
-  }
-  return payload as T;
+  if (!reply.ok) throw new ApiError(reply.status, reply.body);
+  return reply.body as T;
 }
 
 export const scanApi = {

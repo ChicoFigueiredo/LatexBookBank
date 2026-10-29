@@ -183,4 +183,13 @@ describe("o cliente do agente fala a língua das rotas", () => {
     expect(payload.error).toBe("renderer_not_configured");
     expect(typeof payload.message).toBe("string");
   });
+
+  it("reverter para uma revisão que não existe não lança: o histórico recarrega do mesmo jeito", async () => {
+    restoreFetch = installRouteFetch(ROUTES).restore;
+    const { agentApi } = await import("@modules/agents/ui/agent-client");
+
+    await expect(
+      agentApi.revertPatch({ questionId: "nao-existe", revisionNumber: 1 }),
+    ).resolves.toBeUndefined();
+  });
 });

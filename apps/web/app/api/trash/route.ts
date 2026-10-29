@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { emptyTrash } from "@modules/document-tree/application/empty-trash";
+import type {
+  EmptyTrashResponse,
+  TrashSummaryResponse,
+} from "@modules/document-tree/application/trash-contract";
 import { PrismaTrashPurge, readGlobalTrash } from "@modules/document-tree/infrastructure/prisma-global-trash";
 import { storage } from "@infrastructure/composition";
 
@@ -27,7 +31,7 @@ export async function GET() {
       itemCount: trash.itemCount,
       objectCount: trash.objectCount,
       footer: trash.footer,
-    });
+    } satisfies TrashSummaryResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -48,7 +52,7 @@ export async function DELETE() {
       new PrismaTrashPurge(),
       storage(),
     );
-    return NextResponse.json(result);
+    return NextResponse.json(result satisfies EmptyTrashResponse);
   } catch (error) {
     return toErrorResponse(error);
   }

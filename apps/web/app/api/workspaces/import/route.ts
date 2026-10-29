@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { importArchive } from "@modules/portability/application/import-archive";
+import type {
+  ImportArchiveResponse,
+  ImportNeedsDecisionBody,
+  ImportSimulationResponse,
+} from "@modules/portability/application/import-contract";
 import { MAX_ARCHIVE_BYTES } from "@modules/portability/domain/portable-archive";
 import {
   describeConflicts,
@@ -64,7 +69,7 @@ export async function POST(request: Request) {
           ...seen,
           wouldCreate: outcome.manifest.counts,
           sizeBytes: bytes.byteLength,
-        });
+        } satisfies ImportSimulationResponse);
       case "needs-decision":
         // O servidor exige a decisão, e não só a tela: sem `acceptCollisions=1`, nada é gravado.
         return NextResponse.json(
@@ -73,11 +78,15 @@ export async function POST(request: Request) {
             message:
               "O arquivo colide com o que já está no acervo. Veja os conflitos e confirme para importar como cópia (acceptCollisions=1).",
             ...seen,
-          },
+          } satisfies ImportNeedsDecisionBody,
           { status: 409 },
         );
       case "imported":
-        return NextResponse.json({ dryRun: false, ...seen, report: outcome.report });
+        return NextResponse.json({
+          dryRun: false,
+          ...seen,
+          report: outcome.report,
+        } satisfies ImportArchiveResponse);
     }
   } catch (error) {
     return toErrorResponse(error);

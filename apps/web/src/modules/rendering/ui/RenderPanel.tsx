@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Badge, Banner, Button, Segmented, Tabs } from "@/design-system";
 import type { RenderDiagnostic } from "@latexbookbank/render-contract";
+import type {
+  RenderArtifactDto,
+  RenderJobResponse,
+} from "@modules/rendering/application/render-job-contract";
 import { QUESTION_FIELD_LABELS } from "@modules/latex/domain/latex-language";
 import {
   audienceSummary,
@@ -26,34 +30,19 @@ import {
  * porque toda tradução perde alguma coisa — mas ele não é o que aparece primeiro.
  */
 
-export interface RenderArtifactView {
-  readonly name: string;
-  readonly kind: "RENDER_PDF" | "RENDER_PNG";
-  readonly mimeType: string;
-  readonly sizeBytes: number;
-  readonly width: number | null;
-  readonly height: number | null;
-}
+/** Um arquivo do job, como a rota o manda. */
+export type RenderArtifactView = RenderArtifactDto;
 
-export interface RenderOutcomeView {
-  readonly jobId: string;
-  readonly state: string;
-  readonly success: boolean;
-  readonly cacheHit: boolean;
-  readonly durationMs: number;
-  readonly diagnostics: readonly RenderDiagnostic[];
-  readonly artifacts: readonly RenderArtifactView[];
-  readonly stdout?: string;
-  /**
-   * O corpo que foi realmente enviado ao worker.
-   *
-   * Vem do servidor porque é ele quem monta: a tela mostrava o enunciado e chamava aquilo de "o
-   * corpo enviado", o que era falso desde que a montagem passou a incluir as alternativas.
-   */
-  readonly sourceLatex?: string;
-  /** Onde, nos campos do editor, cada linha do corpo nasceu. */
-  readonly sourceMap?: readonly RenderSourceSpan[];
-}
+/**
+ * O resultado como a rota o manda (`render-job-contract.ts`, ADR 0010).
+ *
+ * O log, o corpo enviado e o mapa de linhas ficam opcionais para o painel: ele os mostra quando
+ * vêm e diz que não há quando não vêm. O corpo vem do servidor porque é ele quem monta: a tela
+ * mostrava o enunciado e chamava aquilo de "o corpo enviado", o que era falso desde que a
+ * montagem passou a incluir as alternativas.
+ */
+export type RenderOutcomeView = Omit<RenderJobResponse, "stdout" | "sourceLatex" | "sourceMap"> &
+  Partial<Pick<RenderJobResponse, "stdout" | "sourceLatex" | "sourceMap">>;
 
 /** Um lugar no editor: qual campo e qual linha dentro dele. */
 export interface DiagnosticTarget {

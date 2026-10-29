@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { RenderDocumentResult } from "@modules/rendering/application/render-document";
+import type { RenderJobResponse } from "@modules/rendering/application/render-job-contract";
 import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
 import type { RenderProfile } from "@/shared/ports";
 
@@ -52,5 +53,5 @@ export function renderJobResponse({ job, cacheHit, sourceLatex, sourceMap }: Ren
       width: artifact.width,
       height: artifact.height,
     })),
-  });
+  } satisfies RenderJobResponse);
 }

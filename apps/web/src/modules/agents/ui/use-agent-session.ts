@@ -13,6 +13,7 @@ import {
   type ContextItem,
 } from "@modules/agents/domain/agent-context";
 import type { AgentMode } from "@modules/agents/domain/agent-run";
+import { isLatexField } from "@modules/rendering/domain/render-source";
 import { ApiError } from "@/shared/http/api-client";
 
 import type { AgentTurn } from "./AgentPanel";
@@ -165,7 +166,7 @@ export function useAgentSession({ questionId, onApplied }: AgentSessionOptions):
     async (change: { readonly id: string; readonly before: string; readonly after: string }) => {
       // O id é `field:<campo>:<impressão do antes>` — a impressão não é parte do nome do campo.
       const [kind, target] = change.id.split(":");
-      const field = kind === "field" && target !== undefined ? target : null;
+      const field = kind === "field" && isLatexField(target) ? target : null;
       if (!questionId || field === null) throw new Error("Esta linha não é um campo de texto.");
 
       const compile = async (value: string): Promise<CandidatePreview> => {

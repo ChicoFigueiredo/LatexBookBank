@@ -61,15 +61,81 @@ describe("o cliente do scan lê a execução que a rota manda", () => {
     expect(items).toEqual([]);
   });
 
-  it("execução que não existe é ScanRequestError com o status da rota", async () => {
+  it("execução que não existe é ApiError com o status e a mensagem da rota", async () => {
     restore = installRouteFetch([
       ["GET", "/api/scans/:runId", () => import("../app/api/scans/[runId]/route")],
     ]).restore;
-    const { scanApi, ScanRequestError } = await import("@modules/scan/ui/scan-client");
+    const { scanApi } = await import("@modules/scan/ui/scan-client");
+    const { ApiError } = await import("@/shared/http/api-client");
 
     const failure = await scanApi.get("nao-existe", false).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(ScanRequestError);
-    expect((failure as InstanceType<typeof ScanRequestError>).status).toBe(404);
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as InstanceType<typeof ApiError>).status).toBe(404);
+    expect((failure as InstanceType<typeof ApiError>).serverMessage).toEqual(expect.any(String));
+  });
+
+  it("recusa que não é JSON ainda diz o status", async () => {
+    restore = installRouteFetch(
+      [],
+      () => new Response("<html>502 Bad Gateway</html>", { status: 502 }),
+    ).restore;
+    const { scanApi } = await import("@modules/scan/ui/scan-client");
+    const { ApiError } = await import("@/shared/http/api-client");
+
+    const failure = await scanApi.cancel("qualquer").catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as InstanceType<typeof ApiError>).status).toBe(502);
+    expect((failure as Error).message).toBe("Falha (HTTP 502).");
+  });
+
+  it("aprova, confere a importação e a remove, pela forma do contrato", async () => {
+    const seeded = await seedBookWithSource("book-a.pdf", "scan-contrato-aprovar");
+    const { PrismaScanStore, PrismaScanSources, storageKeyOfAsset } =
+      await import("@modules/scan/infrastructure/prisma-scan-store");
+    const { PdfjsDocumentReader } =
+      await import("@modules/scan/infrastructure/pdfjs-document-reader");
+    const { startScan } = await import("@modules/scan/application/start-scan");
+    const { runScan } = await import("@modules/scan/application/run-scan");
+
+    const store = new PrismaScanStore();
+    const { run } = await startScan(
+      { store, runner: idle, sources: new PrismaScanSources(), sha256 },
+      { publicationId: seeded.publication.id, profileId: "book-v1", recognizeMath: "never" },
+    );
+    await runScan(
+      {
+        store,
+        storage: seeded.storage,
+        opener: new PdfjsDocumentReader(),
+        sourceKey: storageKeyOfAsset,
+      },
+      run.id,
+    );
+
+    restore = installRouteFetch([
+      ["POST", "/api/scans/:runId/approve", () => import("../app/api/scans/[runId]/approve/route")],
+      ["GET", "/api/scans/:runId/import", () => import("../app/api/scans/[runId]/import/route")],
+      ["DELETE", "/api/scans/:runId/import", () => import("../app/api/scans/[runId]/import/route")],
+    ]).restore;
+    const { scanApi } = await import("@modules/scan/ui/scan-client");
+
+    const approval = await scanApi.approve(run.id, null, true);
+    expect(approval.summary.createdNodes).toBeGreaterThan(0);
+    expect(Array.isArray(approval.skipped)).toBe(true);
+
+    const preview = await scanApi.importPreview(run.id);
+    expect(preview.runId).toBe(run.id);
+    expect(preview.created).toBe(approval.summary.createdNodes);
+    expect(preview.keptCount).toBe(preview.keptRows.length);
+    expect(typeof preview.figures).toBe("number");
+    expect(typeof preview.detached).toBe("number");
+
+    const removal = await scanApi.removeImport(run.id, "import");
+    expect(removal.scope).toBe("import");
+    expect(removal.trashed).toBe(preview.trash.length);
+    expect(removal.kept).toBe(preview.keptCount);
+    expect(removal.counts).toEqual(preview.counts);
   });
 });

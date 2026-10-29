@@ -102,6 +102,22 @@ describe("o cliente da captura fala a língua das rotas", () => {
     ).toBe(false);
   });
 
+  it("no lote, uma resposta que não é JSON é só um reconhecimento que não deu certo", async () => {
+    restore = installRouteFetch(
+      [],
+      () => new Response("<html>502 Bad Gateway</html>", { status: 502 }),
+    ).restore;
+    const { captureApi } = await import("@modules/recognition/ui/capture-client");
+
+    expect(
+      await captureApi.recognizeInBatch({
+        png: pngFile("recorte.png", "png de mentira"),
+        cropAssetId: "qualquer",
+        mode: "mixed",
+      }),
+    ).toBe(false);
+  });
+
   it("a recusa do upload chega com a mensagem da rota", async () => {
     restore = installRouteFetch(ROUTES).restore;
     const { captureApi } = await import("@modules/recognition/ui/capture-client");

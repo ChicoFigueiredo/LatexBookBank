@@ -5,6 +5,7 @@ import {
   VisionNotConfiguredError,
 } from "@modules/recognition/application/recognize-crop";
 import { isRecognitionMode } from "@modules/recognition/domain/recognition-mode";
+import type { RecognitionCandidate } from "@modules/recognition/domain/recognition-review";
 import {
   recordRecognition,
   recordRecognitionFailure,
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
       },
     );
 
-    return NextResponse.json(candidate);
+    return NextResponse.json(candidate satisfies RecognitionCandidate);
   } catch (error) {
     return toErrorResponse(error);
   }

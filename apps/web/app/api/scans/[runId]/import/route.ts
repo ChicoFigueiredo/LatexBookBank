@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 import { previewImportRemoval, removeImport, type RemovalScope } from "@modules/scan/application/remove-import";
+import type { ImportPreviewResponse, ImportRemovalResponse } from "@modules/scan/application/scan-contract";
 import { PrismaScanImport } from "@modules/scan/infrastructure/prisma-scan-import";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
@@ -22,7 +23,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
   try {
     const { runId } = await params;
     const { store } = scanDeps();
-    return NextResponse.json(await previewImportRemoval({ store, imports: new PrismaScanImport() }, runId));
+    const preview = await previewImportRemoval({ store, imports: new PrismaScanImport() }, runId);
+    return NextResponse.json(preview satisfies ImportPreviewResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -37,7 +39,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ r
       { runId, scope: scopeOf(request) },
       new PrismaValidationWriter(),
     );
-    return NextResponse.json(result);
+    return NextResponse.json(result satisfies ImportRemovalResponse);
   } catch (error) {
     return toErrorResponse(error);
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { approveScan } from "@modules/scan/application/approve-scan";
+import type { ScanApprovalResponse } from "@modules/scan/application/scan-contract";
 import { PrismaScanApproval } from "@modules/scan/infrastructure/prisma-scan-approval";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
@@ -26,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ run
         includeSuggested: body["includeSuggested"] === true,
       },
     );
-    return NextResponse.json(result);
+    return NextResponse.json(result satisfies ScanApprovalResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
