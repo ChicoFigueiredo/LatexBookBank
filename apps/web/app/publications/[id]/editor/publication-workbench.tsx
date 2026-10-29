@@ -35,6 +35,7 @@ import { previousSource } from "@modules/questions/domain/inherited-metadata";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
+import { nodeBodyApi } from "@modules/document-tree/ui/node-body-client";
 import { sameTag } from "@modules/questions/domain/tag";
 import { questionApi } from "@modules/questions/ui/question-client";
 
@@ -944,9 +945,9 @@ function NodeDetail({
               variant="primary"
               icon="check"
               onClick={() => {
-                void fetch(`/api/publications/${publicationId}/nodes/${node.id}/body/conferido`, {
-                  method: "POST",
-                }).then(() => window.location.reload());
+                void nodeBodyApi
+                  .confirm(publicationId, node.id)
+                  .then(() => window.location.reload());
               }}
             >
               Conferido
