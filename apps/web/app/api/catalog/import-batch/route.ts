@@ -11,7 +11,7 @@ import { PrismaPublicationRepository } from "@modules/publications/infrastructur
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
 import { BadRequestError, readJson } from "../../tree-http";
-import { parseCatalogPath, toCatalogErrorResponse } from "../catalog-http";
+import { resolveCatalogRoot, toCatalogErrorResponse } from "../catalog-http";
 
 /**
  * Importa vários livros do catálogo de uma vez (beta-editorial.md, "o que o Calibre ainda não
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     const report = await importManyFromCatalog(
       {
-        catalog: new CalibreCatalogProvider(parseCatalogPath(body["path"])),
+        catalog: new CalibreCatalogProvider(await resolveCatalogRoot(body["path"])),
         libraries: new PrismaLibraryRepository(),
         publications: new PrismaPublicationRepository(),
         assets: new PrismaCatalogAssetWriter(),
