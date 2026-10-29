@@ -87,7 +87,9 @@ function curtoIa(secao: { health: Health; summary: string }): string {
 /** "há 1 h" quando há; o motivo, quando não há. Nunca um silêncio que parece "tudo certo". */
 function curtoBackup(secao: { health: Health; summary: string }): string {
   if (secao.health === "unconfigured") return "não configurado";
-  if (secao.health !== "ok") return "falhou";
+  // Atrasado não é falha: o último deu certo, e o serviço parou de rodar depois (PLT-13).
+  if (secao.health !== "ok")
+    return secao.summary.startsWith("Backup atrasado") ? "atrasado" : "falhou";
 
   // "Último backup: há 1 h · 214 MB" → "há 1 h".
   const depoisDoisPontos = secao.summary.split(":").slice(1).join(":");
