@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import type { CaptureFacts } from "@modules/recognition/domain/capture-queue";
+import { FAILED_METHOD, type CaptureFacts } from "@modules/recognition/domain/capture-queue";
 
 /**
  * Os recortes de uma publicação, como a fila os vê.
@@ -12,7 +12,22 @@ import type { CaptureFacts } from "@modules/recognition/domain/capture-queue";
  */
 export async function readCaptureFacts(publicationId: string): Promise<readonly CaptureFacts[]> {
   const rows = await prisma.sourceAnchor.findMany({
-    where: { publicationId },
+    /*
+      Só a âncora que ainda pode estar na fila, filtrada **antes** do teto (#253, CAP-08).
+
+      A aprovação de um scan cria uma âncora por região do livro, centenas ou milhares, todas mais
+      novas que os recortes da Ingestão. Filtrando depois do `take`, as 200 mais recentes eram todas
+      do scan, e a fila mostrava zero. A âncora ligada a nó só pela lista (a continuação de um
+      exercício) também já foi usada, e a âncora do scan nunca foi recorte.
+    */
+    where: {
+      publicationId,
+      questions: { none: {} },
+      nodes: { none: {} },
+      nodeAnchors: { none: {} },
+      // `NOT` sozinho perderia o recorte que nunca foi reconhecido: no SQL, `NULL LIKE` é nulo.
+      OR: [{ extractionMethod: null }, { NOT: { extractionMethod: { startsWith: "scan:" } } }],
+    },
     orderBy: { createdAt: "desc" },
     // Um teto: uma publicação com mil recortes pendentes é um problema de trabalho acumulado, não
     // de tela — e carregar mil linhas para desenhar uma fila que ninguém rola até o fim seria
@@ -71,6 +86,28 @@ export async function recordRecognition(
       extractionMethod: input.method,
       extractionModel: input.model,
       metadataJson: input.metadataJson,
+    },
+  });
+
+  return count > 0;
+}
+
+/**
+ * Registra que o reconhecimento falhou, **sem** apagar a transcrição que a âncora já tinha (#253,
+ * CAP-15).
+ *
+ * Pedir de novo e o modelo dar timeout não pode custar o que a tentativa anterior trouxe: o estado
+ * vira "erro" (é o `extractionMethod` que diz), e o texto continua lá para a pessoa decidir.
+ */
+export async function recordRecognitionFailure(
+  anchorId: string,
+  input: { readonly error: string; readonly at: Date },
+): Promise<boolean> {
+  const { count } = await prisma.sourceAnchor.updateMany({
+    where: { id: anchorId },
+    data: {
+      extractionMethod: FAILED_METHOD,
+      metadataJson: JSON.stringify({ error: input.error, at: input.at.toISOString() }),
     },
   });
 
