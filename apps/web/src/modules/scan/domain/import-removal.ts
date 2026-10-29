@@ -41,6 +41,12 @@ export interface ImportedNode {
    * ninguém. Quem tem filho de fora fica de pé.
    */
   readonly hasOutsideChildren: boolean;
+  /**
+   * Quantas figuras o corpo (ou o enunciado) do nó tem — as âncoras de ilustração com recorte
+   * (#249, SPG-12). A figura do scan não é nó (ADR 0005): some com o corpo, e a confirmação
+   * promete o número (ADR 0006).
+   */
+  readonly figures: number;
 }
 
 export interface KeptNode {
@@ -54,6 +60,8 @@ export interface ImportRemovalPlan {
   readonly kept: readonly KeptNode[];
   /** Quantos vão para a lixeira, por tipo de nó — é o que a confirmação mostra. */
   readonly counts: Readonly<Record<string, number>>;
+  /** Quantas figuras vão junto com os corpos que vão para a lixeira. */
+  readonly figures: number;
   readonly keptCount: number;
 }
 
@@ -100,14 +108,16 @@ export function planImportRemoval(nodes: readonly ImportedNode[]): ImportRemoval
 
   const trash: string[] = [];
   const counts: Record<string, number> = {};
+  let figures = 0;
   for (const node of nodes) {
     if (keep.has(node.id)) continue;
     trash.push(node.id);
     counts[node.kind] = (counts[node.kind] ?? 0) + 1;
+    figures += node.figures;
   }
 
   // Na ordem em que os nós chegaram — que é a da árvore, pais antes dos filhos.
   const kept = nodes.filter((node) => keep.has(node.id)).map((node) => ({ id: node.id, reason: keep.get(node.id)! }));
 
-  return { trash, kept, counts, keptCount: kept.length };
+  return { trash, kept, counts, figures, keptCount: kept.length };
 }

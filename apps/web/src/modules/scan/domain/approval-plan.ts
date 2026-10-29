@@ -3,7 +3,7 @@ import type { AnchorRole } from "@modules/assets/domain/node-anchors";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
 
-import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
+import { bodyPieceLatex, exampleBody, exampleTitle, questionLatex } from "./approval-latex";
 import { boxRect, intersectionOverUnion } from "./geometry";
 import type { ProposedRegion, ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
@@ -303,14 +303,13 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     const key = refKey(container);
     placedPieces.set(key, [...(placedPieces.get(key) ?? []), { sortOrder, latex: latex.trim() }]);
   };
-  const pieceLatex = (item: ScanItem) => (item.kind === "FIGURE" ? figureLatex(item) : contentLatex(item));
   for (const item of items) {
     const node = item.documentNodeId ? nodeById.get(item.documentNodeId) : undefined;
     if (!node || item.reviewState === "REJECTED") continue;
     if (NODE_KIND[item.kind] || QUESTION_KINDS.has(item.kind)) {
       placeNode(node.parentId ? { type: "existing", id: node.parentId } : { type: "root" }, item.sortOrder, { type: "existing", id: node.id });
     } else if (BODY_KINDS.has(item.kind)) {
-      placePiece({ type: "existing", id: node.id }, item.sortOrder, pieceLatex(item));
+      placePiece({ type: "existing", id: node.id }, item.sortOrder, bodyPieceLatex(item));
     }
   }
   /** O irmão já posto que precede o item no livro, e o que o segue. */
@@ -470,7 +469,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         skipped.push({ itemId: item.id, reason: "texto fora de qualquer seção: escolha um destino" });
         continue;
       }
-      const latex = pieceLatex(item);
+      const latex = bodyPieceLatex(item);
       steps.push({
         // Dentro de uma questão, o texto vai ao enunciado dela; nos outros nós, ao corpo (#246).
         type: isQuestionNode(container) ? "appendStatement" : "appendBody",

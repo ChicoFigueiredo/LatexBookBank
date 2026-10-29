@@ -71,8 +71,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
 
     /*
       O corpo *a revisar* (#252) precisa de dois fatos que a linha do nó não traz: se o corpo tem
-      texto — sem carregar o texto de todos os corpos para desenhar a árvore — e a origem da última
-      revisão de cada nó. Duas consultas a mais, e nenhuma coluna nova (D40).
+      texto — sem carregar o texto de todos os corpos para desenhar a árvore — e a última revisão
+      de cada nó. Duas consultas a mais, e nenhuma coluna nova (D40).
     */
     const withBody = new Set(
       (
@@ -82,15 +82,15 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         })
       ).map((row) => row.id),
     );
-    const lastOrigin = new Map<string, string>();
+    const lastRevision = new Map<string, { origin: string; summary: string }>();
     for (const ids of inChunks([...withBody])) {
       const revisions = await prisma.revision.findMany({
         where: { entityType: "DOCUMENT_NODE", entityId: { in: ids } },
         orderBy: { revisionNumber: "asc" },
-        select: { entityId: true, origin: true },
+        select: { entityId: true, origin: true, summary: true },
       });
       // Em ordem crescente, a última escrita de cada nó é a que fica no mapa.
-      for (const revision of revisions) lastOrigin.set(revision.entityId, revision.origin);
+      for (const { entityId, ...revision } of revisions) lastRevision.set(entityId, revision);
     }
 
     return rows.map((row) => {
@@ -114,7 +114,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
           ? {
               hasBody: true,
               anchorMethod: row.sourceAnchor?.extractionMethod ?? null,
-              lastRevisionOrigin: lastOrigin.get(row.id) ?? null,
+              lastRevision: lastRevision.get(row.id) ?? null,
             }
           : null,
       };

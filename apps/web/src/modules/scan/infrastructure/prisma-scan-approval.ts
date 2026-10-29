@@ -4,7 +4,7 @@ import { prisma } from "@infrastructure/database/sqlite/client";
 import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
 import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
-import { insertIntoBody } from "@modules/document-tree/domain/node-body";
+import { BODY_FROM_SCAN, insertIntoBody } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
 import { planQuestion } from "@modules/questions/domain/question-blueprint";
 import {
@@ -310,7 +310,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                   entityId: targetId,
                   revisionNumber: (last?.revisionNumber ?? 0) + 1,
                   origin: "SYSTEM",
-                  summary: "corpo recebido do scan",
+                  summary: BODY_FROM_SCAN,
                   snapshotJson: JSON.stringify({ title: target.title, bodyLatex: target.bodyLatex }),
                 },
               });

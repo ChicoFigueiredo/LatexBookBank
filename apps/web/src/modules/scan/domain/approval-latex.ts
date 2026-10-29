@@ -122,6 +122,14 @@ export function figureLatex(item: ScanItem): string {
     .join("\n");
 }
 
+/**
+ * O trecho que um item de corpo (texto, nota, figura) deixa no corpo do nó, ou no enunciado da
+ * questão. Um lugar só para a aprovação, que o acrescenta, e para apagar a importação, que o
+ * procura para tirar (#249).
+ */
+export const bodyPieceLatex = (item: ScanItem): string =>
+  item.kind === "FIGURE" ? figureLatex(item) : contentLatex(item);
+
 /** Quanto do exemplo cabe numa linha da árvore sem empurrar o resto para fora. */
 const TITLE_LENGTH = 60;
 

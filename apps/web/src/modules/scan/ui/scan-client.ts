@@ -57,8 +57,12 @@ export interface ImportPreview {
   readonly created: number;
   readonly trash: readonly string[];
   readonly counts: Readonly<Record<string, number>>;
+  /** As figuras que vão junto com os corpos — a figura do scan não é nó (ADR 0005). */
+  readonly figures: number;
   readonly keptCount: number;
   readonly keptRows: readonly { readonly id: string; readonly label: string; readonly reason: string }[];
+  /** Nós que já existiam e perdem o texto que a varredura lhes acrescentou. */
+  readonly detached: number;
 }
 
 export interface RemovalResult {
@@ -66,6 +70,8 @@ export interface RemovalResult {
   readonly trashed: number;
   readonly kept: number;
   readonly counts: Readonly<Record<string, number>>;
+  readonly figures: number;
+  readonly detached: number;
 }
 
 export interface ApprovalResult {

@@ -1,6 +1,5 @@
-import type { BodyReviewFacts } from "@modules/questions/domain/to-review";
-
 import type { NodeKind, NumberingStyle } from "./node-kind";
+import type { BodyReviewFacts } from "./node-body";
 
 /**
  * Porta de leitura da árvore de conteúdo.

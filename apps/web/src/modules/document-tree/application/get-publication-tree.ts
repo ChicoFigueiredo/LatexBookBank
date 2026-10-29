@@ -5,7 +5,8 @@ import type {
 } from "@modules/document-tree/domain/document-tree-repository";
 import { isQuestionType, optionLabelAt, type QuestionType } from "@modules/questions/domain/question-type";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
-import { isBodyToReview, isToReview } from "@modules/questions/domain/to-review";
+import { isToReview } from "@modules/questions/domain/to-review";
+import { isBodyToReview } from "@modules/document-tree/domain/node-body";
 import {
   hasProblem,
   statusFor,
