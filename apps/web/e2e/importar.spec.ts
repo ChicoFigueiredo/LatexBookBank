@@ -66,7 +66,7 @@ test("a simulação conta o que vai entrar, e nada é gravado até a escolha", a
     // As quatro células do protótipo. A do conflito é a que decide, e o zero aqui é **verdade** —
     // enquanto o índice do destino não chegava ao `toRuntime`, era zero por não ter olhado.
     const painel = page.locator(".lbb-dryrun");
-    await expect(painel).toContainText("publicações");
+    await expect(painel).toContainText("livros");
     await expect(painel).toContainText("questões");
     await expect(painel).toContainText("conflitos");
 
