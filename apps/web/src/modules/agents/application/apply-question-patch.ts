@@ -41,10 +41,16 @@ export interface PatchTransaction {
     snapshotJson: string;
   }): Promise<number>;
   applyFields(questionId: string, fields: Readonly<Record<string, string | null>>): Promise<void>;
+  /**
+   * Grava texto e gabarito das alternativas. Um id que não é desta questão recusa a lista
+   * inteira com `AlternativaDeOutraQuestaoError`: gravar o resto deixaria um gabarito exclusivo
+   * com a antiga desmarcada e a nova em lugar nenhum.
+   */
   applyOptions(
     questionId: string,
     options: readonly { id: string; statementLatex?: string; isCorrect?: boolean }[],
   ): Promise<void>;
+  /** Reordena as alternativas. Um id que não é desta questão recusa a lista inteira. */
   applyReorder(questionId: string, optionIds: readonly string[]): Promise<void>;
   /**
    * Deixa as alternativas **exatamente** como na lista: apaga as que não estão nela, recria com o
@@ -68,6 +74,19 @@ export class QuestionGoneError extends Error {
   constructor(questionId: string) {
     super(`A questão \`${questionId}\` não existe mais.`);
     this.name = "QuestionGoneError";
+  }
+}
+
+/**
+ * O patch citou uma alternativa que não é da questão. O plano já descarta esse id; este erro é a
+ * segunda barreira, no adaptador, e lançado dentro da transação desfaz também a revisão.
+ */
+export class AlternativaDeOutraQuestaoError extends Error {
+  constructor(questionId: string, optionIds: readonly string[]) {
+    super(
+      `As alternativas ${optionIds.map((id) => `\`${id}\``).join(", ")} não são da questão \`${questionId}\`.`,
+    );
+    this.name = "AlternativaDeOutraQuestaoError";
   }
 }
 

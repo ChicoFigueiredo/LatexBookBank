@@ -7,9 +7,9 @@ import { createTempDatabase } from "./support/temp-database";
 /**
  * Duplicar uma subárvore contra o banco de verdade (#252, SPG-08).
  *
- * O plano da cópia tem teste sem banco (`mutate-tree.test.ts`); o que só o repositório decide é
- * **o que** vai para a cópia. O corpo do nó é a teoria da seção e o texto inteiro do exemplo (D56):
- * a cópia sem ele é um galho vazio.
+ * O plano da cópia está no contrato da árvore (`tree-contract.test.ts`); o que só o repositório
+ * decide é **o que** vai para a cópia. O corpo do nó é a teoria da seção e o texto inteiro do
+ * exemplo (D56): a cópia sem ele é um galho vazio.
  */
 
 let dispose: () => Promise<void>;

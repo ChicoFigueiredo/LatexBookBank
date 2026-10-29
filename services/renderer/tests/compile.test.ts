@@ -186,15 +186,27 @@ describeComTex("compile", () => {
   });
 
   it("não deixa diretório temporário para trás", async () => {
-    const { readdir } = await import("node:fs/promises");
+    const { mkdtemp, readdir, rm } = await import("node:fs/promises");
     const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
 
-    const before = (await readdir(tmpdir())).filter((n) => n.startsWith("lbb-render-")).length;
-    await compile(bundle(), new Map(), deps);
-    const after = (await readdir(tmpdir())).filter((n) => n.startsWith("lbb-render-")).length;
+    // Uma raiz só deste teste: contar os `lbb-render-*` do `tmpdir()` inteiro quebrava sempre que
+    // outra compilação rodava na máquina ao mesmo tempo.
+    const root = await mkdtemp(join(tmpdir(), "lbb-compile-test-"));
+    try {
+      // O diretório do job nasce nesta raiz — sem isso, ela vazia no fim não provaria nada.
+      await expect(
+        compile(bundle(), new Map(), { ...deps, tmpRoot: join(root, "nao-existe") }),
+      ).rejects.toThrow(/ENOENT/);
 
-    // Sem a limpeza, cada compilação deixaria um diretório com o documento e os assets do job.
-    expect(after).toBe(before);
+      const { result } = await compile(bundle(), new Map(), { ...deps, tmpRoot: root });
+      expect(result.success).toBe(true);
+
+      // Sem a limpeza, cada compilação deixaria um diretório com o documento e os assets do job.
+      expect(await readdir(root)).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("mede a duração com o relógio injetado", async () => {
