@@ -1,4 +1,4 @@
-import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
+import { generateKeyBetween } from "@/shared/ordering/fractional-index";
 
 // Os plugins se registram ao serem importados; sem esta linha, nenhum tipo seria exclusivo.
 import "./plugins";

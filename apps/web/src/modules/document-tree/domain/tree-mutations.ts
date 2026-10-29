@@ -1,4 +1,4 @@
-import { generateKeyBetween } from "./fractional-index";
+import { generateKeyBetween } from "@/shared/ordering/fractional-index";
 import type { TreeNodeRecord } from "./document-tree-repository";
 
 /**

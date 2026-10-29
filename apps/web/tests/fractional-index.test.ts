@@ -9,7 +9,7 @@ import {
   isValidSortKey,
   needsRebalance,
   rebalanceKeys,
-} from "@modules/document-tree/domain/fractional-index";
+} from "@/shared/ordering/fractional-index";
 
 /**
  * O invariante que sustenta a árvore inteira: **entre duas chaves quaisquer sempre cabe outra**, e

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { DeletedAncestorError } from "@modules/document-tree/application/mutate-tree";
-import { InvalidSortKeyError } from "@modules/document-tree/domain/fractional-index";
+import { InvalidSortKeyError } from "@/shared/ordering/fractional-index";
 import { NODE_KINDS, type NodeKind } from "@modules/document-tree/domain/node-kind";
 import { CyclicMoveError, NodeNotFoundError } from "@modules/document-tree/domain/tree-mutations";
 import type { Placement } from "@modules/document-tree/domain/tree-mutations";

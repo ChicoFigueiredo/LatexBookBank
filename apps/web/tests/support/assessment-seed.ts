@@ -19,7 +19,7 @@ export interface SeedQuestion {
 
 export async function seedLibrary(slug: string) {
   const { prisma } = await import("@infrastructure/database/sqlite/client");
-  const { generateNKeysBetween } = await import("@modules/document-tree/domain/fractional-index");
+  const { generateNKeysBetween } = await import("@/shared/ordering/fractional-index");
 
   const workspace = await prisma.workspace.create({ data: { name: slug, slug } });
   const publication = await prisma.publication.create({

@@ -46,7 +46,7 @@ const loadCandidates = (): Promise<readonly CompletionCandidate[]> => {
 let registration: { readonly dispose: () => void } | null = null;
 let mounted = 0;
 
-export function useLatexCompletion(): void {
+export function useLatexCompletion(languageId: string): void {
   useEffect(() => {
     let active = true;
     mounted += 1;
@@ -54,7 +54,7 @@ export function useLatexCompletion(): void {
     void loadCandidates()
       .then((candidates) => {
         if (!active || registration !== null) return;
-        registration = registerLatexCompletion(candidates);
+        registration = registerLatexCompletion(languageId, candidates);
       })
       .catch((error: unknown) => {
         // Autocomplete é ganho, não requisito: o editor continua inteiro sem ele. Um aviso no
@@ -71,5 +71,5 @@ export function useLatexCompletion(): void {
         registration = null;
       }
     };
-  }, []);
+  }, [languageId]);
 }

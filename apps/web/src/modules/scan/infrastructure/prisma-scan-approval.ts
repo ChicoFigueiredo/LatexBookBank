@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
 import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
-import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
+import { generateKeyBetween } from "@/shared/ordering/fractional-index";
 import { BODY_FROM_SCAN, insertIntoBody } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
 import { appendNodeRevision } from "@modules/document-tree/infrastructure/prisma-node-body";

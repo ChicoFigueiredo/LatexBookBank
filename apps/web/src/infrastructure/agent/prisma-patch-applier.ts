@@ -6,7 +6,7 @@ import type {
   PatchTransaction,
 } from "@modules/agents/application/apply-question-patch";
 import type { QuestionState } from "@modules/agents/domain/patch-diff";
-import { rebalanceKeys } from "@modules/document-tree/domain/fractional-index";
+import { rebalanceKeys } from "@/shared/ordering/fractional-index";
 import { appendRevision } from "@modules/revisions/infrastructure/prisma-revision-writer";
 
 /**

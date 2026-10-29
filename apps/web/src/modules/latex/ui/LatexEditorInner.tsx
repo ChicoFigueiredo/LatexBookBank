@@ -157,7 +157,7 @@ export default function LatexEditorInner({
   // O conhecimento LaTeX do legado (#47) vira sugestão aqui. É um hook e não uma chamada no
   // `onMount` porque o provider é global por linguagem: quem o registra precisa também saber
   // desfazer isso quando o último editor sair de cena.
-  useLatexCompletion();
+  useLatexCompletion(LATEX_LANGUAGE_ID);
 
   const saveRef = useRef(onSave);
   const renderRef = useRef(onRender);
