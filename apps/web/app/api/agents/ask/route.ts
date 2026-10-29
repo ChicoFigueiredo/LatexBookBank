@@ -1,26 +1,18 @@
 import { NextResponse } from "next/server";
 
-import { runAgentTurn } from "@modules/agents/application/run-agent-turn";
-import { buildAgentTools } from "@modules/agents/application/build-agent-tools";
-import {
-  buildProposeTools,
-  createPatchCollector,
-} from "@modules/agents/application/build-propose-tools";
-import { buildCandidateRenderTool } from "@modules/agents/application/render-candidate";
-import { isAgentMode, profileForMode } from "@modules/agents/domain/agent-mode";
-import type { AgentMode } from "@modules/agents/domain/agent-run";
-import { diffPatch } from "@modules/agents/domain/patch-diff";
-import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
-import { questionRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
-import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
-import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
+import { askAgent } from "@modules/agents/application/ask-agent";
 import {
   EMPTY_CONTEXT,
   type AgentContext,
   type ContextItem,
 } from "@modules/agents/domain/agent-context";
+import { isAgentMode } from "@modules/agents/domain/agent-mode";
+import type { AgentMode } from "@modules/agents/domain/agent-run";
+import { questionRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
+import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
 import { PrismaAgentReadPort } from "@infrastructure/agent/prisma-agent-read-port";
 import { recordAgentRun, workspaceOfQuestion } from "@infrastructure/agent/prisma-agent-run-writer";
+import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
 import { aiProvider } from "@infrastructure/composition";
 import { env as appEnv } from "@/shared/config/env";
 
@@ -29,8 +21,8 @@ import { BadRequestError, readJson, toErrorResponse } from "../../http";
 /**
  * Um turno do agente, modo `ASK`.
  *
- * O Route Handler só traduz HTTP: monta o provider a partir do ambiente, entrega as tools que o
- * **servidor** define e chama o caso de uso. A chave nunca sai deste lado — o cliente manda a
+ * O Route Handler só traduz HTTP: confere a configuração, lê o pedido, entrega ao caso de uso
+ * (`askAgent`) as portas que a raiz de composição monta, e devolve a resposta. A chave nunca sai deste lado — o cliente manda a
  * pergunta e o contexto que ele mesmo montou, e recebe texto de volta.
  *
  * O contexto vem do cliente de propósito, e não é uma brecha: ele contém o que o usuário anexou
@@ -82,83 +74,37 @@ export async function POST(request: Request) {
     // `AI_TOOL_CALLING=true` corrige o perfil quando o modelo sabe mais do que ele assume —
     // `qwen3-coder:30b` no Ollama, por exemplo. A regra é a mesma que o /diagnostico mostra.
     const provider = aiProvider();
-    if (provider === null) throw new Error("AI_BASE_URL sumiu entre a checagem e a montagem.");
-
-    // No modo `REVIEW` o agente ganha as tools de proposta — que **não** escrevem: elas guardam o
-    // patch numa bandeja para o humano revisar. A escrita continua sendo um gesto do usuário, por
-    // outra rota, com a lista de linhas aprovadas.
-    const collector = createPatchCollector();
+    // Inalcançável: a fábrica só devolve `null` sem `AI_BASE_URL`, e isso foi conferido acima.
+    if (provider === null) throw new Error("AI_BASE_URL conferido acima, e a fábrica não o viu.");
     // Sem worker configurado o app funciona — a Fase 6 já trata "não configurado" como estado
     // legítimo, e o agente simplesmente não ganha a tool de compilar.
     const render = renderWiringFromEnv();
-    // Quais tools o modo dá — a lista vem do perfil, não de um `if` por modo espalhado aqui.
-    const toolSet = profileForMode(mode).tools;
-    // O tipo decide quantas corretas uma proposta de gabarito pode marcar.
-    const questionType =
-      toolSet === "read" || questionId === null
-        ? null
-        : ((await readQuestionState(questionId))?.type ?? null);
 
-    const outcome = await runAgentTurn({
-      provider,
-      model: env.aiModel,
-      // O escopo vem do **servidor**: o modelo não fornece id de questão, e por isso não
-      // consegue inventar um.
-      tools: [
-        ...buildAgentTools(new PrismaAgentReadPort(), { questionId }),
-        ...(toolSet === "read" ? [] : buildProposeTools(collector, { questionType })),
-        // Compilar candidato só faz sentido quando ele pode propor, e só existe com worker
-        // configurado — sem ele, oferecer a tool seria prometer o que não se cumpre.
-        ...(toolSet === "read+propose+render" && questionId !== null && render !== null
-          ? [
-              buildCandidateRenderTool({
+    const outcome = await askAgent(
+      {
+        provider,
+        model: env.aiModel,
+        readPort: new PrismaAgentReadPort(),
+        questionState: readQuestionState,
+        render:
+          render === null
+            ? null
+            : {
                 executor: render.executor,
-                profile: QUESTION_PREVIEW_PROFILE,
-                // A questão com as figuras dela: o candidato compila como o editor compila.
-                loadSource: () => questionRenderSource(questionId, render.storage),
-              }),
-            ]
-          : []),
-      ],
-      context,
-      prompt,
-      mode,
-      focusedQuestionId: questionId,
-      toolCalling: provider.capabilities.toolCalling,
-    });
-
-    // O registro é do **app**, não do agente: ele grava que o turno aconteceu, e falhar ao gravar
-    // não pode custar ao usuário a resposta que ele já tem. Sem workspace — questão fora de
-    // árvore — não há onde ancorar o log, e o turno segue sem ele.
-    const workspaceId = questionId === null ? null : await workspaceOfQuestion(questionId);
-    let runId: string | null = null;
-    if (workspaceId !== null) {
-      runId = await recordAgentRun({ workspaceId, questionId }, outcome.record).catch(
-        (problem: unknown) => {
-          // Engolir em silêncio esconderia auditoria que deixou de existir. Vai para o log do
-          // servidor e a resposta segue: o usuário não perde o que já tem por causa disto.
-          console.error("[agents] falha ao registrar AgentRun:", problem);
-          return null;
-        },
-      );
-    }
-
-    // O diff é calculado aqui: a tela mostra o que **mudaria**, não o que o agente escreveu. Um
-    // patch que reescreve o campo com o mesmo texto viraria uma linha de revisão sem conteúdo.
-    const state = questionId === null ? null : await readQuestionState(questionId);
-    const proposals =
-      state === null
-        ? []
-        : collector.patches.map((patch) => ({
-            patch,
-            summary: patch.summary,
-            warnings: patch.warnings,
-            changes: diffPatch(state, patch),
-          }));
+                loadSource: (id) => questionRenderSource(id, render.storage),
+              },
+        runLog: { workspaceOf: workspaceOfQuestion, record: recordAgentRun },
+        // Engolir em silêncio esconderia auditoria que deixou de existir. Vai para o log do
+        // servidor e a resposta segue: o usuário não perde o que já tem por causa disto.
+        onRecordFailure: (problem) =>
+          console.error("[agents] falha ao registrar AgentRun:", problem),
+      },
+      { prompt, context, questionId, mode },
+    );
 
     return NextResponse.json({
       answer: outcome.answer,
-      proposals,
+      proposals: outcome.proposals,
       state: outcome.record.state,
       toolCalls: outcome.record.toolCalls,
       usage: {
@@ -167,7 +113,7 @@ export async function POST(request: Request) {
       },
       durationMs: outcome.record.durationMs,
       error: outcome.record.error ?? null,
-      runId,
+      runId: outcome.runId,
     });
   } catch (error) {
     return toErrorResponse(error);
