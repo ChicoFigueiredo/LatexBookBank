@@ -240,7 +240,23 @@ describe("o writer do import legado", () => {
           ...publication,
           nodes: publication.nodes.map((node) =>
             node === ultima && node.question !== null
-              ? { ...node, question: { ...node.question, assetSha256: ["f".repeat(64)] } }
+              ? {
+                  ...node,
+                  question: {
+                    ...node.question,
+                    assets: [
+                      {
+                        sha256: "f".repeat(64),
+                        kind: "QUESTION_IMAGE",
+                        mimeType: "image/png",
+                        originalFilename: "figura.png",
+                        width: null,
+                        height: null,
+                        metadataJson: null,
+                      },
+                    ],
+                  },
+                }
               : node,
           ),
         })),
