@@ -105,7 +105,7 @@ export function agruparLixeira(nos: readonly NoExcluido[]): ResumoDaLixeira {
  * número localiza no livro, o apelido diz do que se trata. Quem tem só um dos dois mostra o que
  * tem; quem não tem nenhum sobra com o tipo, que ainda diz mais que "sem título".
  */
-function rotular(no: NoExcluido): string {
+export function rotular(no: NoExcluido): string {
   const titulo = no.title?.trim();
   const apelido = no.nickname?.trim();
   const rotulo = no.originalLabel?.trim();

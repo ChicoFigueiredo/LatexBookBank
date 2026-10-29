@@ -32,6 +32,13 @@ export interface TrashItemView {
   readonly took: string | null;
 }
 
+/** O que o esvaziar deixou na lixeira porque uma avaliação usa (#258). */
+interface HeldItem {
+  readonly nodeId: string;
+  readonly title: string;
+  readonly assessments: readonly string[];
+}
+
 export interface TrashScreenProps {
   readonly items: readonly TrashItemView[];
   readonly footer: string;
@@ -58,6 +65,7 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emptying, setEmptying] = useState(false);
+  const [held, setHeld] = useState<readonly HeldItem[]>([]);
 
   const restaurar = async (item: TrashItemView) => {
     setBusy(item.id);
@@ -97,6 +105,26 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
           <div style={{ marginTop: "var(--space-4)" }}>
             <Callout tone="danger" title="Não deu">
               {error}
+            </Callout>
+          </div>
+        )}
+
+        {/*
+          O esvaziar não apaga a questão que uma avaliação usa: ela continua aqui, e o aviso diz
+          qual prova a prende — tirar dela, ou restaurar, é decisão de quem lê.
+        */}
+        {held.length > 0 && (
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <Callout
+              tone="warn"
+              title={
+                held.length === 1
+                  ? "1 item ficou na lixeira porque está numa avaliação"
+                  : `${held.length} itens ficaram na lixeira porque estão em avaliações`
+              }
+            >
+              {held.map((item) => `${item.title} (${item.assessments.join(", ")})`).join(" · ")}.
+              Para apagá-los, tire-os da avaliação primeiro.
             </Callout>
           </div>
         )}
@@ -155,8 +183,9 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
         <EmptyTrashConfirmation
           objectCount={objectCount}
           onClose={() => setEmptying(false)}
-          onEmptied={() => {
+          onEmptied={(ficaram) => {
             setEmptying(false);
+            setHeld(ficaram);
             router.refresh();
           }}
         />
@@ -182,7 +211,7 @@ function EmptyTrashConfirmation({
 }: {
   readonly objectCount: number;
   readonly onClose: () => void;
-  readonly onEmptied: () => void;
+  readonly onEmptied: (held: readonly HeldItem[]) => void;
 }) {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -230,7 +259,8 @@ function EmptyTrashConfirmation({
         return;
       }
 
-      onEmptied();
+      const payload = (await response.json()) as { held?: readonly HeldItem[] };
+      onEmptied(payload.held ?? []);
     } catch {
       setError("Não deu para falar com o servidor.");
     } finally {
@@ -264,7 +294,8 @@ function EmptyTrashConfirmation({
     >
       <Callout tone="danger" title="Não há lixeira da lixeira">
         {aviso} Os recortes de origem no PDF
-        ficam — eles são a proveniência, e podem pertencer a questões que continuam vivas.
+        ficam — eles são a proveniência, e podem pertencer a questões que continuam vivas. A
+        questão que está numa avaliação também fica, até sair da prova.
       </Callout>
 
       <div style={{ marginTop: "var(--space-4)" }}>

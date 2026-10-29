@@ -2,6 +2,7 @@ import {
   matchesPublicationTitle,
   parsePublicationDraft,
   PublicationConfirmationMismatchError,
+  PublicationInAssessmentsError,
   type PublicationDraftInput,
 } from "@modules/publications/domain/publication-draft";
 import type {
@@ -94,7 +95,13 @@ export async function deletePublication(
     nodeCount: 0,
     assetCount: 0,
     anchorCount: 0,
+    assessments: [],
   };
+  // Questão numa avaliação trava a exclusão (#258): a prova a referencia, e o livro não decide
+  // tirá-la de lá. Recusar com o nome das provas é o que deixa a pessoa resolver.
+  if (contents.assessments.length > 0)
+    throw new PublicationInAssessmentsError(contents.assessments);
+
   const orphaned = await repository.delete(id);
   if (orphaned === null) throw new PublicationNotFoundError(id);
 

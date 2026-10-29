@@ -7,6 +7,7 @@ import type {
   PublicationWrite,
   PublicationContents,
 } from "@modules/publications/domain/publication-repository";
+import { PublicationInAssessmentsError } from "@modules/publications/domain/publication-draft";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import { asStorageKey, type StorageKey } from "@/shared/ports";
@@ -121,14 +122,15 @@ export class PrismaPublicationRepository implements PublicationRepository {
     const existe = await prisma.publication.findUnique({ where: { id }, select: { id: true } });
     if (existe === null) return null;
 
-    const [questionCount, nodeCount, assetCount, anchorCount] = await Promise.all([
+    const [questionCount, nodeCount, assetCount, anchorCount, assessments] = await Promise.all([
       prisma.documentNode.count({ where: { publicationId: id, questionId: { not: null } } }),
       prisma.documentNode.count({ where: { publicationId: id } }),
       prisma.asset.count({ where: { publicationId: id } }),
       prisma.sourceAnchor.count({ where: { publicationId: id } }),
+      assessmentsUsing(prisma, id),
     ]);
 
-    return { questionCount, nodeCount, assetCount, anchorCount };
+    return { questionCount, nodeCount, assetCount, anchorCount, assessments };
   }
 
   /**
@@ -155,6 +157,11 @@ export class PrismaPublicationRepository implements PublicationRepository {
       .filter((questionId): questionId is string => questionId !== null);
 
     return prisma.$transaction(async (tx) => {
+      // A regra mora no caso de uso; esta é a rede para a prova montada entre a conferência e a
+      // exclusão. Sem ela, a FK `RESTRICT` abortaria a transação com um 500 sem explicação.
+      const assessments = await assessmentsUsing(tx, id);
+      if (assessments.length > 0) throw new PublicationInAssessmentsError(assessments);
+
       const assets = await tx.asset.findMany({
         where: { publicationId: id },
         select: { id: true, storageKey: true },
@@ -213,6 +220,26 @@ export class PrismaPublicationRepository implements PublicationRepository {
       return keys.filter((key) => !stillCited.has(key)).map(asStorageKey);
     });
   }
+}
+
+type Client = Pick<typeof prisma, "assessment">;
+
+/**
+ * Os títulos das avaliações que usam alguma questão do livro — viva ou na lixeira, porque a
+ * exclusão leva as duas.
+ */
+async function assessmentsUsing(client: Client, publicationId: string): Promise<string[]> {
+  const rows = await client.assessment.findMany({
+    where: {
+      sections: {
+        some: { items: { some: { question: { node: { publicationId } } } } },
+      },
+    },
+    select: { title: true },
+    orderBy: { title: "asc" },
+  });
+
+  return rows.map((row) => row.title);
 }
 
 /**
