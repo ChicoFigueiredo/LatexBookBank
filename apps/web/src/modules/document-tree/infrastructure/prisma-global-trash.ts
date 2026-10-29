@@ -2,7 +2,10 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
-import type { TrashPurge, TrashPurgeResult } from "@modules/document-tree/application/empty-trash";
+import type {
+  TrashPurge,
+  TrashPurgeTransaction,
+} from "@modules/document-tree/application/empty-trash";
 import {
   type AtoDeExclusao,
   type NoExcluido,
@@ -11,6 +14,7 @@ import {
   frasedoQueLevou,
   rotular,
 } from "@modules/document-tree/domain/trash-grouping";
+import type { TrashedNode } from "@modules/document-tree/domain/trash-purge";
 import { asStorageKey } from "@/shared/ports";
 
 /**
@@ -155,20 +159,17 @@ async function carregarAncestrais(ids: readonly string[]): Promise<Map<string, s
 /**
  * Esvaziar a lixeira — a única operação do produto que apaga de verdade.
  *
+ * Só os fatos e a exclusão, numa transação: o que fica porque uma prova usa (#258) é decidido no
+ * domínio (`planTrashPurge`), pelo caso de uso `emptyTrash` (D71).
+ *
  * **A questão vai junto, e é o ponto todo.** `DocumentNode.questionId` aponta para `Question`, e
  * `Question` não tem cascade nesse sentido: apagar só o nó deixaria a questão viva, invisível em
  * qualquer tela e contando nos totais para sempre — um vazamento que cresce a cada esvaziada e que
  * ninguém veria, porque o sintoma é um número que não fecha.
  *
- * **Menos a questão que está numa avaliação** (#258). `AssessmentItem → Question` é `ON DELETE
- * RESTRICT`, e apagá-la abortava a transação inteira — a lixeira toda deixava de esvaziar por causa
- * de um item. Ela fica na lixeira, com os ancestrais que também estão lá: sem eles, o `SetNull` de
- * `parentId` a soltaria na raiz, e restaurar já não a devolveria ao lugar. Tudo é lido **dentro**
- * da transação, para uma prova montada entre a leitura e a escrita não trazer a FK de volta.
- *
- * Numa transação, e nesta ordem: primeiro os nós (que referenciam a questão), depois as questões.
- * `QuestionOption` e `QuestionTag` saem por cascade declarado no schema, e o `RenderJob` também,
- * levando as linhas dos artefatos dele.
+ * Nesta ordem: primeiro os nós (que referenciam a questão), depois as questões. `QuestionOption` e
+ * `QuestionTag` saem por cascade declarado no schema, e o `RenderJob` também, levando as linhas dos
+ * artefatos dele.
  *
  * O que fica de cada asset:
  * - **Artefato de render** é derivado (D29): a linha sai em cascata com o job, e o arquivo sai do
@@ -181,9 +182,15 @@ async function carregarAncestrais(ids: readonly string[]): Promise<Map<string, s
  *   mesmo recorte. Apagá-lo aqui destruiria a proveniência de uma questão que continua viva.
  */
 export class PrismaTrashPurge implements TrashPurge {
-  async purge(): Promise<TrashPurgeResult> {
-    return prisma.$transaction(async (tx) => {
-      const alvos = await tx.documentNode.findMany({
+  async transact<T>(run: (tx: TrashPurgeTransaction) => Promise<T>): Promise<T> {
+    return prisma.$transaction(async (tx) => run(purgeTransaction(tx)));
+  }
+}
+
+function purgeTransaction(tx: Tx): TrashPurgeTransaction {
+  return {
+    async listTrashed() {
+      const rows = await tx.documentNode.findMany({
         where: { deletedAt: { not: null } },
         select: {
           id: true,
@@ -196,104 +203,82 @@ export class PrismaTrashPurge implements TrashPurge {
           question: { select: { nickname: true } },
         },
       });
+      return rows.map((row): TrashedNode => ({
+        id: row.id,
+        parentId: row.parentId,
+        kind: row.kind,
+        title: row.title,
+        originalLabel: row.originalLabel,
+        deletedAt: row.deletedAt ?? new Date(0),
+        hasQuestion: row.questionId !== null,
+        nickname: row.question?.nickname ?? null,
+        questionId: row.questionId,
+      }));
+    },
 
-      if (alvos.length === 0) return { nodes: 0, questions: 0, held: [], orphanedKeys: [] };
+    assessmentsUsing: (questionIds) => assessmentsUsing(tx, questionIds),
 
-      const provas = await provasQueUsam(
-        tx,
-        alvos.map((alvo) => alvo.questionId).filter((id): id is string => id !== null),
-      );
-
-      // O que fica: o nó da questão presa, e a cadeia de ancestrais dele que está na lixeira.
-      const porId = new Map(alvos.map((alvo) => [alvo.id, alvo]));
-      const presos = alvos.filter(
-        (alvo) => alvo.questionId !== null && provas.has(alvo.questionId),
-      );
-      const ficam = new Set<string>();
-      for (const preso of presos) {
-        let atual: (typeof alvos)[number] | undefined = preso;
-        while (atual && !ficam.has(atual.id)) {
-          ficam.add(atual.id);
-          atual = atual.parentId ? porId.get(atual.parentId) : undefined;
-        }
-      }
-
-      const saem = alvos.filter((alvo) => !ficam.has(alvo.id));
-      const nodeIds = saem.map((alvo) => alvo.id);
-      const questionIds = saem
-        .map((alvo) => alvo.questionId)
-        .filter((id): id is string => id !== null);
-
+    async deleteForever(nodeIds, questionIds) {
       // As chaves dos artefatos de render que saem em cascata com as questões — lidas antes,
       // porque depois da exclusão as linhas já não existem para dizer qual era o arquivo.
-      const chavesDeRender = new Set<string>();
+      const renderKeys = new Set<string>();
       for (const ids of inChunks(questionIds)) {
-        const artefatos = await tx.asset.findMany({
+        const artifacts = await tx.asset.findMany({
           where: { renderJob: { questionId: { in: ids } } },
           select: { storageKey: true },
         });
-        for (const artefato of artefatos) chavesDeRender.add(artefato.storageKey);
+        for (const artifact of artifacts) renderKeys.add(artifact.storageKey);
       }
 
-      const { nodes, questions } = await apagar(tx, nodeIds, questionIds);
+      const { nodes, questions } = await deleteRows(tx, nodeIds, questionIds);
 
-      const aindaCitadas = new Set<string>();
-      for (const chunk of inChunks([...chavesDeRender])) {
-        const citadas = await tx.asset.findMany({
+      const stillCited = new Set<string>();
+      for (const chunk of inChunks([...renderKeys])) {
+        const cited = await tx.asset.findMany({
           where: { storageKey: { in: chunk } },
           select: { storageKey: true },
         });
-        for (const asset of citadas) aindaCitadas.add(asset.storageKey);
+        for (const asset of cited) stillCited.add(asset.storageKey);
       }
 
       return {
         nodes,
         questions,
-        held: presos.map((preso) => ({
-          nodeId: preso.id,
-          title: rotular({
-            ...preso,
-            deletedAt: preso.deletedAt ?? new Date(0),
-            hasQuestion: true,
-            nickname: preso.question?.nickname ?? null,
-          }),
-          assessments: [...(provas.get(preso.questionId ?? "") ?? [])].sort(),
-        })),
-        orphanedKeys: [...chavesDeRender].filter((key) => !aindaCitadas.has(key)).map(asStorageKey),
+        orphanedKeys: [...renderKeys].filter((key) => !stillCited.has(key)).map(asStorageKey),
       };
-    });
-  }
+    },
+  };
 }
 
 /** O cliente dentro da transação. `prisma.$transaction` entrega um cliente restrito. */
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /** Questão → títulos das avaliações que a usam. Só entram as questões que alguma prova usa. */
-async function provasQueUsam(
+async function assessmentsUsing(
   tx: Tx,
   questionIds: readonly string[],
-): Promise<Map<string, Set<string>>> {
-  const provas = new Map<string, Set<string>>();
+): Promise<Map<string, readonly string[]>> {
+  const titles = new Map<string, Set<string>>();
 
   for (const ids of inChunks(questionIds)) {
-    const itens = await tx.assessmentItem.findMany({
+    const items = await tx.assessmentItem.findMany({
       where: { questionId: { in: ids } },
       select: {
         questionId: true,
         section: { select: { assessment: { select: { title: true } } } },
       },
     });
-    for (const item of itens) {
-      const titulos = provas.get(item.questionId) ?? new Set<string>();
-      titulos.add(item.section.assessment.title);
-      provas.set(item.questionId, titulos);
+    for (const item of items) {
+      const forQuestion = titles.get(item.questionId) ?? new Set<string>();
+      forQuestion.add(item.section.assessment.title);
+      titles.set(item.questionId, forQuestion);
     }
   }
 
-  return provas;
+  return new Map([...titles].map(([questionId, set]) => [questionId, [...set]]));
 }
 
-async function apagar(
+async function deleteRows(
   tx: Tx,
   nodeIds: readonly string[],
   questionIds: readonly string[],
