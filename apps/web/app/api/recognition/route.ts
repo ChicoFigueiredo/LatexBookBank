@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import {
   recognizeCrop,
   VisionNotConfiguredError,
-  type RecognitionMode,
 } from "@modules/recognition/application/recognize-crop";
+import { isRecognitionMode } from "@modules/recognition/domain/recognition-mode";
 import {
   recordRecognition,
   recordRecognitionFailure,
@@ -29,8 +29,6 @@ import { BadRequestError, toErrorResponse } from "../http";
  */
 export const dynamic = "force-dynamic";
 
-const MODES = new Set(["display", "inline", "mixed", "text"]);
-
 export async function POST(request: Request) {
   try {
     // Modelo de visão é outro: o bom de código raramente enxerga. Sem ele configurado, dizer o
@@ -49,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     const rawMode = form.get("mode");
-    const mode = typeof rawMode === "string" && MODES.has(rawMode) ? rawMode : "display";
+    const mode = isRecognitionMode(rawMode) ? rawMode : "display";
 
     /**
      * A âncora, quando o cliente a manda.
@@ -84,7 +82,7 @@ export async function POST(request: Request) {
         anchorId,
         image: new Uint8Array(await image.arrayBuffer()),
         mimeType: image.type || "image/png",
-        mode: mode as RecognitionMode,
+        mode,
       },
     );
 

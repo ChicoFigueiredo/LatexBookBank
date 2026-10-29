@@ -4,6 +4,7 @@ import {
   type MathRecognitionProvider,
 } from "@/shared/ports";
 
+import type { RecognitionMode } from "../domain/recognition-mode";
 import { candidateFrom, type RecognitionCandidate } from "../domain/recognition-review";
 
 /**
@@ -20,7 +21,7 @@ import { candidateFrom, type RecognitionCandidate } from "../domain/recognition-
  * Ver spec §19 · issue #125.
  */
 
-export type RecognitionMode = "display" | "inline" | "mixed" | "text";
+export type { RecognitionMode } from "../domain/recognition-mode";
 
 /**
  * Não há modelo de visão configurado — e reconhecer com o modelo de texto devolveria algo sem
