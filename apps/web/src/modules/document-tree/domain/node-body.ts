@@ -51,6 +51,34 @@ export function appendToBody(body: string, piece: string): string {
   return current === "" ? addition : `${current}\n\n${addition}`;
 }
 
+/**
+ * Acrescenta um trecho ao corpo **no lugar dele**: antes do primeiro dos trechos seguintes que o
+ * corpo já tem (#248, CAP-04).
+ *
+ * A aprovação em rodadas traz o parágrafo do meio da seção depois do que vem em seguida no livro.
+ * `followedBy` é o que já entrou e vem depois deste, na ordem do livro; o trecho só conta quando
+ * começa um parágrafo — um pedaço de texto no meio de outro não é lugar. Se nenhum está mais lá
+ * (alguém editou o corpo), o trecho vai para o fim, como `appendToBody`.
+ */
+export function insertIntoBody(body: string, piece: string, followedBy: readonly string[]): string {
+  const addition = piece.trim();
+  if (addition === "") return body;
+  for (const next of followedBy) {
+    const at = paragraphStart(body, next.trim());
+    if (at === -1) continue;
+    return `${body.slice(0, at)}${addition}\n\n${body.slice(at)}`;
+  }
+  return appendToBody(body, piece);
+}
+
+function paragraphStart(body: string, paragraph: string): number {
+  if (paragraph === "") return -1;
+  for (let at = body.indexOf(paragraph); at !== -1; at = body.indexOf(paragraph, at + 1)) {
+    if (at === 0 || body.slice(0, at).endsWith("\n\n")) return at;
+  }
+  return -1;
+}
+
 /** O que a revisão guarda do nó: o estado anterior, para diff e restauração. */
 export interface NodeBodySnapshot {
   readonly title: string | null;

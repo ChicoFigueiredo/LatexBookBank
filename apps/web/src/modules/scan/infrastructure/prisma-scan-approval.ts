@@ -4,7 +4,7 @@ import { prisma } from "@infrastructure/database/sqlite/client";
 import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
 import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
-import { appendToBody } from "@modules/document-tree/domain/node-body";
+import { insertIntoBody } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
 import { planQuestion } from "@modules/questions/domain/question-blueprint";
 import {
@@ -75,7 +75,10 @@ export class PrismaScanApproval implements ScanApprovalWriter {
     return prisma.$transaction(
       async (tx) => {
         const planned = new Map<string, string>();
-        const lastKey = new Map<string | null, string | null>();
+        /** As chaves dos irmãos de cada pai, em ordem — as do banco e as que esta aprovação criou. */
+        const siblingKeys = new Map<string | null, string[]>();
+        /** Pai e chave de cada nó criado aqui: o vizinho de um nó novo pode ser outro nó novo. */
+        const createdAt = new Map<string, { parentId: string | null; sortKey: string }>();
         const summary = {
           createdNodes: 0,
           createdQuestions: 0,
@@ -95,17 +98,62 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           return id;
         };
 
-        const nextKey = async (parentId: string | null): Promise<string> => {
-          if (!lastKey.has(parentId)) {
-            const last = await tx.documentNode.findFirst({
+        const siblingsOf = async (parentId: string | null): Promise<string[]> => {
+          let keys = siblingKeys.get(parentId);
+          if (!keys) {
+            const rows = await tx.documentNode.findMany({
               where: { publicationId: run.publicationId, parentId, deletedAt: null },
-              orderBy: { sortKey: "desc" },
+              orderBy: { sortKey: "asc" },
               select: { sortKey: true },
             });
-            lastKey.set(parentId, last?.sortKey ?? null);
+            keys = rows.map((row) => row.sortKey);
+            siblingKeys.set(parentId, keys);
           }
-          const key = generateKeyBetween(lastKey.get(parentId) ?? null, null);
-          lastKey.set(parentId, key);
+          return keys;
+        };
+
+        const placementOf = async (ref: NodeRef | null) => {
+          if (!ref || ref.type === "root") return null;
+          if (ref.type === "planned") {
+            const id = planned.get(ref.ref);
+            return id ? (createdAt.get(id) ?? null) : null;
+          }
+          return tx.documentNode.findFirst({
+            where: { id: ref.id, deletedAt: null },
+            select: { parentId: true, sortKey: true },
+          });
+        };
+
+        /*
+          A chave do nó novo entre os irmãos, na ordem do livro (#248, CAP-04).
+
+          Logo depois do vizinho que o precede no livro, e antes do irmão que vem em seguida; sem
+          ele, logo antes do que o segue. Vizinho que mudou de pai no editor não serve de régua: aí,
+          e sem vizinho nenhum, o nó vai para o fim, como sempre foi.
+        */
+        const nextKey = async (
+          parentId: string | null,
+          placeAfter: NodeRef | null,
+          placeBefore: NodeRef | null,
+        ): Promise<string> => {
+          const keys = await siblingsOf(parentId);
+          const after = await placementOf(placeAfter);
+          const before = await placementOf(placeBefore);
+          let low: string | null;
+          let high: string | null;
+          if (after && after.parentId === parentId) {
+            low = after.sortKey;
+            high = keys.find((key) => key > after.sortKey) ?? null;
+          } else if (before && before.parentId === parentId) {
+            high = before.sortKey;
+            low = [...keys].reverse().find((key) => key < before.sortKey) ?? null;
+          } else {
+            low = keys.at(-1) ?? null;
+            high = null;
+          }
+          const key = generateKeyBetween(low, high);
+          const at = keys.findIndex((existing) => existing > key);
+          keys.splice(at === -1 ? keys.length : at, 0, key);
           return key;
         };
 
@@ -228,12 +276,13 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                   // Quem criou este nó (D57): é por aqui que a importação inteira é encontrada
                   // quando alguém quiser reimportar o livro.
                   createdByScanRunId: run.id,
-                  sortKey: await nextKey(parentId),
+                  sortKey: await nextKey(parentId, step.placeAfter, step.placeBefore),
                   ...(questionId ? { questionId } : {}),
                 },
-                select: { id: true },
+                select: { id: true, sortKey: true },
               });
               planned.set(step.ref, node.id);
+              createdAt.set(node.id, { parentId, sortKey: node.sortKey });
               summary.createdNodes++;
 
               const links = await createAnchors(step.anchors, step.sourceText, itemKeyOf(step.ref));
@@ -267,7 +316,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
               });
               await tx.documentNode.update({
                 where: { id: targetId },
-                data: { bodyLatex: appendToBody(target.bodyLatex, step.latex) },
+                data: { bodyLatex: insertIntoBody(target.bodyLatex, step.latex, step.followedBy) },
               });
 
               await appendAnchors(targetId, step);
@@ -289,7 +338,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
 
               await tx.question.update({
                 where: { id: node.question.id },
-                data: { statementLatex: appendToBody(node.question.statementLatex, step.latex) },
+                data: { statementLatex: insertIntoBody(node.question.statementLatex, step.latex, step.followedBy) },
               });
               if (step.cropAssetId) {
                 // Só o recorte ainda sem dono: uma linha que já é de outra questão continua dela.
