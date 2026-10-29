@@ -5,6 +5,7 @@ import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profil
 import { isLatexField } from "@modules/rendering/domain/render-source";
 import { questionRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
 import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
+import type { CandidateRenderResponse } from "@modules/agents/application/agent-contract";
 
 import { rendererNotConfigured, renderErrorResponse } from "../../render-http";
 import { BadRequestError, readJson } from "../../tree-http";
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
       // Data URI: a imagem existe enquanto a aba estiver aberta, que é o tempo de vida certo para
       // a prévia de algo que ainda não foi aprovado.
       png: bytes ? `data:image/png;base64,${Buffer.from(bytes).toString("base64")}` : null,
-    });
+    } satisfies CandidateRenderResponse);
   } catch (error) {
     return renderErrorResponse(error);
   }

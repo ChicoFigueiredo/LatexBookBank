@@ -1,43 +1,16 @@
 "use client";
 
-import type { ProposalMetrics } from "@modules/scan/domain/proposal";
+import type { ScanRunDto } from "@modules/scan/application/scan-run-dto";
 import type { ReviewOperation } from "@modules/scan/domain/review";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
-import type { ScanRunState, ScanSettings } from "@modules/scan/domain/scan-run";
 
 /** O que as rotas do scan devolvem, do jeito que a tela lê. */
 
-export interface ScanRunView {
-  readonly id: string;
-  readonly publicationId: string;
-  readonly sourceAssetId: string;
-  readonly profileId: string;
-  readonly profileVersion: number;
-  readonly engineVersion: string;
-  readonly settings: ScanSettings;
-  readonly state: ScanRunState;
-  readonly stateLabel: string;
-  readonly pageFrom: number;
-  readonly pageTo: number;
-  readonly lastPageRead: number;
-  readonly stepDone: number;
-  readonly stepTotal: number;
-  readonly aiProviderId: string | null;
-  readonly aiModel: string | null;
-  readonly mathProviderId: string | null;
-  readonly mathModel: string | null;
-  readonly aiCalls: number;
-  readonly mathCalls: number;
-  readonly metrics: ProposalMetrics | null;
-  readonly warnings: readonly string[];
-  readonly pageOffset: number | null;
-  readonly error: string | null;
-  readonly running: boolean;
-  readonly interrupted: boolean;
-  readonly startedAt: string | null;
-  readonly finishedAt: string | null;
-  readonly createdAt: string;
-}
+/**
+ * A execução, como a rota a manda. Era redeclarada aqui campo a campo, e o `tsc` não ligava a
+ * cópia ao `scanRunDto` da rota (ARQ-10 da revisão de 2026-09-23): agora é o mesmo tipo.
+ */
+export type ScanRunView = ScanRunDto;
 
 /** O palpite de perfil, lido das primeiras páginas do PDF (ADR 0007). */
 export interface ProfileSuggestionView {

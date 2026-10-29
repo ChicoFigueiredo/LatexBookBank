@@ -11,6 +11,7 @@ import {
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
 import { env as appEnv } from "@/shared/config/env";
+import type { CropAssetResponse } from "@modules/assets/application/asset-contract";
 
 import { BadRequestError, toErrorResponse } from "../../tree-http";
 
@@ -107,7 +108,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { anchorId: created.id, cropAssetId: cropAsset.id, sourceAssetId: source.id },
+      {
+        anchorId: created.id,
+        cropAssetId: cropAsset.id,
+        sourceAssetId: source.id,
+      } satisfies CropAssetResponse,
       { status: 201 },
     );
   } catch (error) {

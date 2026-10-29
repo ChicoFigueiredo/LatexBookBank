@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  aplicarDivisoes,
   detectarBlocoUnido,
   separarAlternativas,
 } from "@modules/recognition/domain/separar-alternativas";
@@ -195,5 +196,35 @@ describe("detectarBlocoUnido", () => {
     ]);
 
     expect(unidos).toEqual([]);
+  });
+});
+
+describe("aplicarDivisoes", () => {
+  const alt = (label: string, statementLatex: string) => ({ label, statementLatex });
+
+  it("sem divisão aceita, a lista é a mesma", () => {
+    const options = [alt("a", "um"), alt("b", "dois")];
+    expect(aplicarDivisoes(options, new Map())).toEqual(options);
+  });
+
+  it("aplica em cascata: o `d)` que ficou dentro do `c` novo também se divide", () => {
+    // O caso que o e2e pegou: a segunda divisão é sobre um texto que não existia na lista original.
+    const divididos = new Map([
+      ["dois c) três d) quatro", [alt("b", "dois"), alt("c", "três d) quatro")]],
+      ["três d) quatro", [alt("c", "três"), alt("d", "quatro")]],
+    ]);
+
+    const result = aplicarDivisoes([alt("a", "um"), alt("b", "dois c) três d) quatro")], divididos);
+
+    expect(result.map((entry) => entry.label)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("uma divisão que contém a própria chave não laça para sempre", () => {
+    const divididos = new Map([["x", [alt("a", "x"), alt("b", "y")]]]);
+
+    const result = aplicarDivisoes([alt("a", "x")], divididos);
+
+    // Cinco passadas, cada uma acrescentando um `b`: o teto encerra.
+    expect(result).toHaveLength(6);
   });
 });

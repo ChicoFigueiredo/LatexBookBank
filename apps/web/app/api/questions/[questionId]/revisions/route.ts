@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { parseSnapshot } from "@modules/questions/domain/revision-diff";
 import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
 import { findRevision, listRevisions } from "@infrastructure/agent/prisma-revision-reader";
+import type {
+  RevisionDetailResponse,
+  RevisionListResponse,
+} from "@modules/questions/application/question-contract";
 
 import { toErrorResponse } from "../../../tree-http";
 
@@ -33,7 +37,12 @@ export async function GET(
     const wanted = new URL(request.url).searchParams.get("revision");
 
     if (wanted === null) {
-      return NextResponse.json({ revisions: await listRevisions(questionId) });
+      // A data em ISO explícito, que é o que o JSON já fazia com o `Date`: o contrato diz texto.
+      const revisions = (await listRevisions(questionId)).map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+      }));
+      return NextResponse.json({ revisions } satisfies RevisionListResponse);
     }
 
     const number = Number(wanted);
@@ -56,12 +65,12 @@ export async function GET(
       revisionNumber: revision.revisionNumber,
       origin: revision.origin,
       summary: revision.summary,
-      createdAt: revision.createdAt,
+      createdAt: revision.createdAt.toISOString(),
       // Já desserializado: quem consome quer o estado, não a string. E `parseSnapshot` preenche
       // campo que uma revisão antiga não tinha, em vez de devolver `undefined` para a tela.
       snapshot: parseSnapshot(revision.snapshotJson),
       current: await readQuestionState(questionId),
-    });
+    } satisfies RevisionDetailResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
