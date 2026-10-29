@@ -1,6 +1,6 @@
 # Code review do código inteiro — 2026-09-23
 
-> Revisão do código inteiro do LatexBookBank na branch `feat/perfil-do-fundamentos` (`6ba3525`), em seis dimensões, com um plano de ação em issues. **Plano aprovado:** as tarefas P0 e P1 viraram issues sob o épico [#232](https://github.com/ChicoFigueiredo/LatexBookBank/issues/232); as P2 ficam aqui até serem puxadas. **As seis P0 foram feitas em 2026-09-29** (coluna Estado).
+> Revisão do código inteiro do LatexBookBank na branch `feat/perfil-do-fundamentos` (`6ba3525`), em seis dimensões, com um plano de ação em issues. **Plano aprovado:** as tarefas P0 e P1 viraram issues sob o épico [#232](https://github.com/ChicoFigueiredo/LatexBookBank/issues/232); as P2 ficam aqui até serem puxadas. **As seis P0 foram feitas em 2026-09-29, e a B2 em 2026-09-30** (coluna Estado).
 
 ## Como foi feito
 
@@ -74,7 +74,7 @@ A aprovação é onde a proposta vira acervo. Ela acerta quando o livro é aprov
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
 | **B1** | [#245](https://github.com/ChicoFigueiredo/LatexBookBank/issues/245) | feita (`4c7a567`) | P0 | M | As alternativas saem também do LaTeX reconhecido ou revisado | [CAP-03](#cap-03), [SPG-01](#spg-01), [CAP-10](#cap-10) |
-| **B2** | [#246](https://github.com/ChicoFigueiredo/LatexBookBank/issues/246) | — | P1 | M | A figura da questão vai para o enunciado, e não para o corpo do nó | [CAP-02](#cap-02), [SPG-02](#spg-02) |
+| **B2** | [#246](https://github.com/ChicoFigueiredo/LatexBookBank/issues/246) | feita (`990cac7`) | P1 | M | A figura da questão vai para o enunciado, e não para o corpo do nó | [CAP-02](#cap-02), [SPG-02](#spg-02) |
 | **B3** | [#247](https://github.com/ChicoFigueiredo/LatexBookBank/issues/247) | feita (`b1673ae`) | P0 | M | Aprovar em rodadas: 'já no acervo' só casa item compatível, e nó na lixeira não serve de pai | [CAP-01](#cap-01), [CAP-12](#cap-12), [SPG-04](#spg-04), [CAP-11](#cap-11), [TST-06](#tst-06) |
 | **B4** | [#248](https://github.com/ChicoFigueiredo/LatexBookBank/issues/248) | — | P1 | M | Aprovar em rodadas mantém a ordem do livro, na árvore e no corpo | [CAP-04](#cap-04), [CAP-16](#cap-16) |
 | **B5** | [#249](https://github.com/ChicoFigueiredo/LatexBookBank/issues/249) | — | P1 | M | Apagar a importação distingue aprovação posterior de edição à mão | [CAP-09](#cap-09), [SPG-05](#spg-05), [SPG-12](#spg-12) |
