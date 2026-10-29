@@ -35,8 +35,10 @@ export interface RenderRequest {
   readonly includeSolution?: boolean;
   /** O candidato: campos que substituem os da fonte só nesta compilação. */
   readonly overrides?: Partial<Record<LatexField, string>>;
-  /** Quando quem pediu desiste, o worker também para — ver `assembleBundle`. */
+  /** Quando quem pediu desiste, o worker também para — ver `cancelOnAbort`. */
   readonly signal?: AbortSignal;
+  /** Recompila mesmo com cache (só `renderDocument`; o rascunho nunca usa cache). */
+  readonly force?: boolean;
 }
 
 export interface AssembledBundle {
@@ -103,6 +105,7 @@ export async function renderDocument(
         questionId: source.questionId,
         bundle: assembled.bundle,
         assets: assembled.assets,
+        ...(request.force === true ? { force: true } : {}),
       },
       deps,
     );

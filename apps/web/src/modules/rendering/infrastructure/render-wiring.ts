@@ -15,19 +15,34 @@ import { RenderWorkerExecutor } from "./render-worker-executor";
  * do renderer se repetiam em quatro lugares, e as mensagens já divergiam. `null` e não exceção:
  * sem worker o app continua de pé (Fase 6), e quem chama decide o que dizer.
  */
-export function renderWiringFromEnv(): ExecuteRenderDeps | null {
+export function renderWiringFromEnv():
+  (ExecuteRenderDeps & { executor: RenderWorkerExecutor }) | null {
   const env = appEnv();
   if (env.rendererBaseUrl === null || env.rendererSecret === null) return null;
 
+  const executor = workerFor(env.rendererBaseUrl, env.rendererSecret);
   return {
-    executor: new RenderWorkerExecutor({
-      baseUrl: env.rendererBaseUrl,
-      secret: env.rendererSecret,
-    }),
+    executor,
     storage: new LocalFileStorageProvider({ rootDir: env.storageRoot }),
     jobs: new PrismaRenderJobRepository(),
-    rendererVersion: process.env["RENDERER_VERSION"] ?? "0.0.0-dev",
+    // A versão que entra no hash é a que o worker reporta, e não a do ambiente da aplicação: é a
+    // imagem que compila quem sabe se mudou (PLT-05).
+    rendererVersion: () => executor.rendererVersion(),
   };
+}
+
+/**
+ * Um executor por endereço, guardado no processo: é ele que guarda a versão lida do `/health`, e
+ * um executor novo por requisição perguntaria a versão a cada compilação.
+ */
+let worker: { readonly key: string; readonly executor: RenderWorkerExecutor } | null = null;
+
+function workerFor(baseUrl: string, secret: string): RenderWorkerExecutor {
+  const key = `${baseUrl}\u0000${secret}`;
+  if (worker?.key !== key) {
+    worker = { key, executor: new RenderWorkerExecutor({ baseUrl, secret }) };
+  }
+  return worker.executor;
 }
 
 /** Não configurado é diferente de fora do ar: este se resolve editando `.env.local`. */

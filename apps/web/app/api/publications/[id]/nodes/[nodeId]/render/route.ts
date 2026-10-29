@@ -48,7 +48,7 @@ export async function POST(
     const rendered = await renderDocument(
       wiring,
       nodeRenderSource(node, { id, workspaceId }, wiring.storage),
-      { profile, signal: request.signal },
+      { profile, signal: request.signal, ...(body["force"] === true ? { force: true } : {}) },
     );
 
     return renderJobResponse(rendered);

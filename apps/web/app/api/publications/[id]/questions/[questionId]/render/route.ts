@@ -70,6 +70,8 @@ export async function POST(
       {
         profile,
         ...(body["includeSolution"] === true ? { includeSolution: true } : {}),
+        // Recompilar de verdade, sem ler o cache — e o resultado novo passa a ser o cache.
+        ...(body["force"] === true ? { force: true } : {}),
         signal: request.signal,
       },
     );

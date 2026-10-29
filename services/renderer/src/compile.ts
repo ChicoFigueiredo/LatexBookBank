@@ -10,6 +10,7 @@ import {
   validateRenderBundle,
   type RenderArtifactDescriptor,
   type RenderBundle,
+  type RenderFailureKind,
   type RenderResult,
 } from "@latexbookbank/render-contract";
 
@@ -157,7 +158,7 @@ export async function compile(
     // Recusado antes de tocar o disco. A defesa real é `-no-shell-escape`; esta camada existe
     // porque a outra é uma flag, e flags somem em refatoração sem deixar rastro.
     return {
-      result: failure(bundle, deps.rendererVersion, now() - startedAt, [
+      result: failure(bundle, deps.rendererVersion, now() - startedAt, "document", [
         {
           severity: "error",
           message: "O documento pede execução de shell (`\\write18`), que não é permitida.",
@@ -260,6 +261,9 @@ export async function compile(
           bundle,
           deps.rendererVersion,
           now() - startedAt,
+          // O prazo é do momento, não do documento: o mesmo LaTeX pode passar quando a máquina não
+          // estiver ocupada, e a aplicação não guarda essa falha no cache.
+          timedOut ? "timeout" : "document",
           diagnostics.length > 0
             ? diagnostics
             : [
@@ -382,6 +386,7 @@ function failure(
   bundle: RenderBundle,
   rendererVersion: string,
   durationMs: number,
+  failureKind: RenderFailureKind,
   diagnostics: readonly RenderResult["diagnostics"][number][],
   stdout = "",
   stderr = "",
@@ -389,6 +394,7 @@ function failure(
   return {
     jobId: bundle.jobId,
     success: false,
+    failureKind,
     pdf: null,
     png: [],
     diagnostics,

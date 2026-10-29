@@ -51,7 +51,23 @@ export interface RenderJobRepository {
    */
   findByContentHash(workspaceId: string, contentHash: string): Promise<RenderJobRecord | null>;
 
+  /**
+   * Grava o job — ou devolve o que chegou antes com a mesma entrada.
+   *
+   * Duas abas, ou Ctrl+Enter duas vezes, compilam o mesmo conteúdo em paralelo, e as duas acham o
+   * cache vazio. A segunda a gravar bate na unicidade de `(workspaceId, contentHash)`; o
+   * resultado dela é o mesmo do vencedor, e devolvê-lo é a resposta certa — não um HTTP 500 para
+   * um documento que compilou.
+   */
   create(job: NewRenderJob): Promise<RenderJobRecord>;
+
+  /**
+   * Tira um job do cache — e os registros dos artefatos dele.
+   *
+   * Para quando o cache deixou de ser verdade: o artefato foi descartado do storage, ou alguém
+   * pediu para recompilar. Os arquivos que sobrarem no storage são derivados órfãos (D29).
+   */
+  remove(jobId: string): Promise<void>;
 }
 
 /**

@@ -169,6 +169,27 @@ describe("POST /render", () => {
     expect(response.status).toBe(422);
   });
 
+  it("o 422 diz que a falha é do worker — e não do documento", async () => {
+    // Asset que chega com outro conteúdo é o transporte, não o LaTeX: a aplicação não pode guardar
+    // isso no cache como resposta daquele documento.
+    const bytes = Buffer.from("conteúdo");
+    const payload = bundle({
+      assets: [
+        {
+          name: "f.png",
+          mimeType: "image/png",
+          sizeBytes: bytes.byteLength,
+          sha256: "a".repeat(64),
+        },
+      ],
+    });
+    const response = await createHandler(deps)(renderRequest(payload, { "f.png": bytes }));
+    const status = (await response.json()) as { result: { failureKind?: string } };
+
+    expect(response.status).toBe(422);
+    expect(status.result.failureKind).toBe("worker");
+  });
+
   it("recebe o asset pelo multipart e o LaTeX o encontra", async () => {
     const png = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
