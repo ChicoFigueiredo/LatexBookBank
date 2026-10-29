@@ -1246,9 +1246,8 @@ e eles escondiam o que falta de verdade)*
 - ✅ **Não depende diretamente da migration atual do Prisma**
 - ✅ Export faz projeção **runtime → portable**
 - ✅ Import faz projeção **portable → runtime**
-- [ ] Migradores de formato previstos — só existe a v1; o migrador nasce com a v2, e escrevê-lo
-  antes seria adivinhar de onde ela vem. *O planejamento pede migradores "**quando fizer sentido**";
-  com uma versão só, não faz — isto é escopo futuro, não dívida*
+- ✅ Migradores de formato — *revogado pela v3 (#268, #269): o backup vale daqui para frente, e só
+  o `.lbb` v3 abre; v1 e v2 são recusados com mensagem que manda exportar de novo, sem migrador*
 - ✅ `formatVersion` declarado no `manifest.json`
 - ✅ Versão desconhecida é recusada com mensagem clara — **nunca adivinhada**
 
@@ -1780,16 +1779,19 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
   exemplo e a nota para o corpo da seção, na ordem do livro
 
 **Portabilidade** *(D37, D42)*
-- ✅ Portable Schema **v2**, com o corpo, as âncoras do nó e o PDF fonte
-- ✅ Migrador `v1 → v2` — o primeiro
+- ✅ Portable Schema **v2**, com o corpo, as âncoras do nó e o PDF fonte *(substituído pela v3,
+  #268: figuras com nome, tipo e MIME, a capa, o recorte da âncora e a lixeira)*
+- ✅ Migrador `v1 → v2` — o primeiro *(removido com a v3: só ela abre)*
 - ✅ Versão desconhecida continua sendo recusada, nunca adivinhada
 
 **Aceite da fase**
 - [ ] Uma seção com teoria compila **junto** com as questões que ela contém *(o corpo compila
   sozinho; a composição com as questões é da exportação de avaliação)*
-- ✅ Um `.lbb` v1 gerado antes desta fase importa sem perda
+- ✅ Um `.lbb` v1 gerado antes desta fase importa sem perda *(revogado pela v3: é recusado com
+  mensagem)*
 - ✅ O round-trip de um `.lbb` v2 com corpo de nó dá identidade *(e contra o banco: escanear,
-  aprovar, exportar e importar devolvem corpo, âncoras e PDF fonte)*
+  aprovar, exportar e importar devolvem corpo, âncoras e PDF fonte; na v3, também as figuras do
+  corpo e das questões, que a v2 não levava — #268)*
 - ◐ O *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF *(a proposta
   tem; aprovar no acervo real fica com o autor)*
 - [ ] Reavaliar as 5 figuras órfãs de Fundamentos

@@ -1,4 +1,5 @@
 import type {
+  PortableAsset,
   PortableNode,
   PortableOption,
   PortablePublication,
@@ -28,6 +29,9 @@ export interface RuntimeWorkspace {
   readonly publications: readonly RuntimePublication[];
 }
 
+/** O asset descrito — o mesmo formato do portable: não há id de runtime nele para traduzir. */
+export type RuntimeAsset = PortableAsset;
+
 export interface RuntimePublication {
   readonly id: string;
   readonly title: string;
@@ -35,31 +39,38 @@ export interface RuntimePublication {
   readonly publisher: string | null;
   readonly legacyId: number | null;
   readonly legacyUuid: string | null;
+  readonly legacyUpdatedAt: string | null;
   readonly metadataJson: string | null;
-  readonly coverAssetSha256: string | null;
   /** A ficha catalográfica — ver `PortablePublication` para o porquê de ela ter faltado. */
   readonly nickname: string | null;
   readonly isbn: string | null;
   readonly otherIdentifier: string | null;
   readonly edition: string | null;
   readonly editionYear: number | null;
+  readonly publicationDate: string | null;
   readonly language: string | null;
   readonly series: string | null;
   readonly volume: string | null;
   readonly notes: string | null;
   readonly authors: readonly string[];
+  readonly captureProfileId: string | null;
+  readonly assets: readonly RuntimeAsset[];
+  readonly coverAssetSha256: string | null;
   readonly sourcePdfAssetSha256: string | null;
   readonly nodes: readonly RuntimeNode[];
 }
 
 export interface RuntimeAnchor {
   readonly sha256: string;
+  readonly cropSha256: string | null;
   readonly pageNumber: number;
   readonly box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly rotation: number | null;
   readonly role: string;
   readonly sourceText: string | null;
   readonly extractionMethod: string | null;
   readonly extractionModel: string | null;
+  readonly metadataJson: string | null;
 }
 
 export interface RuntimeNode {
@@ -67,10 +78,12 @@ export interface RuntimeNode {
   readonly parentId: string | null;
   readonly kind: string;
   readonly title: string | null;
+  readonly slug: string | null;
   readonly sortKey: string;
   readonly numberingStyle: string;
   readonly originalLabel: string | null;
   readonly legacyId: number | null;
+  readonly deletedAt: string | null;
   readonly question: RuntimeQuestion | null;
   readonly bodyLatex: string;
   readonly anchors: readonly RuntimeAnchor[];
@@ -97,7 +110,7 @@ export interface RuntimeQuestion {
   readonly legacyId: number | null;
   readonly tags: readonly string[];
   readonly options: readonly RuntimeOption[];
-  readonly assetSha256: readonly string[];
+  readonly assets: readonly RuntimeAsset[];
 }
 
 export interface RuntimeOption {
@@ -143,11 +156,51 @@ export function toPortable(runtime: RuntimeWorkspace): PortableWorkspace {
   };
 }
 
+/**
+ * Os nós em ordem de árvore: cada pai, e logo depois os filhos dele, por `sortKey`.
+ *
+ * A ordem do banco (`sortKey` sozinho) empata entre irmãos de pais diferentes — o primeiro filho
+ * de cada capítulo é `a0` —, e o empate sairia numa ordem diferente em cada banco. As refs são
+ * cunhadas nesta ordem, então ela precisa ser a mesma no banco de origem e no restaurado, ou
+ * dois exports do mesmo acervo deixam de ser comparáveis.
+ */
+export function inTreeOrder<T extends { readonly id: string; readonly parentId: string | null; readonly sortKey: string }>(
+  nodes: readonly T[],
+): readonly T[] {
+  const ids = new Set(nodes.map((node) => node.id));
+  const children = new Map<string | null, T[]>();
+  for (const node of nodes) {
+    // Pai fora da lista (dado inconsistente) vira raiz: perder o nó seria pior que achatá-lo.
+    const parent = node.parentId !== null && ids.has(node.parentId) ? node.parentId : null;
+    children.set(parent, [...(children.get(parent) ?? []), node]);
+  }
+  for (const list of children.values()) {
+    list.sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0));
+  }
+
+  const ordered: T[] = [];
+  const visit = (parent: string | null) => {
+    for (const node of children.get(parent) ?? []) {
+      ordered.push(node);
+      visit(node.id);
+    }
+  };
+  visit(null);
+  return ordered;
+}
+
+/** Ordenados por hash e tipo: o banco não garante ordem, e o arquivo precisa sair igual. */
+export const sortAssets = (assets: readonly PortableAsset[]): readonly PortableAsset[] =>
+  [...assets].sort((a, b) =>
+    a.sha256 === b.sha256 ? a.kind.localeCompare(b.kind) : a.sha256 < b.sha256 ? -1 : 1,
+  );
+
 function toPublication(publication: RuntimePublication, mint: RefMinter): PortablePublication {
   // O mapa de id → ref é por publicação: `parentRef` só faz sentido dentro dela, e um nó cujo pai
   // estivesse em outra publicação seria dado corrompido, não um caso a suportar.
+  const nodes = inTreeOrder(publication.nodes);
   const refById = new Map<string, string>();
-  for (const node of publication.nodes) refById.set(node.id, mint.next("node"));
+  for (const node of nodes) refById.set(node.id, mint.next("node"));
 
   return {
     ref: mint.next("pub"),
@@ -159,17 +212,21 @@ function toPublication(publication: RuntimePublication, mint: RefMinter): Portab
     otherIdentifier: publication.otherIdentifier,
     edition: publication.edition,
     editionYear: publication.editionYear,
+    publicationDate: publication.publicationDate,
     language: publication.language,
     series: publication.series,
     volume: publication.volume,
     notes: publication.notes,
     authors: publication.authors,
+    captureProfileId: publication.captureProfileId,
     legacyId: publication.legacyId,
     legacyUuid: publication.legacyUuid,
+    legacyUpdatedAt: publication.legacyUpdatedAt,
     metadataJson: publication.metadataJson,
+    assets: sortAssets(publication.assets),
     coverAsset: publication.coverAssetSha256,
     sourcePdfAsset: publication.sourcePdfAssetSha256,
-    nodes: publication.nodes.map((node) => toNode(node, refById, mint)),
+    nodes: nodes.map((node) => toNode(node, refById, mint)),
   };
 }
 
@@ -179,20 +236,25 @@ function toNode(node: RuntimeNode, refById: Map<string, string>, mint: RefMinter
     parentRef: node.parentId === null ? null : (refById.get(node.parentId) ?? null),
     kind: node.kind,
     title: node.title,
+    slug: node.slug,
     sortKey: node.sortKey,
     numberingStyle: node.numberingStyle,
     originalLabel: node.originalLabel,
     legacyId: node.legacyId,
+    deletedAt: node.deletedAt,
     question: node.question === null ? null : toQuestion(node.question, mint),
     bodyLatex: node.bodyLatex,
     anchors: node.anchors.map((anchor) => ({
       asset: anchor.sha256,
+      cropAsset: anchor.cropSha256,
       pageNumber: anchor.pageNumber,
       box: anchor.box,
+      rotation: anchor.rotation,
       role: anchor.role,
       sourceText: anchor.sourceText,
       extractionMethod: anchor.extractionMethod,
       extractionModel: anchor.extractionModel,
+      metadataJson: anchor.metadataJson,
     })),
   };
 }
@@ -220,7 +282,7 @@ function toQuestion(question: RuntimeQuestion, mint: RefMinter): PortableQuestio
     tags: [...question.tags].sort((a, b) => a.localeCompare(b, "pt-BR")),
     options: question.options.map((option) => toOption(option, mint)),
     // Por hash, e ordenados: o mesmo asset em duas questões aponta para o mesmo arquivo.
-    assets: [...question.assetSha256].sort(),
+    assets: sortAssets(question.assets),
   };
 }
 

@@ -12,6 +12,7 @@ import {
   assetPath,
   CorruptArchiveError,
   PORTABLE_FORMAT_VERSION,
+  RetiredFormatVersionError,
   UnknownFormatVersionError,
   type PortableWorkspace,
 } from "@modules/portability/domain/portable-schema";
@@ -36,20 +37,39 @@ const workspace = (over: Partial<PortableWorkspace> = {}): PortableWorkspace => 
       title: "Juros e Descontos",
       subtitle: null,
       publisher: "Cesgranrio",
+      nickname: null,
+      isbn: null,
+      otherIdentifier: null,
+      edition: null,
+      editionYear: null,
+      publicationDate: null,
+      language: null,
+      series: null,
+      volume: null,
+      notes: null,
+      authors: [],
+      captureProfileId: null,
       legacyId: 7,
       legacyUuid: "b3f1-…",
+      legacyUpdatedAt: null,
       metadataJson: '{"series":"concursos"}',
+      assets: [],
       coverAsset: null,
+      sourcePdfAsset: null,
       nodes: [
         {
           ref: "node-1",
           parentRef: null,
           kind: "CHAPTER",
           title: "Juros Simples",
+          slug: null,
           sortKey: "a0",
           numberingStyle: "ROMAN",
           originalLabel: "I",
           legacyId: 100,
+          deletedAt: null,
+          bodyLatex: "",
+          anchors: [],
           question: null,
         },
         {
@@ -57,10 +77,14 @@ const workspace = (over: Partial<PortableWorkspace> = {}): PortableWorkspace => 
           parentRef: "node-1",
           kind: "QUESTION",
           title: null,
+          slug: null,
           sortKey: "a1",
           numberingStyle: "ARABIC",
           originalLabel: "1",
           legacyId: 101,
+          deletedAt: null,
+          bodyLatex: "",
+          anchors: [],
           question: {
             ref: "q-1",
             type: "MULTIPLE_CHOICE",
@@ -87,18 +111,22 @@ const workspace = (over: Partial<PortableWorkspace> = {}): PortableWorkspace => 
                 sortKey: "a0",
                 statementLatex: "\\SI{1020}{\\real}",
                 solutionLatex: "",
+                originalLatex: null,
                 isCorrect: false,
                 weight: null,
                 legacyId: 1,
+                legacyMarcacao: null,
               },
               {
                 ref: "o-2",
                 sortKey: "a1",
                 statementLatex: "\\SI{1060}{\\real}",
                 solutionLatex: "",
+                originalLatex: null,
                 isCorrect: true,
                 weight: null,
                 legacyId: 2,
+                legacyMarcacao: null,
               },
             ],
             assets: [],
@@ -283,70 +311,105 @@ describe("o que é recusado", () => {
   });
 });
 
-describe("a v2 e o migrador v1 → v2 (ADR 0001)", () => {
-  it("um .lbb v1 importa sem perda, e o que a v1 não conhecia chega vazio", async () => {
-    const files = unzipSync(await writeArchive({ workspace: workspace(), assets: [], appVersion: "0.9", exportedAt: "2026-09-01T00:00:00Z" }));
+describe("a v3: só ela abre (#268, #269)", () => {
+  /** Um `.lbb` íntegro que declara outra versão — o checksum confere, só a versão é antiga. */
+  const declaring = async (formatVersion: number) => {
+    const files = unzipSync(await write());
     const manifest = JSON.parse(new TextDecoder().decode(files["manifest.json"] as Uint8Array));
-    const v1Data = bytesOf(JSON.stringify(workspace()));
-    files["data.json"] = v1Data;
-    files["manifest.json"] = bytesOf(
-      JSON.stringify({ ...manifest, formatVersion: 1, dataChecksum: await sha256Of(v1Data) }),
-    );
+    files["manifest.json"] = bytesOf(JSON.stringify({ ...manifest, formatVersion }));
+    return zipSync(files);
+  };
 
-    const read = await readArchive(zipSync(files));
-    const publication = read.workspace.publications[0];
-    expect(publication?.sourcePdfAsset).toBeNull();
-    expect(publication?.nodes.map((node) => [node.bodyLatex, node.anchors])).toEqual([
-      ["", []],
-      ["", []],
-    ]);
-    // O resto é o que o arquivo tinha, campo por campo.
-    expect(publication?.nodes[1]?.question).toEqual(workspace().publications[0]?.nodes[1]?.question);
-  });
+  it.each([1, 2])(
+    "um .lbb v%i é recusado com mensagem que diz o que fazer — sem migrador",
+    async (version) => {
+      const refusal = readArchive(await declaring(version));
 
-  it("o round-trip de um .lbb v2 com corpo, âncoras e PDF fonte dá identidade", async () => {
+      await expect(refusal).rejects.toThrow(RetiredFormatVersionError);
+      await expect(refusal).rejects.toThrow(`.lbb v${version}`);
+      await expect(refusal).rejects.toThrow(/exporte a biblioteca de novo/);
+    },
+  );
+
+  it("o round-trip de um .lbb v3 com figuras descritas, capa, recorte e lixeira dá identidade", async () => {
     const pdf = bytesOf("%PDF-1.4 fonte");
-    const sha = await sha256Of(pdf);
+    const cover = bytesOf("jpeg da capa");
+    const figure = bytesOf("webp da figura");
+    const [pdfSha, coverSha, figureSha] = (await Promise.all([pdf, cover, figure].map(sha256Of))) as [
+      string,
+      string,
+      string,
+    ];
     const base = workspace();
     const first = base.publications[0]!;
-    const withBody: PortableWorkspace = {
+    const describedAs = (sha256: string, kind: string, mimeType: string, originalFilename: string) => ({
+      sha256,
+      kind,
+      mimeType,
+      originalFilename,
+      width: null,
+      height: null,
+      metadataJson: null,
+    });
+    const full: PortableWorkspace = {
       ...base,
       publications: [
         {
           ...first,
-          sourcePdfAsset: sha,
+          assets: [
+            describedAs(coverSha, "COVER", "image/jpeg", "capa.jpg"),
+            describedAs(pdfSha, "SOURCE_PDF", "application/pdf", "fonte.pdf"),
+          ],
+          coverAsset: coverSha,
+          sourcePdfAsset: pdfSha,
           nodes: first.nodes.map((node, index) => ({
             ...node,
             bodyLatex: index === 0 ? "Juros simples incidem só sobre o capital." : "",
+            deletedAt: index === 1 ? "2026-09-01T12:00:00.000Z" : null,
             anchors:
               index === 0
                 ? [
                     {
-                      asset: sha,
+                      asset: pdfSha,
+                      cropAsset: figureSha,
                       pageNumber: 3,
                       box: { x: 0.1, y: 0.2, width: 0.8, height: 0.3 },
-                      role: "PRIMARY",
+                      rotation: null,
+                      role: "ILLUSTRATION",
                       sourceText: "Juros Simples",
                       extractionMethod: "scan:book-v1@1",
                       extractionModel: null,
+                      metadataJson: null,
                     },
                   ]
                 : [],
+            question:
+              node.question === null
+                ? null
+                : {
+                    ...node.question,
+                    assets: [describedAs(figureSha, "QUESTION_IMAGE", "image/webp", "grafico.webp")],
+                  },
           })),
         },
       ],
     };
 
     const bytes = await writeArchive({
-      workspace: withBody,
-      assets: [{ sha256: sha, extension: ".pdf", bytes: pdf }],
+      workspace: full,
+      assets: [
+        { sha256: pdfSha, extension: ".pdf", bytes: pdf },
+        { sha256: coverSha, extension: ".jpg", bytes: cover },
+        { sha256: figureSha, extension: ".webp", bytes: figure },
+      ],
       appVersion: "1.0",
-      exportedAt: "2026-09-16T00:00:00Z",
+      exportedAt: "2026-10-28T00:00:00Z",
     });
     const read = await readArchive(bytes);
 
-    expect(read.manifest.formatVersion).toBe(2);
-    expect(read.workspace).toEqual(withBody);
-    expect(read.assets.map((asset) => asset.sha256)).toEqual([sha]);
+    expect(read.manifest.formatVersion).toBe(3);
+    expect(read.workspace).toEqual(full);
+    expect(read.assets.map((asset) => asset.sha256).sort()).toEqual([pdfSha, coverSha, figureSha].sort());
   });
 });
+

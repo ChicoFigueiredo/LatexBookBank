@@ -8,7 +8,6 @@ import {
   type PortableManifest,
   type PortableWorkspace,
 } from "./portable-schema";
-import { migrateToCurrent } from "./portable-migrations";
 
 /**
  * O `.lbb`: um zip com manifesto, dados e assets endereçados por conteúdo.
@@ -153,11 +152,7 @@ export async function readArchive(bytes: Uint8Array): Promise<ReadOutput> {
 
   return {
     manifest,
-    // O arquivo antigo sai daqui já no formato de hoje: quem importa não precisa saber de versões.
-    workspace: migrateToCurrent(
-      JSON.parse(decoder.decode(dataBytes)) as PortableWorkspace,
-      manifest.formatVersion,
-    ),
+    workspace: JSON.parse(decoder.decode(dataBytes)) as PortableWorkspace,
     assets,
   };
 }

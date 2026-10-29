@@ -11,7 +11,7 @@ import { seedBookWithSource } from "./support/scan-seed";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 /**
- * O `.lbb` v2 contra o banco (ADR 0001, D50): um livro escaneado e aprovado sai com o corpo das
+ * Um livro escaneado contra o banco (ADR 0001, D50): o livro aprovado sai no `.lbb` com o corpo das
  * seções, as âncoras de cada nó e o PDF fonte — e volta igual numa biblioteca nova.
  */
 
@@ -60,7 +60,7 @@ describe("exportar e importar um livro escaneado", () => {
     });
 
     const read = await readArchive(bytes);
-    expect(read.manifest.formatVersion).toBe(2);
+    expect(read.manifest.formatVersion).toBe(3);
     const report = await writeImportedWorkspace(toRuntime(read.workspace), read.assets, storage);
     expect(report.missingAssets).toEqual([]);
 

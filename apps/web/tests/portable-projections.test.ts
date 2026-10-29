@@ -41,9 +41,16 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
       volume: "2",
       notes: "exemplar anotado",
       authors: ["Iezzi, Gelson", "Murakami, Carlos"],
+      publicationDate: "2019-03-01T00:00:00.000Z",
+      captureProfileId: "book-v1",
       legacyId: 7,
       legacyUuid: "legacy-uuid-1",
+      legacyUpdatedAt: "2020-01-02T03:04:05.000Z",
       metadataJson: '{"series":"concursos"}',
+      assets: [
+        { sha256: "aa11", kind: "COVER", mimeType: "image/jpeg", originalFilename: "capa.jpg", width: 600, height: 900, metadataJson: null },
+        { sha256: "bb22", kind: "SOURCE_PDF", mimeType: "application/pdf", originalFilename: "jd3.pdf", width: null, height: null, metadataJson: null },
+      ],
       coverAssetSha256: "aa11",
       sourcePdfAssetSha256: "bb22",
       nodes: [
@@ -52,21 +59,26 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           parentId: null,
           kind: "CHAPTER",
           title: "Juros Simples",
+          slug: "juros-simples",
           sortKey: "a0",
           numberingStyle: "ROMAN",
           originalLabel: "I",
           legacyId: 100,
+          deletedAt: null,
           question: null,
           bodyLatex: "Juros simples incidem só sobre o capital.",
           anchors: [
             {
               sha256: "bb22",
+              cropSha256: "cc33",
               pageNumber: 12,
               box: { x: 0.1, y: 0.2, width: 0.8, height: 0.05 },
+              rotation: 90,
               role: "PRIMARY",
               sourceText: "Capítulo I — Juros Simples",
               extractionMethod: "scan:book-v1@1",
               extractionModel: null,
+              metadataJson: '{"itemKey":"k"}',
             },
           ],
         },
@@ -75,10 +87,12 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           parentId: "uuid-node-1",
           kind: "QUESTION",
           title: null,
+          slug: null,
           sortKey: "a1",
           numberingStyle: "ARABIC",
           originalLabel: "1",
           legacyId: 101,
+          deletedAt: "2026-09-01T12:00:00.000Z",
           bodyLatex: "",
           anchors: [],
           question: {
@@ -101,7 +115,10 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
             validationStatus: "VALID",
             legacyId: 101,
             tags: ["juros simples"],
-            assetSha256: ["bb22", "aa11"],
+            assets: [
+              { sha256: "cc33", kind: "QUESTION_IMAGE", mimeType: "image/png", originalFilename: "fig3.png", width: 320, height: 200, metadataJson: null },
+              { sha256: "aa11", kind: "ATTACHMENT", mimeType: "image/jpeg", originalFilename: null, width: null, height: null, metadataJson: '{"x":1}' },
+            ],
             options: [
               {
                 id: "uuid-o-1",
@@ -173,7 +190,10 @@ describe("runtime → portable", () => {
     const portable = toPortable(runtime());
 
     expect(portable.tags.map((tag) => tag.name)).toEqual(["álgebra", "juros simples"]);
-    expect(portable.publications[0]?.nodes[1]?.question?.assets).toEqual(["aa11", "bb22"]);
+    expect(portable.publications[0]?.nodes[1]?.question?.assets.map((asset) => asset.sha256)).toEqual([
+      "aa11",
+      "cc33",
+    ]);
   });
 });
 
@@ -204,34 +224,6 @@ describe("round-trip das projeções", () => {
     // Na ordem em que assinam: quem assina primeiro assina primeiro, e é dela que a estante tira
     // "Iezzi e outros".
     expect(livro?.authors).toEqual(["Iezzi, Gelson", "Murakami, Carlos"]);
-  });
-
-  it("arquivo gravado antes destes campos continua importando", () => {
-    // O `.lbb` de ontem não tem a ficha. Ausente vira `null`, e o import não recusa — recusar o
-    // backup de alguém por ele ser antigo é o oposto do que um formato de portabilidade faz.
-    const portable = toPortable(runtime());
-    const antigo = {
-      ...portable,
-      // A ficha é removida do arquivo para simular o `.lbb` de ontem. `Omit` em vez de
-      // desestruturação porque o lint recusa dez variáveis declaradas e não usadas — e ele está
-      // certo: o que interessa aqui é o que **fica**, não o que sai.
-      publications: portable.publications.map((publicacao) => {
-        const copia: Record<string, unknown> = { ...publicacao };
-        for (const campo of [
-          "nickname", "isbn", "otherIdentifier", "edition", "editionYear",
-          "language", "series", "volume", "notes", "authors",
-        ]) {
-          delete copia[campo];
-        }
-        return copia as unknown as (typeof portable.publications)[number];
-      }),
-    };
-
-    const [livro] = toRuntime(antigo).workspace.publications;
-
-    expect(livro?.title).toBe("Juros e Descontos");
-    expect(livro?.isbn).toBeNull();
-    expect(livro?.authors).toEqual([]);
   });
 
   it("**projetar o resultado de novo dá o mesmo arquivo**", () => {
