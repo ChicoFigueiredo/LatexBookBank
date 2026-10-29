@@ -4,6 +4,10 @@ Banco de questões de matemática em LaTeX, local-first, que substitui o aplicat
 preserva o seu acervo de vinte anos. Este arquivo é o glossário: o que cada palavra significa
 neste projeto, e qual usar quando há mais de uma. Não é especificação nem plano.
 
+O nome entre parênteses é o **identificador** do conceito no código, em inglês. As linhas
+_Avoid_ valem para o texto de tela e para a documentação; no código vale o identificador. A regra
+de idioma inteira está na D74 do planejamento.
+
 ## Acervo
 
 **Biblioteca** (`Workspace`):
@@ -67,7 +71,8 @@ que traz só as respostas.
 _Avoid_: resposta certa, answer key (em texto de tela)
 
 **Resolução** (`solutionLatex`):
-O texto que explica como chegar à resposta. Diferente do gabarito, que só diz qual é.
+O texto que explica como chegar à resposta. Diferente do gabarito, que só diz qual é. É o nome
+da aba no editor e da seção no preview rápido.
 _Avoid_: solução, resposta
 
 **Tag**:
@@ -129,7 +134,10 @@ Um retângulo de uma página de um asset fonte, em coordenadas normalizadas de 0
 independentes de resolução. O recorte é derivado dela. Um nó ou uma questão pode ter **várias**
 âncoras, em ordem e cada uma com um papel: um exercício que vira a página, ou uma questão que
 passa da coluna esquerda para a direita, continua sendo um só, com duas ou três âncoras.
-_Avoid_: bounding box, região, coordenadas
+Na proposta de scan a âncora ainda não existe — nenhuma nasce antes da aprovação (D51) —, e o
+item guarda as **regiões** que vão virar âncoras (`ProposedRegion`, `regions`). Na tela, as duas
+se chamam âncora.
+_Avoid_: bounding box, região (em texto de tela), coordenadas
 
 **Papel da âncora**:
 O que uma âncora é para o nó a que pertence: principal, continuação, ilustração, resposta,
@@ -169,9 +177,10 @@ do acervo; revisá-la não mexe em livro nenhum, e aprová-la cria os nós e as 
 Guarda o que o scan propôs ao lado do que a pessoa corrigiu.
 _Avoid_: sugestão, rascunho, importação, resultado do OCR
 
-**Diagnóstico do item**:
+**Diagnóstico do item** (`Diagnostic`):
 O veredito do scan sobre um elemento da proposta, com o motivo junto: **completo**, **suspeito**,
-**incompleto** ou **sem evidência**. Diz o estado *e* por quê — "falta a alternativa D", "tem a
+**incompleto** ou **sem evidência** — no código, `complete`, `suspicious`, `incomplete` e
+`insufficient_evidence`, que a tela diz em português. Diz o estado *e* por quê — "falta a alternativa D", "tem a
 questão 07 dentro" —, e é por ele que a revisão se ordena. Diferente da **confiança**, que é um
 número para ordenar; o diagnóstico é uma frase para decidir.
 _Avoid_: diagnóstico (sem qualificar; confunde com a tela), erro, validação (é da questão)
@@ -200,12 +209,12 @@ zona diz duas coisas ao scan — **o que ignorar** (gabarito não tem estrutura,
 declara zona vê o livro como uma zona só.
 _Avoid_: região (é a âncora de um item), seção (é um tipo de nó), parte (idem)
 
-**Retrato do perfil**:
+**Retrato do perfil** (`CaptureProfileSnapshot`):
 O punhado de dados que a execução guarda do perfil no dia da varredura: rótulo, tipos e tipo
 padrão de questão. É o que mantém a proposta legível e **aprovável** depois que o perfil sai do
 código ([ADR 0008](docs/adr/0008-perfil-que-sai-do-registro.md)). Não guarda comportamento, e por
 isso **editar** a proposta continua exigindo o perfil registrado.
-_Avoid_: snapshot, cópia do perfil, cache
+_Avoid_: snapshot (em texto de tela), cópia do perfil, cache
 
 **Mobília**:
 O que se repete nas páginas sem ser conteúdo: cabeçalho corrido, número de página, nome do
@@ -272,7 +281,8 @@ _Avoid_: preview (sem qualificar), render
 
 **Render**:
 A compilação autoritativa da questão em PDF pelo worker. O que o render mostra é o que sai
-impresso. Um **render job** é uma compilação registrada, com cache por hash do conteúdo.
+impresso. Um **render job** é uma compilação registrada, com cache por hash do conteúdo. Os
+**diagnósticos do render** são os erros e avisos que o log da compilação aponta, com a linha.
 _Avoid_: compilação (fora de documentação técnica), preview
 
 **Perfil LaTeX**:
