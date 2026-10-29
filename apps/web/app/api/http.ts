@@ -27,6 +27,7 @@ import { CyclicMoveError, NodeNotFoundError } from "@modules/document-tree/domai
 import {
   ArchiveTooLargeError,
   CorruptArchiveError,
+  ExportTooLargeError,
   RetiredFormatVersionError,
   UnknownFormatVersionError,
 } from "@modules/portability/domain/portable-schema";
@@ -346,6 +347,8 @@ const rules = (): readonly ErrorRule[] =>
     on(RetiredFormatVersionError, 422, "retired_format_version"),
     on(UnknownFormatVersionError, 422, "unknown_format_version"),
     on(CorruptArchiveError, 422, "corrupt_archive"),
+    // Exportação. 409: o pedido está certo, o que o recusa é o tamanho da biblioteca.
+    on(ExportTooLargeError, 409, "export_too_large"),
   ]);
 
 /** A mensagem do conflito de versão diz o que mudou, na língua da tela. */

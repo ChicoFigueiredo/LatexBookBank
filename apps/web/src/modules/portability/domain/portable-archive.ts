@@ -3,6 +3,7 @@ import { Unzip, UnzipInflate, zipSync } from "fflate";
 import {
   ARCHIVE_EXTENSIONS,
   ArchiveTooLargeError,
+  ExportTooLargeError,
   assertKnownVersion,
   assetPath,
   CorruptArchiveError,
@@ -11,8 +12,10 @@ import {
   type PortableWorkspace,
 } from "./portable-schema";
 import { parseManifest, parsePortableWorkspace, readDeclaredVersion } from "./portable-validation";
+import { MAX_ARCHIVE_BYTES } from "./archive-size";
 
-export { ArchiveTooLargeError } from "./portable-schema";
+export { ArchiveTooLargeError, ExportTooLargeError } from "./portable-schema";
+export { MAX_ARCHIVE_BYTES };
 
 /**
  * O `.lbb`: um zip com manifesto, dados e assets endereçados por conteúdo.
@@ -67,18 +70,45 @@ export async function sha256Of(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function writeArchive(input: WriteInput): Promise<Uint8Array> {
+/** Megabytes inteiros, para a mensagem que a pessoa lê. */
+const megabytes = (bytes: number): string => `${Math.round(bytes / 1024 / 1024)} MB`;
+
+/**
+ * Escreve o `.lbb` — e recusa o que a leitura recusaria (SEC-03).
+ *
+ * Os tetos são os mesmos de `readArchive`, conferidos sobre o que vai para o zip (cada figura uma
+ * vez), e o arquivo pronto tem de caber no corpo que a rota de import aceita.
+ */
+export async function writeArchive(
+  input: WriteInput,
+  limits: ArchiveLimits = DEFAULT_ARCHIVE_LIMITS,
+): Promise<Uint8Array> {
   const encoder = new TextEncoder();
   const dataBytes = encoder.encode(JSON.stringify(input.workspace, null, 2));
+  if (dataBytes.byteLength > limits.maxDataBytes) {
+    throw new ExportTooLargeError(`os dados passam de ${megabytes(limits.maxDataBytes)}`);
+  }
 
   const files: Record<string, Uint8Array> = { [DATA]: dataBytes };
 
   // Deduplicação por hash: a mesma figura em cinco questões entra **uma** vez no zip.
   const seen = new Set<string>();
+  let total = dataBytes.byteLength;
   for (const asset of input.assets) {
     if (seen.has(asset.sha256)) continue;
     seen.add(asset.sha256);
+    if (asset.bytes.byteLength > limits.maxAssetBytes) {
+      throw new ExportTooLargeError(`um arquivo passa de ${megabytes(limits.maxAssetBytes)}`);
+    }
+    total += asset.bytes.byteLength;
+    if (total > limits.maxTotalBytes) {
+      throw new ExportTooLargeError(`o conteúdo passa de ${megabytes(limits.maxTotalBytes)}`);
+    }
     files[assetPath(asset.sha256, asset.extension)] = asset.bytes;
+  }
+  // Dados, manifesto e um arquivo por figura.
+  if (seen.size + 2 > limits.maxEntries) {
+    throw new ExportTooLargeError(`mais de ${limits.maxEntries} arquivos`);
   }
 
   const manifest: PortableManifest = {
@@ -95,7 +125,13 @@ export async function writeArchive(input: WriteInput): Promise<Uint8Array> {
 
   // `level: 6` e não 9: o ganho dos três últimos níveis é de poucos por cento num acervo cheio de
   // PNG e PDF, que já vêm comprimidos, e custa segundos de CPU em cima de um arquivo grande.
-  return zipSync(files, { level: 6 });
+  const archive = zipSync(files, { level: 6 });
+  // PDF e PNG já vêm comprimidos, e o zip pode sair um pouco maior que o conteúdo: o corpo do
+  // import tem o mesmo teto, e é o arquivo pronto que tem de caber nele.
+  if (archive.byteLength > limits.maxTotalBytes) {
+    throw new ExportTooLargeError(`o arquivo passa de ${megabytes(limits.maxTotalBytes)}`);
+  }
+  return archive;
 }
 
 /**
@@ -105,8 +141,10 @@ export async function writeArchive(input: WriteInput): Promise<Uint8Array> {
  * dizer que tem 10 bytes por entrada e descompactar 20 GB. Os tetos valem sobre o que **sai** do
  * descompactador, contado enquanto sai, e não sobre o que o cabeçalho afirma.
  *
- * O acervo real inteiro tem 109 MB; 64 MB por asset é o teto do próprio storage, e 2 GB no total é
- * folga de vinte vezes. O `data.json` de uma biblioteca de mil questões tem poucos MB.
+ * O acervo real inteiro tem 109 MB; 64 MB por asset é o teto do próprio storage, e 1 GB no total é
+ * folga de quase dez vezes. O `data.json` de uma biblioteca de mil questões tem poucos MB.
+ *
+ * A exportação confere os mesmos tetos (`writeArchive`): o `.lbb` que o app gera, o app lê.
  */
 export interface ArchiveLimits {
   readonly maxEntries: number;
@@ -119,7 +157,7 @@ export const DEFAULT_ARCHIVE_LIMITS: ArchiveLimits = {
   maxEntries: 100_000,
   maxAssetBytes: 64 * 1024 * 1024,
   maxDataBytes: 256 * 1024 * 1024,
-  maxTotalBytes: 2 * 1024 * 1024 * 1024,
+  maxTotalBytes: MAX_ARCHIVE_BYTES,
 };
 
 /** `assets/<ab>/<sha256>.<ext>`, com o diretório igual ao começo do hash. */
