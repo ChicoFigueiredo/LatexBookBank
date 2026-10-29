@@ -79,6 +79,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const full = assembleDocument(walked, {
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
+    ...(profile.singleColumn ? { singleColumn: true } : {}),
   });
 
   /*

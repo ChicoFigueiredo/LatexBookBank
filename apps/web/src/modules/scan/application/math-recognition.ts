@@ -84,7 +84,11 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
         try {
           const mathResult = await recognizeItem(recognizer, pdf, item);
           calls += item.regions.length;
-          await save({ upserts: [{ ...item, mathResult }], deletedIds: [] });
+          // A saída do modelo é candidata, não conteúdo (CONTEXT.md, *Reconhecimento*): o item
+          // sugerido volta a pedir revisão, a mesma regra do reprocessar à mão (#250, SPG-07).
+          // Sem isto, "Aprovar com sugeridos" levava ao acervo LaTeX que ninguém abriu.
+          const reviewState = item.reviewState === "AUTO_ACCEPTABLE" ? "NEEDS_REVIEW" : item.reviewState;
+          await save({ upserts: [{ ...item, mathResult, reviewState }], deletedIds: [] });
         } catch (error) {
           if (!(error instanceof MathRecognitionError)) throw error;
           calls += 1;

@@ -349,6 +349,13 @@ export const bookFmeV1: CaptureProfile = {
   description:
     "A coleção do Iezzi, onze volumes: capítulo em romano, seções I–X, itens de teoria numerados, blocos E X E R C Í C I O S, questões de vestibular no fim e dois gabaritos, que não são varridos.",
   kinds: ["CHAPTER", "SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "EXERCISE", "QUESTION", "ITEM", "NOTE", "FIGURE"],
+  /*
+    A coleção é diagramada em uma coluna. O que parece coluna dupla é a grade dos itens curtos —
+    `a)` e `b)` lado a lado, `c)` e `d)` embaixo —, e a detecção de colunas a lia como duas
+    colunas: o volume 1 saía com os itens a, c, b, d, e a coluna da direita caía no último
+    exercício da página. As alternativas da zona de vestibulares são a mesma grade.
+  */
+  singleColumn: true,
   settings: {
     // O corpo do livro é discursivo; a zona de vestibular carimba múltipla escolha por item.
     defaultQuestionType: "DISCURSIVE",
