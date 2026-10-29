@@ -1,5 +1,4 @@
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -28,7 +27,9 @@ const TITULO_PDF = "Fundamentos de Matemática Elementar";
 const TITULO_SEM_PDF = "Livro só em EPUB";
 
 test.beforeAll(async () => {
-  root = await mkdtemp(path.join(tmpdir(), "lbb-e2e-calibre-"));
+  // Dentro da `CALIBRE_LIBRARY_ROOT` que o `e2e/server.ts` dá ao servidor: fora dela o catálogo
+  // recusa a pasta (C3, #256). `__dirname`, porque o Playwright carrega o spec como CommonJS.
+  root = await mkdtemp(path.join(__dirname, "..", "data", "e2e", "calibre", "lbb-e2e-calibre-"));
 
   await writeCalibreMetadata(root, [
     `insert into authors (id, name) values (1, 'Iezzi, Gelson')`,
