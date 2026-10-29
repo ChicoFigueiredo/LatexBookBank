@@ -1,6 +1,6 @@
 import { isAnchorRole, type AnchorRole } from "@modules/assets/domain/node-anchors";
 import { normalizeAnchor, type NormalizedBox } from "@modules/assets/domain/source-anchor";
-import { escapeLatexText } from "@modules/recognition/domain/latex-escape";
+import { escapeLatexText } from "@modules/latex/domain/latex-escape";
 
 import type { CaptureProfile } from "./capture-profile";
 import { isScanKind, type ProposedRegion, type ScanKind } from "./proposal";
