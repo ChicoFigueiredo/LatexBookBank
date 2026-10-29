@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { getScan } from "@modules/scan/application/control-scan";
+import { scanRunDto } from "@modules/scan/application/scan-run-dto";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { scanRunDto } from "../scan-dto";
 import { toScanErrorResponse } from "../scan-http";
 
 /**
