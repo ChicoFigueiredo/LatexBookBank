@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,7 +15,13 @@ import {
 } from "@latexbookbank/render-contract";
 
 import { hasErrors, parseLatexLog, toBodyRelative } from "./diagnostics.ts";
-import { bodyWithFormat, ensureFormat, FORMATS_DIR } from "./format-cache.ts";
+import {
+  bodyWithFormat,
+  discardFormat,
+  ensureFormat,
+  FORMATS_DIR,
+  isFormatFailure,
+} from "./format-cache.ts";
 import { PARANOID_FILE_ACCESS } from "./tex-sandbox.ts";
 
 /**
@@ -151,6 +157,11 @@ export async function compile(
 ): Promise<CompileOutcome> {
   const now = deps.now ?? (() => Date.now());
   const startedAt = now();
+  // Um prazo para o job inteiro, e não um por etapa: o contrato promete "teto de tempo do job", e
+  // com o `timeoutMs` passado a cada etapa, formato + três passadas + PNG davam até cinco vezes
+  // isso — o cliente desistia antes, dizia "worker fora do ar", e o `pdflatex` seguia rodando.
+  const deadline = startedAt + bundle.options.timeoutMs;
+  const remaining = (): number => deadline - now();
 
   validateRenderBundle(bundle);
 
@@ -193,52 +204,21 @@ export async function compile(
     // O preâmbulo domina o custo: medido nesta imagem, 1886 ms sem formato contra 508 ms com ele.
     // `null` significa "não deu" — e aí compila do jeito normal, porque uma otimização que
     // quebra o produto quando falha não é otimização.
-    const format = await ensureFormat(bundle.profile, bundle.options.timeoutMs);
+    // Sem prazo sobrando não há formato a montar — e um `timeout: 0` no `execFile` seria "sem
+    // limite", o contrário do que se quer.
+    const format = remaining() > 0 ? await ensureFormat(bundle.profile, remaining()) : null;
 
-    await writeFile(
-      join(dir, "main.tex"),
-      format === null ? buildDocument(bundle) : bodyWithFormat(bundle.sourceLatex),
-      "utf8",
-    );
+    let attempt = await runPasses(bundle, dir, format, remaining, deps.signal);
 
-    /**
-     * Quantas linhas existem **antes** do corpo no arquivo que acabou de ser escrito.
-     *
-     * Sai daqui, e não de uma constante, porque o número depende do caminho que a compilação
-     * tomou: com formato é só o `\begin{document}`; sem ele, a classe mais o preâmbulo inteiro.
-     * Calcular isto longe da escrita seria a mesma decisão em dois lugares.
-     */
-    const bodyOffset = format === null ? 1 + bundle.profile.preamble.length + 1 : 1;
-
-    let stdout = "";
-    let stderr = "";
-    let timedOut = false;
-
-    for (let pass = 0; pass < bundle.options.passes; pass += 1) {
-      const outcome = await run(
-        PDFLATEX,
-        [
-          // Sem parada interativa: sem isto, um erro faz o `pdflatex` esperar entrada para sempre
-          // e o job só termina no timeout.
-          "-interaction=nonstopmode",
-          "-halt-on-error",
-          "-no-shell-escape",
-          "-file-line-error",
-          ...(format === null ? [] : [`-fmt=${format}`]),
-          "-output-directory",
-          dir,
-          "main.tex",
-        ],
-        dir,
-        bundle.options.timeoutMs,
-        deps.signal,
-      );
-
-      stdout += outcome.stdout;
-      stderr += outcome.stderr;
-      timedOut = outcome.timedOut;
-      if (timedOut) break;
+    if (format !== null && attempt.pdf === null && isFormatFailure(attempt.stdout)) {
+      // O `.fmt` estava estragado — um `-ini` morto no meio do `\dump`, por exemplo. Ele sai da
+      // pasta (a próxima compilação do perfil o reconstrói) e este job compila sem ele, em vez de
+      // devolver "Fatal format file error" como se fosse erro do documento.
+      await discardFormat(format);
+      attempt = await runPasses(bundle, dir, null, remaining, deps.signal);
     }
+
+    const { stdout, stderr, timedOut, pdf: pdfBytes, bodyOffset } = attempt;
 
     const diagnostics = timedOut
       ? [
@@ -252,8 +232,6 @@ export async function compile(
       : // O log conta a partir do `\documentclass`; o `RenderDiagnostic.line` promete a linha do
         // `sourceLatex`. É aqui que a promessa passa a ser verdade.
         toBodyRelative(parseLatexLog(stdout), bodyOffset);
-
-    const pdfBytes = await readFileOrNull(join(dir, "main.pdf"));
 
     if (pdfBytes === null) {
       return {
@@ -282,10 +260,25 @@ export async function compile(
     }
 
     const artifacts = new Map<string, Buffer>([["main.pdf", pdfBytes]]);
+    const pngBudget = remaining();
+    if (pngBudget <= 0) {
+      return {
+        result: failure(bundle, deps.rendererVersion, now() - startedAt, "timeout", [
+          {
+            severity: "error",
+            message: `A compilação passou de ${bundle.options.timeoutMs} ms e foi interrompida.`,
+            line: null,
+            file: null,
+          },
+        ]),
+        artifacts: new Map(),
+      };
+    }
+
     const pngDescriptors = await renderPngs(
       dir,
       bundle.options.dpi,
-      bundle.options.timeoutMs,
+      pngBudget,
       artifacts,
       deps.signal,
     );
@@ -319,6 +312,86 @@ export async function compile(
   }
 }
 
+interface PassesOutcome {
+  /** O log da **última** passada: as anteriores repetiriam os mesmos avisos e erros. */
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly timedOut: boolean;
+  readonly pdf: Buffer | null;
+  /** Quantas linhas existem antes do corpo no `main.tex` escrito. */
+  readonly bodyOffset: number;
+}
+
+/**
+ * Escreve o `main.tex` e roda as passadas do `pdflatex`, com o que sobra do prazo do job.
+ *
+ * Para na primeira passada que não produz PDF: as seguintes dariam o mesmo erro, gastando o prazo
+ * e repetindo cada diagnóstico uma vez por passada.
+ */
+async function runPasses(
+  bundle: RenderBundle,
+  dir: string,
+  format: string | null,
+  remaining: () => number,
+  signal: AbortSignal | undefined,
+): Promise<PassesOutcome> {
+  await rm(join(dir, "main.pdf"), { force: true });
+  await writeFile(
+    join(dir, "main.tex"),
+    format === null ? buildDocument(bundle) : bodyWithFormat(bundle.sourceLatex),
+    "utf8",
+  );
+
+  /**
+   * Quantas linhas existem **antes** do corpo no arquivo que acabou de ser escrito.
+   *
+   * Sai daqui, e não de uma constante, porque o número depende do caminho que a compilação
+   * tomou: com formato é só o `\begin{document}`; sem ele, a classe mais o preâmbulo inteiro.
+   * Calcular isto longe da escrita seria a mesma decisão em dois lugares.
+   */
+  const bodyOffset = format === null ? 1 + bundle.profile.preamble.length + 1 : 1;
+
+  let stdout = "";
+  let stderr = "";
+  let timedOut = false;
+  let pdf: Buffer | null = null;
+
+  for (let pass = 0; pass < bundle.options.passes; pass += 1) {
+    const budget = remaining();
+    if (budget <= 0) {
+      timedOut = true;
+      break;
+    }
+
+    const outcome = await run(
+      PDFLATEX,
+      [
+        // Sem parada interativa: sem isto, um erro faz o `pdflatex` esperar entrada para sempre
+        // e o job só termina no timeout.
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "-no-shell-escape",
+        "-file-line-error",
+        ...(format === null ? [] : [`-fmt=${format}`]),
+        "-output-directory",
+        dir,
+        "main.tex",
+      ],
+      dir,
+      budget,
+      signal,
+    );
+
+    stdout = outcome.stdout;
+    stderr = outcome.stderr;
+    timedOut = outcome.timedOut;
+    pdf = timedOut ? null : await readFileOrNull(join(dir, "main.pdf"));
+    if (timedOut || pdf === null) break;
+  }
+
+  return { stdout, stderr, timedOut, pdf, bodyOffset };
+}
+
 async function readFileOrNull(path: string): Promise<Buffer | null> {
   try {
     return await readFile(path);
@@ -341,21 +414,26 @@ async function renderPngs(
   artifacts: Map<string, Buffer>,
   signal?: AbortSignal,
 ): Promise<readonly RenderArtifactDescriptor[]> {
+  // Num subdiretório só das páginas: as figuras do bundle moram em `dir`, e uma figura chamada
+  // `page-3.png` — saída típica do próprio `pdftoppm` — saía como mais uma página do documento.
+  const out = join(dir, "out");
+  await mkdir(out);
+
   await run(
     PDFTOCAIRO,
-    ["-png", "-r", String(dpi), join(dir, "main.pdf"), join(dir, "page")],
+    ["-png", "-r", String(dpi), join(dir, "main.pdf"), join(out, "page")],
     dir,
     timeoutMs,
     signal,
   );
 
-  const names = (await readdir(dir))
-    .filter((name) => name.startsWith("page") && name.endsWith(".png"))
+  const names = (await readdir(out))
+    .filter((name) => /^page-\d+\.png$/.test(name))
     .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 
   const descriptors: RenderArtifactDescriptor[] = [];
   for (const name of names) {
-    const bytes = await readFile(join(dir, name));
+    const bytes = await readFile(join(out, name));
     artifacts.set(name, bytes);
     descriptors.push({
       name,

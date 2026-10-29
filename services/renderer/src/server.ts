@@ -170,7 +170,14 @@ async function postRender(request: Request, store: JobStore, deps: ServerDeps): 
     assets.set(asset.name, Buffer.from(await part.arrayBuffer()));
   }
 
-  store.enqueue(bundle.jobId);
+  if (!store.enqueue(bundle.jobId)) {
+    // O id é de quem o abriu primeiro. Responder com o job de outro seria entregar a quem pediu os
+    // artefatos de outra compilação — de outra questão, ou de outro usuário.
+    return problem(
+      409,
+      `Já há um job \`${bundle.jobId}\` em andamento; cada compilação usa um id próprio.`,
+    );
+  }
   if (!store.start(bundle.jobId)) {
     return problem(409, "O job foi cancelado antes de começar.");
   }
