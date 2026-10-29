@@ -13,7 +13,7 @@ import {
 } from "@/shared/ports";
 import { env } from "@/shared/config/env";
 
-import { profileForBaseUrl, type AiProfile } from "../domain/ai-profile";
+import { capabilitiesFor, profileForBaseUrl, type AiProfile } from "../domain/ai-profile";
 
 /**
  * O provider — **um só**, com `baseURL` configurável (D3).
@@ -62,6 +62,22 @@ function toWire(message: AiMessage): WireMessage {
       // O erro vai como **conteúdo**, não como exceção: o modelo precisa ler que a tool falhou
       // para tentar outra coisa. Abortar aqui transformaria um erro recuperável em fim de fluxo.
       content: message.result.isError ? `ERRO: ${message.result.output}` : message.result.output,
+    };
+  }
+  if (
+    message.role === "assistant" &&
+    message.toolCalls !== undefined &&
+    message.toolCalls.length > 0
+  ) {
+    return {
+      role: "assistant",
+      // Mensagem que só chama ferramenta vai com `content: null`, como a API documenta.
+      content: message.content === "" ? null : message.content,
+      tool_calls: message.toolCalls.map((call) => ({
+        id: call.id,
+        type: "function",
+        function: { name: call.name, arguments: JSON.stringify(call.input ?? {}) },
+      })),
     };
   }
   return { role: message.role, content: message.content };
@@ -188,12 +204,13 @@ export class OpenAiCompatibleProvider implements AiProvider {
  * painel desabilitado em vez de a aplicação não subir.
  */
 export function providerFromEnv(): OpenAiCompatibleProvider | null {
-  const { aiBaseUrl, aiApiKey, aiModel } = env();
+  const { aiBaseUrl, aiApiKey, aiModel, aiToolCalling } = env();
   if (!aiBaseUrl) return null;
 
   return new OpenAiCompatibleProvider({
     baseUrl: aiBaseUrl,
     apiKey: aiApiKey,
+    capabilities: capabilitiesFor(aiBaseUrl, { toolCalling: aiToolCalling }),
     ...(aiModel ? { defaultModel: aiModel } : {}),
   });
 }

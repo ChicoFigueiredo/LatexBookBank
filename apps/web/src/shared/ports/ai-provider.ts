@@ -50,7 +50,17 @@ export interface AiToolResult {
 }
 
 export type AiMessage =
-  | { readonly role: "system" | "user" | "assistant"; readonly content: string }
+  | { readonly role: "system" | "user"; readonly content: string }
+  | {
+      readonly role: "assistant";
+      readonly content: string;
+      /**
+       * As chamadas que o assistente fez nesta mensagem. A OpenAI e o OpenRouter recusam com 400
+       * uma mensagem `tool` que não responda a uma `tool_calls` anterior — o Ollama aceita, e foi
+       * por isso que a falta passou despercebida.
+       */
+      readonly toolCalls?: readonly AiToolCall[];
+    }
   | { readonly role: "tool"; readonly result: AiToolResult };
 
 export interface AgentRequest {

@@ -4,6 +4,9 @@ import {
   OpenAiCompatibleProvider,
   parseCompletion,
 } from "@modules/agents/infrastructure/openai-compatible-provider";
+import { runAgentTurn } from "@modules/agents/application/run-agent-turn";
+import { EMPTY_CONTEXT } from "@modules/agents/domain/agent-context";
+import type { AgentTool } from "@modules/agents/domain/tool-contract";
 import { AiCredentialMissingError, AiProviderError } from "@/shared/ports";
 
 /**
@@ -337,5 +340,105 @@ describe("leitura da resposta", () => {
 
   it("resposta sem escolha nenhuma é erro, não texto vazio", () => {
     expect(() => parseCompletion({ choices: [] }, "custom")).toThrow(AiProviderError);
+  });
+});
+
+describe("turno com ferramenta, contra a regra da OpenAI", () => {
+  /**
+   * O endpoint como a OpenAI e o OpenRouter se comportam: uma mensagem `tool` só é aceita depois
+   * de uma do assistente cujas `tool_calls` tragam aquele id. O Ollama é tolerante e aceita sem a
+   * chamada — foi por isso que a verificação manual não pegou o 400.
+   */
+  function stubStrictEndpoint(responses: unknown[]) {
+    const bodies: { messages: Record<string, unknown>[] }[] = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init: RequestInit) => {
+        const body = JSON.parse(String(init.body)) as { messages: Record<string, unknown>[] };
+        bodies.push(body);
+
+        const answered = new Set<string>();
+        for (const message of body.messages) {
+          if (message["role"] === "assistant") {
+            answered.clear();
+            for (const call of (message["tool_calls"] ?? []) as { id: string }[]) {
+              answered.add(call.id);
+            }
+          } else if (message["role"] === "tool" && !answered.has(String(message["tool_call_id"]))) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  error: {
+                    message:
+                      "Invalid parameter: messages with role 'tool' must be a response to a " +
+                      "preceeding message with 'tool_calls'.",
+                  },
+                }),
+                { status: 400, headers: { "content-type": "application/json" } },
+              ),
+            );
+          }
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify(responses.shift()), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }),
+    );
+
+    return bodies;
+  }
+
+  const readQuestion: AgentTool = {
+    name: "buscar_questao",
+    description: "Lê a questão pelo id, com enunciado e alternativas.",
+    inputSchema: { type: "object" },
+    execute: () => Promise.resolve("Enunciado: quanto é 2 + 2?"),
+  };
+
+  it("a segunda chamada leva as `tool_calls` do assistente, e o turno termina com resposta", async () => {
+    const bodies = stubStrictEndpoint([TOOL_COMPLETION, TEXT_COMPLETION]);
+
+    const outcome = await runAgentTurn({
+      provider: new OpenAiCompatibleProvider(OPENROUTER),
+      model: "openai/gpt-4o",
+      tools: [readQuestion],
+      context: EMPTY_CONTEXT,
+      prompt: "Qual é a alternativa correta?",
+    });
+
+    expect(outcome.record.error).toBeUndefined();
+    expect(outcome.record.state).toBe("DONE");
+    expect(outcome.answer).toBe("A alternativa correta é a **C**.");
+
+    // Sem texto, o assistente vai com `content: null`, que é o que a API documenta para a
+    // mensagem que só chama ferramenta.
+    const assistant = bodies[1]?.messages.find((message) => message["role"] === "assistant");
+    expect(assistant).toEqual({
+      role: "assistant",
+      content: null,
+      tool_calls: [
+        {
+          id: "call_a1",
+          type: "function",
+          function: { name: "buscar_questao", arguments: '{"id":"q-42"}' },
+        },
+      ],
+    });
+  });
+
+  it("o assistente que responde em texto continua indo sem `tool_calls`", async () => {
+    const calls = stubFetch(TEXT_COMPLETION);
+    await new OpenAiCompatibleProvider(OPENROUTER).run({
+      model: "m",
+      messages: [{ role: "assistant", content: "Olá." }],
+    });
+
+    const body = JSON.parse(String(calls[0]?.init.body)) as { messages: unknown[] };
+    expect(body.messages[0]).toEqual({ role: "assistant", content: "Olá." });
   });
 });

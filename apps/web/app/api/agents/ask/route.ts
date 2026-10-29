@@ -8,6 +8,7 @@ import {
 } from "@modules/agents/application/build-propose-tools";
 import { buildCandidateRenderTool } from "@modules/agents/application/render-candidate";
 import { isAgentMode, profileForMode } from "@modules/agents/domain/agent-mode";
+import { capabilitiesFor } from "@modules/agents/domain/ai-profile";
 import type { AgentMode } from "@modules/agents/domain/agent-run";
 import { diffPatch } from "@modules/agents/domain/patch-diff";
 import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
@@ -84,8 +85,8 @@ export async function POST(request: Request) {
       baseUrl: env.aiBaseUrl,
       apiKey: env.aiApiKey,
       // `AI_TOOL_CALLING=true` corrige o perfil quando o modelo sabe mais do que ele assume —
-      // `qwen3-coder:30b` no Ollama, por exemplo.
-      ...(env.aiToolCalling ? { capabilities: { toolCalling: true } } : {}),
+      // `qwen3-coder:30b` no Ollama, por exemplo. A regra é a mesma que o /diagnostico mostra.
+      capabilities: capabilitiesFor(env.aiBaseUrl, { toolCalling: env.aiToolCalling }),
     });
 
     // No modo `REVIEW` o agente ganha as tools de proposta — que **não** escrevem: elas guardam o
