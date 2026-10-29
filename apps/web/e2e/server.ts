@@ -28,13 +28,17 @@ const root = path.join(app, "data", "e2e");
 
 rmSync(root, { recursive: true, force: true });
 mkdirSync(path.join(root, "storage"), { recursive: true });
+// A raiz do Calibre também é do E2E (C3, #256): o catálogo só abre pasta dentro dela, e o spec
+// do Calibre monta a biblioteca de mentira aqui dentro.
+mkdirSync(path.join(root, "calibre"), { recursive: true });
 
-// O `.env.local` continua valendo para o resto (worker de render, IA); estas três chaves vêm
+// O `.env.local` continua valendo para o resto (worker de render, IA); estas quatro chaves vêm
 // antes dele — nem o Next, nem o Prisma, nem o Bun sobrescrevem o que já está no ambiente.
 const env = {
   ...process.env,
   DATABASE_URL: `file:${path.join(root, "latexbookbank.db")}`,
   STORAGE_ROOT: path.join(root, "storage"),
+  CALIBRE_LIBRARY_ROOT: path.join(root, "calibre"),
   LBB_INSTANCE: "e2e",
 };
 
