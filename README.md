@@ -59,26 +59,41 @@ apaga o acervo, e a rede local, o DNS rebinding e o CSRF ficam de fora por essas
 
 ```
 apps/web/
-├─ app/                       # App Router
+├─ app/                       # App Router — a raiz de composição; api/http.ts traduz erro
 └─ src/
    ├─ modules/                # domínio, por área de negócio
    │  └─ <módulo>/  domain/ · application/ · infrastructure/ · ui/
    ├─ design-system/          # tokens + componentes
-   ├─ shared/
-   └─ infrastructure/         # as quatro fronteiras primárias
-      ├─ database/   sqlite/ · postgres/
-      ├─ storage/    local/ · vercel-blob/
-      ├─ rendering/  worker/
-      └─ ai/         openai-compatible/
+   ├─ shared/                 # portas, env(), cliente HTTP da tela, camada de texto do PDF
+   └─ infrastructure/         # só o transversal: composition.ts, banco, storage local, IA
+packages/render-contract/     # o RenderBundle e o RenderResult
+services/renderer/ · backup/
 ```
+
+O adaptador de um módulo mora no `infrastructure/` dele; `src/infrastructure` guarda o que é de
+todos. A árvore completa está na [§4.6 do planejamento](docs/_atual/_planejamento.md).
 
 ## Convenções
 
-**Fluxo obrigatório.** Nada pula etapas:
+**Fluxo obrigatório.** A escrita não pula etapa:
 
 ```
-UI → Route Handler (Zod) → Use Case → Domain → Repository/Provider → Infraestrutura concreta
+UI (cliente tipado) → Route Handler → Use Case → Domain → Repository/Provider → Infraestrutura
 ```
+
+- A **leitura** de tela é do Server Component, que lê o read model da infraestrutura do módulo
+  direto, sem rota no meio. Página nunca escreve.
+- A rota lê e recusa a entrada **à mão**, e o domínio aceita `unknown` quando é ele quem sabe se o
+  dado serve; Zod só onde o schema é rico (o patch do agente, o `.lbb`, a resposta da IA).
+- A resposta tem **contrato**: o tipo mora em `modules/<m>/application/*-contract.ts`, a rota o
+  anota com `satisfies`, e a tela o lê pelo cliente `modules/<m>/ui/*-client.ts`
+  ([ADR 0010](docs/adr/0010-o-contrato-da-rota-e-um-tipo.md)).
+- O **erro** se traduz numa tabela só, `app/api/http.ts`
+  ([ADR 0011](docs/adr/0011-a-borda-traduz-o-erro.md)).
+- As portas transversais saem de `src/infrastructure/composition.ts`, que lê o ambiente por
+  `env()`: funções, e não container.
+
+O desenho inteiro está na [§4.4 do planejamento](docs/_atual/_planejamento.md).
 
 **As quatro fronteiras primárias de infraestrutura.** São os pontos onde o produto toca o mundo:
 `Repository` · `StorageProvider` · `RenderExecutor` · `AiProvider`. O domínio não conhece
@@ -88,16 +103,22 @@ implementação concreta de nenhuma.
 `MathRecognitionProvider`, `QuestionSearchService`, `PortableArchive`) são legítimos quando
 representam comportamento real. Antes de criar qualquer interface, a pergunta de controle:
 
-> Existe mais de uma implementação real, ou uma fronteira arquitetural importante?
+> Existe mais de uma implementação real, uma fronteira arquitetural importante, ou um caso de uso
+> que precisa rodar em teste sem I/O real (um dublê em memória)?
 
-Se não, provavelmente não precisa de interface. Sem factory sem uso, sem abstração de uma linha,
-sem DI framework, sem service locator.
+Se não, provavelmente não precisa de interface — e a que se justifica pelo teste precisa ter o
+dublê. Sem factory sem uso, sem abstração de uma linha, sem DI framework, sem service locator.
 
 **Fronteiras verificadas por lint, não por disciplina.** `domain/**` não importa `prisma`, `next`,
 `node:fs`, SDK de storage nem SDK de IA, e não executa `pdflatex`. Componente React não importa
-Prisma. O renderer não conhece storage, banco, `Workspace` nem Prisma.
+Prisma nem infraestrutura de módulo. O renderer não conhece storage, banco, `Workspace` nem Prisma.
+Ciclo entre módulos quebra a suíte, fora o único nomeado (`document-tree ↔ questions`).
 
-**Idioma.** Documentação em pt-BR; código, identificadores e mensagens de commit em inglês.
+**Idioma** (D74). Identificadores, nomes de arquivo de código, rotas de API e códigos de erro em
+inglês; o termo do glossário entra pelo identificador que o [CONTEXT.md](CONTEXT.md) dá. Em pt-BR:
+documentação, comentários, texto de tela — que segue o glossário —, mensagens de commit e o nome e
+a descrição dos testes. Dado gravado não é identificador, e caminho de página é endereço: ficam
+como estão. O português que sobrou no código é renomeado quando o arquivo for mexido.
 
 **Definition of Done.** Ver [checklist §14](docs/_atual/_checklist.md). Um item só é marcado
 quando existe código, teste, relatório ou comando que prove.

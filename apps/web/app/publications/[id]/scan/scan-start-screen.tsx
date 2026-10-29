@@ -170,7 +170,7 @@ export function ScanStartScreen({
               { label: "Bibliotecas", href: "/bibliotecas" },
               { label: library.name, href: `/bibliotecas/${library.slug}` },
             ]
-          : [{ label: "Publicações", href: "/publicacoes" }]),
+          : [{ label: "Livros", href: "/publicacoes" }]),
         { label: title, href: `/publications/${publicationId}` },
         { label: "Scan" },
       ]}

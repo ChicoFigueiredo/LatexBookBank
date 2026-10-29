@@ -30,7 +30,7 @@ export interface TabsProps {
 }
 
 /**
- * Navegação intra-painel: Conteúdo · Resposta · Complemento · Metadados · Origem no editor
+ * Navegação intra-painel: Conteúdo · Resolução · Complemento · Metadados · Origem no editor
  * (spec §10), e PDF · PNG · Log · Source no preview (spec §12).
  *
  * Só a aba selecionada é tabulável (`tabIndex` 0/-1) e as setas movem entre elas — é o padrão

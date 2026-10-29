@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 
 import { Badge } from "@/design-system";
+import { QUESTION_FIELD_LABELS } from "@modules/latex/domain/latex-language";
 import { buildPreviewModel, type PreviewSource } from "@modules/preview/domain/build-preview-model";
 import {
   PREVIEW_DISCLAIMER,
@@ -204,7 +205,7 @@ export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps)
             )}
 
             <Section
-              title="Resposta"
+              title={QUESTION_FIELD_LABELS.solutionLatex}
               blocks={model.solution}
               active={cursor?.field === "solution" ? active : null}
               {...(onPick
@@ -212,7 +213,7 @@ export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps)
                 : {})}
             />
             <Section
-              title="Complemento"
+              title={QUESTION_FIELD_LABELS.complementLatex}
               blocks={model.complement}
               active={cursor?.field === "complement" ? active : null}
               {...(onPick

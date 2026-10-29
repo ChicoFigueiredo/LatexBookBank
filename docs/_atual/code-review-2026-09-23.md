@@ -1,6 +1,6 @@
 # Code review do código inteiro — 2026-09-23
 
-> Revisão do código inteiro do LatexBookBank na branch `feat/perfil-do-fundamentos` (`6ba3525`), em seis dimensões, com um plano de ação em issues. **Plano aprovado:** as tarefas P0 e P1 viraram issues sob o épico [#232](https://github.com/ChicoFigueiredo/LatexBookBank/issues/232); as P2 ficam aqui até serem puxadas. **As seis P0 foram feitas em 2026-09-29, e a B2 em 2026-09-30** (coluna Estado).
+> Revisão do código inteiro do LatexBookBank na branch `feat/perfil-do-fundamentos` (`6ba3525`), em seis dimensões, com um plano de ação em issues. **Plano aprovado:** as tarefas P0 e P1 viraram issues sob o épico [#232](https://github.com/ChicoFigueiredo/LatexBookBank/issues/232); as P2 ficam aqui até serem puxadas. **As seis P0 foram feitas em 2026-09-29 e a B2 em 2026-09-30; as outras 41 tarefas, P1 e P2, em 2026-10-29, pelos PRs #274 a #287** (coluna Estado). Só a B7 ficou adiada, por decisão do autor. As decisões da execução estão no `_planejamento.md` (D61 a D74) e nos ADRs 0010 e 0011.
 
 ## Como foi feito
 
@@ -76,12 +76,12 @@ A aprovação é onde a proposta vira acervo. Ela acerta quando o livro é aprov
 | **B1** | [#245](https://github.com/ChicoFigueiredo/LatexBookBank/issues/245) | feita (`4c7a567`) | P0 | M | As alternativas saem também do LaTeX reconhecido ou revisado | [CAP-03](#cap-03), [SPG-01](#spg-01), [CAP-10](#cap-10) |
 | **B2** | [#246](https://github.com/ChicoFigueiredo/LatexBookBank/issues/246) | feita (`990cac7`) | P1 | M | A figura da questão vai para o enunciado, e não para o corpo do nó | [CAP-02](#cap-02), [SPG-02](#spg-02) |
 | **B3** | [#247](https://github.com/ChicoFigueiredo/LatexBookBank/issues/247) | feita (`b1673ae`) | P0 | M | Aprovar em rodadas: 'já no acervo' só casa item compatível, e nó na lixeira não serve de pai | [CAP-01](#cap-01), [CAP-12](#cap-12), [SPG-04](#spg-04), [CAP-11](#cap-11), [TST-06](#tst-06) |
-| **B4** | [#248](https://github.com/ChicoFigueiredo/LatexBookBank/issues/248) | — | P1 | M | Aprovar em rodadas mantém a ordem do livro, na árvore e no corpo | [CAP-04](#cap-04), [CAP-16](#cap-16) |
-| **B5** | [#249](https://github.com/ChicoFigueiredo/LatexBookBank/issues/249) | — | P1 | M | Apagar a importação distingue aprovação posterior de edição à mão | [CAP-09](#cap-09), [SPG-05](#spg-05), [SPG-12](#spg-12) |
-| **B6** | [#250](https://github.com/ChicoFigueiredo/LatexBookBank/issues/250) | — | P1 | M | A revisão da proposta não perde nem inventa trabalho | [CAP-06](#cap-06), [CAP-07](#cap-07), [CAP-17](#cap-17), [SPG-07](#spg-07) |
-| **B7** | [#251](https://github.com/ChicoFigueiredo/LatexBookBank/issues/251) | — | P1 | S | Mudou a proposta, mudou a versão; e a aprovação usa o retrato do perfil | [STM-01](#stm-01), [STM-07](#stm-07), [SPG-10](#spg-10), [CAP-05](#cap-05), [TST-10](#tst-10) |
-| **B8** | [#252](https://github.com/ChicoFigueiredo/LatexBookBank/issues/252) | — | P1 | M | Corpo e exemplo vindos do scan ficam 'a revisar', e duplicar leva o corpo | [SPG-06](#spg-06), [SPG-08](#spg-08) |
-| **B9** | [#253](https://github.com/ChicoFigueiredo/LatexBookBank/issues/253) | — | P1 | S | A fila de captura não some depois de um scan, e a falha não apaga a transcrição | [CAP-08](#cap-08), [CAP-15](#cap-15) |
+| **B4** | [#248](https://github.com/ChicoFigueiredo/LatexBookBank/issues/248) | feita (#279) | P1 | M | Aprovar em rodadas mantém a ordem do livro, na árvore e no corpo | [CAP-04](#cap-04), [CAP-16](#cap-16) |
+| **B5** | [#249](https://github.com/ChicoFigueiredo/LatexBookBank/issues/249) | feita (#279) | P1 | M | Apagar a importação distingue aprovação posterior de edição à mão | [CAP-09](#cap-09), [SPG-05](#spg-05), [SPG-12](#spg-12) |
+| **B6** | [#250](https://github.com/ChicoFigueiredo/LatexBookBank/issues/250) | feita (#279) | P1 | M | A revisão da proposta não perde nem inventa trabalho | [CAP-06](#cap-06), [CAP-07](#cap-07), [CAP-17](#cap-17), [SPG-07](#spg-07) |
+| **B7** | [#251](https://github.com/ChicoFigueiredo/LatexBookBank/issues/251) | adiada (decisão do autor) | P1 | S | Mudou a proposta, mudou a versão; e a aprovação usa o retrato do perfil | [STM-01](#stm-01), [STM-07](#stm-07), [SPG-10](#spg-10), [CAP-05](#cap-05), [TST-10](#tst-10) |
+| **B8** | [#252](https://github.com/ChicoFigueiredo/LatexBookBank/issues/252) | feita (#279) | P1 | M | Corpo e exemplo vindos do scan ficam 'a revisar', e duplicar leva o corpo | [SPG-06](#spg-06), [SPG-08](#spg-08) |
+| **B9** | [#253](https://github.com/ChicoFigueiredo/LatexBookBank/issues/253) | feita (#279) | P1 | S | A fila de captura não some depois de um scan, e a falha não apaga a transcrição | [CAP-08](#cap-08), [CAP-15](#cap-15) |
 
 ### C — Assets: uma linha por dono, e a figura chega ao PDF
 
@@ -89,10 +89,10 @@ A deduplicação por hash devolve a linha de outro livro ou de outra questão; c
 
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
-| **C1** | [#254](https://github.com/ChicoFigueiredo/LatexBookBank/issues/254) | — | P1 | M | Deduplicar o arquivo, e não a linha do Asset | [ACV-06](#acv-06), [CAP-13](#cap-13), [CAP-14](#cap-14) |
-| **C2** | [#255](https://github.com/ChicoFigueiredo/LatexBookBank/issues/255) | — | P1 | S | 'Inserir como figura' leva o recorte ao bundle de render | [ACV-05](#acv-05) |
-| **C3** | [#256](https://github.com/ChicoFigueiredo/LatexBookBank/issues/256) | — | P1 | M | Upload, recorte e Calibre resolvem a biblioteca e a raiz no servidor | [SEC-06](#sec-06), [ACV-12](#acv-12), [SEC-05](#sec-05) |
-| **C4** | [#257](https://github.com/ChicoFigueiredo/LatexBookBank/issues/257) | — | P1 | S | Conteúdo servido com nosniff, e SVG em sandbox | [SEC-04](#sec-04) |
+| **C1** | [#254](https://github.com/ChicoFigueiredo/LatexBookBank/issues/254) | feita (#275) | P1 | M | Deduplicar o arquivo, e não a linha do Asset | [ACV-06](#acv-06), [CAP-13](#cap-13), [CAP-14](#cap-14) |
+| **C2** | [#255](https://github.com/ChicoFigueiredo/LatexBookBank/issues/255) | feita (#275) | P1 | S | 'Inserir como figura' leva o recorte ao bundle de render | [ACV-05](#acv-05) |
+| **C3** | [#256](https://github.com/ChicoFigueiredo/LatexBookBank/issues/256) | feita (#275) | P1 | M | Upload, recorte e Calibre resolvem a biblioteca e a raiz no servidor | [SEC-06](#sec-06), [ACV-12](#acv-12), [SEC-05](#sec-05) |
+| **C4** | [#257](https://github.com/ChicoFigueiredo/LatexBookBank/issues/257) | feita (#275) | P1 | S | Conteúdo servido com nosniff, e SVG em sandbox | [SEC-04](#sec-04) |
 
 ### D — Lixeira, exclusão e concorrência no acervo
 
@@ -100,10 +100,10 @@ A lixeira trava inteira por causa de uma questão numa prova, e escritas que nã
 
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
-| **D1** | [#258](https://github.com/ChicoFigueiredo/LatexBookBank/issues/258) | — | P1 | M | Questão numa avaliação não trava a lixeira nem a exclusão do livro | [ACV-02](#acv-02), [STE-04](#ste-04), [TST-03](#tst-03) |
-| **D2** | [#259](https://github.com/ChicoFigueiredo/LatexBookBank/issues/259) | — | P1 | M | Escrita derivada não gera 409 falso, e o conflito do corpo não descarta o rascunho | [ACV-03](#acv-03), [ACV-04](#acv-04) |
-| **D3** | [#260](https://github.com/ChicoFigueiredo/LatexBookBank/issues/260) | — | P1 | S | Restaurar da lixeira não repete sortKey, e a regra dos filhos fica escrita | [ACV-09](#acv-09), [ACV-14](#acv-14), [TST-08](#tst-08) |
-| **D4** | — | — | P2 | S | O texto da alternativa passa por use case, e toda escrita da questão revalida | [STE-15](#ste-15), [STE-05](#ste-05) |
+| **D1** | [#258](https://github.com/ChicoFigueiredo/LatexBookBank/issues/258) | feita (#278) | P1 | M | Questão numa avaliação não trava a lixeira nem a exclusão do livro | [ACV-02](#acv-02), [STE-04](#ste-04), [TST-03](#tst-03) |
+| **D2** | [#259](https://github.com/ChicoFigueiredo/LatexBookBank/issues/259) | feita (#278) | P1 | M | Escrita derivada não gera 409 falso, e o conflito do corpo não descarta o rascunho | [ACV-03](#acv-03), [ACV-04](#acv-04) |
+| **D3** | [#260](https://github.com/ChicoFigueiredo/LatexBookBank/issues/260) | feita (#278) | P1 | S | Restaurar da lixeira não repete sortKey, e a regra dos filhos fica escrita | [ACV-09](#acv-09), [ACV-14](#acv-14), [TST-08](#tst-08) |
+| **D4** | — | feita (#278) | P2 | S | O texto da alternativa passa por use case, e toda escrita da questão revalida | [STE-15](#ste-15), [STE-05](#ste-05) |
 
 ### E — Avaliações por biblioteca, e tipos de questão pelo registry
 
@@ -111,10 +111,10 @@ A tela de avaliações só vê a primeira biblioteca, e o gabarito impresso sai 
 
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
-| **E1** | [#261](https://github.com/ChicoFigueiredo/LatexBookBank/issues/261) | — | P1 | S | /avaliacoes trabalha na biblioteca escolhida | [STE-01](#ste-01), [STE-14](#ste-14) |
-| **E2** | [#262](https://github.com/ChicoFigueiredo/LatexBookBank/issues/262) | — | P1 | M | O gabarito marca todas as corretas, e a discursiva sai sem alternativas | [ACV-07](#acv-07), [SPA-02](#spa-02), [STM-08](#stm-08) |
-| **E3** | [#263](https://github.com/ChicoFigueiredo/LatexBookBank/issues/263) | — | P1 | S | A prova não imprime questão da lixeira, e seed fora de Int32 é recusada | [ACV-10](#acv-10), [ACV-15](#acv-15) |
-| **E4** | — | — | P2 | M | O plugin declara as capacidades do tipo, e o guarda enxerga além do switch | [STM-02](#stm-02), [SPA-04](#spa-04), [TST-11](#tst-11), [ARQ-05](#arq-05) |
+| **E1** | [#261](https://github.com/ChicoFigueiredo/LatexBookBank/issues/261) | feita (#276) | P1 | S | /avaliacoes trabalha na biblioteca escolhida | [STE-01](#ste-01), [STE-14](#ste-14) |
+| **E2** | [#262](https://github.com/ChicoFigueiredo/LatexBookBank/issues/262) | feita (#276) | P1 | M | O gabarito marca todas as corretas, e a discursiva sai sem alternativas | [ACV-07](#acv-07), [SPA-02](#spa-02), [STM-08](#stm-08) |
+| **E3** | [#263](https://github.com/ChicoFigueiredo/LatexBookBank/issues/263) | feita (#276) | P1 | S | A prova não imprime questão da lixeira, e seed fora de Int32 é recusada | [ACV-10](#acv-10), [ACV-15](#acv-15) |
+| **E4** | — | feita (#276) | P2 | M | O plugin declara as capacidades do tipo, e o guarda enxerga além do switch | [STM-02](#stm-02), [SPA-04](#spa-04), [TST-11](#tst-11), [ARQ-05](#arq-05) |
 
 ### F — Agente e render
 
@@ -122,11 +122,11 @@ Com OpenAI ou OpenRouter o agente falha na segunda chamada; o candidato compila 
 
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
-| **F1** | [#264](https://github.com/ChicoFigueiredo/LatexBookBank/issues/264) | — | P1 | S | Tool calling funciona com OpenAI e OpenRouter | [PLT-02](#plt-02), [PLT-17](#plt-17) |
-| **F2** | [#265](https://github.com/ChicoFigueiredo/LatexBookBank/issues/265) | — | P1 | M | Um caso de uso de render, com assets, para questão, candidato e agente | [PLT-04](#plt-04), [ARQ-02](#arq-02), [STE-09](#ste-09) |
-| **F3** | [#266](https://github.com/ChicoFigueiredo/LatexBookBank/issues/266) | — | P1 | M | Patch e revert fiéis ao tipo e ao estado da questão | [SPA-01](#spa-01), [TST-02](#tst-02), [PLT-06](#plt-06), [PLT-07](#plt-07), [PLT-08](#plt-08), [SPA-05](#spa-05) |
-| **F4** | [#267](https://github.com/ChicoFigueiredo/LatexBookBank/issues/267) | — | P1 | M | O cache de render só guarda falha do documento | [PLT-03](#plt-03), [PLT-05](#plt-05), [PLT-09](#plt-09) |
-| **F5** | — | — | P2 | S | Worker: jobId único, formato atômico e prazo por job | [SEC-07](#sec-07), [PLT-12](#plt-12), [PLT-11](#plt-11), [PLT-14](#plt-14), [PLT-15](#plt-15) |
+| **F1** | [#264](https://github.com/ChicoFigueiredo/LatexBookBank/issues/264) | feita (#280) | P1 | S | Tool calling funciona com OpenAI e OpenRouter | [PLT-02](#plt-02), [PLT-17](#plt-17) |
+| **F2** | [#265](https://github.com/ChicoFigueiredo/LatexBookBank/issues/265) | feita (#280) | P1 | M | Um caso de uso de render, com assets, para questão, candidato e agente | [PLT-04](#plt-04), [ARQ-02](#arq-02), [STE-09](#ste-09) |
+| **F3** | [#266](https://github.com/ChicoFigueiredo/LatexBookBank/issues/266) | feita (#280) | P1 | M | Patch e revert fiéis ao tipo e ao estado da questão | [SPA-01](#spa-01), [TST-02](#tst-02), [PLT-06](#plt-06), [PLT-07](#plt-07), [PLT-08](#plt-08), [SPA-05](#spa-05) |
+| **F4** | [#267](https://github.com/ChicoFigueiredo/LatexBookBank/issues/267) | feita (#280) | P1 | M | O cache de render só guarda falha do documento | [PLT-03](#plt-03), [PLT-05](#plt-05), [PLT-09](#plt-09) |
+| **F5** | — | feita (#280) | P2 | S | Worker: jobId único, formato atômico e prazo por job | [SEC-07](#sec-07), [PLT-12](#plt-12), [PLT-11](#plt-11), [PLT-14](#plt-14), [PLT-15](#plt-15) |
 
 ### G — Backup e .lbb que restauram de verdade
 
@@ -134,10 +134,10 @@ O .lbb é também o backup declarado, e hoje uma restauração perde figuras, ca
 
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
-| **G1** | [#268](https://github.com/ChicoFigueiredo/LatexBookBank/issues/268) | — | P1 | M | .lbb v3: figuras, nome, tipo e capa atravessam o round-trip | [ACV-08](#acv-08), [SPG-03](#spg-03), [TST-13](#tst-13) |
-| **G2** | [#269](https://github.com/ChicoFigueiredo/LatexBookBank/issues/269) | — | P1 | L | Decidir o que o backup leva: avaliações, variantes, revisões e legacyId | [SPA-03](#spa-03) |
-| **G3** | [#270](https://github.com/ChicoFigueiredo/LatexBookBank/issues/270) | — | P1 | M | O import de .lbb tem teto, schema e colisão no escopo certo | [SEC-03](#sec-03), [ACV-11](#acv-11), [SPA-10](#spa-10) |
-| **G4** | — | — | P2 | M | Legado, scripts e o indicador de backup dizem a verdade | [ACV-13](#acv-13), [SPA-08](#spa-08), [SPA-09](#spa-09), [PLT-16](#plt-16), [PLT-13](#plt-13) |
+| **G1** | [#268](https://github.com/ChicoFigueiredo/LatexBookBank/issues/268) | feita (#281) | P1 | M | .lbb v3: figuras, nome, tipo e capa atravessam o round-trip | [ACV-08](#acv-08), [SPG-03](#spg-03), [TST-13](#tst-13) |
+| **G2** | [#269](https://github.com/ChicoFigueiredo/LatexBookBank/issues/269) | feita (#281) | P1 | L | Decidir o que o backup leva: avaliações, variantes, revisões e legacyId | [SPA-03](#spa-03) |
+| **G3** | [#270](https://github.com/ChicoFigueiredo/LatexBookBank/issues/270) | feita (#281) | P1 | M | O import de .lbb tem teto, schema e colisão no escopo certo | [SEC-03](#sec-03), [ACV-11](#acv-11), [SPA-10](#spa-10) |
+| **G4** | — | feita (#281) | P2 | M | Legado, scripts e o indicador de backup dizem a verdade | [ACV-13](#acv-13), [SPA-08](#spa-08), [SPA-09](#spa-09), [PLT-16](#plt-16), [PLT-13](#plt-13) |
 
 ### H — Testes e CI que barram de verdade
 
@@ -145,10 +145,10 @@ A suíte é densa, mas o CI está vermelho desde agosto, os adaptadores Prisma d
 
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
-| **H1** | [#271](https://github.com/ChicoFigueiredo/LatexBookBank/issues/271) | — | P1 | S | O CI fica verde e volta a rodar o build | [TST-04](#tst-04) |
-| **H2** | [#272](https://github.com/ChicoFigueiredo/LatexBookBank/issues/272) | — | P1 | L | Adaptadores Prisma de escrita testados contra SQLite | [TST-05](#tst-05) |
-| **H3** | [#273](https://github.com/ChicoFigueiredo/LatexBookBank/issues/273) | — | P1 | S | Os guardas de fronteira fecham os furos medidos | [TST-07](#tst-07), [TST-12](#tst-12) |
-| **H4** | — | — | P2 | S | Higiene: E2E do Calibre no schema 27, sem caminho de máquina, sem sleep | [TST-09](#tst-09), [TST-14](#tst-14), [TST-15](#tst-15) |
+| **H1** | [#271](https://github.com/ChicoFigueiredo/LatexBookBank/issues/271) | feita (#277) | P1 | S | O CI fica verde e volta a rodar o build | [TST-04](#tst-04) |
+| **H2** | [#272](https://github.com/ChicoFigueiredo/LatexBookBank/issues/272) | feita (#277, #282) | P1 | L | Adaptadores Prisma de escrita testados contra SQLite | [TST-05](#tst-05) |
+| **H3** | [#273](https://github.com/ChicoFigueiredo/LatexBookBank/issues/273) | feita (#277) | P1 | S | Os guardas de fronteira fecham os furos medidos | [TST-07](#tst-07), [TST-12](#tst-12) |
+| **H4** | — | feita (#277, #286) | P2 | S | Higiene: E2E do Calibre no schema 27, sem caminho de máquina, sem sleep | [TST-09](#tst-09), [TST-14](#tst-14), [TST-15](#tst-15) |
 
 ### I — Arquitetura e padrões: a documentação e o código voltam a concordar
 
@@ -156,17 +156,17 @@ A arquitetura macro está sã. A dívida está nas costuras entre módulos, em r
 
 | Tarefa | Issue | Estado | Prioridade | Esforço | O que entrega | Achados |
 |---|---|---|---|---|---|---|
-| **I1** | — | — | P2 | S | Registrar o fluxo que o repositório pratica: Zod, Server Components, estrutura, D23 e D43 | [STM-06](#stm-06), [STE-02](#ste-02), [STM-05](#stm-05), [STE-18](#ste-18), [STM-15](#stm-15), [STE-19](#ste-19), [STM-18](#stm-18), [SPG-09](#spg-09) |
-| **I2** | — | — | P2 | L | Casos de uso onde a regra mora na rota ou no adaptador | [STM-04](#stm-04), [STE-03](#ste-03), [ARQ-09](#arq-09), [STE-11](#ste-11) |
-| **I3** | — | — | P2 | M | Uma raiz de composição, e o ambiente lido uma vez | [STE-08](#ste-08), [ARQ-03](#arq-03), [STM-14](#stm-14), [STE-12](#ste-12) |
-| **I4** | — | — | P2 | M | Um tradutor de erro de domínio para HTTP | [STE-06](#ste-06), [ARQ-11](#arq-11), [STE-20](#ste-20), [STE-10](#ste-10) |
-| **I5** | — | — | P2 | L | Um escritor de questão, nó e âncora; e Revision com dono | [ARQ-01](#arq-01), [ARQ-04](#arq-04) |
-| **I6** | — | — | P2 | M | Primitivas neutras, sem ciclo entre módulos e sem peso morto | [ARQ-12](#arq-12), [ARQ-13](#arq-13), [STM-16](#stm-16) |
-| **I7** | — | — | P2 | M | Um modelo de camada de texto do PDF, e um cliente de IA | [ARQ-06](#arq-06), [ARQ-07](#arq-07) |
-| **I8** | — | — | P2 | L | Telas gigantes viram hooks e clientes com contrato tipado | [ARQ-08](#arq-08), [STM-17](#stm-17), [ARQ-10](#arq-10), [STE-16](#ste-16) |
-| **I9** | — | — | P2 | M | Os traços de cada ScanKind num lugar só, e as passadas com contrato | [STM-13](#stm-13), [ARQ-14](#arq-14) |
-| **I10** | — | — | P2 | M | Glossário e idioma no texto de tela e nos identificadores | [STM-09](#stm-09), [STM-10](#stm-10), [STM-11](#stm-11), [STM-12](#stm-12), [STE-07](#ste-07), [STM-03](#stm-03), [STE-17](#ste-17), [STE-13](#ste-13) |
-| **I11** | — | — | P2 | S | O checklist volta a dizer a verdade | [SPA-06](#spa-06), [SPA-07](#spa-07), [SPG-13](#spg-13), [SPG-11](#spg-11) |
+| **I1** | — | feita (#287) | P2 | S | Registrar o fluxo que o repositório pratica: Zod, Server Components, estrutura, D23 e D43 | [STM-06](#stm-06), [STE-02](#ste-02), [STM-05](#stm-05), [STE-18](#ste-18), [STM-15](#stm-15), [STE-19](#ste-19), [STM-18](#stm-18), [SPG-09](#spg-09) |
+| **I2** | — | feita (#285) | P2 | L | Casos de uso onde a regra mora na rota ou no adaptador | [STM-04](#stm-04), [STE-03](#ste-03), [ARQ-09](#arq-09), [STE-11](#ste-11) |
+| **I3** | — | feita (#285) | P2 | M | Uma raiz de composição, e o ambiente lido uma vez | [STE-08](#ste-08), [ARQ-03](#arq-03), [STM-14](#stm-14), [STE-12](#ste-12) |
+| **I4** | — | feita (#285) | P2 | M | Um tradutor de erro de domínio para HTTP | [STE-06](#ste-06), [ARQ-11](#arq-11), [STE-20](#ste-20), [STE-10](#ste-10) |
+| **I5** | — | feita (#284) | P2 | L | Um escritor de questão, nó e âncora; e Revision com dono | [ARQ-01](#arq-01), [ARQ-04](#arq-04) |
+| **I6** | — | feita (#284) | P2 | M | Primitivas neutras, sem ciclo entre módulos e sem peso morto | [ARQ-12](#arq-12), [ARQ-13](#arq-13), [STM-16](#stm-16) |
+| **I7** | — | feita (#284) | P2 | M | Um modelo de camada de texto do PDF, e um cliente de IA | [ARQ-06](#arq-06), [ARQ-07](#arq-07) |
+| **I8** | — | feita (#283) | P2 | L | Telas gigantes viram hooks e clientes com contrato tipado | [ARQ-08](#arq-08), [STM-17](#stm-17), [ARQ-10](#arq-10), [STE-16](#ste-16) |
+| **I9** | — | feita (#284) | P2 | M | Os traços de cada ScanKind num lugar só, e as passadas com contrato | [STM-13](#stm-13), [ARQ-14](#arq-14) |
+| **I10** | — | feita (#287) | P2 | M | Glossário e idioma no texto de tela e nos identificadores | [STM-09](#stm-09), [STM-10](#stm-10), [STM-11](#stm-11), [STM-12](#stm-12), [STE-07](#ste-07), [STM-03](#stm-03), [STE-17](#ste-17), [STE-13](#ste-13) |
+| **I11** | — | feita (#287) | P2 | S | O checklist volta a dizer a verdade | [SPA-06](#spa-06), [SPA-07](#spa-07), [SPG-13](#spg-13), [SPG-11](#spg-11) |
 
 ### Ordem sugerida
 
@@ -177,6 +177,8 @@ A arquitetura macro está sã. A dívida está nas costuras entre módulos, em r
 5. **I** e os P2 restantes, em paralelo, quando a frente que tocam estiver quieta.
 
 ### Decisões que o plano pede a você
+
+> Respondidas: A1 virou a D60 (E2E isolado), D3 e G2 entraram na D64 e na D68, e a B7 foi adiada (D62).
 
 Estas tarefas não andam sem uma decisão sua; a issue vai registrar a pergunta.
 

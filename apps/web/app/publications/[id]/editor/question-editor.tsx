@@ -48,7 +48,7 @@ import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 import { PreviewPane, type PreviewField } from "@modules/preview/ui/PreviewPane";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
-import type { SaidaDoRender } from "@modules/rendering/domain/saida-do-render";
+import type { RenderAudience } from "@modules/rendering/domain/render-audience";
 import { useRender } from "@modules/rendering/ui/use-render";
 
 /**
@@ -229,9 +229,9 @@ export function QuestionEditor({
    *
    * Padrão de estado da tela, e não preferência gravada: a escolha vale para a compilação que vem,
    * e uma preferência lembrada faria alguém baixar o PDF com gabarito semanas depois sem lembrar
-   * de ter escolhido isso. Ver `saida-do-render`.
+   * de ter escolhido isso. Ver `render-audience`.
    */
-  const [saida, setSaida] = useState<SaidaDoRender>("aluno");
+  const [saida, setSaida] = useState<RenderAudience>("aluno");
   const { status: renderStatus, render } = useRender({ publicationId, questionId, saida });
 
   // Compilar troca para a aba do resultado: quem aperta `Ctrl+Enter` quer ver o PDF, e deixar a

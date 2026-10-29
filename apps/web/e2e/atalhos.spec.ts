@@ -126,7 +126,7 @@ test.describe("Ctrl Q abre o seletor de tipo", () => {
 
     await page.keyboard.press("Control+q");
 
-    const menu = page.getByRole("menu", { name: "Adicionar à publicação" });
+    const menu = page.getByRole("menu", { name: "Adicionar ao livro" });
     await expect(menu).toBeVisible();
 
     // O seletor de **tipo**, que é o que o contrato pede — não um "adicionar" genérico.
@@ -138,9 +138,9 @@ test.describe("Ctrl Q abre o seletor de tipo", () => {
     await abrirQuestao(page);
 
     await page.keyboard.press("Control+q");
-    await expect(page.getByRole("menu", { name: "Adicionar à publicação" })).toBeVisible();
+    await expect(page.getByRole("menu", { name: "Adicionar ao livro" })).toBeVisible();
 
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("menu", { name: "Adicionar à publicação" })).toHaveCount(0);
+    await expect(page.getByRole("menu", { name: "Adicionar ao livro" })).toHaveCount(0);
   });
 });

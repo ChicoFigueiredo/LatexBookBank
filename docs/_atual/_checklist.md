@@ -78,7 +78,7 @@ posição do repo, e as figuras do legado** — das 11 figuras citadas pelo acer
 questão no banco foram gravadas como `Asset` e o LaTeX reescrito para o nome da Fase 14; as 7
 órfãs (nó estrutural e ProfMat 9) ficam fora, por decisão. As 100 issues abertas no GitHub tinham,
 todas, branch mesclada na `main` (inclusive as 23 auditorias de 10-11/08); ninguém as fechou depois
-do merge. Foram **fechadas em lote** por `scripts/fechar-issues-mescladas.sh`, com o commit citado
+do merge. Foram **fechadas em lote** por `scripts/close-merged-issues.sh`, com o commit citado
 em cada uma; só o épico #1 segue aberto, até a Fase 6 ter o preâmbulo embutido. As Fases 1 e 5 foram aceitas **sem conferência
 visual**, por decisão do Chico: um mês de uso sem reclamação registrada. A Fase 6.5 foi reescrita
 para só o que não depende de storage — os 42 `[ ]` que ninguém ia tocar viraram um ⛔ explícito.
@@ -92,7 +92,7 @@ que quebrou foi o entorno: o **Node caiu para 20.11.0** e matava a suíte inteir
 são), agora fixado em 24 pelo `mise.toml` do repositório; o **modelo de visão sumiu** do Ollama e
 voltou (`gemma3:12b`, transcrição de questão real conferida em 11,4 s); o **acervo legado mudou de
 drive** (`/mnt/t` → `/mnt/bak`) e os 11 caminhos foram religados por
-`religar-acervo-legado.ts` — 10 religados e 1 intocado por falta do arquivo no backup (Análise
+`relink-legacy-library.ts` — 10 religados e 1 intocado por falta do arquivo no backup (Análise
 Elon, que tinha 0 questões); e o **worker de render** foi reconstruído e subiu, compilando LaTeX
 real em 0,5 s. Suíte de volta ao verde: 131 arquivos, 1582 testes.
 
@@ -110,14 +110,15 @@ enquadramento, e a segmentação automática saiu do adiamento com 30 de 30 ques
 | — prova arquitetural | **◐6.5** | schema PostgreSQL provado; falta a suíte de integração contra PostgreSQL; o par de storage foi adiado explicitamente em 2026-09-09 |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
-| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; o ◐ é o §33 "Legado" (o `ImportReport` estruturado saiu na revisão de 2026-09-23); a 13 só não mostra progresso |
+| D — acervo legado e portabilidade | ✅11 · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev, e o §33 "Legado" fechou com o `ImportReport` estruturado da revisão de 2026-09-23 (o §10 está todo ✅); a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
 | G — captura em volume | **◐18** · **19** | decidida e começada em 2026-09-10: o bloco "A fonte do livro" fechou, e a captura abre no PDF. Falta o scan de intervalo, os perfis, o livro ao lado do **editor** e o corpo do nó |
 
-**Fases fechadas: 12 de 21** — 0, 1, 3, 4, 5, 7, 8, 9, 10, 12, 15 e 16. *(1 e 5 fecharam em 2026-09-09
+**Fases fechadas: 13 de 21** — 0, 1, 3, 4, 5, 7, 8, 9, 10, 11, 12, 15 e 16. *(1 e 5 fecharam em 2026-09-09
 por decisão do Chico, sem conferência visual: um mês de uso sem reclamação registrada. O
-denominador virou 21 em 2026-09-10, com a Wave G.)*
+denominador virou 21 em 2026-09-10, com a Wave G. A 11 fechou na execução da revisão de
+2026-09-23, quando o último ◐ dela — o §33 "Legado" — deixou de ter pendência.)*
 
 ### Por épico *(rastreabilidade da §11 do planejamento)*
 
@@ -129,11 +130,11 @@ denominador virou 21 em 2026-09-10, com a Wave G.)*
 | **04** preview e render | 5 · 6 | 160 | — | 3 | — | a conferência visual foi aceita em 2026-09-09; os ⛔ são TeX Live 2022×2023, `iwona` e medições descartadas; a Fase 6 ainda espera o preâmbulo embutido |
 | **05** banco de questões | 7 | 49 | — | — | — | **fechado**; a conferência visual do §33 foi aceita em 2026-09-09 |
 | **06** ingestão visual | 14 · 15 | 41 | 1 | — | — | falta o reconhecimento de **texto** |
-| **07** agente | 8 · 9 · 10 | 97 | — | 3 | — | **fechado**; os ⛔ são vocabulário sem produtor (`IMPORT`, `SYSTEM`) e o fallback JSON |
-| **08** legado | 11 | 61 | 2 | — | — | recontado em 2026-09-09: 11 bibliotecas, 8 publicações com capa e PDF fonte, 4 figuras de questão gravadas; as 7 órfãs ficam fora por decisão |
+| **07** agente | 8 · 9 · 10 | 98 | — | 2 | — | **fechado**; os ⛔ são a origem `IMPORT`, sem produtor, e o fallback JSON. A `SYSTEM` ganhou produtor no scan |
+| **08** legado | 11 | 62 | 1 | — | — | recontado em 2026-09-09: 11 bibliotecas, 8 publicações com capa e PDF fonte, 4 figuras de questão gravadas; as 7 órfãs ficam fora por decisão. O §33 "Legado" fechou na revisão de 2026-09-23 |
 | **09** avaliações | 16 | 25 | — | 1 | — | **fechado**; o ⛔ é `AssessmentRule`, sem caso de uso |
 | **10** operação e busca | 10 · 12 · 17 | 58 | — | 3 | 3 | guarda de autorização, e 2 presos ao acervo |
-| — portabilidade `.lbb` | 13 | 40 | — | — | 1 | migradores de formato (escopo futuro) |
+| — portabilidade `.lbb` | 13 | 41 | — | — | — | os migradores de formato foram revogados pela v3 (D68): só ela abre |
 | — prova arquitetural | 6.5 | 13 | 1 | 5 | 3 | escopo reescrito em 2026-09-09: falta a suíte de integração contra PostgreSQL; o par de storage é ⛔ adiado |
 | — seções cruzadas | §8–§15 | 175 | 2 | — | 8 | recontado em 2026-09-09 pelo mesmo critério do total; o checklist visual fechou, e os `[ ]` são o §33 "Legado" |
 | — captura em volume | 18 · 19 · 20 · 21 | 76 | 7 | — | 8 | revista em 2026-09-16 (D45–D54, épico #202): scan estrutural com proposta, revisão e aprovação, corpo do nó e `.lbb` v2; faltam a conferência visual e a aprovação no acervo real |
@@ -465,7 +466,9 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Word wrap *(enunciado é prosa, não código)*
 - ✅ Minimap desligado por padrão
 - ✅ Model de editor por campo
-- ✅ Abas internas: Conteúdo, Resposta, Complemento e **Metadados** *(#87)* · **Origem** *(#137 — estava bloqueada pela Fase 14)*
+- ✅ Abas internas: Conteúdo, Resolução, Complemento e **Metadados** *(#87; a aba da resolução se
+  chamava "Resposta", termo que o glossário reserva ao gabarito — renomeada na revisão de
+  2026-09-23, STM-11, e os três mapas de rótulo passaram a ler `QUESTION_FIELD_LABELS`)* · **Origem** *(#137 — estava bloqueada pela Fase 14)*
 - ✅ Autosave com debounce *(1,2 s; timer limpo na desmontagem)*
 - ✅ `Ctrl+S` salva imediatamente *(handler por ref — senão congelaria a questão aberta na montagem)*
 - ✅ Dirty state visível *(não salvo · salvando · salvo · conflito · erro)*
@@ -933,7 +936,7 @@ e eles escondiam o que falta de verdade)*
 ### Fase 9 — Patch, diff e aprovação
 
 **Patch**
-- ✅ `QuestionPatch` definido em Zod *(a única dependência de validação do projeto, e aqui ela se paga)*
+- ✅ `QuestionPatch` definido em Zod *(a única dependência de validação do projeto, e aqui ela se paga. Zod fica onde o schema é rico; a entrada das rotas se valida à mão — ADR 0011)*
 - ✅ Whitelist de campos alteráveis — `validationStatus`, `originalLatex`, `legacyId` e `status` **não** são proponíveis
 - ✅ Todo patch validado antes de ser apresentado
 - ✅ `propose_question_patch`
@@ -999,9 +1002,17 @@ e eles escondiam o que falta de verdade)*
 
 - ✅ `Revision` com `entityType`, `entityId`, `revisionNumber` e `snapshotJson` *(nasceu na Fase 9 — aplicar sem poder desfazer não é aplicar, é apostar)*
 - ✅ Origem `USER`
-- ⛔ Origem `IMPORT` — chega com o importador (Fase 11); não há produtor ainda
+- ⛔ Origem `IMPORT` — sem produtor, e a justificativa antiga venceu: o importador da Fase 11 rodou
+  em 2026-08-31 e não grava revisão, e o `.lbb` v3 carrega as revisões que a biblioteca já tinha
+  (D68) em vez de gravar uma nova. A spec §8.9 pede revisão antes de importação; gravar uma, ou
+  decidir que o legado sem histórico não precisa dela, é decisão em aberto *(revisão de
+  2026-09-23, SPA-07)*
 - ✅ Origem `AGENT`
-- ⛔ Origem `SYSTEM` — vocabulário declarado, sem produtor: nada no sistema muda questão sozinho
+- ✅ Origem `SYSTEM` — o produtor é o scan: a aprovação grava o corpo que mandou ao nó como revisão
+  `SYSTEM` "corpo recebido do scan", e apagar a importação grava a retirada do trecho
+  (`prisma-scan-approval.ts`, `prisma-scan-import.ts`; D61). Por ora só o corpo do nó: o trecho
+  que a importação tira do enunciado de uma questão reaproveitada sai sem revisão
+  *(revisão de 2026-09-23, SPA-07)*
 - ✅ `agentRunId` vinculado quando aplicável
 - ✅ Aba Histórico com timeline *(carregada ao abrir a aba, não com a questão)*
 - ✅ Diff entre revisões *(os dois lados vêm do servidor — montar o "atual" da tela esconderia
@@ -1207,8 +1218,9 @@ e eles escondiam o que falta de verdade)*
   conta na outra ponta: 288 − 7 sem gabarito = **281 nós** criados (225 com questão + 56
   estruturais); 8 publicações porque só linha de `Publication` **com questão digitalizada** vira
   publicação no produto — as outras 52 são registro de livro sem conteúdo)*
-- ◐ §33 "Legado" completo (§10 deste documento) *(a Fase 11 do §10 ainda aponta os itens de
-  Assets/Editoras/Tags como pendentes — ver acima)*
+- ✅ §33 "Legado" completo (§10 deste documento) *(o §10 está todo ✅: assets, editoras e tags
+  foram conferidos no acervo, e o relatório estruturado saiu na revisão de 2026-09-23. A nota
+  antiga ainda os dava como pendentes — SPA-07)*
 
 ---
 
@@ -1420,7 +1432,7 @@ e eles escondiam o que falta de verdade)*
 > linha igual a um enunciado — o que separa marcador de aritmética é a **margem esquerda**, não a
 > expressão regular.
 
-- ✅ **Segmentação por camada de texto** *(2026-09-02 — `segmentar-pagina.ts` (domínio puro, 26
+- ✅ **Segmentação por camada de texto** *(2026-09-02 — `segment-page.ts` (domínio puro, 26
   testes), `pdf-text-layer.ts` (adapter do pdf.js, com o eixo y invertido e NFC), botões "Estimar
   questões" e "Recortar as N" no visualizador. O lote salva e transcreve **em série** — o
   reconhecedor local é uma GPU só — e **para em transcrição guardada**: nenhuma questão nasce sem
@@ -1522,8 +1534,11 @@ e eles escondiam o que falta de verdade)*
   pegar o primeiro diagnóstico da lista apontaria `Overfull \hbox` como causa da falha)*
 
 **Logs**
-- ✅ Logs estruturados de render · import · agente · persistência *(uma linha JSON por evento,
-  com domínio de lista fechada)*
+- ◐ Logs estruturados de render · import · agente · persistência *(uma linha JSON por evento,
+  com domínio de lista fechada. **Rebaixado na revisão de 2026-09-23 (SPA-06)**: o logger aceita os
+  quatro domínios, mas quem emite é o render (`executeRender`), o erro não traduzido da borda
+  (`app/api/http.ts`) e o catálogo ilegível do Calibre. O import do `.lbb` e do legado e o apply
+  do patch do agente não emitem nada)*
 - ✅ **Prompts completos fora do log por padrão** — campo proibido vira `[omitido]` e **não** some:
   "o prompt estava vazio" é conclusão bem diferente de "o prompt não é gravado"
 - ✅ Instrumentar os pontos de chamada com o logger *(#153 — no `executeRender`, que é o **único** ponto entre o produto e o `pdflatex`; instrumentar as rotas daria o mesmo evento contado de vários lugares e nenhum saberia se houve cache. `cache_hit` é evento próprio: a primeira pergunta que se faz a um log de render é quanto daquilo é cache. Conferido num run real: `started` → `finished` com 1159 ms e 2 artefatos, sem uma letra do LaTeX)*
@@ -1559,9 +1574,11 @@ e eles escondiam o que falta de verdade)*
   `fetch` com URL literal externa
 - ✅ Nenhuma configuração de infraestrutura hard-coded — **verificado**: `localhost` só em
   configuração e no perfil que declara endereços sugeridos
-- [ ] Biblioteca local grande é utilizável *(depende do acervo importado — Fase 11. A busca foi
-      medida contra corpus sintético de 200 mil questões, 670× o acervo real, e responde em 0,2 ms;
-      o que falta é o acervo de verdade, não o desempenho)*
+- [ ] Biblioteca local grande é utilizável *(a busca foi medida contra corpus sintético de 200 mil
+      questões, 670× o acervo legado, e responde em 0,2 ms. A justificativa antiga — "depende do
+      acervo importado" — venceu: o legado entrou em 2026-08-31 e o scan trouxe livros inteiros
+      depois. O que falta é **medir** a árvore, a busca e a estante contra o banco de uso, não
+      importar nada — revisão de 2026-09-23, SPA-07)*
 - ✅ IA local funciona *(verificado contra o Ollama desta máquina em três fases: os 13 modelos
   listados e uma resposta completa na 8, o ciclo do `FIX_LATEX` compilando-corrigindo-compilando na
   9, e o `gemma3:12b` lendo matemática de um recorte na 15)*
@@ -1570,8 +1587,10 @@ e eles escondiam o que falta de verdade)*
   imagem. O TeX **do host** é fallback opcional e continua só detectado, nunca exibido — é a linha
   aberta acima)*
 - [ ] Fontes gráficas complexas são preservadas e editáveis *(a classificação por tipo — gnuplot,
-      pgf, asymptote, geogebra, tpx, tex, table, svg, eps — está pronta e testada; preservar e
-      editar exige o import da Fase 11)*
+      pgf, asymptote, geogebra, tpx, tex, table, svg, eps — está pronta e testada. O import da
+      Fase 11 já rodou, e o acervo legado não tem **nenhuma** fonte de figura: só capa, PDF e
+      `.detail.json` vazio, conferido arquivo por arquivo. Preservar fica sem caso real, e editar
+      uma fonte de figura no app não existe — revisão de 2026-09-23, SPA-07)*
 
 **E2E** *(spec §27 · #155 — Playwright, `bun run e2e`)*
 - ✅ Abrir publicação
@@ -1755,8 +1774,11 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 - ✅ O aviso de localidade da IA aparece nos **dois** estados, não só no de upload
 
 
-**Ver fonte no editor** *(D43, D47 — #218)*
-- ✅ Botão ao lado das abas, trocando o painel direito pelo PDF
+**Ver fonte no editor** *(D43, D47, D73 — #218)*
+- ✅ Botão na barra, ao lado de *Preview*, abrindo o PDF como **terceira coluna** *(era "trocando o
+  painel direito pelo PDF", como a D43 decidiu; desde `4c1e64b` (2026-09-16) o PDF é a terceira
+  coluna, e quem cede espaço são as colunas da direita, com piso de 420 px para o editor. A D73
+  registra a mudança e pede a confirmação do autor — revisão de 2026-09-23, SPG-09)*
 - ✅ Abre na página da âncora, com **todas** as âncoras marcadas e navegáveis
 - ✅ Acompanha a troca de questão
 - ✅ A escolha fica lembrada por livro
@@ -1866,8 +1888,11 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 - ✅ Apagar só a proposta é **recusado** depois de aprovada: sem a execução, ninguém mais acharia
   o que ela criou, e a importação ficaria para sempre
 - ✅ Varredura andando não pode ser apagada — cancele antes
-- ⛔ **A teoria que a aprovação anexou a nós de fora da importação fica**: `appendBody` escreve no
-  corpo de um nó que a execução não criou, e apagar a importação não desfaz isso
+- ✅ **A teoria que a aprovação anexou a nós de fora da importação sai com ela** *(era ⛔: `appendBody`
+  escrevia no corpo de um nó que a execução não criou, e apagar a importação não desfazia. Desde a
+  B5 da revisão de 2026-09-23 (#249, D61), o nó reaproveitado fica, mas perde o trecho e as
+  âncoras que a importação acrescentou — só o trecho ainda idêntico ao que entrou —, com revisão
+  `SYSTEM`. Provado em `scan-reimport.test.ts`)*
 - ✅ Confirmação com os números antes de apagar *(diálogo com os tipos, a contagem e a lista de
   preservados com o motivo de cada um)*
 - ✅ As duas opções na tela: só a proposta, ou proposta e acervo
@@ -1880,7 +1905,9 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
 - ✅ Agrupar traços e imagens numa figura, absorvendo o texto de dentro da caixa *(e três regras
   que o livro real ensinou: fio decorativo não é figura, moldura em volta de texto não é figura, e
   rótulo é curto — frase dentro da caixa fica no texto)*
-- ✅ Recorte vetorial em PDF (`pdf-lib`) e PNG na resolução nativa para bitmap; PNG de tela sempre
+- ◐ Recorte vetorial em PDF (`pdf-lib`) e PNG para bitmap; PNG de tela sempre *(o bitmap **não**
+  sai na resolução nativa, como o ADR 0005 promete: sai rasterizado a 300 DPI, com o que estiver
+  desenhado por cima — ver o ⛔ abaixo. Rebaixado na revisão de 2026-09-23, SPG-11)*
 - ✅ A figura vira asset `CROP` com nome LaTeX estável *(dedup pelo hash: duas varreduras do mesmo
   livro não duplicam arquivo)*
 - ✅ `figure[H]` com `\includegraphics[width=…]` e `\caption`, na posição do livro *(`float` entrou
@@ -1946,9 +1973,13 @@ causas, e só uma era do livro.
 - ✅ O título do capítulo protegido da ilustração de abertura *(mesmo padrão do "QUESTÃO 45" do
   ENEM: dez caracteres, e a figura o engolia como rótulo)*
 - ✅ **Aceite, medido no PDF real** *(`scan-corpus.test.ts`)*: 10 capítulos · 83 seções · 159 itens
-  de teoria · 562 exercícios (1→568) · 359 questões de vestibular (1→361), todas com múltipla
-  escolha carimbada · **0** itens vindos dos gabaritos · **0** de baixa confiança
-- ✅ O FME deixa de ser a exceção excluída da asserção de sugestão
+  de teoria · 568 exercícios (1→568, sem buraco) · 361 questões de vestibular (1→361, sem
+  buraco), todas com múltipla escolha carimbada · **0** itens vindos dos gabaritos · **0** de baixa
+  confiança *(eram 562 e 359 na primeira medição; o banner da p. 117 escondia 188–193, e 254–255
+  dividem o enunciado com a 253. Os números de hoje são os que `scan-corpus.test.ts` afirma —
+  corrigido na revisão de 2026-09-23, SPG-13)*
+- ✅ O FME deixa de ser a exceção excluída da asserção de sugestão *(o ADR 0007 ganhou a nota
+  "revisto pela Fase 25", que ainda o dava como exceção — SPG-13)*
 
 **O que a medição pediu, e que vale para todos**
 - ✅ A amostra da sugestão sobe de 8 para 16 páginas. O número é medido, não escolhido: os marcos
@@ -2312,6 +2343,11 @@ Estado **hoje** — os cinco que a Fase 0 não tinha como fechar:
 - ✅ Teclado testado *(divisória, árvore, paleta, palette de símbolos — e o E2E chega à questão
   **só** por teclado)*
 - ✅ Dark e light testados *(teste exige que o dark cubra todo token de cor do claro)*
+- ✅ Nenhuma dependência circular **entre módulos** fora da nomeada *(o ✅ da Fase 0 valia para
+  arquivo, e a revisão de 2026-09-23 achou quatro ciclos entre módulos — assets ↔ recognition,
+  questions ↔ preview, latex ↔ latex-knowledge, workspaces ↔ publications. Os quatro caíram na
+  frente I, e `tests/module-cycles.test.ts` quebra a suíte no próximo. Fica um, nomeado:
+  `document-tree ↔ questions`, o par nó-questão, que é decisão de agregado — D71, STM-15)*
 
 ---
 
@@ -2338,8 +2374,11 @@ Verificar em toda revisão de fase:
   idênticos)*
 - ✅ Toda modificação agêntica é reversível *(revisão anterior gravada antes, na mesma transação)*
 - ✅ Toda fonte original é preservada *(não há caminho de escrita sobre o `SOURCE_PDF`)*
-- [ ] `legacyId` nunca apagado após o import *(a coluna existe e a duplicação de subárvore já não a
-  herda; afirmar exige o import da Fase 11, que depende do acervo)*
+- ◐ `legacyId` nunca apagado após o import *(a coluna existe, a duplicação de subárvore não a
+  herda, e o `.lbb` v3 a atravessa — `portable-projections.test.ts`; na colisão, é a **cópia** que
+  entra sem ela, e o original fica (D68). A justificativa antiga — "depende do acervo" — venceu: o
+  import rodou em 2026-08-31. Falta o guarda que recuse `legacyId: null` num caminho de update —
+  revisão de 2026-09-23, SPA-07)*
 - ✅ PNG nunca usado como fonte da questão *(o `preview.png` do legado é recusado na classificação,
   com controle positivo; e o recorte reconhecido vira LaTeX revisado por gente, não imagem)*
 - ✅ Letra de alternativa nunca tratada como identidade *(schema + teste de projeção)*
@@ -2357,7 +2396,11 @@ Verificar em toda revisão de fase:
 - ✅ `SOURCE_PDF` nunca substituído por derivado *(D29)*
 - ✅ Asset fonte tratado como imutável *(a `storageKey` contém o hash: outro conteúdo é outra chave)*
 - ✅ Bounding box sempre normalizada
-- ✅ Abstração criada apenas onde há múltiplas implementações reais
+- ✅ Abstração criada apenas onde há mais de uma implementação real, uma fronteira arquitetural, ou
+  um caso de uso que roda em teste com dublê *(a redação antiga — "apenas onde há múltiplas
+  implementações reais" — era mais estreita que a pergunta de controle da D23, e reprovaria o
+  `ScanStore` e as portas dos casos de uso. A D23 ganhou a terceira condição, e cada interface que
+  se apoia nela tem o seu dublê na suíte — revisão de 2026-09-23, STM-18, D72)*
 
 ---
 
@@ -2374,7 +2417,7 @@ estão escritas onde alguém vai procurá-las:
 |---|---|---|
 | `data.sqlite` dentro do `.lbb` (§7, e a tabela de riscos) | **`data.json`** | Um banco dentro do zip traria o motor junto, e o formato herdaria as versões dele. O que a §7 queria garantir — que o portable não seja o schema de runtime — o `PortableSchema` já garante. Registrado na Fase 13 |
 | Virtualização da árvore "antes de existir volume" (Fase 2) | **adiada** | A maior publicação tem 297 nós e o próprio plano classifica o risco como **baixo**. Otimizar antes de medir custaria rolagem, foco e teclado por um problema que talvez não exista |
-| Migradores de formato `v1 → v2` (Fase 13) | **não existem** | O plano diz "quando fizer sentido"; com uma versão só, não faz. É escopo futuro, não dívida |
+| Migradores de formato `v1 → v2` (Fase 13) | **não existem** | O plano diz "quando fizer sentido"; com uma versão só, não faz. *Revogados pela D68 (2026-10): o v2 teve o seu migrador, e a v3 o removeu — só ela abre* |
 | `LatexBuilder` alimentado pelo `QuestionTypePlugin` (Fase 6) | ✅ **resolvido na #165** | Era dívida de verdade, e a única das quatro. O `buildLatex` do plugin nunca tinha sido chamado; agora o plugin devolve blocos e é ele quem monta o corpo, com o mapa de linhas saindo junto |
 
 E duas linhas do critério de produto local (§48) foram fechadas na revisão, por já terem prova:

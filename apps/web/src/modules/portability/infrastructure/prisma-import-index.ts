@@ -4,7 +4,7 @@ import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import type { ExistingIndex } from "@modules/portability/application/import-workspace";
 import type {
-  ConflitoDeImportacao,
+  ImportConflict,
   ImportCollision,
 } from "@modules/portability/domain/import-conflicts";
 import { normalizeIsbn } from "@modules/publications/domain/isbn";
@@ -94,7 +94,7 @@ export async function readExistingIndex(): Promise<ExistingIndex> {
 export async function describeConflicts(
   colisoes: readonly ImportCollision[],
   portable: PortableWorkspace,
-): Promise<readonly ConflitoDeImportacao[]> {
+): Promise<readonly ImportConflict[]> {
   if (colisoes.length === 0) return [];
 
   const workspaceIds = colisoes.filter((c) => c.kind === "workspace").map((c) => c.existingId);
@@ -142,7 +142,7 @@ export async function describeConflicts(
 
   const bibliotecaPorId = new Map(bibliotecas.map((row) => [row.id, row.name]));
 
-  return colisoes.map((colisao): ConflitoDeImportacao => {
+  return colisoes.map((colisao): ImportConflict => {
     if (colisao.kind === "workspace") {
       return {
         kind: "workspace",

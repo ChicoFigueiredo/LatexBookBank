@@ -6,6 +6,9 @@ import {
   LOW_CONFIDENCE,
   SCAN_KIND_TRAITS,
   SCAN_KINDS,
+  type Diagnostic,
+  type DiagnosticStatus,
+  type ProposedRegion,
   type ReviewState,
   type ScanKind,
 } from "./proposal";
@@ -29,8 +32,8 @@ export interface ViewItem {
   readonly confidence: number;
   readonly reviewState: ReviewState;
   readonly documentNodeId: string | null;
-  readonly regions: readonly { readonly pageNumber: number; readonly box: NormalizedBox; readonly role: string }[];
-  readonly diagnostic: { readonly status: string; readonly reasons: readonly string[] } | null;
+  readonly regions: readonly ProposedRegion[];
+  readonly diagnostic: Pick<Diagnostic, "status" | "reasons"> | null;
 }
 
 export interface TreeRow<T extends ViewItem> {
@@ -73,6 +76,17 @@ export const STATE_LABELS: Readonly<Record<ReviewState, string>> = {
   REJECTED: "rejeitado",
 };
 
+/**
+ * O diagnóstico do item como a tela o diz: os quatro vereditos do glossário, e não o código em
+ * inglês. Um `Record` completo, para o veredito novo não chegar à tela sem rótulo.
+ */
+export const DIAGNOSTIC_LABELS: Readonly<Record<DiagnosticStatus, string>> = {
+  complete: "completo",
+  incomplete: "incompleto",
+  suspicious: "suspeito",
+  insufficient_evidence: "sem evidência",
+};
+
 /** Um rótulo curto para a linha da árvore: o que está impresso, senão o título, senão o texto. */
 export function rowLabel(item: ViewItem): string {
   const printed = item.originalLabel ?? (item.number ? `${KIND_LABELS[item.kind]} ${item.number}` : null);
@@ -97,7 +111,7 @@ export const FILTER_LABELS: Readonly<Record<ViewFilter, string>> = {
   all: "Tudo",
   pending: "A decidir",
   low: "Duvidosos",
-  problems: "Diagnóstico",
+  problems: "Não completos",
   structure: "Estrutura",
 };
 

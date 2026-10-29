@@ -7,15 +7,15 @@ import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
 import { optionLabelAt } from "@modules/questions/domain/question-type";
 import {
-  aplicarDivisoes,
-  detectarBlocoUnido,
-  separarAlternativas,
-  type AlternativaLida,
-} from "@modules/recognition/domain/separar-alternativas";
+  applySplits,
+  detectMergedBlocks,
+  splitAlternatives,
+  type SplitOption,
+} from "@modules/recognition/domain/split-alternatives";
 import {
-  segmentarPagina,
-  type QuestaoEstimada,
-} from "@modules/recognition/domain/segmentar-pagina";
+  segmentPage,
+  type EstimatedQuestion,
+} from "@modules/recognition/domain/segment-page";
 import {
   accept,
   candidateFrom,
@@ -156,7 +156,7 @@ const MODES: readonly { readonly id: RecognitionMode; readonly label: string }[]
 ];
 
 /** `questao` não existe no provider: ele lê como `mixed`, e a separação é nossa, aqui. */
-const MODO_DO_PROVIDER = (modo: RecognitionMode): string => (modo === "questao" ? "mixed" : modo);
+const providerMode = (modo: RecognitionMode): string => (modo === "questao" ? "mixed" : modo);
 
 interface SourceState {
   readonly assetId: string;
@@ -182,7 +182,7 @@ type BookSource = NonNullable<IngestionPanelProps["bookSource"]>;
  * Uma função só, usada pelo valor inicial do estado e pelo botão que volta para a fonte depois de
  * um desvio — a URL do conteúdo tem um único lugar onde é montada.
  */
-const fonteDoLivro = (bookSource: BookSource): SourceState => ({
+const sourceFromBook = (bookSource: BookSource): SourceState => ({
   assetId: bookSource.assetId,
   // A rota do servidor, e não `createObjectURL`: este arquivo não passou pelo navegador — ele já
   // está no acervo, e é de lá que ele vem.
@@ -228,7 +228,7 @@ export function IngestionPanel({
    * exatamente como antes.
    */
   const [source, setSource] = useState<SourceState | null>(() =>
-    bookSource ? fonteDoLivro(bookSource) : null,
+    bookSource ? sourceFromBook(bookSource) : null,
   );
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [cropAssetId, setCropAssetId] = useState<string | null>(null);
@@ -255,7 +255,7 @@ export function IngestionPanel({
    * O índice muda quando uma divisão acontece antes dele na lista; o texto do bloco é o que
    * identifica *aquele* bloco. Guardar por índice faria a segunda divisão apagar a primeira.
    */
-  const [divididos, setDivididos] = useState<ReadonlyMap<string, readonly AlternativaLida[]>>(
+  const [divididos, setDivididos] = useState<ReadonlyMap<string, readonly SplitOption[]>>(
     new Map(),
   );
   const [error, setError] = useState<string | null>(null);
@@ -275,7 +275,7 @@ export function IngestionPanel({
    * editorial só persiste depois da revisão" — e num lote ela pesa mais, não menos: um erro de
    * segmentação viraria trinta questões erradas de uma vez.
    */
-  const [estimadas, setEstimadas] = useState<readonly QuestaoEstimada[] | undefined>(undefined);
+  const [estimadas, setEstimadas] = useState<readonly EstimatedQuestion[] | undefined>(undefined);
   const [lote, setLote] = useState<{ feitos: number; total: number; falhas: number } | null>(null);
 
   /** Fecha o arquivo aberto e devolve a área de arrastar. O recorte em revisão sai junto. */
@@ -401,7 +401,7 @@ export function IngestionPanel({
    */
   const recortarLote = async (
     recortes: readonly {
-      readonly numero: number | null;
+      readonly number: number | null;
       readonly pageNumber: number;
       readonly box: { x: number; y: number; width: number; height: number };
       readonly png: Blob;
@@ -432,7 +432,7 @@ export function IngestionPanel({
         const lido = await captureApi.recognizeInBatch({
           png: recorte.png,
           cropAssetId: guardado.cropAssetId,
-          mode: MODO_DO_PROVIDER("questao"),
+          mode: providerMode("questao"),
           anchorId: guardado.anchorId ?? null,
         });
         if (!lido) falhas += 1;
@@ -462,7 +462,7 @@ export function IngestionPanel({
       const { ok, body: payload } = await captureApi.recognize({
         png,
         cropAssetId: assetId,
-        mode: MODO_DO_PROVIDER(modo),
+        mode: providerMode(modo),
         anchorId: anchor,
       });
 
@@ -495,7 +495,7 @@ export function IngestionPanel({
    */
   const bruto =
     candidate !== null && mode === "questao"
-      ? separarAlternativas(currentLatex(candidate))
+      ? splitAlternatives(currentLatex(candidate))
       : null;
 
   /**
@@ -509,9 +509,9 @@ export function IngestionPanel({
    * contivesse a chave dela mesma laçaria para sempre. Cinco é folgado — uma questão tem cinco
    * alternativas, e cada corte resolve uma.
    */
-  const separado = bruto ? { ...bruto, options: aplicarDivisoes(bruto.options, divididos) } : null;
+  const separado = bruto ? { ...bruto, options: applySplits(bruto.options, divididos) } : null;
 
-  const unidos = separado ? detectarBlocoUnido(separado.options) : [];
+  const unidos = separado ? detectMergedBlocks(separado.options) : [];
 
   return (
     <div className="lbb-ing">
@@ -583,7 +583,7 @@ export function IngestionPanel({
                 disabled={busy !== null}
                 onClick={() => {
                   setNaoAbriu(null);
-                  setSource(fonteDoLivro(bookSource));
+                  setSource(sourceFromBook(bookSource));
                 }}
               >
                 Usar {bookSource.filename} (fonte do livro)
@@ -682,7 +682,7 @@ export function IngestionPanel({
               onLoadError={fonteNaoAbriu}
               onEstimar={(camada) =>
                 // Página sem camada de texto (escaneada) é lista vazia, sem chamar a segmentação.
-                setEstimadas(camada.palavras.length === 0 ? [] : segmentarPagina(camada))
+                setEstimadas(camada.words.length === 0 ? [] : segmentPage(camada))
               }
               {...(estimadas !== undefined ? { estimadas } : {})}
               onCropLote={(recortes) => void recortarLote(recortes)}
@@ -825,7 +825,7 @@ export function IngestionPanel({
                   /*
                     O que está **na tela**, e não um recálculo.
 
-                    A primeira versão chamava `separarAlternativas` de novo aqui, e o resultado
+                    A primeira versão chamava `splitAlternatives` de novo aqui, e o resultado
                     ignorava as divisões que a pessoa tinha acabado de aceitar: a tela mostrava
                     quatro alternativas e o banco recebia duas. É o defeito que o comentário do
                     `separado` alerta duas telas acima, cometido na linha seguinte.

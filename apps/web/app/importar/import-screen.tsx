@@ -5,9 +5,9 @@ import { useRef, useState } from "react";
 
 import { Banner, Button, Callout, Field, Icon, Select } from "@/design-system";
 import {
-  type ConflitoDeImportacao,
-  fraseDoConflito,
-  numero,
+  type ImportConflict,
+  describeConflict,
+  formatCount,
 } from "@modules/portability/domain/import-conflicts";
 import { LBB_CARRIES, LBB_LEAVES } from "@modules/portability/domain/backup-scope";
 import { formatarTamanho } from "@/shared/format/bytes";
@@ -37,14 +37,14 @@ interface Manifest {
 
 interface DryRunResult {
   readonly manifest: Manifest;
-  readonly conflicts: readonly ConflitoDeImportacao[];
+  readonly conflicts: readonly ImportConflict[];
   readonly wouldCreate: Record<string, number>;
   readonly sizeBytes?: number;
 }
 
 /** As quatro células do protótipo, nesta ordem. `conflitos` é a única em warn. */
 const CELULAS: readonly { readonly key: string; readonly label: string }[] = [
-  { key: "publications", label: "publicações" },
+  { key: "publications", label: "livros" },
   { key: "questions", label: "questões" },
   { key: "assets", label: "arquivos" },
 ];
@@ -160,7 +160,7 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
               <Origem
                 icon="library"
                 title="Absorver livro do Calibre"
-                desc="Cria uma publicação nova a partir de um livro já catalogado."
+                desc="Cria um livro novo a partir de um livro já catalogado."
                 href="/bibliotecas"
               />
               <Origem
@@ -203,7 +203,7 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
                 {conflitos.map((conflito) => (
                   <div key={conflito.existingId} className="lbb-dryrun-conflict">
                     <Icon name="triangle-alert" size={14} />
-                    <span style={{ flex: 1 }}>{fraseDoConflito(conflito)}</span>
+                    <span style={{ flex: 1 }}>{describeConflict(conflito)}</span>
                   </div>
                 ))}
 
@@ -348,7 +348,7 @@ function Celula({
   return (
     <div className="lbb-dryrun-cell">
       <div className="lbb-dryrun-n" data-tone={valor > 0 ? tone : undefined}>
-        {numero(valor)}
+        {formatCount(valor)}
       </div>
       <div className="lbb-dryrun-label">{rotulo}</div>
     </div>

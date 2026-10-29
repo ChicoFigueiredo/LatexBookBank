@@ -19,15 +19,15 @@ import {
   type NormalizedBox,
   type PixelRect,
 } from "@modules/assets/domain/source-anchor";
-import { lerCamadaDeTexto } from "@modules/assets/ui/pdf-text-layer";
-import type { PaginaDeTexto } from "@/shared/pdf-text/text-layer";
+import { readTextLayer } from "@modules/assets/ui/pdf-text-layer";
+import type { TextPage } from "@/shared/pdf-text/text-layer";
 
 /**
  * Uma caixa proposta sobre a página, com o número impresso quando se sabe. É o que o visualizador
  * precisa para desenhar e recortar uma estimativa — quem estima é a tela de cima.
  */
-export interface CaixaEstimada {
-  readonly numero: number | null;
+export interface EstimatedBox {
+  readonly number: number | null;
   readonly box: NormalizedBox;
 }
 
@@ -105,12 +105,12 @@ export interface PdfCropViewerInnerProps {
    * página e a devolve; estimar as questões nela é da tela de cima, que conhece a segmentação —
    * o visualizador é de assets e serve a qualquer tela que mostre um PDF.
    */
-  readonly onEstimar?: (camada: PaginaDeTexto) => void;
+  readonly onEstimar?: (camada: TextPage) => void;
   /**
    * As caixas propostas a desenhar sobre a página atual — mesmo esquema do `highlight`, mas sem
    * interação: aceitar, ajustar ou descartar uma proposta é gesto de outra tela, ainda por vir.
    */
-  readonly estimadas?: readonly CaixaEstimada[];
+  readonly estimadas?: readonly EstimatedBox[];
   /**
    * Recortar de uma vez todas as caixas propostas.
    *
@@ -120,7 +120,7 @@ export interface PdfCropViewerInnerProps {
    */
   readonly onCropLote?: (
     recortes: readonly {
-      readonly numero: number | null;
+      readonly number: number | null;
       readonly pageNumber: number;
       readonly box: { x: number; y: number; width: number; height: number };
       readonly png: Blob;
@@ -311,7 +311,7 @@ export default function PdfCropViewerInner({
     if (canvas === null || estimadas === undefined || onCropLote === undefined) return;
 
     const recortes: {
-      numero: number | null;
+      number: number | null;
       pageNumber: number;
       box: { x: number; y: number; width: number; height: number };
       png: Blob;
@@ -349,7 +349,7 @@ export default function PdfCropViewerInner({
 
       // A caixa que sobe é a **proposta**, já normalizada pelo domínio — e não uma reconversão da
       // versão em pixels, que só acrescentaria erro de arredondamento ao mesmo número.
-      recortes.push({ numero: estimada.numero, pageNumber, box: estimada.box, png });
+      recortes.push({ number: estimada.number, pageNumber, box: estimada.box, png });
     }
 
     onCropLote(recortes);
@@ -463,7 +463,7 @@ export default function PdfCropViewerInner({
   /**
    * Lê a camada de texto da página atual e a entrega à tela de cima.
    *
-   * `lerCamadaDeTexto` chama `getViewport({ scale: 1 })` por dentro — o que sobe são pontos do
+   * `readTextLayer` chama `getViewport({ scale: 1 })` por dentro — o que sobe são pontos do
    * PDF, a mesma unidade em qualquer zoom, e é por isso que a caixa estimada (normalizada 0..1)
    * cabe de volta na conta de desenho abaixo sem conversão. Página sem nenhuma palavra (PDF
    * escaneado) sobe vazia: dizer "isto aqui não tem texto, desenhe à mão" é da tela de cima.
@@ -475,7 +475,7 @@ export default function PdfCropViewerInner({
     setEstimando(true);
     try {
       const page = await doc.getPage(pageNumber);
-      onEstimar(await lerCamadaDeTexto(page));
+      onEstimar(await readTextLayer(page));
     } finally {
       setEstimando(false);
     }
@@ -599,7 +599,7 @@ export default function PdfCropViewerInner({
             size.width > 0 &&
             estimadas.map((estimada, indice) => (
               <div
-                key={`${estimada.numero ?? "sem-numero"}-${indice}`}
+                key={`${estimada.number ?? "sem-numero"}-${indice}`}
                 className="lbb-pdf-estimada"
                 aria-label="Questão estimada"
                 style={{
@@ -610,7 +610,7 @@ export default function PdfCropViewerInner({
                 }}
               >
                 <span className="lbb-pdf-estimada-numero">
-                  {estimada.numero === null ? "?" : estimada.numero}
+                  {estimada.number === null ? "?" : estimada.number}
                 </span>
               </div>
             ))}

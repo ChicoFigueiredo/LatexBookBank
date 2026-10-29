@@ -44,7 +44,7 @@ export function PublicationsScreen({
   return (
     <AppShell
       activeModule="publicacoes"
-      breadcrumb={[{ label: "Publicações" }]}
+      breadcrumb={[{ label: "Livros" }]}
       actions={
         <Button size="sm" variant="secondary" icon="library" href="/bibliotecas">
           Bibliotecas
@@ -54,7 +54,7 @@ export function PublicationsScreen({
       <div className="lbb-acervo">
         <PageHeader
           eyebrow="ACERVO"
-          title="Publicações"
+          title="Livros"
           meta={`${publications.length} ${publications.length === 1 ? "livro" : "livros"}`}
         />
 
@@ -75,7 +75,7 @@ export function PublicationsScreen({
               <Input
                 size="sm"
                 placeholder="Filtrar por título ou biblioteca…"
-                aria-label="Filtrar publicações"
+                aria-label="Filtrar livros"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />

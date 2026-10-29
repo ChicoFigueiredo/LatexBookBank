@@ -147,5 +147,5 @@ export const CONTEXT_KIND_LABELS: Readonly<Record<ContextKind, string>> = {
   options: "Alternativas",
   metadata: "Metadados",
   selection: "Seleção",
-  diagnostics: "Diagnósticos",
+  diagnostics: "Diagnósticos do render",
 };

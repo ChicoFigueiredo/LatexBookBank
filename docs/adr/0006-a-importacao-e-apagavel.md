@@ -44,3 +44,10 @@ inteiro, otimiza-se depois sem mudar a promessa: o que o usuário vê é "isto v
 
 A coluna também responde a uma pergunta que ninguém conseguia responder antes: **o que este livro
 tem que veio de máquina?** É a mesma pergunta do filtro *a revisar*, agora por importação.
+
+**Complemento da execução da revisão de 2026-09-23 (D61).** A edição à mão é medida a partir da
+**última** escrita da aprovação no nó, e não da primeira: uma rodada posterior de aprovação não
+conta como edição. O nó apenas reaproveitado fica, mas perde o trecho de corpo e as âncoras que a
+importação acrescentou — só o trecho ainda idêntico ao que entrou; o que alguém mexeu fica. Corpo
+*conferido* conta como trabalho à mão. E a confirmação conta também as figuras, como a lista acima
+promete.

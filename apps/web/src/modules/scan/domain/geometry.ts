@@ -2,7 +2,7 @@ import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
 
 /**
  * Retângulos em **pontos do PDF**, origem no canto superior esquerdo, y para baixo — a mesma
- * convenção da `segmentar-pagina` e de toda caixa normalizada do projeto (D28).
+ * convenção da `segment-page` e de toda caixa normalizada do projeto (D28).
  *
  * O scan raciocina em pontos porque é neles que as tolerâncias fazem sentido ("a calha mede 3 a
  * 8 pt"); só vira fração de página na hora de propor uma âncora.
@@ -86,7 +86,7 @@ const round = (value: number): number => Math.round(value * PRECISION) / PRECISI
 /**
  * A caixa em frações da página, presa às bordas.
  *
- * Prender em vez de recusar, como a `segmentar-pagina`: quem desenhou foi a aritmética, e uma
+ * Prender em vez de recusar, como a `segment-page`: quem desenhou foi a aritmética, e uma
  * folga que vaza dois pontos na margem não é erro de ninguém. Seis casas, as de `normalizeAnchor`.
  */
 export function toNormalizedBox(

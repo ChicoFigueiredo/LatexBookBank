@@ -1,7 +1,7 @@
 /**
  * Onde a questão mora, na linha do resultado da busca (protótipo, 2190).
  *
- * No domínio e não na infraestrutura, pela mesma razão de `shelf-labels` e `separar-alternativas`:
+ * No domínio e não na infraestrutura, pela mesma razão de `shelf-labels` e `split-alternatives`:
  * é regra de rótulo, é pura, e é a coisa mais fácil de errar em silêncio numa lista de cinquenta
  * resultados. Aqui ela tem teste — e importá-la de dentro do repositório Prisma arrastaria o
  * cliente do banco para o teste unitário só para formatar uma string.

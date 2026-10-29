@@ -6,7 +6,7 @@ import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 import type { ApplyPatchResponse } from "@modules/agents/application/agent-contract";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../http";
+import { BadRequestError, readJson, requireId, toErrorResponse } from "../../../http";
 
 /**
  * Aplica um patch — **só o que o usuário aprovou**.
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   try {
     const body = await readJson(request);
 
-    const questionId = requireString(body["questionId"], "questionId");
+    const questionId = requireId(body["questionId"], "questionId");
     const approvedChangeIds = parseApproved(body["approvedChangeIds"]);
     // Revalidado, e não confiado: a whitelist é a única coisa entre o patch e as colunas.
     const patch = parseQuestionPatch(body["patch"]);
@@ -45,13 +45,6 @@ export async function POST(request: Request) {
   } catch (error) {
     return toErrorResponse(error);
   }
-}
-
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim() === "" || value.length > 200) {
-    throw new BadRequestError(`\`${field}\` é obrigatório e precisa ser um identificador.`);
-  }
-  return value;
 }
 
 function parseApproved(value: unknown): readonly string[] {

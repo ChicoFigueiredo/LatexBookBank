@@ -1,6 +1,6 @@
 "use client";
 
-import { ScanWorkspace, type ScanWorkspaceProps } from "@modules/scan/ui/ScanWorkspace";
+import { ScanReview, type ScanReviewProps } from "@modules/scan/ui/ScanReview";
 
 import { AppShell } from "../../../../app-shell";
 
@@ -9,7 +9,7 @@ export function ScanRunScreen({
   title,
   library,
   ...workspace
-}: ScanWorkspaceProps & {
+}: ScanReviewProps & {
   readonly title: string;
   readonly library?: { readonly name: string; readonly slug: string };
 }) {
@@ -24,13 +24,13 @@ export function ScanRunScreen({
               { label: "Bibliotecas", href: "/bibliotecas" },
               { label: library.name, href: `/bibliotecas/${library.slug}` },
             ]
-          : [{ label: "Publicações", href: "/publicacoes" }]),
+          : [{ label: "Livros", href: "/publicacoes" }]),
         { label: title, href: `/publications/${publicationId}` },
         { label: "Scan", href: `/publications/${publicationId}/scan` },
         { label: "Revisão" },
       ]}
     >
-      <ScanWorkspace {...workspace} />
+      <ScanReview {...workspace} />
     </AppShell>
   );
 }

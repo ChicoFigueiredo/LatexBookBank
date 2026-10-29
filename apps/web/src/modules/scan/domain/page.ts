@@ -1,4 +1,4 @@
-import { palavraNaLinhaDeBase, type PaginaDeTexto } from "@/shared/pdf-text/text-layer";
+import { wordFromBaseline, type TextPage } from "@/shared/pdf-text/text-layer";
 
 import { fontTraits, looksLikeMath } from "./fonts";
 import { median, type Rect } from "./geometry";
@@ -130,7 +130,7 @@ export function toTextSpan(raw: RawSpan): TextSpan {
  * fração à linha deles, em vez de criar uma linha de um caractere.
  *
  * NFC em tudo: o PDF do LaTeX entrega acento decomposto, e uma regex com "ç" não casa com "c" +
- * cedilha — falha em silêncio (ver `segmentar-pagina.ts`).
+ * cedilha — falha em silêncio (ver `segment-page.ts`).
  */
 export function buildLines(page: RawPage): PageModel {
   const lines: TextLine[] = [];
@@ -362,22 +362,22 @@ function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[],
 /**
  * A página do motor como camada de texto, no formato da segmentação da captura (ARQ-06).
  *
- * Cada trecho vira uma palavra pela mesma conta do leitor do navegador (`palavraNaLinhaDeBase`),
+ * Cada trecho vira uma palavra pela mesma conta do leitor do navegador (`wordFromBaseline`),
  * a partir da linha de base guardada — e não da caixa, que no glifo pendurado da fonte de extensão
  * desce 2,6 corpos abaixo da base.
  */
-export function toPaginaDeTexto(page: PageModel): PaginaDeTexto {
+export function toTextPage(page: PageModel): TextPage {
   return {
-    largura: page.width,
-    altura: page.height,
-    palavras: page.lines.flatMap((line) =>
+    width: page.width,
+    height: page.height,
+    words: page.lines.flatMap((line) =>
       line.spans.map((span) =>
-        palavraNaLinhaDeBase({
-          texto: span.text,
+        wordFromBaseline({
+          text: span.text,
           x: span.x0,
-          largura: span.x1 - span.x0,
-          linhaDeBase: span.baseline,
-          corpo: span.size,
+          width: span.x1 - span.x0,
+          baseline: span.baseline,
+          fontSize: span.size,
         }),
       ),
     ),

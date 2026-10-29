@@ -17,7 +17,7 @@ import {
   KIND_LABELS,
   overlaysForPage,
   type ViewFilter,
-} from "@modules/scan/domain/workspace-view";
+} from "@modules/scan/domain/review-view";
 
 import { RemoveImportDialog } from "./RemoveImportDialog";
 import { ScanPropertiesPanel } from "./ScanPropertiesPanel";
@@ -55,7 +55,7 @@ const CSS = `
 .lbb-scan-ws-regions{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-3);font-size:var(--text-meta);border-bottom:1px solid var(--border-subtle);background:var(--surface)}
 `;
 
-export interface ScanWorkspaceProps {
+export interface ScanReviewProps {
   readonly publicationId: string;
   readonly runId: string;
   readonly fileUrl: string;
@@ -94,7 +94,7 @@ function runProgress(run: ScanRunView): { readonly percent: number | null; reado
 }
 const FILTERS: readonly ViewFilter[] = ["all", "pending", "low", "problems", "structure"];
 
-export function ScanWorkspace({
+export function ScanReview({
   publicationId,
   runId,
   fileUrl,
@@ -106,7 +106,7 @@ export function ScanWorkspace({
   aiAvailable,
   mathAvailable,
   initial,
-}: ScanWorkspaceProps) {
+}: ScanReviewProps) {
   injectCss("lbb-scan-ws", CSS);
 
   const [run, setRun] = useState(initial.run);

@@ -34,7 +34,7 @@ export async function POST(
   const { id, questionId } = await params;
 
   try {
-    const escopo = await requireQuestionScope(id, questionId);
+    const scope = await requireQuestionScope(id, questionId);
 
     const wiring = renderWiringFromEnv();
     if (wiring === null) return rendererNotConfigured();
@@ -55,7 +55,7 @@ export async function POST(
       // O workspace vem do **guarda**, não de uma segunda leitura: ele já subiu a cadeia
       // questão → nó → publicação para conferir a URL, e duas resoluções da mesma coisa é onde as
       // duas versões um dia divergem.
-      { ...source, workspaceId: escopo.workspaceId },
+      { ...source, workspaceId: scope.workspaceId },
       {
         profile,
         ...(body["includeSolution"] === true ? { includeSolution: true } : {}),

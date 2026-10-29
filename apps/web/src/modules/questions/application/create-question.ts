@@ -1,10 +1,10 @@
 import type { DocumentTreeRepository } from "@modules/document-tree/domain/document-tree-repository";
 import { resolvePlacement, type Placement } from "@modules/document-tree/domain/tree-mutations";
 import {
-  metadadosHerdados,
-  questaoAnterior,
-  type MetadadosHerdados,
-} from "@modules/questions/domain/herdar-metadados";
+  inheritMetadata,
+  previousQuestion,
+  type InheritedMetadata,
+} from "@modules/questions/domain/inherited-metadata";
 import { planQuestion, type QuestionBlueprint } from "@modules/questions/domain/question-blueprint";
 
 /**
@@ -22,7 +22,7 @@ import { planQuestion, type QuestionBlueprint } from "@modules/questions/domain/
 
 export class DestinationNotFoundError extends Error {
   constructor(readonly nodeId: string) {
-    super(`O destino ${nodeId} não existe nesta publicação.`);
+    super(`O destino ${nodeId} não existe neste livro.`);
     this.name = "DestinationNotFoundError";
   }
 }
@@ -41,7 +41,7 @@ export interface NewQuestionNode {
   readonly solutionLatex?: string;
   /** Texto e gabarito de cada alternativa, quando vêm de um candidato aprovado. */
   readonly options?: readonly { readonly statementLatex: string; readonly isCorrect: boolean }[];
-  /** Banca e ano da questão anterior, quando há uma antes desta posição. Ver `herdar-metadados`. */
+  /** Banca e ano da questão anterior, quando há uma antes desta posição. Ver `inherited-metadata`. */
   readonly board?: string | null;
   readonly year?: number | null;
 }
@@ -54,7 +54,7 @@ export interface CreatedQuestion {
    * O que veio da anterior, quando veio. Sobe até a rota para a tela poder **dizer** — herdar em
    * silêncio é o defeito, não a feature.
    */
-  readonly inherited?: MetadadosHerdados | null;
+  readonly inherited?: InheritedMetadata | null;
 }
 
 /** Porta de escrita atômica. Um método, porque a operação é uma só. */
@@ -108,7 +108,7 @@ export async function createQuestion(
    * caminho da captura (`create-question-from-recognition`) manda o que leu do PDF. Herança é o
    * valor de quando ninguém disse nada.
    */
-  const herdado = metadadosHerdados(questaoAnterior(records, { parentId, sortKey }));
+  const herdado = inheritMetadata(previousQuestion(records, { parentId, sortKey }));
 
   /*
    * A dificuldade herdada exige replanejar, e o replanejo é de graça: `planQuestion` é puro. Vale a

@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const publication = await new PrismaPublicationRepository().findById(id);
   if (!publication) {
     return NextResponse.json(
-      { error: "publication_not_found", message: `Publicação ${id} não existe.` },
+      { error: "publication_not_found", message: `Livro ${id} não existe.` },
       { status: 404 },
     );
   }

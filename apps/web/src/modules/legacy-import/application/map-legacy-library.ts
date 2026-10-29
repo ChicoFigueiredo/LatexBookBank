@@ -220,7 +220,7 @@ function toPortablePublication(
 ): PortablePublication {
   return {
     ref: `p${idPublication}`,
-    title: legacy?.PublicationName?.trim() || `Publicação ${idPublication}`,
+    title: legacy?.PublicationName?.trim() || `Livro ${idPublication}`,
     subtitle: null,
     publisher: null,
     legacyId: idPublication,

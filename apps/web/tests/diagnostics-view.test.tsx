@@ -187,7 +187,7 @@ describe("importar um `.lbb`", () => {
     const view = show();
     await escolher(view);
 
-    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Importar como uma biblioteca nova/)).toBeTruthy());
     expect(urls).toHaveLength(1);
     expect(urls[0]).toContain("dryRun=1");
     expect(screen.getByText(/dry-run/)).toBeTruthy();
@@ -198,7 +198,7 @@ describe("importar um `.lbb`", () => {
     const view = show();
     await escolher(view);
 
-    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Importar como uma biblioteca nova/)).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
 
     await waitFor(() => expect(screen.getByText(/nada foi gravado/i)).toBeTruthy());
@@ -211,7 +211,7 @@ describe("importar um `.lbb`", () => {
     const view = show();
     await escolher(view);
 
-    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Importar como uma biblioteca nova/)).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Importar" }));
 
     await waitFor(() => expect(urls).toHaveLength(2));
@@ -243,7 +243,7 @@ describe("importar um `.lbb`", () => {
     const view = show();
     await escolher(view);
 
-    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Importar como uma biblioteca nova/)).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Importar" }));
 
     await waitFor(() => expect(urls).toHaveLength(2));

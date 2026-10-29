@@ -556,9 +556,16 @@ representam comportamento real, não cerimônia:
 
 **Pergunta de controle antes de criar qualquer interface:**
 
-> Existe mais de uma implementação real, ou uma fronteira arquitetural importante?
+> Existe mais de uma implementação real, uma fronteira arquitetural importante, ou um caso de uso
+> que precisa rodar em teste sem I/O real (um dublê em memória)?
 
 Se a resposta for não, provavelmente não precisa de interface.
+
+*A terceira condição foi escrita na execução da revisão de 2026-09-23 (STM-18, D72): é o critério
+que o repositório já praticava. `ScanStore`, `LegacyFsProbe`, `FigureCropper` e as portas que os
+casos de uso declaram no próprio arquivo existem para o teste trocar o banco, o disco ou o pdf.js
+por um dublê — e por isso têm dublê na suíte. Interface sem segunda implementação **e** sem dublê
+continua sendo a proibida abaixo.*
 
 **Continua proibido:** interface para classe que nunca terá outra implementação · factory sem
 necessidade · abstração de uma linha · DI framework pesado · service locator · microserviço por
@@ -853,6 +860,9 @@ O `manifest.json` declara `formatVersion`. O importador tem **migradores de form
 (`LBB v1 → v2 → runtime atual`) quando fizer sentido, e **nunca adivinha** versão desconhecida:
 recusa com mensagem clara.
 
+*Revista pela D68 (autor): na fase de MVP o backup vale daqui para frente, e o import aceita só
+a v3 — v1 e v2 são recusadas com mensagem, sem migrador.*
+
 **Consequência para a Fase 13:** o round-trip deixa de ser "exportei e reimportei o mesmo schema"
 e passa a exercitar duas projeções — runtime → portable e portable → runtime. É mais trabalho, e
 é o que faz o formato sobreviver ao produto.
@@ -959,6 +969,9 @@ quase isto, é precisamente o que o autor não encontrou em um mês de uso.
 **A decisão:** um botão *Ver fonte* ao lado de "Preview rápido" troca o painel inteiro pelo PDF,
 aberto na página da âncora com a caixa marcada, acompanhando a troca de questão. A escolha fica
 lembrada por livro. Em questão sem âncora — o acervo legado inteiro — o botão não aparece.
+
+*Revista pela **D73** (§3.9): desde 2026-09-16 o PDF abre como terceira coluna, e quem cede
+espaço são as colunas da direita.*
 
 ---
 
@@ -1104,6 +1117,12 @@ decisão do autor, ainda que a segmentação recente esteja em português. A Wav
 GitHub; a Fase 18 é reescrita pela D45, a 19 continua, e nascem a **20** (revisão e aprovação da
 proposta) e a **21** (IA, matemática e validação), cada uma com as suas issues de trabalho.
 
+*Corrigida na execução da revisão de 2026-09-23 (STM-15):* a segmentação **ficou** em
+`recognition/domain/segment-page.ts`, e é o perfil `exam-v1` do scan que a chama, página por
+página — a dependência vai de `scan` para `recognition`, e não o contrário. Mudá-la de lugar não
+desfaz ciclo nenhum (não há: ver D71) e trocaria um caminho que funciona por outro. A regra de
+idioma que esta decisão pedia, e que a segmentação não seguia, está na D74.
+
 #### D55 — O preview sabe de onde cada bloco veio, e as duas metades se apontam
 
 Cada bloco do `PreviewModel` carrega a **origem** — o intervalo, em caracteres do LaTeX
@@ -1180,6 +1199,246 @@ storage em `data/e2e/` recriados a cada execução pelas migrações e pelo seed
 servidor; um `globalSetup` recusa rodar se a instância não for `e2e`. O custo: só roda um
 `next dev` por pasta, então o dev server de todo dia precisa estar parado para o E2E subir (#241).
 
+### 3.9 Execução da revisão de código — decisões tomadas pelas frentes A a I
+
+As frentes da [revisão](code-review-2026-09-23.md) decidiram, no caminho, o que o relatório deixava
+em aberto ou não tinha previsto. Ficam aqui por área, uma decisão por assunto. As do autor estão
+marcadas; as outras foram tomadas pela frente e valem até alguém revê-las.
+
+#### D61 — Aprovar em rodadas, o corpo a revisar e apagar a importação
+
+Complementa a D40, a D53 e o [ADR 0006](../adr/0006-a-importacao-e-apagavel.md) (frente B).
+
+- **Rodadas.** Nó e trecho de corpo aprovados depois entram na posição do livro, e não no fim.
+  Quando não há trecho seguinte no corpo para ancorar a posição, o trecho vai para o fim, sem
+  aviso.
+- **Corpo a revisar** é regra derivada, sem coluna, como a D40 manda: a última revisão do corpo é
+  a `SYSTEM` com o resumo `BODY_FROM_SCAN` ("corpo recebido do scan"). *Conferir* grava uma
+  revisão `USER` "corpo conferido"; corpo conferido conta como trabalho à mão e fica de pé quando a
+  importação é apagada.
+- **Apagar a importação** mede a edição à mão a partir da última escrita da aprovação no nó, e não
+  da primeira: uma rodada posterior não conta como edição. O nó reaproveitado fica, mas perde o
+  trecho e as âncoras que a importação acrescentou — só o trecho ainda idêntico ao que entrou. A
+  confirmação conta também as figuras.
+
+#### D62 — A revisão da proposta não perde nem inventa trabalho
+
+Frente B.
+
+- **Herança de revisão ao trocar de perfil (CAP-06).** Um item novo herda a revisão do antigo
+  quando as áreas guardam razão mínima de 0,5, escolhendo a maior IoU; o texto revisado só passa
+  entre tipos da mesma família (`SCAN_KIND_TRAITS.family`), e nada se herda de item já levado ao
+  acervo.
+- **O reconhecimento rebaixa.** Item cujo LaTeX veio do modelo na varredura deixa de ser
+  *sugerido* e passa a *a revisar*: máquina que transcreveu não aceita em lote.
+- **Perfil de uma coluna.** O perfil ganha a opção `singleColumn`, e o *Fundamentos* a usa.
+- **B7 fica de fora, por decisão do autor.** O `book-fme-v1` mudou de comportamento com o
+  `singleColumn` sem subir de versão, e a aprovação continua preferindo o perfil vivo ao retrato
+  (STM-07, SPG-10). Fica aberto, e a versão sobe quando a B7 for feita.
+
+#### D63 — Asset: a linha é do dono, o arquivo é do storage
+
+Frente C.
+
+- A linha de `Asset` é identificada por chave, dono, nome e tipo; a deduplicação é do **arquivo**,
+  e quem a faz é o storage. Duas questões com a mesma figura têm duas linhas e um arquivo.
+- O bundle de render da questão leva os recortes das âncoras dela.
+- Sem `CALIBRE_LIBRARY_ROOT` o catálogo não abre, nem no modo local; uma subpasta da raiz é
+  permitida. Biblioteca e livro que não combinam no upload dão 404, como na #175.
+- Só PNG, JPEG, WebP e PDF são servidos sem sandbox; o resto sai com CSP `sandbox` e `nosniff`.
+
+#### D64 — A lixeira e a exclusão quando há prova no meio
+
+Frente D. O item do restaurar é decisão do autor.
+
+- **Esvaziar a lixeira** deixa a questão que está numa avaliação — e os ancestrais dela — e a
+  reporta (200, `held`), em vez de um 409 que trava a lixeira inteira.
+- **Excluir um livro** com questão em avaliação é recusado com 409 nomeando as provas. Não tira a
+  questão da prova.
+- O asset fonte da questão apagada fica, com `questionId` nulo (D29); o arquivo de render sai do
+  disco quando nenhuma linha cita mais a chave.
+- **Restaurar um capítulo não traz de volta a subseção excluída antes dele** (autor). "Junto" é ter
+  o mesmo `deletedAt`; a subseção excluída antes é restaurada à parte, depois que o pai voltar.
+- Na colisão de `sortKey` ao restaurar, o nó entra logo depois do irmão que tomou a chave.
+
+#### D65 — O token de concorrência é do texto, e revalidar é da aplicação
+
+Frente D.
+
+- Âncora, validação, renomear e mover nunca movem o `updatedAt`: o 409 é para quem disputou o
+  texto, não para uma escrita derivada.
+- O corpo do nó usa `DocumentNode.updatedAt` como versão, com a condição no `where`. O conflito
+  oferece *Manter o meu texto* e *Usar o texto salvo*, e nenhuma saída descarta o rascunho calada.
+- Revalidar a questão é da aplicação (`afterQuestionChanged`), em silêncio; a validação entra como
+  último parâmetro opcional dos casos de uso. `isCorrect` que não é booleano dá 400.
+
+#### D66 — A avaliação é de uma biblioteca, e o tipo de questão manda no gabarito
+
+Frente E.
+
+- `/avaliacoes` lê a biblioteca de `?biblioteca=slug`; sem ele abre a primeira em ordem pt-BR;
+  slug desconhecido é 404.
+- Questão na lixeira não entra em prova (409), e sortear com questão na lixeira é recusado com a
+  lista. A semente vai de 0 a 2³¹−1.
+- Alternativas e corretas vêm do plugin do tipo; tipo sem plugin não é sorteado (409). O gabarito
+  é uma lista de letras por questão (`answers: Record<id, string[]>`). O escape de texto LaTeX é
+  um só, em `latex/domain`.
+- O contrato do plugin declara `hint` e `options` (quantas nascem e se só uma é correta); criar só
+  aceita tipo com plugin; tipo sem plugin ou sem alternativas não é exclusivo.
+
+#### D67 — O agente e o render
+
+Frente F.
+
+- O retrato da revisão vai à versão 2 (`snapshotVersion`, `type`, `sortKey`): reverter sincroniza
+  as alternativas e restaura o tipo; o retrato v1 restaura sem tipo.
+- O id da linha do diff carrega a impressão FNV-1a (8 hex) do valor anterior: aprovar vale sobre
+  o estado que a tela mostrou, e não sobre o que mudou depois.
+- "Uma correta só" depende do tipo e vem do banco (`checkAnswerKeyForType`); a exclusividade mora
+  em `questions/domain/option-mutations.ts` e lê o plugin.
+- `RenderResult.failureKind`: só a falha `document` entra no cache, e a ausência conta como
+  `document`; falha passageira não grava `RenderJob`.
+- A versão no hash do cache é a que o worker reporta (`RENDERER_VERSION` mais o carimbo da imagem);
+  a app não lê mais `RENDERER_VERSION`.
+- O worker recusa com 409 um `jobId` em andamento, e as rotas de render aceitam `force: true`.
+
+#### D68 — O `.lbb` v3 é o backup inteiro, e o import só aceita ele
+
+Frente G. A fase e a recusa das versões antigas são decisão do autor.
+
+- **Fase de MVP: o backup vale daqui para frente** (autor). O `.lbb` v3 leva tudo, e o import
+  aceita **só a v3**: v1 e v2 são recusadas com mensagem, sem migrador. Revê a D37 e a D42 no que
+  diziam do migrador `v1 → v2`.
+- O v3 leva a biblioteca inteira, **inclusive a lixeira** — uma questão excluída que uma prova ou
+  uma revisão cita não pode sumir na restauração. Ficam de fora os artefatos de render, as
+  varreduras do scan e os turnos do agente. Se o `legacyId` já existe no destino, a cópia entra
+  sem ele.
+- A colisão é procurada no escopo certo: a biblioteca pelo `legacyId`; o livro só dentro da
+  biblioteca de mesma origem; a questão só dentro do livro que colidiu; `legacyUuid` e ISBN são
+  globais. Gravar com colisão exige `acceptCollisions=1`.
+- A coluna `Deleted` do legado é **descartada por decisão**: 0 linhas marcadas em todas as
+  bibliotecas legíveis (ACV-13). Se uma biblioteca nova a trouxer marcada, ela vira capacidade
+  lida como o `hasBanca`, e o nó vai para a lixeira (§6).
+
+#### D69 — O CI e os testes barram de verdade
+
+Frente H.
+
+- O CI tem dois jobs: `verify`, sem TeX — os testes de compilação pulam de forma visível —, e
+  `renderer-tex`, que exige o TeX.
+- A fixture do Calibre mora num lugar só. Endereço de máquina dos testes vem do `.env.local`, e o
+  teste que depende dele pula dizendo qual variável falta.
+- `app/**` é raiz de composição e fica fora da regra de infraestrutura de módulo; domínio e agente
+  não usam `import()` nem `require`, que escapariam do lint.
+- A árvore roda o mesmo contrato (`tests/support/tree-contract.ts`) contra o dublê em memória e
+  contra o Prisma.
+
+#### D70 — A borda HTTP: o contrato é um tipo, e o erro tem tradutor — [ADR 0010](../adr/0010-o-contrato-da-rota-e-um-tipo.md) · [ADR 0011](../adr/0011-a-borda-traduz-o-erro.md)
+
+Frente I (I4, I8) e o achado STE-02/STM-06.
+
+- **Contrato.** O tipo de resposta de cada rota que uma tela lê mora em
+  `modules/<m>/application/*-contract.ts` (ou no DTO do módulo, como no scan). A rota anota a
+  resposta com `satisfies`; o cliente da tela, em `modules/<m>/ui/*-client.ts`, importa o mesmo
+  tipo e fala por `src/shared/http/api-client.ts` (`requestJson`, `sendJson`, `readReply`). O teste
+  de contrato entrega a requisição do cliente à rota de verdade por `tests/support/route-fetch.ts`.
+  Os hooks da tela moram na `ui/` do módulo.
+- **Erro.** Uma tabela só, em `app/api/http.ts`, traduz erro de domínio em status e código
+  (`withErrors`, `toErrorResponse`): 400 é pedido mal formado, 409 é o estado que recusa, 404 não
+  distingue "não existe" de "não é seu", 422 é o arquivo que não serve, 503 é o serviço de fora. O
+  que a tabela não conhece é 500 com JSON e o detalhe no log, nunca no corpo.
+- **Validação.** Escrita à mão na rota, e no domínio quando é ele quem sabe se o dado serve. Zod
+  onde o schema é rico — o `QuestionPatch`, o `.lbb`, a resposta da IA no scan, o JSON gravado da
+  proposta e as operações de revisão do scan. A saída não é validada em tempo de execução: é
+  tipada pelo contrato. Isso substitui o "Zod na entrada e na saída" da §4.4.
+
+#### D71 — Uma raiz de composição, a regra no caso de uso e um dono por escrita
+
+Frente I (I2, I3, I5, I6, I7, I9).
+
+- **Composição.** `src/infrastructure/composition.ts` decide qual implementação atende cada porta
+  — `storage()`, `aiProvider()`, `visionRecognizer()` —, lendo `env()`, que valida o ambiente uma
+  vez por processo. São funções, e não container nem service locator. O render tem a sua em
+  `rendering/infrastructure/render-wiring.ts`, e o scan em `scan/infrastructure/scan-deps.ts`.
+  `tests/composition-root.test.ts` recusa `new` de adaptador concreto fora do dono, e leitura solta
+  do ambiente.
+- **Casos de uso.** A regra que estava na rota ou no adaptador (avaliação, captura, lixeira, turno
+  do agente, importação) passou para `application/`, com a porta declarada no próprio arquivo do
+  caso de uso; a infraestrutura fica com as consultas.
+- **Um dono por escrita.** O escritor de nó (`document-tree/infrastructure/prisma-node-writer.ts`)
+  grava nó, questão e âncoras; o de questão (`questions/infrastructure/prisma-question-writer.ts`)
+  é o único que cria questão. `appendRevision` (`revisions/infrastructure`) é o único lugar que
+  numera revisão. Papel de âncora desconhecido no `.lbb` vira `CONTINUATION`.
+- **Ciclos.** `document-tree ↔ questions` é o único ciclo entre módulos, nomeado: o nó carrega a
+  questão, e separar os dois é decisão de agregado. `tests/module-cycles.test.ts` quebra a suíte no
+  quinto. O índice fracionário foi para `shared/ordering`.
+- **Primitivas neutras.** Uma camada de texto do PDF (`shared/pdf-text`), lida pela linha de base
+  nos dois leitores, o do navegador e o do scan; um cliente do endpoint OpenAI-compatible
+  (`src/infrastructure/ai/openai-compatible`), que o agente e a visão usam, com imagens.
+- **Scan.** Os traços de cada `ScanKind` moram numa tabela (`SCAN_KIND_TRAITS`), e os conjuntos
+  derivam dela; as passadas depois da proposta têm contrato (`ScanPass`), e o cancelamento é
+  conferido depois de toda passada.
+
+#### D72 — O fluxo que o repositório pratica
+
+Frente I (I1), achados STE-18, STM-05, STM-18, STE-19 e STM-15.
+
+- **Server Component lê direto.** Página e layout leem o read model da infraestrutura do módulo
+  (`read*`, `list*`, `server-only`) sem passar por rota: ler não tem regra que um caso de uso
+  guarde, e uma rota no meio seria um `fetch` do servidor para ele mesmo. Escrita nunca: toda
+  escrita passa por Route Handler e caso de uso. O read model devolve projeção — fatos e DTO —, e
+  não objeto Prisma.
+- **A pergunta de controle da D23** ganha a terceira condição: um caso de uso que precisa rodar em
+  teste sem I/O real justifica a interface, desde que o dublê exista.
+- **Onde mora o adaptador.** No `infrastructure/` do módulo dono. `src/infrastructure` guarda só
+  o que é de todos: a raiz de composição, o cliente do banco, o storage local, o cliente de IA e o
+  caminho de escrita do agente (`src/infrastructure/agent`, fora do módulo porque o lint proíbe o
+  módulo do agente de alcançar o banco). As pastas que só tinham `.gitkeep` — `postgres/`,
+  `vercel-blob/`, `rendering/worker/` e o módulo `ingestion` — saíram, e `revisions` ganhou código
+  (D71); a §4.6 tem a árvore real.
+
+#### D73 — "Ver fonte" é a terceira coluna, que cede espaço — *revisa a D43*
+
+Registrada pela revisão (SPG-09): o código mudou em 2026-09-16 (`4c1e64b`, e o corpo do nó em
+`51b0fec`) sem decisão escrita.
+
+A D43 recusou a terceira coluna por medida: com o painel do agente aberto, o editor caía a
+~240 px em 1366×768. O editor resolveu isso de outro jeito: o PDF entra como terceira coluna, só
+com *Ver fonte* ligado, e quando o espaço acaba **as colunas da direita cedem juntas**, até 160 px
+cada, antes de o editor ceder; o editor tem piso de 420 px, conferido pelo `e2e/layout.spec.ts`, e
+só abaixo disso desce até 200. As larguras são preferência da pessoa, e encolher não grava nada.
+O botão subiu para a barra, ao lado de *Preview*.
+
+O resto da D43 continua: abre na página da âncora, acompanha a troca de questão, a escolha é
+lembrada por livro e some em questão sem âncora. **Pede confirmação do autor**: a medida que a
+D43 usou para recusar não foi refeita com o painel do agente aberto.
+
+#### D74 — A regra de idioma que vale
+
+Frente I (I10). Substitui a linha "Idioma" do README e completa a D54.
+
+- **Identificadores em inglês**: tipos, funções, campos, constantes, nomes de arquivo de código e
+  de script, rotas de API, códigos de erro e schema. O termo do glossário entra pelo identificador
+  que o `CONTEXT.md` dá entre parênteses (`Workspace`, `Publication`, `DocumentNode`).
+- **Em pt-BR**: documentação, comentários, texto de tela e mensagem que chega à pessoa — e o texto
+  de tela segue o glossário, com os _Avoid_ valendo para ele. Também em pt-BR: **mensagens de
+  commit**, como o histórico inteiro, e **o nome e a descrição dos testes**, que são frases sobre
+  comportamento (`asset-escopo-no-servidor.test.ts`, `it("…")`). O teste que leva o nome de um
+  módulo segue o nome do módulo.
+- **Dado não é identificador.** Valores gravados ou trocados com outro lado ficam como são: os
+  campos do legado (`latexResposta`), os públicos do render (`"aluno"`, `"professor"`), a
+  localidade da IA (`"remota"`, `"sem-ia"`).
+- **Caminho de página é endereço.** `/publicacoes`, `/publications/[id]/ingestao` e os demais
+  ficam como estão: renomear custa redirecionamento e link guardado. O que a pessoa **lê** — rail,
+  título, breadcrumb — segue o glossário.
+- **O português que sobrou** é renomeado quando o arquivo for mexido, começando pelo que sai dele
+  (exportado e campo de tipo exportado). Não há passada global. A revisão apontou e a frente I
+  renomeou a segmentação (`segmentPage`), a camada de texto (`TextPage`), a separação de
+  alternativas (`splitAlternatives`), o público do render (`RenderAudience`), a herança de
+  metadados (`InheritedMetadata`), o resumo do livro (`BookIssue`, `SourcePdfSummary`), os
+  conflitos de importação (`ImportConflict`), a localidade da IA (`aiLocality`), `ScanWorkspace`
+  (`ScanReview`) e os scripts `relink-legacy-library.ts` e `close-merged-issues.sh`.
+
 ---
 
 ## 4. Arquitetura
@@ -1239,21 +1498,62 @@ scan de diretórios, hash, render local e Ollama — servindo uma interface hosp
 
 ### 4.4 Fluxo obrigatório
 
+*Reescrito na execução da revisão de 2026-09-23 (D70, D71, D72): o que segue é o que o repositório
+pratica, e não mais o que o planejamento previa. A versão anterior pedia "validação Zod na entrada
+e na saída" do Route Handler e não dizia nada do Server Component.*
+
+**Escrita** — nada pula etapa:
+
 ```
-UI (Client)
+UI (Client) · cliente tipado, modules/<m>/ui/*-client.ts  ─┐
+  ↓                                                         │ o mesmo tipo
+Route Handler · lê e recusa a entrada; anota a saída        │ application/*-contract.ts
+                com `satisfies`  ───────────────────────────┘
+  ↓            erro de qualquer camada → app/api/http.ts (uma tabela)
+Application Use Case · a regra que cruza entidades; a porta no próprio arquivo
   ↓
-Route Handler  ·  validação Zod na entrada e na saída
-  ↓
-Application Use Case
-  ↓
-Domain
+Domain · regra pura; aceita `unknown` quando é ele quem sabe se o dado serve
   ↓
 Repository / StorageProvider / RenderExecutor / AiProvider   ← interfaces
   ↓
-Infraestrutura concreta
+Infraestrutura concreta · montada por src/infrastructure/composition.ts
   ↓
 SQLite | PostgreSQL   ·   filesystem | Blob   ·   local | sandbox
 ```
+
+**Leitura de tela** — o Server Component lê direto:
+
+```
+page.tsx / layout.tsx (Server Component)
+  ↓
+read model da infraestrutura do módulo (read*, list*, server-only) → projeção, não objeto Prisma
+```
+
+- **Validação de entrada.** Escrita à mão na rota (`readJson` e `BadRequestError` de
+  `app/api/http.ts`, os leitores de `app/api/tree-parsers.ts`), e no domínio quando é ele quem
+  decide se o dado serve (`publication-draft`, `library`, `node-body` e `question-blueprint`
+  aceitam `unknown`). **Zod onde o schema é rico**: o `QuestionPatch` do agente, o `.lbb`, a
+  resposta da IA no scan, o JSON gravado da proposta e as operações de revisão do scan. A saída
+  não é validada em tempo de execução; é tipada pelo contrato
+  ([ADR 0010](../adr/0010-o-contrato-da-rota-e-um-tipo.md),
+  [ADR 0011](../adr/0011-a-borda-traduz-o-erro.md)).
+- **Contrato.** O tipo de resposta da rota que uma tela lê mora em
+  `modules/<m>/application/*-contract.ts`, ou no DTO do módulo. A rota anota com `satisfies`; o
+  cliente fala por `src/shared/http/api-client.ts` (`requestJson`, `sendJson`, `readReply`) e
+  importa o mesmo tipo. `tests/support/route-fetch.ts` entrega a requisição do cliente à rota de
+  verdade, sem servidor, e é a costura dos testes `*-client-contract`. Hook de tela mora na `ui/`
+  do módulo.
+- **Erro.** A rota não traduz erro um a um: `withErrors` ou `toErrorResponse`, numa tabela só. 400
+  é pedido mal formado, 409 é o estado que recusa, 404 não distingue "não existe" de "não é seu",
+  422 é o arquivo ou candidato que não serve, 503 é o serviço de fora. O desconhecido é 500 com
+  JSON, e o detalhe vai para o log.
+- **Composição.** `app/**` é raiz de composição: página e rota montam os adaptadores. As portas
+  transversais saem de `src/infrastructure/composition.ts` (`storage()`, `aiProvider()`,
+  `visionRecognizer()`), que lê `env()` — o ambiente validado uma vez por processo. Funções, e não
+  container.
+- **Leitura de Server Component.** Ler não tem regra que um caso de uso guarde, e uma rota no meio
+  seria um `fetch` do servidor para ele mesmo. A página nunca escreve. O read model devolve fatos
+  e projeção; o rótulo, a rota e o ícone de uma linha são da tela.
 
 **Prisma não é o domínio** (auditoria §40). As entidades do Prisma não determinam a modelagem, e
 objetos Prisma não são o contrato público até o React — criar DTOs e projeções onde necessário.
@@ -1274,31 +1574,65 @@ domain/**  NÃO pode executar  pdflatex
 Mais as regras de camada: infraestrutura pode; application depende de interfaces; UI depende de
 use cases e API. Nenhum componente React importa Prisma. O agente não tem caminho de escrita.
 
+*Como estão hoje (`apps/web/eslint.boundaries.mjs` e os guardas da suíte):*
+
+- Domínio, componente de módulo e agente não importam a infraestrutura de **nenhum** módulo, por
+  alias ou por caminho relativo. `app/**` fica de fora: é a raiz de composição (D69).
+- Domínio e agente não carregam módulo em tempo de execução (`import()`, `require`), que escaparia
+  do lint.
+- SQL cru só em `infrastructure/database/`.
+- Radix só em `src/design-system/overlays/` (D13).
+- `tests/architecture-boundaries.test.ts` prova que cada regra recusa o import errado;
+  `tests/composition-root.test.ts` recusa adaptador concreto instanciado fora do dono e leitura
+  solta do ambiente; `tests/module-cycles.test.ts` recusa ciclo entre módulos fora do único nomeado,
+  `document-tree ↔ questions` (D71). Um teste, e não `import/no-cycle`: a regra do ESLint olha
+  arquivo a arquivo e não vê o ciclo entre módulos.
+
 ### 4.6 Estrutura
+
+*A árvore real, depois da execução da revisão de 2026-09-23 (D72). A do planejamento previa
+`ingestion/` e `settings/` como módulos, o render em `src/infrastructure/rendering/worker/` e
+pastas de `postgres/` e `vercel-blob/` à espera; nenhuma delas existe.*
 
 ```
 /
 ├─ apps/web/
-│  ├─ app/                          # App Router
+│  ├─ app/                          # App Router — raiz de composição: páginas e rotas
+│  │  └─ api/http.ts                # ler o corpo, recusar o pedido e traduzir erro (D70)
 │  ├─ src/
-│  │  ├─ modules/
-│  │  │  ├─ questions/  publications/  document-tree/  workspaces/
-│  │  │  │     └─ domain/ · application/ · infrastructure/ · ui/
-│  │  │  ├─ latex/  rendering/  assets/  ingestion/  portability/
-│  │  │  ├─ assessments/  agents/  revisions/  settings/
-│  │  ├─ design-system/             # tokens.css + componentes portados (.tsx)
-│  │  ├─ shared/
-│  │  └─ infrastructure/
-│  │     ├─ database/   sqlite/  ·  postgres/
-│  │     ├─ storage/    local/   ·  vercel-blob/
-│  │     ├─ rendering/  worker/RenderWorkerExecutor.ts
-│  │     └─ ai/         openai-compatible/
+│  │  ├─ modules/<módulo>/          # domain/ · application/ · infrastructure/ · ui/
+│  │  │     agents  assessments  assets  diagnostics  document-tree  latex  latex-knowledge
+│  │  │     legacy-import  portability  preview  publications  questions  recognition
+│  │  │     rendering  revisions  scan  workspaces
+│  │  │     application/*-contract.ts  # o tipo da resposta que a tela lê (D70)
+│  │  │     ui/*-client.ts             # o cliente tipado da tela, e os hooks dela
+│  │  │     infrastructure/            # o adaptador mora no módulo dono, e não em src/infrastructure
+│  │  ├─ design-system/             # tokens.css + componentes portados (.tsx); Radix em overlays/
+│  │  ├─ shared/                    # o que não é de módulo nenhum
+│  │  │     ports/                     # as fronteiras: Storage, Render, AI, MathRecognition, catálogo
+│  │  │     config/env.ts              # o ambiente, validado uma vez
+│  │  │     http/api-client.ts         # requestJson · sendJson · readReply
+│  │  │     pdf-text/  ordering/  format/  authorization/  observability/
+│  │  └─ infrastructure/            # só o transversal
+│  │     ├─ composition.ts          # storage() · aiProvider() · visionRecognizer()
+│  │     ├─ database/sqlite/        # o cliente Prisma
+│  │     ├─ storage/local/          # LocalFileStorageProvider
+│  │     ├─ ai/openai-compatible/   # o cliente do endpoint, do agente e da visão
+│  │     └─ agent/                  # a única escrita do fluxo agêntico, fora do módulo do agente
 │  ├─ prisma/
 │  ├─ data/                         # SQLite + assets locais (fora do git)
-│  └─ tests/
+│  ├─ e2e/                          # Playwright, num servidor próprio (D60)
+│  └─ tests/                        # Vitest; tests/support tem os dublês e as costuras
+├─ packages/render-contract/        # o RenderBundle e o RenderResult, dos dois lados
+├─ services/renderer/  services/backup/
 ├─ docs/
 └─ _antigo/                         # symlink read-only para o legado
 ```
+
+O render tem o executor em `modules/rendering/infrastructure/render-worker-executor.ts` e a
+montagem em `render-wiring.ts`; o scan monta o dele em `scan/infrastructure/scan-deps.ts`. A
+segmentação da captura mora em `recognition/domain/segment-page.ts`, e o perfil `exam-v1` do scan
+a chama (D54, corrigida).
 
 ### 4.7 As quatro fronteiras primárias (D23)
 
@@ -1329,12 +1663,16 @@ interface AiProvider {
 }
 ```
 
-| Fronteira | Implementação inicial | Candidato cloud |
-|---|---|---|
-| Persistence | `PrismaSqliteRepository` | `PrismaPostgresRepository` (Neon) |
-| Storage | `LocalFileStorageProvider` | `VercelBlobStorageProvider` · futuro `S3StorageProvider` |
-| Render | `RenderWorkerExecutor` → Docker `28900` | mesma imagem, outro `baseURL` |
-| IA | `OpenAiCompatibleProvider` | mesmo provider, outro `baseURL` |
+| Fronteira | Implementação de hoje | Onde mora | Candidato cloud |
+|---|---|---|---|
+| Persistence | um adaptador Prisma por agregado (`PrismaQuestionRepository`, `PrismaDocumentTreeRepository`, `PrismaScanStore`…) | `modules/<m>/infrastructure/` | o mesmo Prisma contra PostgreSQL (Neon) |
+| Storage | `LocalFileStorageProvider` | `src/infrastructure/storage/local/`, montado por `storage()` | `VercelBlobStorageProvider` · futuro `S3StorageProvider` |
+| Render | `RenderWorkerExecutor` → Docker `28900` | `modules/rendering/infrastructure/` | mesma imagem, outro `baseURL` |
+| IA | `OpenAiCompatibleProvider` | `src/infrastructure/ai/openai-compatible/`, montado por `aiProvider()` | mesmo provider, outro `baseURL` |
+
+*Coluna "Onde mora" acrescentada na execução da revisão de 2026-09-23 (D71, D72). O
+`PrismaSqliteRepository` único que o planejamento previa nunca existiu: cada módulo tem o seu
+adaptador, atrás da interface que o domínio ou o caso de uso declara.*
 
 ### 4.8 Outros contratos de domínio
 
@@ -1342,6 +1680,12 @@ Legítimos por representarem comportamento real, não por cerimônia (D23):
 
 `QuestionTypePlugin` (§9) · `MathRecognitionProvider` (§13.3) · `QuestionPatch` (§14.4) ·
 `QuestionSearchService` (§21) · `PortableArchive` / `PortableArchiveWriter` (§7).
+
+E, pela terceira condição da pergunta de controle (D23, D72), as portas que um caso de uso declara
+no próprio arquivo para rodar em teste com um dublê: `ScanStore`, `FigureCropper`,
+`LegacyFsProbe`, o `PatchApplier` do agente, o `ScanPass` das passadas do scan e afins. Cada uma
+tem o seu dublê na suíte; a que perder o dublê e não ganhar segunda implementação deixa de se
+justificar.
 
 ---
 
@@ -1481,7 +1825,7 @@ Referência do importador (Fase 11). Origem: `*.knowchico`.
 | `Dificuldade` | `difficulty` | enum 0/2/5/7/10 |
 | `Banca`, `Instituição`, `Cargo`, `Nivel_Cargo`, `Ano`, `Editora` | idem | |
 | `VideoLink` | `videoUrl` | |
-| `Deleted` | `deletedAt` | |
+| `Deleted` | **descartado** | por decisão (D68, ACV-13): 0 linhas marcadas em todas as bibliotecas legíveis. Se uma vier marcada, vira capacidade lida como o `hasBanca` e o nó vai para a lixeira (`deletedAt`) |
 | `Correta` | **ignorado** | vestigial, sempre 0 |
 | `IsExpanded`, `IsSelected` | **ignorados** | estado de UI |
 | `IdQuestao_Original` | **ignorado** | 0 linhas em todas as bibliotecas |
@@ -1549,7 +1893,8 @@ continuidade direta do `.knowchico` legado, que o autor já usa há anos.
 
 **Portable Schema versionado (D37).** `data.sqlite` **não** é cópia do schema Prisma: é um schema
 próprio, versionado, alimentado por projeção. O importador possui migradores de formato
-(`LBB v1 → v2 → runtime atual`) e recusa versão desconhecida em vez de adivinhar.
+(`LBB v1 → v2 → runtime atual`) e recusa versão desconhecida em vez de adivinhar. *Desde a D68,
+só a v3 é aceita; v1 e v2 são recusadas com mensagem.*
 
 **Duplo papel: exportação e backup (D32, corrigida por D36).** O mesmo `PortableArchiveWriter`
 serve à exportação manual e ao backup recorrente — que roda como **processo próprio**, nunca

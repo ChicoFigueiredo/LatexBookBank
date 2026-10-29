@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { KIND_LABELS } from "@modules/scan/domain/workspace-view";
+import { KIND_LABELS } from "@modules/scan/domain/review-view";
 import {
   HEADING_KINDS,
   kindsWhere,
@@ -22,7 +22,7 @@ const sorted = (kinds: Iterable<ScanKind>) => [...kinds].sort();
 
 describe("SCAN_KIND_TRAITS", () => {
   it("deriva exatamente os conjuntos que cada passada tinha escritos à mão", () => {
-    // proposal.ts e workspace-view.ts (STRUCTURE): os títulos.
+    // proposal.ts e review-view.ts (STRUCTURE): os títulos.
     expect(sorted(HEADING_KINDS)).toEqual(
       sorted(["PART", "CHAPTER", "SECTION", "SUBSECTION", "EXERCISE_GROUP"]),
     );
@@ -63,7 +63,7 @@ describe("SCAN_KIND_TRAITS", () => {
     expect(sorted(kindsWhere((t) => t.reclassifiable))).toEqual(
       sorted(["CONTENT", "EXAMPLE", "EXERCISE", "NOTE", "SECTION", "SUBSECTION"]),
     );
-    // workspace-view.ts: o rótulo com o começo do texto.
+    // review-view.ts: o rótulo com o começo do texto.
     expect(sorted(kindsWhere((t) => t.withSnippet))).toEqual(
       sorted(["EXERCISE", "QUESTION", "ITEM", "SUBITEM", "EXAMPLE"]),
     );

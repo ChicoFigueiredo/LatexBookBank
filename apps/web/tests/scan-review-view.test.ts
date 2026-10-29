@@ -9,7 +9,7 @@ import {
   overlaysForPage,
   rowLabel,
   type ViewItem,
-} from "@modules/scan/domain/workspace-view";
+} from "@modules/scan/domain/review-view";
 
 /** A lógica da tela de revisão (D47), fora do React. */
 

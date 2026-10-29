@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  avisoDeSaidaVencida,
-  incluiResolucao,
-  nomeDoArquivo,
-  resumoDaSaida,
-  SAIDAS,
-} from "@modules/rendering/domain/saida-do-render";
+  staleAudienceWarning,
+  includesSolution,
+  downloadFileName,
+  audienceSummary,
+  RENDER_AUDIENCES,
+} from "@modules/rendering/domain/render-audience";
 
 /**
  * A saída do render — `Aluno` e `Professor`.
@@ -19,32 +19,32 @@ import {
  * numa saída não pode passar por resultado da outra.
  */
 
-describe("incluiResolucao", () => {
+describe("includesSolution", () => {
   it("só o professor leva gabarito e resolução", () => {
-    expect(incluiResolucao("professor")).toBe(true);
-    expect(incluiResolucao("aluno")).toBe(false);
+    expect(includesSolution("professor")).toBe(true);
+    expect(includesSolution("aluno")).toBe(false);
   });
 
   it("as duas saídas existem, e nessa ordem", () => {
     // A ordem importa na pílula: `Aluno` primeiro porque é o padrão, e o padrão é o que não
     // vaza gabarito por engano.
-    expect(SAIDAS.map((saida) => saida.id)).toEqual(["aluno", "professor"]);
+    expect(RENDER_AUDIENCES.map((saida) => saida.id)).toEqual(["aluno", "professor"]);
   });
 });
 
-describe("resumoDaSaida", () => {
+describe("audienceSummary", () => {
   it("diz o que entra no papel, não para quem serve", () => {
     // “versão do professor” é um rótulo em que se acredita; “gabarito · resolução” é conferível
     // olhando o resultado.
-    expect(resumoDaSaida("professor")).toContain("gabarito");
-    expect(resumoDaSaida("professor")).toContain("resolução");
-    expect(resumoDaSaida("aluno")).not.toContain("gabarito");
+    expect(audienceSummary("professor")).toContain("gabarito");
+    expect(audienceSummary("professor")).toContain("resolução");
+    expect(audienceSummary("aluno")).not.toContain("gabarito");
   });
 });
 
-describe("avisoDeSaidaVencida", () => {
+describe("staleAudienceWarning", () => {
   it("**avisa** quando o que está na tela é da outra saída", () => {
-    const aviso = avisoDeSaidaVencida("professor", "aluno");
+    const aviso = staleAudienceWarning("professor", "aluno");
 
     expect(aviso).toContain("Aluno");
     expect(aviso).toContain("Professor");
@@ -54,25 +54,25 @@ describe("avisoDeSaidaVencida", () => {
   });
 
   it("cala quando o resultado é da saída escolhida", () => {
-    expect(avisoDeSaidaVencida("aluno", "aluno")).toBeNull();
-    expect(avisoDeSaidaVencida("professor", "professor")).toBeNull();
+    expect(staleAudienceWarning("aluno", "aluno")).toBeNull();
+    expect(staleAudienceWarning("professor", "professor")).toBeNull();
   });
 
   it("cala quando não há resultado nenhum na tela", () => {
     // Um aviso sobre um PDF que não existe é moldura — e moldura não é lida no dia em que
     // importa.
-    expect(avisoDeSaidaVencida("professor", null)).toBeNull();
+    expect(staleAudienceWarning("professor", null)).toBeNull();
   });
 });
 
-describe("nomeDoArquivo", () => {
+describe("downloadFileName", () => {
   it("o arquivo baixado carrega a saída no nome", () => {
     // Dois PDFs da mesma questão na pasta de downloads com o mesmo nome são indistinguíveis
     // exatamente quando a diferença importa: um tem o gabarito e o outro não.
-    expect(nomeDoArquivo("3f2a91c4-aaaa-bbbb-cccc-ddddeeeeffff", "professor", "pdf")).toBe(
+    expect(downloadFileName("3f2a91c4-aaaa-bbbb-cccc-ddddeeeeffff", "professor", "pdf")).toBe(
       "questao-3f2a91c4-professor.pdf",
     );
-    expect(nomeDoArquivo("3f2a91c4-aaaa-bbbb-cccc-ddddeeeeffff", "aluno", "png")).toBe(
+    expect(downloadFileName("3f2a91c4-aaaa-bbbb-cccc-ddddeeeeffff", "aluno", "png")).toBe(
       "questao-3f2a91c4-aluno.png",
     );
   });

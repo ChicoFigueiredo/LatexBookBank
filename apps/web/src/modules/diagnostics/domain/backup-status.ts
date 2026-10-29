@@ -40,7 +40,7 @@ export function describeBackupStatus(
       : context.intervalHours;
 
   const details = [
-    { label: "Workspaces", value: String(status.workspaces ?? 0) },
+    { label: "Bibliotecas", value: String(status.workspaces ?? 0) },
     { label: "Intervalo", value: `${intervalHours} h` },
     ...failures.map((failure) => ({
       label: `Falha (${failure.workspaceId})`,

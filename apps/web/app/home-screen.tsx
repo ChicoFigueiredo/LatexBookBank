@@ -310,7 +310,7 @@ function ContinueCard({ where, href }: { readonly where: HomeContinue; readonly 
         <div className="lbb-continue-body">
           <div className="lbb-continue-when">
             <span>última sessão · {where.updatedLabel}</span>
-            <span className="lbb-dot" />
+            <span className="lbb-acervo-dot" />
             {/* Verdadeiro por construção: o editor salva sozinho, e daqui não há edição pendente. */}
             <span>tudo salvo</span>
           </div>
@@ -385,7 +385,7 @@ function LibraryRow({
           </span>
         </span>
         <span className="lbb-row-when">{library.updatedLabel}</span>
-        <span className="lbb-pill" data-tone={emDia ? "neutral" : "warn"}>
+        <span className="lbb-acervo-pill" data-tone={emDia ? "neutral" : "warn"}>
           {emDia ? "em dia" : `${library.invalidCount} a revisar`}
         </span>
       </Link>

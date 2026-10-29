@@ -77,7 +77,7 @@ const fold = (line: TextLine) => stripAccents(line.text).trim();
   figura — e, escritos três vezes, os limiares divergiam em silêncio: o banner exigia 1,5× num
   lugar e nada no outro. Um marco, uma definição.
 */
-const ehBanner = (line: TextLine, style: PublicationStyle): boolean =>
+const isBanner = (line: TextLine, style: PublicationStyle): boolean =>
   SPACED_EXERCISES.test(fold(line)) && relativeSize(line, style) >= 1.5;
 
 const ehSecaoRomana = (line: TextLine, style: PublicationStyle): boolean =>
@@ -203,7 +203,7 @@ function classify(context: WalkContext): AnchorMatch | null {
     procure a palavra. Aqui ele é a âncora mais confiável do livro — 1,9× o corpo, em negrito, e
     sempre sozinho na linha.
   */
-  if (ehBanner(line, style)) {
+  if (isBanner(line, style)) {
     return {
       kind: "EXERCISE_GROUP",
       label: line.text.trim(),
@@ -401,7 +401,7 @@ export const bookFmeV1: CaptureProfile = {
     let capitulos = 0;
     for (const page of sample) {
       for (const line of page.lines) {
-        if (ehBanner(line, style)) banners++;
+        if (isBanner(line, style)) banners++;
         else if (ehCapitulo(line, style)) capitulos++;
         else if (ehSecaoRomana(line, style)) romanas++;
       }
@@ -430,7 +430,7 @@ export const bookFmeV1: CaptureProfile = {
       figura o engolir como se fosse rótulo do desenho. Foi o que aconteceu na primeira medição:
       dez capítulos existiam no PDF em 2,80× o corpo, e nenhum chegava à proposta.
     */
-    if (ehCapitulo(line, style) || ehBanner(line, style) || ehSecaoRomana(line, style)) return true;
+    if (ehCapitulo(line, style) || isBanner(line, style) || ehSecaoRomana(line, style)) return true;
     return prefixBold(line) && NUMBER_SPAN.test(line.spans[0]?.text.trim() ?? "") && relativeSize(line, style) <= 1.5;
   },
 

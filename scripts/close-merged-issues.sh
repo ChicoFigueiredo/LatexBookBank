@@ -5,8 +5,8 @@
 # branch `<n>-<slug>` mesclada na main — inclusive as 23 auditorias de 10-11/08. Ninguém fechou
 # as issues depois do merge. A fonte de verdade do progresso é docs/_atual/_checklist.md.
 #
-# Uso: bash scripts/fechar-issues-mescladas.sh           # fecha de verdade
-#      DRY_RUN=1 bash scripts/fechar-issues-mescladas.sh # só mostra o que faria
+# Uso: bash scripts/close-merged-issues.sh           # fecha de verdade
+#      DRY_RUN=1 bash scripts/close-merged-issues.sh # só mostra o que faria
 #
 # Requer `gh` autenticado. Idempotente: fechar issue já fechada só devolve erro inofensivo.
 set -u

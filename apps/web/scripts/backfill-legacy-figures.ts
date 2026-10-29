@@ -84,7 +84,7 @@ async function main(): Promise<void> {
       const libraryPath = workspace.legacySourcePath as string;
 
       if (!(await files.exists(libraryPath))) {
-        console.log(`—  ${workspace.name}: .knowchico não está em ${libraryPath} (religue com religar-acervo-legado.ts)`);
+        console.log(`—  ${workspace.name}: .knowchico não está em ${libraryPath} (religue com relink-legacy-library.ts)`);
         continue;
       }
 
