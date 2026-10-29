@@ -208,6 +208,9 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             title: true,
             numberingStyle: true,
             originalLabel: true,
+            // O corpo é a teoria da seção e o texto inteiro do exemplo (D56): sem ele, a cópia
+            // nasce como um galho vazio (#252).
+            bodyLatex: true,
             sourceAnchorId: true,
             // As âncoras vão junto, pelo mesmo motivo do `sourceAnchorId` da questão: a origem é
             // do conteúdo (D50).
@@ -274,6 +277,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             sortKey: step.sortKey,
             numberingStyle: source.numberingStyle,
             originalLabel: source.originalLabel,
+            bodyLatex: source.bodyLatex,
             sourceAnchorId: source.sourceAnchorId,
             ...(createdQuestion ? { questionId: createdQuestion.id } : {}),
             ...(source.anchors.length > 0
