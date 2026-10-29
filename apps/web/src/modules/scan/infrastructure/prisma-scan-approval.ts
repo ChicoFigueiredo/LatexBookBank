@@ -6,6 +6,7 @@ import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anc
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
 import { BODY_FROM_SCAN, insertIntoBody } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
+import { appendNodeRevision } from "@modules/document-tree/infrastructure/prisma-node-body";
 import { insertNode } from "@modules/document-tree/infrastructure/prisma-node-writer";
 import { planQuestion } from "@modules/questions/domain/question-blueprint";
 import {
@@ -296,20 +297,11 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 select: { bodyLatex: true, title: true },
               });
 
-              const last = await tx.revision.findFirst({
-                where: { entityType: "DOCUMENT_NODE", entityId: targetId },
-                orderBy: { revisionNumber: "desc" },
-                select: { revisionNumber: true },
-              });
-              await tx.revision.create({
-                data: {
-                  entityType: "DOCUMENT_NODE",
-                  entityId: targetId,
-                  revisionNumber: (last?.revisionNumber ?? 0) + 1,
-                  origin: "SYSTEM",
-                  summary: BODY_FROM_SCAN,
-                  snapshotJson: JSON.stringify({ title: target.title, bodyLatex: target.bodyLatex }),
-                },
+              await appendNodeRevision(tx, {
+                nodeId: targetId,
+                origin: "SYSTEM",
+                summary: BODY_FROM_SCAN,
+                snapshot: target,
               });
               await tx.documentNode.update({
                 where: { id: targetId },

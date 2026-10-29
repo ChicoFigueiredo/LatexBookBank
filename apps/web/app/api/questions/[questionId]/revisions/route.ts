@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { parseSnapshot } from "@modules/questions/domain/revision-diff";
 import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
-import { findRevision, listRevisions } from "@infrastructure/agent/prisma-revision-reader";
+import {
+  findRevision,
+  listRevisions,
+} from "@modules/revisions/infrastructure/prisma-revision-reader";
 
 import { toErrorResponse } from "../../../tree-http";
 
@@ -33,7 +36,7 @@ export async function GET(
     const wanted = new URL(request.url).searchParams.get("revision");
 
     if (wanted === null) {
-      return NextResponse.json({ revisions: await listRevisions(questionId) });
+      return NextResponse.json({ revisions: await listRevisions("QUESTION", questionId) });
     }
 
     const number = Number(wanted);
@@ -44,7 +47,7 @@ export async function GET(
       );
     }
 
-    const revision = await findRevision(questionId, number);
+    const revision = await findRevision("QUESTION", questionId, number);
     if (revision === null) {
       return NextResponse.json(
         { error: "revision_not_found", message: `A questão não tem a revisão ${number}.` },
