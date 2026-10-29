@@ -24,6 +24,7 @@ const node = (over: Partial<ImportedNode> & Pick<ImportedNode, "id">): ImportedN
   question: null,
   editedByHand: false,
   hasOutsideChildren: false,
+  figures: 0,
   ...over,
 });
 
@@ -119,5 +120,17 @@ describe("apagar a importação", () => {
 
     expect(plano.counts).toEqual({ EXAMPLE: 2, QUESTION: 1 });
     expect(plano.keptCount).toBe(1);
+  });
+
+  it("conta as figuras que vão junto com os corpos (#249, SPG-12)", () => {
+    // A figura do scan não é nó (ADR 0005): entra no corpo, e some com ele. A confirmação promete
+    // o número (ADR 0006), e contar por tipo de nó nunca o achava.
+    const plano = planImportRemoval([
+      node({ id: "sec", figures: 2 }),
+      node({ id: "q1", kind: "QUESTION", question: { status: "DRAFT", updatedAt: APROVACAO }, figures: 1 }),
+      node({ id: "q2", kind: "QUESTION", question: { status: "READY", updatedAt: APROVACAO }, figures: 4 }),
+    ]);
+
+    expect(plano.figures).toBe(3);
   });
 });

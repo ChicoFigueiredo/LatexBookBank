@@ -40,7 +40,8 @@ interface ItemRow {
   readonly questionId: string;
   readonly excerpt: string;
   readonly optionCount: number;
-  readonly hasCorrect: boolean;
+  readonly missingCorrect: boolean;
+  readonly inTrash: boolean;
 }
 
 interface Detail {
@@ -52,7 +53,7 @@ interface Detail {
 interface Composed {
   readonly label: string;
   readonly seed: number;
-  readonly answers: Readonly<Record<string, string>>;
+  readonly answers: Readonly<Record<string, readonly string[]>>;
   readonly latex: Readonly<Record<TemplateAudience, string>>;
 }
 
@@ -138,13 +139,23 @@ export function AssessmentBuilder({ assessmentId, candidates = [] }: AssessmentB
   };
 
   const inProva = new Set(detail?.items.map((item) => item.questionId) ?? []);
-  const missingAnswer = (detail?.items ?? []).filter((item) => !item.hasCorrect);
+  const missingAnswer = (detail?.items ?? []).filter((item) => item.missingCorrect);
+  const inTrash = (detail?.items ?? []).filter((item) => item.inTrash);
 
   return (
     <div className="lbb-asm">
       {error !== null && (
         <Banner tone="danger" title="Não deu certo">
           {error}
+        </Banner>
+      )}
+
+      {inTrash.length > 0 && (
+        // A variante é recusada enquanto houver uma: imprimir daria uma questão que a pessoa acha
+        // ter excluído, e pular daria uma prova com menos questões do que esta lista (#263).
+        <Banner tone="danger" title={`${inTrash.length} questão(ões) da prova estão na lixeira`}>
+          A variante não sai enquanto elas estiverem aqui. Tire-as da prova ou restaure-as da
+          lixeira.
         </Banner>
       )}
 
@@ -163,6 +174,7 @@ export function AssessmentBuilder({ assessmentId, candidates = [] }: AssessmentB
             <div key={item.questionId} className="lbb-asm-item">
               <Badge tone="neutral">{index + 1}</Badge>
               <span className="lbb-asm-ex">{item.excerpt || "(sem enunciado)"}</span>
+              {item.inTrash && <Badge tone="danger">na lixeira</Badge>}
               <span className="lbb-asm-ex">{item.optionCount} alt.</span>
               <Button
                 size="sm"
@@ -238,9 +250,9 @@ export function AssessmentBuilder({ assessmentId, candidates = [] }: AssessmentB
           </h3>
 
           <div className="lbb-asm-key">
-            {Object.entries(composed.answers).map(([questionId, letter], index) => (
+            {Object.entries(composed.answers).map(([questionId, letters], index) => (
               <Badge key={questionId} tone="accent">
-                {index + 1}) {letter}
+                {index + 1}) {letters.join(", ")}
               </Badge>
             ))}
           </div>

@@ -27,6 +27,7 @@ const CONTEUDO: PublicationContents = {
   nodeCount: 312,
   assetCount: 9,
   anchorCount: 41,
+  assessments: [],
 };
 
 function fakes(over: Partial<PublicationRepository> = {}) {

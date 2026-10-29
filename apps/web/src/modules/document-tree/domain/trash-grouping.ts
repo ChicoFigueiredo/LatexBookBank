@@ -36,6 +36,11 @@ export interface AtoDeExclusao {
   readonly restoresCount: number;
   /** Quantas questões foram junto — o “levou 6 questões com ele”. */
   readonly questionsTaken: number;
+  /**
+   * O pai, quando ele também está na lixeira — excluído **depois**, em outro ato. Este ato só
+   * volta depois dele, e a linha precisa dizer isso antes do clique.
+   */
+  readonly paiNaLixeira: string | null;
 }
 
 export interface ResumoDaLixeira {
@@ -49,26 +54,31 @@ export interface ResumoDaLixeira {
 /**
  * Agrupa os nós excluídos pelo **ato** que os excluiu.
  *
- * A raiz de um ato é o nó excluído cujo pai **não** está na lixeira. É a mesma regra que o
- * `restoreNode` usa para recusar restaurar um nó com ancestral excluído — e não é coincidência:
- * um ato é exatamente o que pode voltar de uma vez.
+ * Um ato é o que foi excluído **junto**: a exclusão grava o mesmo `deletedAt` na subárvore
+ * inteira. A raiz de um ato é o nó excluído cujo pai não está na lixeira, ou está mas saiu em
+ * outro instante. É a mesma regra que o `restoreNode` usa — e não é coincidência: um ato é
+ * exatamente o que volta de uma vez.
  *
- * Um nó cujo pai foi excluído **depois**, em outro ato, também aparece com o pai na lixeira e
- * portanto não vira raiz. Está certo: restaurá-lo sozinho o devolveria para debaixo de um pai
- * invisível, que é o defeito que a regra existe para evitar.
+ * Um filho excluído **antes** do pai, à parte, é um ato próprio (#260). Restaurar o pai não o
+ * traz de volta: alguém o excluiu de propósito, e ressuscitá-lo de carona desfaria essa decisão.
+ * Ele espera o pai voltar e é restaurado à parte — e `paiNaLixeira` diz isso na linha dele.
  */
 export function agruparLixeira(nos: readonly NoExcluido[]): ResumoDaLixeira {
-  const naLixeira = new Set(nos.map((no) => no.id));
+  const porId = new Map(nos.map((no) => [no.id, no]));
+  const paiDoMesmoAto = (no: NoExcluido): boolean => {
+    const pai = no.parentId === null ? undefined : porId.get(no.parentId);
+    return pai !== undefined && pai.deletedAt.getTime() === no.deletedAt.getTime();
+  };
 
   const filhos = new Map<string, NoExcluido[]>();
   for (const no of nos) {
-    if (no.parentId === null) continue;
+    if (no.parentId === null || !paiDoMesmoAto(no)) continue;
     const lista = filhos.get(no.parentId);
     if (lista) lista.push(no);
     else filhos.set(no.parentId, [no]);
   }
 
-  const raizes = nos.filter((no) => no.parentId === null || !naLixeira.has(no.parentId));
+  const raizes = nos.filter((no) => !paiDoMesmoAto(no));
 
   const atos = raizes
     .map((raiz): AtoDeExclusao => {
@@ -82,6 +92,7 @@ export function agruparLixeira(nos: readonly NoExcluido[]): ResumoDaLixeira {
         restoresCount: total,
         // A própria raiz, quando é questão, não "veio junto" — ela é o que foi excluído.
         questionsTaken: raiz.hasQuestion ? questions - 1 : questions,
+        paiNaLixeira: raiz.parentId !== null && porId.has(raiz.parentId) ? raiz.parentId : null,
       };
     })
     .sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
@@ -105,7 +116,7 @@ export function agruparLixeira(nos: readonly NoExcluido[]): ResumoDaLixeira {
  * número localiza no livro, o apelido diz do que se trata. Quem tem só um dos dois mostra o que
  * tem; quem não tem nenhum sobra com o tipo, que ainda diz mais que "sem título".
  */
-function rotular(no: NoExcluido): string {
+export function rotular(no: NoExcluido): string {
   const titulo = no.title?.trim();
   const apelido = no.nickname?.trim();
   const rotulo = no.originalLabel?.trim();

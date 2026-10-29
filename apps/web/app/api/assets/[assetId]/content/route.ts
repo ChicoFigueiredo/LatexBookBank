@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { findAssetContentRef } from "@modules/assets/infrastructure/prisma-provenance-reader";
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
 import { env as appEnv } from "@/shared/config/env";
+import { servedContentHeaders } from "@/shared/http/served-content";
 import { asStorageKey, AssetNotFoundError } from "@/shared/ports";
 
 /**
@@ -41,13 +42,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ass
       rootDir: appEnv().storageRoot,
     }).get(asStorageKey(asset.storageKey));
 
+    // `nosniff` sempre, e SVG (ou qualquer tipo que não seja imagem comum ou PDF) em sandbox: o
+    // arquivo é de quem subiu ou de um `.lbb`, e aberto numa aba não pode rodar como o app (#257).
     return new Response(new Uint8Array(stored.content), {
-      headers: {
-        "content-type": stored.mimeType,
-        "content-length": String(stored.sizeBytes),
-        "cache-control": "private, max-age=31536000, immutable",
-        "content-disposition": `inline; filename="${encodeURIComponent(asset.filename ?? assetId)}"`,
-      },
+      headers: servedContentHeaders({
+        mimeType: stored.mimeType,
+        sizeBytes: stored.sizeBytes,
+        filename: asset.filename ?? assetId,
+      }),
     });
   } catch (error) {
     if (error instanceof AssetNotFoundError) {

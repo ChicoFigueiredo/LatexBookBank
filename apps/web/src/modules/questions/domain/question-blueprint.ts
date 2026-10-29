@@ -1,6 +1,11 @@
 import { generateNKeysBetween } from "@modules/document-tree/domain/fractional-index";
 
-import { QUESTION_TYPES, type Difficulty, type QuestionType, isDifficulty } from "./question-type";
+// Os plugins se registram ao serem importados, e é o registry que diz o que pode nascer.
+import "./plugins";
+import { type Difficulty, type QuestionType, isDifficulty, isQuestionType } from "./question-type";
+import { optionsOf, pluginFor, registeredTypes } from "./question-type-plugin";
+
+export { DEFAULT_OPTION_COUNT } from "./plugins/shared";
 
 /**
  * Com o que uma questão nasce.
@@ -13,27 +18,10 @@ import { QUESTION_TYPES, type Difficulty, type QuestionType, isDifficulty } from
 
 export class InvalidQuestionTypeError extends Error {
   constructor(readonly received: unknown) {
-    super(`Tipo de questão inválido. Use um de: ${QUESTION_TYPES.join(", ")}.`);
+    super(`Tipo de questão inválido. Use um de: ${registeredTypes().join(", ")}.`);
     this.name = "InvalidQuestionTypeError";
   }
 }
-
-/**
- * Cinco alternativas.
- *
- * É o formato do acervo e o do vestibular brasileiro, e é o que o design mostra na validação
- * ("✓ 5 alternativas"). Nascer com **zero** obrigaria a clicar cinco vezes antes de escrever a
- * primeira palavra; nascer com duas obrigaria a três. O número não é regra — acrescentar e remover
- * continua livre —, é onde o trabalho começa.
- */
-export const DEFAULT_OPTION_COUNT = 5;
-
-/** Tipos que o Beta oferece na criação, na ordem em que o menu os mostra. */
-export const CREATABLE_TYPES: readonly QuestionType[] = [
-  "MULTIPLE_CHOICE",
-  "MULTIPLE_CORRECT",
-  "DISCURSIVE",
-];
 
 export interface QuestionBlueprint {
   readonly type: QuestionType;
@@ -42,29 +30,19 @@ export interface QuestionBlueprint {
   readonly optionSortKeys: readonly string[];
 }
 
+/**
+ * O tipo de uma questão **que vai nascer**: do vocabulário, e com plugin.
+ *
+ * Só com plugin: `CESPE` está no vocabulário legado, mas sem plugin a questão nasceria sem
+ * validação, sem corpo LaTeX e sem gabarito. O vocabulário inteiro continua valendo para **ler** o
+ * acervo — é a criação que se restringe ao que o produto sabe tratar.
+ */
 export function parseQuestionType(value: unknown): QuestionType {
-  if (typeof value !== "string" || !(QUESTION_TYPES as readonly string[]).includes(value)) {
+  if (typeof value !== "string" || !isQuestionType(value) || pluginFor(value) === null) {
     throw new InvalidQuestionTypeError(value);
   }
-  return value as QuestionType;
+  return value;
 }
-
-/**
- * Quantas alternativas o tipo pede ao nascer.
- *
- * Um `Map` e não `switch`: o teste de fronteira varre o código atrás de `switch` sobre tipo de
- * questão, e a regra está certa — com `switch`, o oitavo tipo obriga a caçar todos os lugares que
- * decidem por tipo, e o esquecido não dá erro de compilação, dá comportamento errado numa tela só.
- *
- * Ausente do mapa significa "sem alternativas", que é o padrão seguro: um tipo novo aparece com
- * zero e alguém decide, em vez de aparecer com cinco que ninguém escolheu.
- */
-const INITIAL_OPTIONS: ReadonlyMap<QuestionType, number> = new Map([
-  ["MULTIPLE_CHOICE", DEFAULT_OPTION_COUNT],
-  ["MULTIPLE_CORRECT", DEFAULT_OPTION_COUNT],
-  ["TRUE_FALSE", 2],
-  ["CESPE", 2],
-]);
 
 export function planQuestion(input: {
   readonly type: unknown;
@@ -77,7 +55,8 @@ export function planQuestion(input: {
   const count =
     requested !== null && Number.isInteger(requested) && requested >= 0 && requested <= 26
       ? requested
-      : (INITIAL_OPTIONS.get(type) ?? 0);
+      : // Quantas nascem é o plugin quem diz; o tipo sem alternativas nasce com zero.
+        (optionsOf(type)?.initial ?? 0);
 
   const difficulty =
     typeof input.difficulty === "number" && isDifficulty(input.difficulty) ? input.difficulty : 5;

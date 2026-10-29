@@ -73,7 +73,12 @@ export function RemoveImportDialog({ runId, onClose, onRemoved }: RemoveImportDi
     }
   };
 
-  const counts = Object.entries(preview?.counts ?? {});
+  // As figuras entram na conta como mais um tipo (ADR 0006): elas não são nó (ADR 0005), mas somem
+  // com o corpo que as carrega, e a pessoa precisa do número antes de decidir (#249).
+  const counts = [
+    ...Object.entries(preview?.counts ?? {}),
+    ...((preview?.figures ?? 0) > 0 ? [["FIGURE", preview?.figures ?? 0] as [string, number]] : []),
+  ];
 
   return (
     <Modal
@@ -146,6 +151,13 @@ export function RemoveImportDialog({ runId, onClose, onRemoved }: RemoveImportDi
           ) : (
             <p style={{ margin: "0 0 var(--space-3)" }}>
               Vão para a lixeira: <strong>{counts.map(([kind, count]) => plural(kind, count)).join(" · ")}</strong>.
+            </p>
+          )}
+
+          {preview.detached > 0 && (
+            <p style={{ margin: "0 0 var(--space-3)", color: "var(--text-secondary)" }}>
+              {preview.detached === 1 ? "Um nó que já existia" : `${preview.detached} nós que já existiam`} ficam
+              de pé, mas perdem o texto e as âncoras que esta varredura lhes acrescentou.
             </p>
           )}
 

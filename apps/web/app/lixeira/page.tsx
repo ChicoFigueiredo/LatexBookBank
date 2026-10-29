@@ -28,6 +28,7 @@ export default async function TrashPage() {
         deletedLabel: relativeTime(item.deletedAt, agora),
         restoresCount: item.restoresCount,
         took: item.took,
+        waitsFor: item.waitsFor,
       }))}
       footer={trash.footer}
       objectCount={trash.objectCount}

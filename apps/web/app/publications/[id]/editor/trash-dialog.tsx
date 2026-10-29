@@ -106,7 +106,7 @@ export function TrashDialog({ publicationId, open, onClose }: TrashDialogProps) 
         <EmptyState
           icon="archive"
           title="Nada na lixeira"
-          description="Excluir um nó leva a descendência junto — e restaurar traz tudo de volta, na mesma posição."
+          description="Excluir um nó leva a descendência junto — e restaurar traz de volta o que saiu junto, na mesma posição."
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

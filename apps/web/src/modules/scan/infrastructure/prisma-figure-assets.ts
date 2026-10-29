@@ -14,8 +14,10 @@ import type { StorageProvider } from "@/shared/ports";
  * inclui, e o **PNG** é o que a tela mostra.
  *
  * O nome que o LaTeX cita sai do `assetLatexName`, o mesmo das figuras do legado e dos recortes
- * da captura: nome legível mais o começo do hash. Dedup é de graça — a `storageKey` é o hash do
- * conteúdo, então a mesma figura em duas varreduras é um asset só.
+ * da captura: nome legível mais o começo do hash. O arquivo é deduplicado de graça — a
+ * `storageKey` é o hash do conteúdo —, e a linha é do livro: a mesma figura em outro livro do
+ * mesmo workspace ganha a linha dela, que é por onde o render do corpo daquele livro a acha
+ * (#254).
  */
 export class PrismaFigureAssets implements FigureAssets {
   constructor(private readonly storage: StorageProvider) {}

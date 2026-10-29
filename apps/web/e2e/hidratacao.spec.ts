@@ -57,12 +57,19 @@ for (const [nome, rota] of [
   test(`${nome} hidrata sem erro e responde a clique`, async ({ page }) => {
     const vigia = vigiar(page);
 
-    await page.goto(rota);
-    // As telas mostram “há N min”. Esperar a virada é o que reproduz o defeito de propósito — sem
-    // isto o teste só passa por sorte, que é exatamente como ele passava antes.
-    await page.waitForTimeout(1_500);
+    // As telas mostram “há N min”, e o defeito aparecia na virada de minuto entre o servidor e a
+    // hidratação. O relógio do navegador **um minuto à frente** do servidor põe a virada em toda
+    // execução: com o defeito de volta, “há 51 min” do servidor encontra “há 52 min” do cliente
+    // sempre, e não só quando a espera fixa de 1,5 s calhava de cruzar o minuto.
+    await page.clock.setFixedTime(Date.now() + 61_000);
 
+    await page.goto(rota);
+
+    // A hidratação terminou quando a tela responde a clique: é o estado observável, não um tempo.
+    // O catálogo não tem botão que só o cliente abra; ali, a rede parada diz que os scripts da
+    // página já rodaram.
     if (rota !== "/publicacoes") await provarInteratividade(page);
+    else await page.waitForLoadState("networkidle");
 
     expect(vigia.erros, vigia.erros.join(" | ")).toEqual([]);
   });

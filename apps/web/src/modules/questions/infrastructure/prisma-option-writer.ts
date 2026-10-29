@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import type { OptionWriter } from "@modules/questions/application/mutate-options";
-import type { OptionRecord } from "@modules/questions/domain/option-mutations";
+import type { OptionPatch, OptionRecord } from "@modules/questions/domain/option-mutations";
 import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
 
 /**
@@ -56,10 +56,7 @@ export class PrismaOptionWriter implements OptionWriter {
     await prisma.questionOption.deleteMany({ where: { id: optionId, questionId } });
   }
 
-  async applyPatches(
-    questionId: string,
-    patches: readonly { id: string; sortKey?: string; isCorrect?: boolean }[],
-  ): Promise<void> {
+  async applyPatches(questionId: string, patches: readonly OptionPatch[]): Promise<void> {
     if (patches.length === 0) return;
 
     // Transação: marcar uma correta desmarca a outra, e meio patch aplicado deixaria **duas**
@@ -71,17 +68,10 @@ export class PrismaOptionWriter implements OptionWriter {
           data: {
             ...(patch.sortKey === undefined ? {} : { sortKey: patch.sortKey }),
             ...(patch.isCorrect === undefined ? {} : { isCorrect: patch.isCorrect }),
+            ...(patch.statementLatex === undefined ? {} : { statementLatex: patch.statementLatex }),
           },
         }),
       ),
     );
-  }
-
-  /** Edita o texto. Fora do `OptionWriter` porque não é mutação de estrutura. */
-  async updateText(questionId: string, optionId: string, statementLatex: string): Promise<void> {
-    await prisma.questionOption.updateMany({
-      where: { id: optionId, questionId },
-      data: { statementLatex },
-    });
   }
 }

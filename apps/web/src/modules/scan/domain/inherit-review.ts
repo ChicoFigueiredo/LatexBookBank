@@ -1,4 +1,5 @@
-import { boxRect, overlapRatio } from "./geometry";
+import { boxRect, intersectionOverUnion, overlapRatio } from "./geometry";
+import type { ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
 
 /**
@@ -41,14 +42,57 @@ const decidedByHand = (item: ScanItem): boolean =>
   item.reviewedText !== null ||
   item.reviewedLatex !== null;
 
-const sameSpot = (a: ScanItem, b: ScanItem): boolean =>
-  a.regions.some((one) =>
-    b.regions.some(
-      (other) =>
-        one.pageNumber === other.pageNumber &&
-        overlapRatio(boxRect(one.box), boxRect(other.box)) >= INHERIT_OVERLAP,
-    ),
-  );
+/**
+ * A menor razão entre as áreas das duas caixas para que sejam "o mesmo lugar" (#250, CAP-06).
+ *
+ * A sobreposição sobre a menor caixa sozinha casava o título de três linhas com o bloco inteiro
+ * que o continha: o título herdava o aceite e o LaTeX revisado do bloco. Metade é o que ainda deixa
+ * passar o caso que a contenção foi pensada para cobrir — o perfil novo que recorta o exemplo
+ * junto com a resolução —, e barra o pedaço de um bloco maior.
+ */
+export const INHERIT_AREA_RATIO = 0.5;
+
+const area = (box: ScanItem["regions"][number]["box"]) => box.width * box.height;
+
+/**
+ * Quanto dois itens são o mesmo lugar do livro: a maior interseção sobre união entre as âncoras
+ * que passam nos dois limiares, ou 0 quando nenhuma passa.
+ */
+const spotScore = (a: ScanItem, b: ScanItem): number => {
+  let best = 0;
+  for (const one of a.regions) {
+    for (const other of b.regions) {
+      if (one.pageNumber !== other.pageNumber) continue;
+      const [small, large] = [area(one.box), area(other.box)].sort((x, y) => x - y);
+      if (!small || !large || small / large < INHERIT_AREA_RATIO) continue;
+      if (overlapRatio(boxRect(one.box), boxRect(other.box)) < INHERIT_OVERLAP) continue;
+      best = Math.max(best, intersectionOverUnion(boxRect(one.box), boxRect(other.box)));
+    }
+  }
+  return best;
+};
+
+/**
+ * Famílias de tipo entre as quais o texto revisado faz sentido (#250, CAP-06).
+ *
+ * O tipo muda ao trocar de perfil, e o aceite atravessa assim mesmo. O texto, não: o LaTeX
+ * corrigido de um parágrafo, posto como título de uma seção, é texto no lugar errado.
+ */
+const FAMILY: Readonly<Record<ScanKind, string>> = {
+  PART: "título",
+  CHAPTER: "título",
+  SECTION: "título",
+  SUBSECTION: "título",
+  EXERCISE_GROUP: "título",
+  CONTENT: "texto",
+  EXAMPLE: "texto",
+  NOTE: "texto",
+  EXERCISE: "questão",
+  QUESTION: "questão",
+  ITEM: "item",
+  SUBITEM: "item",
+  FIGURE: "figura",
+};
 
 /**
  * O que a execução nova herda da anterior.
@@ -58,28 +102,50 @@ const sameSpot = (a: ScanItem, b: ScanItem): boolean =>
  * novo — com outro perfil, que pode discordar com razão.
  *
  * Um item anterior serve a um item novo, no máximo: sem isso, o exemplo que o perfil novo recorta
- * junto com a resolução herdaria o aceite de dois itens de uma vez.
+ * junto com a resolução herdaria o aceite de dois itens de uma vez. E vai ao novo que **mais**
+ * coincide com ele, não ao primeiro da lista que casar (#250, CAP-06).
+ *
+ * O item que já está no acervo não empresta nada: o que ele decidiu já entrou, e a aprovação do
+ * novo acharia o lugar "já no acervo" de qualquer jeito.
  */
 export function inheritReview(
   previous: readonly ScanItem[],
   fresh: readonly ScanItem[],
 ): readonly InheritedReview[] {
-  const decided = previous.filter(decidedByHand);
-  const used = new Set<string>();
-  const inherited: InheritedReview[] = [];
+  const decided = previous.filter((item) => decidedByHand(item) && item.documentNodeId === null);
 
-  for (const item of fresh) {
-    const match = decided.find((candidate) => !used.has(candidate.id) && sameSpot(candidate, item));
-    if (!match) continue;
-    used.add(match.id);
+  const pairs: { item: ScanItem; match: ScanItem; score: number; order: number }[] = [];
+  for (const [order, item] of fresh.entries()) {
+    for (const match of decided) {
+      const score = spotScore(match, item);
+      if (score > 0) pairs.push({ item, match, score, order });
+    }
+  }
+  // O melhor casamento primeiro; no empate, a ordem da varredura nova.
+  pairs.sort((a, b) => b.score - a.score || a.order - b.order);
+
+  const usedOld = new Set<string>();
+  const usedNew = new Set<string>();
+  const inherited: { order: number; review: InheritedReview }[] = [];
+  for (const { item, match, order } of pairs) {
+    if (usedOld.has(match.id) || usedNew.has(item.id)) continue;
+    const sameFamily = FAMILY[match.kind] === FAMILY[item.kind];
+    // Só a correção de texto, e de outra família: não há o que atravessar para este novo.
+    const decidedState = match.reviewState === "APPROVED" || match.reviewState === "REJECTED";
+    if (!decidedState && !sameFamily) continue;
+    usedOld.add(match.id);
+    usedNew.add(item.id);
     inherited.push({
-      id: item.id,
-      reviewState: match.reviewState,
-      reviewedText: match.reviewedText,
-      reviewedLatex: match.reviewedLatex,
-      fromId: match.id,
+      order,
+      review: {
+        id: item.id,
+        reviewState: match.reviewState,
+        reviewedText: sameFamily ? match.reviewedText : null,
+        reviewedLatex: sameFamily ? match.reviewedLatex : null,
+        fromId: match.id,
+      },
     });
   }
 
-  return inherited;
+  return inherited.sort((a, b) => a.order - b.order).map((entry) => entry.review);
 }

@@ -36,10 +36,11 @@ describe("o visualizador com uma imagem", () => {
   it("**não** tenta abrir como PDF", async () => {
     mostrar("image/png");
 
-    // Um instante para o efeito rodar: o erro do `pdf.js` aparecia de forma assíncrona, e uma
-    // asserção síncrona passaria mesmo com o defeito presente.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
+    // Primeiro o estado que prova que o componente montou e escolheu o caminho da imagem; só
+    // então a ausência. Esperar um tempo fixo e afirmar só a ausência passava também com o
+    // componente sem desenhar nada, ou com o erro do `pdf.js` chegando depois da espera.
+    expect(await screen.findByText(/página 1 de 1/)).toBeTruthy();
+    expect(screen.queryByText(/abrindo…/)).toBeNull();
     expect(screen.queryByText(/Não deu para abrir o PDF/)).toBeNull();
   });
 
@@ -65,7 +66,9 @@ describe("o visualizador com uma imagem", () => {
     mostrar("application/pdf", "/api/assets/inexistente/content");
 
     // Sem página declarada, a barra não anuncia "1 de 1": quem conta as páginas é o `pdf.js`.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // O positivo vem antes: "abrindo…" (ou a recusa do `pdf.js`) só existe no caminho do PDF, e
+    // prova que o componente montou — sem ele, a ausência passaria com a tela vazia.
+    expect(await screen.findByText(/abrindo…|Não deu para abrir o PDF/)).toBeTruthy();
     expect(screen.queryByText(/página 1 de 1/)).toBeNull();
   });
 });

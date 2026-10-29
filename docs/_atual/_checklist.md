@@ -212,6 +212,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Nenhum componente React importa Prisma
 - ✅ O agente não tem caminho de escrita no banco
 - ✅ Todas as regras verificadas com violação proposital antes de marcar
+- ✅ Sem furo por caminho relativo, infraestrutura de outro módulo, `import()`/`require`, driver do banco nem `PatchApplier` no agente *(#273 — cada furo medido na revisão de 2026-09-23 é um caso de `architecture-boundaries.test.ts`)*
 
 **As quatro fronteiras primárias** — #5 *(D23)*
 - ✅ `Repository` — convenção por agregado documentada; `ConcurrencyConflictError` definido *(o `TransactionRunner` que existia aqui foi removido na #191: nunca teve implementação nem chamador)*
@@ -615,7 +616,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Profile **Legacy Compatibility** a partir do `latex-includes.tex` real *(34 packages, na ordem original — `fontenc` antes de `inputenc`, `xcolor` antes de quem o usa; reordenar por gosto só aparece três questões depois)*
 - ✅ As três macros do legado *(`\tikzmark`, `\colorcancel`, `\ontop`; sem elas, as questões de álgebra param de compilar)*
 - ✅ Profile **Question Preview**, enxuto *(o legado carrega 34 packages; `abntex2cite` e `rotating` para desenhar três linhas custam segundos que a pessoa espera olhando. Recorta no conteúdo, senão uma questão de quatro linhas vira uma imagem 90% branca)*
-- ✅ Teste confere o perfil contra o **arquivo legado real**, e se declara pulado onde ele não existe *(o CI não tem o acervo; um teste vermelho por isso viraria ruído até alguém desativá-lo)*
+- ✅ Teste confere o perfil contra o **arquivo legado real**, e se declara pulado onde ele não existe *(o CI não tem o acervo; um teste vermelho por isso viraria ruído até alguém desativá-lo. O caminho vem de `LEGACY_LATEX_PREAMBLE` no `.env.local`; sem ela o nome do teste diz o que falta, e apontando para arquivo que sumiu ele falha)*
 - ✅ **Os dois perfis compilam na imagem, conferidos de olho** *(integral, `\colorcancel` vermelho, `9,8 m s⁻²` e as letras vindas do `label`)*
 - ✅ `LatexBuilder` monta o bundle a partir da questão *(letra da alternativa vem de `label=\alph*)`, nunca escrita no texto — D9)*
 - ✅ Resposta **omitida por padrão** *(é o que se mostra ao aluno; incluir o gabarito por engano seria o pior defeito possível)*
@@ -1347,7 +1348,8 @@ e eles escondiam o que falta de verdade)*
   **nada o chamava**: o `OriginPanel` subia a ação `insert-figure` e o editor não a escutava. Sexta
   vez do mesmo padrão. O nome do arquivo vem do servidor (`cropLatexName`) e é o mesmo que a rota de
   render grava no diretório do job — inventá-lo no cliente daria um `\includegraphics` apontando
-  para arquivo que nunca chega)*
+  para arquivo que nunca chega. Desde a #255 o recorte das âncoras da questão vai no bundle, e desde
+  a #254 a mesma figura em duas questões tem uma linha de Asset em cada)*
 - ✅ Snippet `figure/includegraphics` gerado *(o `label` vem do nome — nunca fica vazio)*
 
 **PDF e crop**
@@ -2241,9 +2243,14 @@ escritas de verdade no banco de desenvolvimento.*
   URL; outro exige que o `.env.example` não tenha valor de verdade)*
 - ✅ API key nunca exposta ao browser *(grafo de imports de cada `"use client"`)*
 - ✅ Paths sanitizados *(4 formatos de escape testados)*
-- ✅ Nenhum path de usuário escapa do workspace *(e a recusa devolve 400 com o motivo, não 500 opaco)*
-- ✅ Chaves de storage prefixadas por `workspaceId`, sem escape
-- ✅ MIME e extensão validados *(a discordância entre os dois é recusada)*
+- ✅ Nenhum path de usuário escapa do workspace *(e a recusa devolve 400 com o motivo, não 500 opaco.
+  Desde a #256, a pasta do Calibre também: ela precisa estar sob `CALIBRE_LIBRARY_ROOT`, conferida
+  pelo caminho real, e o arquivo lido não sai dela por symlink)*
+- ✅ Chaves de storage prefixadas por `workspaceId`, sem escape *(desde a #256 o `workspaceId` sai do
+  livro, no servidor: upload e recorte com livro, biblioteca ou questão de outro dono dão 404 antes
+  de gravar um byte)*
+- ✅ MIME e extensão validados *(a discordância entre os dois é recusada; e o conteúdo servido leva
+  `nosniff`, com o SVG em CSP `sandbox` — #257)*
 - ✅ Upload limitado
 - ✅ Hash de conteúdo usado *(sha256 é a identidade — D29)*
 - ✅ Nenhum shell montado por concatenação de string *(`execFile` com vetor de argumentos; sem
@@ -2324,7 +2331,9 @@ Verificar em toda revisão de fase:
 - ✅ Todo novo tipo de questão entra pelo registry *(guard varre `src/` e `app/` atrás de `switch`
   sobre tipo de questão — e, desde a #165, **também para compilar**: um teste registra um tipo de
   mentira com corpo inconfundível e afirma que ele chega ao bundle. Até então a regra valia para
-  validar e para o preview, e não valia para o PDF)*
+  validar e para o preview, e não valia para o PDF. Desde a E4 da revisão de 2026-09-23, o guard
+  também pega comparação com o nome de um tipo e tabela por tipo, e o plugin declara rótulo, dica e
+  alternativas, que o editor, o menu, a criação, o scan e a avaliação leem dele)*
 - ✅ Toda randomização é reproduzível *(dois processos `bun` separados, mesma seed, 1695 bytes
   idênticos)*
 - ✅ Toda modificação agêntica é reversível *(revisão anterior gravada antes, na mesma transação)*

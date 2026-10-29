@@ -33,6 +33,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         sortKey: true,
         numberingStyle: true,
         originalLabel: true,
+        // A âncora principal do nó: com a última revisão, responde se o corpo é *a revisar*.
+        sourceAnchor: { select: { extractionMethod: true } },
         question: {
           select: {
             id: true,
@@ -67,6 +69,30 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
       },
     });
 
+    /*
+      O corpo *a revisar* (#252) precisa de dois fatos que a linha do nó não traz: se o corpo tem
+      texto — sem carregar o texto de todos os corpos para desenhar a árvore — e a última revisão
+      de cada nó. Duas consultas a mais, e nenhuma coluna nova (D40).
+    */
+    const withBody = new Set(
+      (
+        await prisma.documentNode.findMany({
+          where: { publicationId, deletedAt: null, questionId: null, bodyLatex: { not: "" } },
+          select: { id: true },
+        })
+      ).map((row) => row.id),
+    );
+    const lastRevision = new Map<string, { origin: string; summary: string }>();
+    for (const ids of inChunks([...withBody])) {
+      const revisions = await prisma.revision.findMany({
+        where: { entityType: "DOCUMENT_NODE", entityId: { in: ids } },
+        orderBy: { revisionNumber: "asc" },
+        select: { entityId: true, origin: true, summary: true },
+      });
+      // Em ordem crescente, a última escrita de cada nó é a que fica no mapa.
+      for (const { entityId, ...revision } of revisions) lastRevision.set(entityId, revision);
+    }
+
     return rows.map((row) => {
       if (!isNodeKind(row.kind)) {
         throw new Error(`NodeKind desconhecido no nó ${row.id}: ${row.kind}`);
@@ -84,6 +110,13 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         numberingStyle: row.numberingStyle,
         originalLabel: row.originalLabel,
         question: row.question,
+        body: withBody.has(row.id)
+          ? {
+              hasBody: true,
+              anchorMethod: row.sourceAnchor?.extractionMethod ?? null,
+              lastRevision: lastRevision.get(row.id) ?? null,
+            }
+          : null,
       };
     });
   }
@@ -103,12 +136,35 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     return created.id;
   }
 
+  /**
+   * Renomear e mover **não** mudam a versão do nó (#259).
+   *
+   * `updatedAt` é o token de concorrência do **corpo** (`saveNodeBody`), e o `@updatedAt` do Prisma
+   * o avançaria aqui. Com o corpo aberto, renomear o capítulo na árvore ou arrastá-lo fazia o
+   * autosave seguinte bater em 409 — sobre um texto que ninguém mais tinha tocado. Título e
+   * posição são da árvore, não do corpo: o valor é regravado igual, na mesma transação.
+   */
   async rename(nodeId: string, title: string | null): Promise<void> {
-    await prisma.documentNode.update({ where: { id: nodeId }, data: { title } });
+    await prisma.$transaction(async (tx) => {
+      const { updatedAt } = await tx.documentNode.findUniqueOrThrow({
+        where: { id: nodeId },
+        select: { updatedAt: true },
+      });
+      await tx.documentNode.update({ where: { id: nodeId }, data: { title, updatedAt } });
+    });
   }
 
   async move(nodeId: string, parentId: string | null, sortKey: string): Promise<void> {
-    await prisma.documentNode.update({ where: { id: nodeId }, data: { parentId, sortKey } });
+    await prisma.$transaction(async (tx) => {
+      const { updatedAt } = await tx.documentNode.findUniqueOrThrow({
+        where: { id: nodeId },
+        select: { updatedAt: true },
+      });
+      await tx.documentNode.update({
+        where: { id: nodeId },
+        data: { parentId, sortKey, updatedAt },
+      });
+    });
   }
 
   /**
@@ -129,11 +185,20 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     });
   }
 
-  async restoreMany(nodeIds: readonly string[]): Promise<void> {
+  async restoreMany(
+    nodeIds: readonly string[],
+    reposition?: { readonly nodeId: string; readonly sortKey: string },
+  ): Promise<void> {
     if (nodeIds.length === 0) return;
     await prisma.$transaction(async (tx) => {
       for (const ids of inChunks(nodeIds)) {
         await tx.documentNode.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
+      }
+      if (reposition) {
+        await tx.documentNode.update({
+          where: { id: reposition.nodeId },
+          data: { sortKey: reposition.sortKey },
+        });
       }
     });
   }
@@ -142,7 +207,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     const rows = await prisma.documentNode.findMany({
       where: { publicationId, deletedAt: { not: null } },
       orderBy: { deletedAt: "desc" },
-      select: { id: true, parentId: true, title: true, kind: true, deletedAt: true },
+      select: { id: true, parentId: true, title: true, kind: true, sortKey: true, deletedAt: true },
     });
 
     return rows.map((row) => {
@@ -154,6 +219,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         parentId: row.parentId,
         title: row.title,
         kind: row.kind,
+        sortKey: row.sortKey,
         deletedAt: row.deletedAt as Date,
       };
     });
@@ -208,6 +274,9 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             title: true,
             numberingStyle: true,
             originalLabel: true,
+            // O corpo é a teoria da seção e o texto inteiro do exemplo (D56): sem ele, a cópia
+            // nasce como um galho vazio (#252).
+            bodyLatex: true,
             sourceAnchorId: true,
             // As âncoras vão junto, pelo mesmo motivo do `sourceAnchorId` da questão: a origem é
             // do conteúdo (D50).
@@ -274,6 +343,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             sortKey: step.sortKey,
             numberingStyle: source.numberingStyle,
             originalLabel: source.originalLabel,
+            bodyLatex: source.bodyLatex,
             sourceAnchorId: source.sourceAnchorId,
             ...(createdQuestion ? { questionId: createdQuestion.id } : {}),
             ...(source.anchors.length > 0

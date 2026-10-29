@@ -1,4 +1,5 @@
 import { isInProgress } from "../domain/scan-run";
+import { bodyPieceLatex } from "../domain/approval-latex";
 import { planImportRemoval, type ImportedNode, type ImportRemovalPlan } from "../domain/import-removal";
 // O mesmo erro do resto do scan: uma execução que não existe é 404 em qualquer rota, e dois tipos
 // com o mesmo nome dariam dois caminhos para a mesma resposta.
@@ -21,10 +22,27 @@ import type { ScanStore } from "./scan-store";
 
 export type RemovalScope = "proposal" | "import";
 
+/** Os itens cujos trechos a execução acrescentou a um nó que ela não criou, e as âncoras deles. */
+export interface AppendedPieces {
+  readonly nodeId: string;
+  readonly itemKeys: readonly string[];
+  readonly anchorIds: readonly string[];
+}
+
+/** O que sai de um nó que fica de pé: o texto de cada trecho, e as âncoras. */
+export interface DetachedPieces {
+  readonly nodeId: string;
+  readonly pieces: readonly string[];
+  readonly anchorIds: readonly string[];
+}
+
 /** Os nós que uma execução criou, e o gesto de mandá-los para a lixeira. */
 export interface ScanImportStore {
   listCreatedNodes(runId: string): Promise<readonly ImportedNode[]>;
   sendToTrash(nodeIds: readonly string[]): Promise<void>;
+  /** O que a execução acrescentou a nós que ela não criou — o capítulo reaproveitado (#249). */
+  listAppendedPieces(runId: string): Promise<readonly AppendedPieces[]>;
+  detachPieces(entries: readonly DetachedPieces[]): Promise<void>;
 }
 
 export interface RemoveImportDeps {
@@ -38,6 +56,8 @@ export interface ImportPreview extends ImportRemovalPlan {
   readonly created: number;
   /** Os preservados com o que a tela mostra: nome e motivo. */
   readonly keptRows: readonly { readonly id: string; readonly label: string; readonly reason: string }[];
+  /** Quantos nós que já existiam perdem o texto que esta execução lhes acrescentou (#249). */
+  readonly detached: number;
 }
 
 const labelOf = (node: ImportedNode): string =>
@@ -50,11 +70,13 @@ export async function previewImportRemoval(deps: RemoveImportDeps, runId: string
   const nodes = await deps.imports.listCreatedNodes(runId);
   const plan = planImportRemoval(nodes);
   const byId = new Map(nodes.map((node) => [node.id, node]));
+  const appended = await deps.imports.listAppendedPieces(runId);
 
   return {
     ...plan,
     runId,
     created: nodes.length,
+    detached: appended.length,
     keptRows: plan.kept.map((kept) => ({
       id: kept.id,
       label: labelOf(byId.get(kept.id)!),
@@ -69,6 +91,31 @@ export interface RemovalResult {
   readonly trashed: number;
   readonly kept: number;
   readonly counts: Readonly<Record<string, number>>;
+  readonly figures: number;
+  /** Quantos nós que já existiam perderam o texto que a execução lhes acrescentou. */
+  readonly detached: number;
+}
+
+/*
+  O texto que a execução pôs num nó que ela não criou (#249, CAP-09).
+
+  O nó reaproveitado fica de pé — não foi a importação que o criou (ADR 0006) —, mas o corpo que
+  ela lhe acrescentou, e as âncoras, saem: senão a reimportação marcava o conteúdo novo como "já
+  no acervo", e o corpo velho ficava. O texto de cada trecho é refeito do item, como a aprovação
+  o fez; por isso sai antes de a execução ser apagada.
+*/
+async function piecesToDetach(deps: RemoveImportDeps, runId: string): Promise<DetachedPieces[]> {
+  const appended = await deps.imports.listAppendedPieces(runId);
+  if (appended.length === 0) return [];
+  const items = new Map((await deps.store.listItems(runId)).map((item) => [item.key, item]));
+  return appended.map((entry) => ({
+    nodeId: entry.nodeId,
+    anchorIds: entry.anchorIds,
+    pieces: entry.itemKeys.flatMap((key) => {
+      const item = items.get(key);
+      return item ? [bodyPieceLatex(item)] : [];
+    }),
+  }));
 }
 
 export async function removeImport(
@@ -97,10 +144,11 @@ export async function removeImport(
       );
     }
     await deps.store.deleteRun(input.runId);
-    return { scope: "proposal", trashed: 0, kept: 0, counts: {} };
+    return { scope: "proposal", trashed: 0, kept: 0, counts: {}, figures: 0, detached: 0 };
   }
 
   const plan = planImportRemoval(await deps.imports.listCreatedNodes(input.runId));
+  const detached = await piecesToDetach(deps, input.runId);
 
   /*
     A lixeira primeiro, a execução depois.
@@ -110,7 +158,15 @@ export async function removeImport(
     órfãos sem nenhum caminho de volta até eles.
   */
   await deps.imports.sendToTrash(plan.trash);
+  await deps.imports.detachPieces(detached);
   await deps.store.deleteRun(input.runId);
 
-  return { scope: "import", trashed: plan.trash.length, kept: plan.keptCount, counts: plan.counts };
+  return {
+    scope: "import",
+    trashed: plan.trash.length,
+    kept: plan.keptCount,
+    counts: plan.counts,
+    figures: plan.figures,
+    detached: detached.length,
+  };
 }

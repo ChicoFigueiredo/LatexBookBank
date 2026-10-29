@@ -1,6 +1,6 @@
 import "server-only";
 
-import { escapeIfProse } from "@modules/recognition/domain/latex-escape";
+import { escapeIfProse } from "@modules/latex/domain/latex-escape";
 import {
   MathRecognitionError,
   type MathRecognitionProvider,

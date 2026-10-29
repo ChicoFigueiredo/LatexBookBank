@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { emptyGlobalTrash, readGlobalTrash } from "@modules/document-tree/infrastructure/prisma-global-trash";
+import { emptyTrash } from "@modules/document-tree/application/empty-trash";
+import { PrismaTrashPurge, readGlobalTrash } from "@modules/document-tree/infrastructure/prisma-global-trash";
+import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { env as appEnv } from "@/shared/config/env";
 
 import { toErrorResponse } from "../tree-http";
 
@@ -36,11 +39,17 @@ export async function GET() {
  *
  * `DELETE` sem corpo e sem alvo: o alvo é "tudo o que está na lixeira", e deixar o cliente mandar
  * a lista seria deixá-lo apagar um nó que não está lá.
+ *
+ * `held` é o que ficou porque uma avaliação o usa (#258) — 200, e não 409: o resto saiu, e a tela
+ * diz o que ficou e por qual prova.
  */
 export async function DELETE() {
   try {
-    const apagado = await emptyGlobalTrash();
-    return NextResponse.json({ deleted: apagado });
+    const result = await emptyTrash(
+      new PrismaTrashPurge(),
+      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+    );
+    return NextResponse.json(result);
   } catch (error) {
     return toErrorResponse(error);
   }

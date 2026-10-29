@@ -1,4 +1,4 @@
-import { escapeLatexText, hasUnreadableSymbol } from "@modules/recognition/domain/latex-escape";
+import { escapeLatexText, hasUnreadableSymbol } from "@modules/latex/domain/latex-escape";
 
 import {
   zoneOfPage,
@@ -79,6 +79,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const full = assembleDocument(walked, {
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
+    ...(profile.singleColumn ? { singleColumn: true } : {}),
   });
 
   /*
