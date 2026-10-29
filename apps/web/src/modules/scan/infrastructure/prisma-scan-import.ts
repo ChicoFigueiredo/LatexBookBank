@@ -3,7 +3,8 @@ import "server-only";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
-import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
+import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
+import { appendNodeRevision } from "@modules/document-tree/infrastructure/prisma-node-body";
 import { removeFromBody } from "@modules/document-tree/domain/node-body";
 import type { AppendedPieces, DetachedPieces, ScanImportStore } from "@modules/scan/application/remove-import";
 import type { ImportedNode } from "@modules/scan/domain/import-removal";
@@ -194,20 +195,11 @@ export class PrismaScanImport implements ScanImportStore {
           } else {
             const bodyLatex = removeFromBody(node.bodyLatex, entry.pieces);
             if (bodyLatex !== node.bodyLatex) {
-              const last = await tx.revision.findFirst({
-                where: { entityType: "DOCUMENT_NODE", entityId: entry.nodeId },
-                orderBy: { revisionNumber: "desc" },
-                select: { revisionNumber: true },
-              });
-              await tx.revision.create({
-                data: {
-                  entityType: "DOCUMENT_NODE",
-                  entityId: entry.nodeId,
-                  revisionNumber: (last?.revisionNumber ?? 0) + 1,
-                  origin: "SYSTEM",
-                  summary: "corpo do scan retirado com a importação",
-                  snapshotJson: JSON.stringify({ title: node.title, bodyLatex: node.bodyLatex }),
-                },
+              await appendNodeRevision(tx, {
+                nodeId: entry.nodeId,
+                origin: "SYSTEM",
+                summary: "corpo do scan retirado com a importação",
+                snapshot: node,
               });
               await tx.documentNode.update({ where: { id: entry.nodeId }, data: { bodyLatex } });
             }

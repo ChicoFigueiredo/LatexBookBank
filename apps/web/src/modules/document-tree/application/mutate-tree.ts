@@ -3,7 +3,7 @@ import type {
   DocumentTreeRepository,
   DocumentTreeWriter,
 } from "@modules/document-tree/domain/document-tree-repository";
-import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
+import { generateKeyBetween } from "@/shared/ordering/fractional-index";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import { deletedAncestorOf } from "@modules/document-tree/domain/restoration";
 import {

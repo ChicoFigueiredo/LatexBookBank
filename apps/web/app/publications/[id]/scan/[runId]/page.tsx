@@ -6,11 +6,11 @@ import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastruct
 import { isContainerKind } from "@modules/document-tree/domain/add-placement";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { getScan, ScanRunNotFoundError } from "@modules/scan/application/control-scan";
+import { scanRunDto } from "@modules/scan/application/scan-run-dto";
 import { captureProfile, registeredCaptureProfiles } from "@modules/scan/domain/profiles";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
-import { scanRunDto } from "../../../../api/scans/scan-dto";
 import { ScanRunScreen } from "./scan-run-screen";
 
 /** A revisão de uma execução de scan (D47). */

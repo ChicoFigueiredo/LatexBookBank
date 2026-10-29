@@ -28,6 +28,14 @@ export function semanticPassFromEnv(): SemanticPass | null {
 }
 
 export function mathPassFromEnv(): MathPass | null {
-  const vision = visionRecognizer();
-  return vision === null ? null : createMathPass(vision.recognizer, vision.model);
+  try {
+    // O mesmo provider da passada semântica e do agente (ARQ-07): a visão é outro modelo no
+    // mesmo endpoint, não outro cliente.
+    const vision = visionRecognizer();
+    return vision === null ? null : createMathPass(vision.recognizer, vision.model);
+  } catch {
+    // Endpoint que exige chave, sem chave: sem matemática, como a passada semântica — e não um
+    // 401 em cada item da fila.
+    return null;
+  }
 }

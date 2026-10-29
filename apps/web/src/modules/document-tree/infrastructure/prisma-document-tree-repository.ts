@@ -9,6 +9,8 @@ import type {
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
 import { isNodeKind, isNumberingStyle } from "@modules/document-tree/domain/node-kind";
+import { insertNode } from "@modules/document-tree/infrastructure/prisma-node-writer";
+import { isAnchorRole } from "@modules/assets/domain/node-anchors";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 
@@ -238,8 +240,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
    *
    * O que **é** herdado, e por quê:
    *
-   * - `sourceAnchorId` — a proveniência é do conteúdo, não da linha: as duas questões vieram do
-   *   mesmo recorte, e D29 trata a fonte como imutável e compartilhável.
+   * - As âncoras, e com elas `sourceAnchorId` — a proveniência é do conteúdo, não da linha: as duas
+   *   questões vieram do mesmo recorte, e D29 trata a fonte como imutável e compartilhável.
    * - `originalLabel` — a primeira versão disto não copiava, pelo mesmo argumento do `legacyId`.
    *   Duplicar uma seção contra o banco real mostrou o resultado: dois nós "Sem título", porque
    *   as questões do acervo não têm `title` e se identificam justamente pelo rótulo do livro. É
@@ -277,12 +279,11 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             // O corpo é a teoria da seção e o texto inteiro do exemplo (D56): sem ele, a cópia
             // nasce como um galho vazio (#252).
             bodyLatex: true,
-            sourceAnchorId: true,
-            // As âncoras vão junto, pelo mesmo motivo do `sourceAnchorId` da questão: a origem é
-            // do conteúdo (D50).
+            // As âncoras vão junto: a origem é do conteúdo (D50). A principal delas é o
+            // `sourceAnchorId` da cópia, do nó e da questão.
             anchors: {
               orderBy: { sortOrder: "asc" },
-              select: { sourceAnchorId: true, sortOrder: true, role: true },
+              select: { sourceAnchorId: true, role: true },
             },
             question: {
               select: {
@@ -300,7 +301,6 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
                 roleLevel: true,
                 publisher: true,
                 videoUrl: true,
-                sourceAnchorId: true,
                 options: {
                   orderBy: { sortKey: "asc" },
                   select: {
@@ -321,21 +321,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         const isRoot = step.sourceId === rootPlan.sourceId;
         const { question } = source;
 
-        const createdQuestion = question
-          ? await tx.question.create({
-              data: {
-                ...question,
-                status: "DRAFT",
-                validationStatus: "UNVALIDATED",
-                options: { create: question.options.map((option) => ({ ...option })) },
-                tags: { create: question.tags.map((tag) => ({ tagId: tag.tagId })) },
-              },
-              select: { id: true },
-            })
-          : null;
-
-        const created = await tx.documentNode.create({
-          data: {
+        const created = await insertNode(tx, {
+          columns: {
             publicationId,
             parentId: resolveParent(step, isRoot),
             kind: source.kind,
@@ -344,16 +331,39 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             numberingStyle: source.numberingStyle,
             originalLabel: source.originalLabel,
             bodyLatex: source.bodyLatex,
-            sourceAnchorId: source.sourceAnchorId,
-            ...(createdQuestion ? { questionId: createdQuestion.id } : {}),
-            ...(source.anchors.length > 0
-              ? { anchors: { create: source.anchors.map((anchor) => ({ ...anchor })) } }
-              : {}),
           },
-          select: { id: true },
+          question: question
+            ? {
+                columns: {
+                  type: question.type,
+                  nickname: question.nickname,
+                  statementLatex: question.statementLatex,
+                  solutionLatex: question.solutionLatex,
+                  complementLatex: question.complementLatex,
+                  originalLatex: question.originalLatex,
+                  difficulty: question.difficulty,
+                  year: question.year,
+                  board: question.board,
+                  institution: question.institution,
+                  role: question.role,
+                  roleLevel: question.roleLevel,
+                  publisher: question.publisher,
+                  videoUrl: question.videoUrl,
+                  status: "DRAFT",
+                  validationStatus: "UNVALIDATED",
+                },
+                options: question.options.map((option) => ({ ...option })),
+                tagIds: question.tags.map((tag) => tag.tagId),
+              }
+            : null,
+          // A lista inteira, com os papéis: a principal dela volta às colunas do nó e da questão.
+          anchors: source.anchors.map(({ sourceAnchorId, role }) => ({
+            sourceAnchorId,
+            role: isAnchorRole(role) ? role : "PRIMARY",
+          })),
         });
 
-        idMap.set(step.sourceId, created.id);
+        idMap.set(step.sourceId, created.nodeId);
       }
 
       return idMap.get(rootPlan.sourceId) as string;

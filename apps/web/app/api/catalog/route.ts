@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { browseCatalog } from "@modules/publications/application/import-from-catalog";
 import { CalibreCatalogProvider } from "@modules/publications/infrastructure/calibre-catalog-provider";
 import { existingPublicationsOf } from "@modules/publications/infrastructure/prisma-catalog-import";
+import type { BrowseCatalogResponse } from "@modules/publications/application/catalog-contract";
 
 import { readJson } from "../http";
 import { resolveCatalogRoot } from "./catalog-http";
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     const existing = libraryId === "" ? [] : await existingPublicationsOf(libraryId);
     const entries = await browseCatalog(catalog, existing, query);
 
-    return NextResponse.json({ summary, entries });
+    return NextResponse.json({ summary, entries } satisfies BrowseCatalogResponse);
   } catch (error) {
     return toErrorResponse(error);
   }

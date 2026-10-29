@@ -1,3 +1,5 @@
+import { normalizeIsbn } from "./isbn";
+
 /**
  * O que basta para cadastrar um livro.
  *
@@ -156,7 +158,7 @@ function parseIsbn(value: unknown): string | null {
   const raw = text(value, "isbn", 40);
   if (raw === null) return null;
 
-  const isbn = raw.replace(/[\s-]/g, "").toUpperCase();
+  const isbn = normalizeIsbn(raw) ?? "";
 
   if (/^\d{9}[\dX]$/.test(isbn) && isbn10CheckDigit(isbn)) return isbn;
   if (/^\d{13}$/.test(isbn) && isbn13CheckDigit(isbn)) return isbn;

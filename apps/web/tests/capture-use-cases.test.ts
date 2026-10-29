@@ -9,6 +9,7 @@ import {
 } from "@modules/recognition/application/discard-capture";
 import { recognizeCrop } from "@modules/recognition/application/recognize-crop";
 import {
+  AiCredentialMissingError,
   MathRecognitionError,
   type MathRecognitionProvider,
   type StorageProvider,
@@ -161,7 +162,10 @@ describe("recognizeCrop", () => {
   it("devolve o candidato e grava a transcrição na âncora", async () => {
     const { log: l, calls } = log();
 
-    const candidate = await recognizeCrop({ recognizer: recognizer("x^2"), log: l, now }, command);
+    const candidate = await recognizeCrop(
+      { recognizer: () => recognizer("x^2"), log: l, now },
+      command,
+    );
 
     expect(candidate).toMatchObject({ cropAssetId: "c1", state: "candidate" });
     expect(calls).toEqual(["ok a1 x^2"]);
@@ -172,16 +176,37 @@ describe("recognizeCrop", () => {
     const falha = new MathRecognitionError("timeout", "fake");
 
     await expect(
-      recognizeCrop({ recognizer: recognizer(falha), log: l, now }, command),
+      recognizeCrop({ recognizer: () => recognizer(falha), log: l, now }, command),
     ).rejects.toBe(falha);
     expect(calls).toEqual(["falha a1 timeout"]);
+  });
+
+  it("o endpoint sem chave falha como o reconhecimento: registrado na âncora, e 502 na rota", async () => {
+    const { log: l, calls } = log();
+
+    const pedido = recognizeCrop(
+      {
+        recognizer: () => {
+          throw new AiCredentialMissingError("openrouter", "AI_API_KEY");
+        },
+        log: l,
+        now,
+      },
+      command,
+    );
+
+    await expect(pedido).rejects.toBeInstanceOf(MathRecognitionError);
+    await expect(pedido).rejects.toThrow(/AI_API_KEY/);
+    expect(calls).toEqual([
+      "falha a1 Credencial ausente para openrouter. Defina AI_API_KEY em .env.local",
+    ]);
   });
 
   it("sem âncora, reconhece e não grava nada", async () => {
     const { log: l, calls } = log();
 
     await recognizeCrop(
-      { recognizer: recognizer("y"), log: l, now },
+      { recognizer: () => recognizer("y"), log: l, now },
       { ...command, anchorId: null },
     );
 

@@ -2,10 +2,12 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
-import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
-import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
+import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
+import { generateKeyBetween } from "@/shared/ordering/fractional-index";
 import { BODY_FROM_SCAN, insertIntoBody } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
+import { appendNodeRevision } from "@modules/document-tree/infrastructure/prisma-node-body";
+import { insertNode } from "@modules/document-tree/infrastructure/prisma-node-writer";
 import { planQuestion } from "@modules/questions/domain/question-blueprint";
 import {
   ApprovalConflictError,
@@ -233,39 +235,17 @@ export class PrismaScanApproval implements ScanApprovalWriter {
 
             case "createNode": {
               const parentId = resolve(step.parent);
-              let questionId: string | null = null;
+              const blueprint = step.question
+                ? planQuestion({
+                    type: step.question.type,
+                    optionCount: step.question.options.length > 0 ? step.question.options.length : undefined,
+                  })
+                : null;
+              const sortKey = await nextKey(parentId, step.placeAfter, step.placeBefore);
+              const links = await createAnchors(step.anchors, step.sourceText, itemKeyOf(step.ref));
 
-              if (step.question) {
-                const blueprint = planQuestion({
-                  type: step.question.type,
-                  optionCount: step.question.options.length > 0 ? step.question.options.length : undefined,
-                });
-                const question = await tx.question.create({
-                  data: {
-                    type: blueprint.type,
-                    difficulty: blueprint.difficulty,
-                    statementLatex: step.question.statementLatex,
-                    // A resolução impressa, quando o livro a traz junto do enunciado.
-                    solutionLatex: step.question.solutionLatex,
-                    originalLatex: step.question.originalLatex,
-                    // `DRAFT` com âncora de LaTeX não conferido: é o *a revisar* da D40.
-                    status: "DRAFT",
-                    options: {
-                      create: blueprint.optionSortKeys.map((sortKey, index) => ({
-                        sortKey,
-                        statementLatex: step.question?.options[index] ?? "",
-                        isCorrect: false,
-                      })),
-                    },
-                  },
-                  select: { id: true },
-                });
-                questionId = question.id;
-                summary.createdQuestions++;
-              }
-
-              const node = await tx.documentNode.create({
-                data: {
+              const node = await insertNode(tx, {
+                columns: {
                   publicationId: run.publicationId,
                   parentId,
                   kind: step.kind,
@@ -276,18 +256,36 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                   // Quem criou este nó (D57): é por aqui que a importação inteira é encontrada
                   // quando alguém quiser reimportar o livro.
                   createdByScanRunId: run.id,
-                  sortKey: await nextKey(parentId, step.placeAfter, step.placeBefore),
-                  ...(questionId ? { questionId } : {}),
+                  sortKey,
                 },
-                select: { id: true, sortKey: true },
+                question:
+                  step.question && blueprint
+                    ? {
+                        columns: {
+                          type: blueprint.type,
+                          difficulty: blueprint.difficulty,
+                          statementLatex: step.question.statementLatex,
+                          // A resolução impressa, quando o livro a traz junto do enunciado.
+                          solutionLatex: step.question.solutionLatex,
+                          originalLatex: step.question.originalLatex,
+                          // `DRAFT` com âncora de LaTeX não conferido: é o *a revisar* da D40.
+                          status: "DRAFT",
+                        },
+                        options: blueprint.optionSortKeys.map((optionKey, index) => ({
+                          sortKey: optionKey,
+                          statementLatex: step.question?.options[index] ?? "",
+                          isCorrect: false,
+                        })),
+                      }
+                    : null,
+                anchors: links,
               });
-              planned.set(step.ref, node.id);
-              createdAt.set(node.id, { parentId, sortKey: node.sortKey });
+              if (node.questionId) summary.createdQuestions++;
+              planned.set(step.ref, node.nodeId);
+              createdAt.set(node.nodeId, { parentId, sortKey: node.sortKey });
               summary.createdNodes++;
 
-              const links = await createAnchors(step.anchors, step.sourceText, itemKeyOf(step.ref));
-              await writeNodeAnchors(tx, node.id, planNodeAnchors(links));
-              await mark(step.itemIds, node.id);
+              await mark(step.itemIds, node.nodeId);
               break;
             }
 
@@ -299,20 +297,11 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 select: { bodyLatex: true, title: true },
               });
 
-              const last = await tx.revision.findFirst({
-                where: { entityType: "DOCUMENT_NODE", entityId: targetId },
-                orderBy: { revisionNumber: "desc" },
-                select: { revisionNumber: true },
-              });
-              await tx.revision.create({
-                data: {
-                  entityType: "DOCUMENT_NODE",
-                  entityId: targetId,
-                  revisionNumber: (last?.revisionNumber ?? 0) + 1,
-                  origin: "SYSTEM",
-                  summary: BODY_FROM_SCAN,
-                  snapshotJson: JSON.stringify({ title: target.title, bodyLatex: target.bodyLatex }),
-                },
+              await appendNodeRevision(tx, {
+                nodeId: targetId,
+                origin: "SYSTEM",
+                summary: BODY_FROM_SCAN,
+                snapshot: target,
               });
               await tx.documentNode.update({
                 where: { id: targetId },

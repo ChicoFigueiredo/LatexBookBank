@@ -11,6 +11,10 @@ import {
   type QuestionStatus,
 } from "@modules/questions/domain/question-type";
 import { PrismaQuestionRepository } from "@modules/questions/infrastructure/prisma-question-repository";
+import type {
+  QuestionDetailResponse,
+  SaveQuestionResponse,
+} from "@modules/questions/application/question-contract";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../../http";
 
@@ -93,7 +97,7 @@ export async function GET(
         publisher: snapshot.publisher,
         videoUrl: snapshot.videoUrl,
       },
-    });
+    } satisfies QuestionDetailResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -184,7 +188,7 @@ export async function PATCH(
       // O cliente precisa saber se houve escrita: sem isto, o indicador de "salvo" piscaria a
       // cada autosave mesmo sem nada ter mudado, e viraria ruído que ninguém mais lê.
       written: result.written,
-    });
+    } satisfies SaveQuestionResponse);
   } catch (error) {
     return toErrorResponse(error);
   }

@@ -8,6 +8,7 @@ import { isAssetKind } from "@modules/assets/domain/asset-kind";
 import { PrismaAssetWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
 import { storage } from "@infrastructure/composition";
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
+import type { UploadAssetResponse } from "@modules/assets/application/asset-contract";
 
 import { BadRequestError, toErrorResponse } from "../http";
 
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
         // A tela precisa saber que o livro deixou de estar sem fonte: é o que dispara a
         // revalidação, para o resumo não continuar mostrando a pendência já resolvida.
         becameBookSource: asset.becameBookSource,
-      },
+      } satisfies UploadAssetResponse,
       { status: 201 },
     );
   } catch (error) {

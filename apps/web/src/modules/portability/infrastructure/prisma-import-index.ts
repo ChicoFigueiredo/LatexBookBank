@@ -2,12 +2,12 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
-import {
-  normalizeIsbn,
-  type ExistingIndex,
-  type ImportCollision,
-} from "@modules/portability/application/import-workspace";
-import type { ConflitoDeImportacao } from "@modules/portability/domain/import-conflicts";
+import type { ExistingIndex } from "@modules/portability/application/import-workspace";
+import type {
+  ConflitoDeImportacao,
+  ImportCollision,
+} from "@modules/portability/domain/import-conflicts";
+import { normalizeIsbn } from "@modules/publications/domain/isbn";
 import type { PortableWorkspace } from "@modules/portability/domain/portable-schema";
 
 /**

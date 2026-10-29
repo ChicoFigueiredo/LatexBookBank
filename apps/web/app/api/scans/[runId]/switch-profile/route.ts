@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { switchProfile } from "@modules/scan/application/switch-profile";
+import { scanRunDto } from "@modules/scan/application/scan-run-dto";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { toErrorResponse } from "../../../http";
-import { readJson } from "../../../http";
-import { scanRunDto } from "../../scan-dto";
+import { readJson, toErrorResponse } from "../../../http";
 
 /**
  * Varrer de novo com outro perfil, herdando o que já foi revisado (`domain/inherit-review.ts`).

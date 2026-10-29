@@ -7,6 +7,7 @@ import {
   PrismaPublicationSourceWriter,
 } from "@modules/publications/infrastructure/prisma-catalog-import";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
+import type { AttachFromCatalogResponse } from "@modules/publications/application/catalog-contract";
 
 import { BadRequestError, readJson } from "../../http";
 import { resolveCatalogRoot } from "../catalog-http";
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
       },
     );
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(result satisfies AttachFromCatalogResponse, { status: 200 });
   } catch (error) {
     return toErrorResponse(error);
   }

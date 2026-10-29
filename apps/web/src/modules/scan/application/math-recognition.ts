@@ -3,7 +3,7 @@ import {
   type MathRecognitionProvider,
 } from "@shared/ports/math-recognition";
 
-import type { ScanKind } from "@modules/scan/domain/proposal";
+import { kindsWhere } from "@modules/scan/domain/proposal";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
 import type { OpenedPdf } from "./pdf-document";
@@ -20,7 +20,7 @@ import type { MathPass } from "./run-scan";
  * Item e subitem ficam de fora: o exercício que os contém já os reconhece inteiros.
  */
 
-const RECOGNIZED_KINDS: ReadonlySet<ScanKind> = new Set(["EXERCISE", "QUESTION", "EXAMPLE", "CONTENT", "NOTE"]);
+const RECOGNIZED_KINDS = kindsWhere((traits) => traits.recognizesMath);
 const DPI = 200;
 
 export async function recognizeItem(

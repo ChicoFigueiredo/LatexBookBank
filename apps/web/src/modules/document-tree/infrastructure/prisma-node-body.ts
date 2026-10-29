@@ -8,6 +8,9 @@ import type {
 } from "@modules/document-tree/application/save-node-body";
 import type { NodeBodySnapshot } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
+import type { RevisionOrigin } from "@modules/revisions/domain/revision";
+import { listRevisionsWithSnapshots } from "@modules/revisions/infrastructure/prisma-revision-reader";
+import { appendRevision } from "@modules/revisions/infrastructure/prisma-revision-writer";
 
 const SELECT = {
   id: true,
@@ -36,27 +39,32 @@ function toRecord(row: {
   };
 }
 
-/** A revisão `USER` do nó, com o número seguinte contado dentro da transação. */
-async function writeUserRevision(
+/**
+ * A revisão do nó, com o snapshot no formato deste módulo (`NodeBodySnapshot`).
+ *
+ * Exportada para quem muda o corpo por fora do editor — a aprovação do scan, a retirada de uma
+ * importação —, que antes montava o snapshot à mão: a aba Histórico de um nó lê todos os snapshots
+ * com o mesmo formato, e é aqui que ele mora. A numeração é do módulo de revisões.
+ */
+export async function appendNodeRevision(
   tx: Prisma.TransactionClient,
-  nodeId: string,
-  summary: string,
-  snapshot: NodeBodySnapshot,
-): Promise<void> {
-  const last = await tx.revision.findFirst({
-    where: { entityType: "DOCUMENT_NODE", entityId: nodeId },
-    orderBy: { revisionNumber: "desc" },
-    select: { revisionNumber: true },
-  });
-  await tx.revision.create({
-    data: {
-      entityType: "DOCUMENT_NODE",
-      entityId: nodeId,
-      revisionNumber: (last?.revisionNumber ?? 0) + 1,
-      origin: "USER",
-      summary,
-      snapshotJson: JSON.stringify(snapshot),
-    },
+  input: {
+    readonly nodeId: string;
+    readonly origin: RevisionOrigin;
+    readonly summary: string;
+    readonly snapshot: NodeBodySnapshot;
+  },
+): Promise<number> {
+  const snapshot: NodeBodySnapshot = {
+    title: input.snapshot.title,
+    bodyLatex: input.snapshot.bodyLatex,
+  };
+  return appendRevision(tx, {
+    entityType: "DOCUMENT_NODE",
+    entityId: input.nodeId,
+    origin: input.origin,
+    summary: input.summary,
+    snapshotJson: JSON.stringify(snapshot),
   });
 }
 
@@ -72,12 +80,7 @@ export class PrismaNodeBodyRepository implements NodeBodyRepository {
 
   /** O histórico do nó, do mais novo ao mais velho — o estado anterior de cada gravação. */
   async listRevisions(nodeId: string) {
-    const rows = await prisma.revision.findMany({
-      where: { entityType: "DOCUMENT_NODE", entityId: nodeId },
-      orderBy: { revisionNumber: "desc" },
-      take: 50,
-      select: { revisionNumber: true, origin: true, summary: true, createdAt: true, snapshotJson: true },
-    });
+    const rows = await listRevisionsWithSnapshots("DOCUMENT_NODE", nodeId);
     return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
   }
 
@@ -91,7 +94,12 @@ export class PrismaNodeBodyRepository implements NodeBodyRepository {
 
   async recordReview(input: Parameters<NodeBodyRepository["recordReview"]>[0]): Promise<void> {
     await prisma.$transaction(async (tx) => {
-      await writeUserRevision(tx, input.nodeId, input.summary, input.current);
+      await appendNodeRevision(tx, {
+        nodeId: input.nodeId,
+        origin: "USER",
+        summary: input.summary,
+        snapshot: input.current,
+      });
     });
   }
 
@@ -106,7 +114,12 @@ export class PrismaNodeBodyRepository implements NodeBodyRepository {
       });
       if (updated.count === 0) return null;
 
-      await writeUserRevision(tx, input.nodeId, input.summary, input.previous);
+      await appendNodeRevision(tx, {
+        nodeId: input.nodeId,
+        origin: "USER",
+        summary: input.summary,
+        snapshot: input.previous,
+      });
       const row = await tx.documentNode.findUniqueOrThrow({
         where: { id: input.nodeId },
         select: SELECT,

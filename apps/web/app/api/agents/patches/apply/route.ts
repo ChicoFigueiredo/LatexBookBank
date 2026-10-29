@@ -4,6 +4,7 @@ import { applyQuestionPatch } from "@modules/agents/application/apply-question-p
 import { parseQuestionPatch } from "@modules/agents/domain/question-patch";
 import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
+import type { ApplyPatchResponse } from "@modules/agents/application/agent-contract";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       new PrismaValidationWriter(),
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json(result satisfies ApplyPatchResponse);
   } catch (error) {
     return toErrorResponse(error);
   }

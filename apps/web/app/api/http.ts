@@ -21,7 +21,7 @@ import {
 import { UploadRejectedError } from "@modules/assets/domain/asset-ingestion";
 import { InvalidAnchorError } from "@modules/assets/domain/source-anchor";
 import { DeletedAncestorError } from "@modules/document-tree/application/mutate-tree";
-import { InvalidSortKeyError } from "@modules/document-tree/domain/fractional-index";
+import { InvalidSortKeyError } from "@/shared/ordering/fractional-index";
 import { InvalidNodeBodyError } from "@modules/document-tree/domain/node-body";
 import { CyclicMoveError, NodeNotFoundError } from "@modules/document-tree/domain/tree-mutations";
 import {
@@ -45,6 +45,7 @@ import {
   PublicationInAssessmentsError,
 } from "@modules/publications/domain/publication-draft";
 import { DestinationNotFoundError } from "@modules/questions/application/create-question";
+import type { SaveQuestionConflict } from "@modules/questions/application/question-contract";
 import { QuestionNotFoundError as OptionQuestionNotFoundError } from "@modules/questions/application/mutate-options";
 import { QuestionNotFoundError } from "@modules/questions/application/save-question";
 import {
@@ -197,7 +198,8 @@ const rules = (): readonly ErrorRule[] =>
       message: "A ordem destes itens está inconsistente. Mova um deles e tente de novo.",
     })),
     on(InvalidNodeBodyError, 400, "bad_request"),
-    on(ConcurrencyConflictError, 409, "conflict", (error) => ({
+    // O corpo é o contrato do 409 de salvar questão (I8): a tela o lê para comparar as versões.
+    on(ConcurrencyConflictError, 409, "conflict", (error): Omit<SaveQuestionConflict, "error"> => ({
       message: CONFLICT_MESSAGES[error.entityType] ?? error.message,
       expectedVersion: String(error.expectedVersion),
       actualVersion: String(error.actualVersion),

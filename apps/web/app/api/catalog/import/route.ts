@@ -9,6 +9,7 @@ import {
 } from "@modules/publications/infrastructure/prisma-catalog-import";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
+import type { ImportFromCatalogResponse } from "@modules/publications/application/catalog-contract";
 
 import { readJson } from "../../http";
 import { resolveCatalogRoot } from "../catalog-http";
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
       },
     );
 
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(result satisfies ImportFromCatalogResponse, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);
   }

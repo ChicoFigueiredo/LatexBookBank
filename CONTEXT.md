@@ -309,8 +309,9 @@ O registro de um turno do agente, guardado para auditoria: o que foi pedido, o q
 respondeu, o que foi aplicado.
 
 **Revisão** (`Revision`):
-O estado de uma questão antes de uma mudança. O **Histórico** é a linha do tempo das revisões,
-com diff e restauração.
+O estado de uma questão, ou do corpo de um nó, antes de uma mudança, numerado por entidade. O
+**Histórico** é a linha do tempo das revisões, com diff e restauração. Quem numera e guarda é o
+módulo `revisions`; o formato do estado é do dono da entidade.
 _Avoid_: versão, snapshot, backup
 
 ## Avaliações

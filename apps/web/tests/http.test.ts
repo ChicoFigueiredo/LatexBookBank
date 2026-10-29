@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { InvalidSortKeyError } from "@modules/document-tree/domain/fractional-index";
+import { InvalidSortKeyError } from "@/shared/ordering/fractional-index";
 import { NoSourcePdfError } from "@modules/scan/application/start-scan";
 import { PublicationInAssessmentsError } from "@modules/publications/domain/publication-draft";
 import { LibraryNotFoundError } from "@modules/workspaces/domain/library";

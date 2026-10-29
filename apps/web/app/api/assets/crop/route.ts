@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import type { CropAssetResponse } from "@modules/assets/application/asset-contract";
 import { saveCrop } from "@modules/assets/application/save-crop";
 import { PrismaCropWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
 import { storage } from "@infrastructure/composition";
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
       },
     );
 
-    return NextResponse.json(saved, { status: 201 });
+    return NextResponse.json(saved satisfies CropAssetResponse, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);
   }

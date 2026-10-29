@@ -16,6 +16,8 @@ export const SCAN_RUN_STATES = [
   "RECOGNIZING_MATH",
   "READY_FOR_REVIEW",
   "APPROVED",
+  // O perfil de captura saiu do registro (ADR 0008). Não é falha, é espera: devolver o perfil ao
+  // código e pedir de novo continua da página onde parou — `FAILED` faria a execução ser descartada.
   "AWAITING_PROFILE",
   "FAILED",
   "CANCELLED",
@@ -37,15 +39,6 @@ const IN_PROGRESS: ReadonlySet<ScanRunState> = new Set([
 ]);
 
 export const isInProgress = (state: ScanRunState): boolean => IN_PROGRESS.has(state);
-
-/**
- * A varredura parou porque o perfil de captura saiu do registro (ADR 0008).
- *
- * Não é falha: não há nada de errado com o PDF nem com o que já foi lido. É espera — devolver o
- * perfil ao código e pedir de novo continua da página onde parou, porque a chave da execução
- * continua valendo e `FAILED` seria justamente o estado que a faz ser descartada.
- */
-export const isAwaitingProfile = (state: ScanRunState): boolean => state === "AWAITING_PROFILE";
 
 /** Estados em que a proposta existe e pode ser revisada. */
 export const isReviewable = (state: ScanRunState): boolean =>

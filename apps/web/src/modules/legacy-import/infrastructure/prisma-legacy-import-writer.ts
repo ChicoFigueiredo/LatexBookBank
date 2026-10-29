@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import type { ImportPlan } from "@modules/portability/application/import-workspace";
 import type { StorageProvider } from "@/shared/ports";
+import { insertNode } from "@modules/document-tree/infrastructure/prisma-node-writer";
 
 import {
   storeLegacyFigure,
@@ -137,53 +138,57 @@ export class PrismaLegacyImportWriter {
         const nodeIdByRef = new Map<string, string>();
 
         for (const node of publication.nodes) {
-          let questionId: string | null = null;
+          const question = node.question;
 
-          if (node.question !== null) {
-            const question = node.question;
+          const created = await insertNode(client, {
+            columns: {
+              publicationId: createdPublication.id,
+              kind: node.kind,
+              title: node.title,
+              sortKey: node.sortKey,
+              numberingStyle: node.numberingStyle,
+              originalLabel: node.originalLabel,
+              legacyId: node.legacyId,
+            },
+            question:
+              question === null
+                ? null
+                : {
+                    columns: {
+                      type: question.type,
+                      nickname: question.nickname,
+                      statementLatex: question.statementLatex,
+                      solutionLatex: question.solutionLatex,
+                      complementLatex: question.complementLatex,
+                      originalLatex: question.originalLatex,
+                      difficulty: question.difficulty,
+                      year: question.year,
+                      board: question.board,
+                      institution: question.institution,
+                      role: question.role,
+                      roleLevel: question.roleLevel,
+                      publisher: question.publisher,
+                      videoUrl: question.videoUrl,
+                      status: question.status,
+                      validationStatus: question.validationStatus,
+                      legacyId: question.legacyId,
+                    },
+                    options: question.options.map((option) => ({
+                      sortKey: option.sortKey,
+                      statementLatex: option.statementLatex,
+                      solutionLatex: option.solutionLatex,
+                      originalLatex: option.originalLatex,
+                      isCorrect: option.isCorrect,
+                      weight: option.weight,
+                      legacyId: option.legacyId,
+                      legacyMarcacao: option.legacyMarcacao,
+                    })),
+                  },
+          });
 
-            const createdQuestion = await client.question.create({
-              data: {
-                type: question.type,
-                nickname: question.nickname,
-                statementLatex: question.statementLatex,
-                solutionLatex: question.solutionLatex,
-                complementLatex: question.complementLatex,
-                originalLatex: question.originalLatex,
-                difficulty: question.difficulty,
-                year: question.year,
-                board: question.board,
-                institution: question.institution,
-                role: question.role,
-                roleLevel: question.roleLevel,
-                publisher: question.publisher,
-                videoUrl: question.videoUrl,
-                status: question.status,
-                validationStatus: question.validationStatus,
-                legacyId: question.legacyId,
-              },
-              select: { id: true },
-            });
-
-            questionId = createdQuestion.id;
+          if (question !== null && created.questionId !== null) {
             questions += 1;
-
-            for (const option of question.options) {
-              await client.questionOption.create({
-                data: {
-                  questionId: createdQuestion.id,
-                  sortKey: option.sortKey,
-                  statementLatex: option.statementLatex,
-                  solutionLatex: option.solutionLatex,
-                  originalLatex: option.originalLatex,
-                  isCorrect: option.isCorrect,
-                  weight: option.weight,
-                  legacyId: option.legacyId,
-                  legacyMarcacao: option.legacyMarcacao,
-                },
-              });
-              options += 1;
-            }
+            options += created.optionIds.length;
 
             for (const { sha256 } of question.assets) {
               const figure = figureBySha.get(sha256);
@@ -201,7 +206,7 @@ export class PrismaLegacyImportWriter {
               await client.asset.create({
                 data: {
                   workspaceId: workspace.id,
-                  questionId: createdQuestion.id,
+                  questionId: created.questionId,
                   kind: LEGACY_FIGURE_ASSET_KIND,
                   storageKey: stored.storageKey,
                   mimeType: stored.mimeType,
@@ -216,21 +221,7 @@ export class PrismaLegacyImportWriter {
             }
           }
 
-          const createdNode = await client.documentNode.create({
-            data: {
-              publicationId: createdPublication.id,
-              kind: node.kind,
-              title: node.title,
-              sortKey: node.sortKey,
-              numberingStyle: node.numberingStyle,
-              originalLabel: node.originalLabel,
-              legacyId: node.legacyId,
-              questionId,
-            },
-            select: { id: true },
-          });
-
-          nodeIdByRef.set(node.id, createdNode.id);
+          nodeIdByRef.set(node.id, created.nodeId);
           nodes += 1;
         }
 

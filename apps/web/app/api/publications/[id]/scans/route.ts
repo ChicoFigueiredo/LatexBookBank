@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { startScan } from "@modules/scan/application/start-scan";
+import { scanRunDto } from "@modules/scan/application/scan-run-dto";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { toErrorResponse } from "../../../http";
-import { readJson } from "../../../http";
-import { scanRunDto } from "../../../scans/scan-dto";
+import { readJson, toErrorResponse } from "../../../http";
 
 /**
  * As execuções de scan de um livro, e o pedido de uma nova (D49, D53).

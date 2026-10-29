@@ -179,10 +179,20 @@ describe("os furos medidos na revisão de 2026-09-23", () => {
     expect(messages.join("\n")).toMatch(/Componente React não importa infraestrutura/);
   });
 
-  it("a exceção nomeada: o MathJax do preview é infraestrutura que a UI pode usar", async () => {
+  it("sem exceção: o antigo caminho do MathJax em infrastructure cai na regra", async () => {
+    // O MathJax do preview foi a exceção nomeada até sair de `infrastructure/` (frente I). Um
+    // `preview/infrastructure/mathjax` novo seria a volta dela, e cai na regra como qualquer outro.
     const messages = await lintAs(
       "src/modules/preview/ui/Allowed.tsx",
       `import { renderMath } from "@modules/preview/infrastructure/mathjax";\nexport const R = renderMath;`,
+    );
+    expect(messages.join("\n")).toMatch(/Componente React não importa infraestrutura/);
+  });
+
+  it("o MathJax do preview é da UI: o componente o importa sem exceção nenhuma", async () => {
+    const messages = await lintAs(
+      "src/modules/preview/ui/Allowed.tsx",
+      `import { renderMath } from "@modules/preview/ui/render-math";\nexport const R = renderMath;`,
     );
     expect(messages).toHaveLength(0);
   });

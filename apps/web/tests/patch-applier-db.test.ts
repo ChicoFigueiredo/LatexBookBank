@@ -29,7 +29,7 @@ const modules = async () => {
   const { prisma } = await import("@infrastructure/database/sqlite/client");
   const { PrismaPatchApplier } = await import("@infrastructure/agent/prisma-patch-applier");
   const { readQuestionState } = await import("@infrastructure/agent/prisma-question-state");
-  const { findRevision } = await import("@infrastructure/agent/prisma-revision-reader");
+  const { findRevision } = await import("@modules/revisions/infrastructure/prisma-revision-reader");
   const { PrismaOptionWriter } =
     await import("@modules/questions/infrastructure/prisma-option-writer");
   const { applyQuestionPatch, revertQuestion } =
@@ -214,7 +214,7 @@ describe("reverter devolve o estado exato", () => {
       questionId,
       patch({ fields: [{ field: "statementLatex", value: "Enunciado novo." }] }),
     );
-    const revision = await findRevision(questionId, result.revisionNumber);
+    const revision = await findRevision("QUESTION", questionId, result.revisionNumber);
 
     await revertQuestion(applier, {
       questionId,
@@ -244,7 +244,7 @@ describe("reverter devolve o estado exato", () => {
       questionId,
       patch({ fields: [{ field: "statementLatex", value: "Enunciado revisado." }] }),
     );
-    const revision = await findRevision(questionId, result.revisionNumber);
+    const revision = await findRevision("QUESTION", questionId, result.revisionNumber);
 
     // Depois da revisão, no editor: apaga C, acrescenta F, e troca o tipo para discursiva.
     await options.deleteOption(questionId, ids[2] as string);

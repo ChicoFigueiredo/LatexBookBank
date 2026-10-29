@@ -44,7 +44,7 @@ describe("livro grande", () => {
     const { startScan } = await import("@modules/scan/application/start-scan");
     const { runScan } = await import("@modules/scan/application/run-scan");
     const { approveScan } = await import("@modules/scan/application/approve-scan");
-    const { generateNKeysBetween } = await import("@modules/document-tree/domain/fractional-index");
+    const { generateNKeysBetween } = await import("@/shared/ordering/fractional-index");
 
     const store = new PrismaScanStore();
     const { run } = await startScan(
@@ -120,7 +120,7 @@ describe("livro grande", () => {
       "book-c.pdf",
       "grande-excluir",
     );
-    const { generateNKeysBetween } = await import("@modules/document-tree/domain/fractional-index");
+    const { generateNKeysBetween } = await import("@/shared/ordering/fractional-index");
 
     const keys = generateNKeysBetween(null, null, MUITOS);
     for (const [index, sortKey] of keys.entries()) {

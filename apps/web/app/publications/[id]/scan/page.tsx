@@ -5,11 +5,11 @@ import { describeAiSetup } from "@modules/agents/application/describe-ai-setup";
 import { fraseDaLocalidade, localidadeDaIa } from "@modules/agents/domain/ai-locality";
 import { readBookSource } from "@modules/assets/infrastructure/prisma-book-source";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
+import { scanRunDto } from "@modules/scan/application/scan-run-dto";
 import { registeredCaptureProfiles } from "@modules/scan/domain/profiles";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
-import { scanRunDto } from "../../../api/scans/scan-dto";
 import { ScanStartScreen } from "./scan-start-screen";
 
 /**

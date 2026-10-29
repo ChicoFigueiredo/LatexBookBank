@@ -1,4 +1,4 @@
-import { generateNKeysBetween } from "@modules/document-tree/domain/fractional-index";
+import { generateNKeysBetween } from "@/shared/ordering/fractional-index";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import {
   isDifficulty,

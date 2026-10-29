@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
+import { generateKeyBetween } from "@/shared/ordering/fractional-index";
 
 import { candidatesWhere } from "./prisma-candidate-where";
 import { assessmentContentOf } from "@modules/assessments/domain/question-content";

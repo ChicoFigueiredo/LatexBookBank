@@ -14,12 +14,22 @@ import {
   type Handle,
   type Point,
 } from "@modules/assets/domain/crop-interaction";
-import { normalizedBoxFrom, type PixelRect } from "@modules/assets/domain/source-anchor";
-import { lerCamadaDeTexto } from "@modules/assets/ui/pdf-text-layer";
 import {
-  segmentarPagina,
-  type QuestaoEstimada,
-} from "@modules/recognition/domain/segmentar-pagina";
+  normalizedBoxFrom,
+  type NormalizedBox,
+  type PixelRect,
+} from "@modules/assets/domain/source-anchor";
+import { lerCamadaDeTexto } from "@modules/assets/ui/pdf-text-layer";
+import type { PaginaDeTexto } from "@/shared/pdf-text/text-layer";
+
+/**
+ * Uma caixa proposta sobre a página, com o número impresso quando se sabe. É o que o visualizador
+ * precisa para desenhar e recortar uma estimativa — quem estima é a tela de cima.
+ */
+export interface CaixaEstimada {
+  readonly numero: number | null;
+  readonly box: NormalizedBox;
+}
 
 /**
  * O visualizador de PDF com recorte.
@@ -91,15 +101,16 @@ export interface PdfCropViewerInnerProps {
   } | null;
   /**
    * Habilita o botão "Estimar questões" na barra — só aparece com isto presente **e** documento
-   * PDF (imagem não tem camada de texto para ler). Quem decide o que fazer com o resultado é a
-   * tela de cima: o visualizador só lê a página e devolve.
+   * PDF (imagem não tem camada de texto para ler). O visualizador só lê a camada de texto da
+   * página e a devolve; estimar as questões nela é da tela de cima, que conhece a segmentação —
+   * o visualizador é de assets e serve a qualquer tela que mostre um PDF.
    */
-  readonly onEstimar?: (estimadas: readonly QuestaoEstimada[]) => void;
+  readonly onEstimar?: (camada: PaginaDeTexto) => void;
   /**
    * As caixas propostas a desenhar sobre a página atual — mesmo esquema do `highlight`, mas sem
    * interação: aceitar, ajustar ou descartar uma proposta é gesto de outra tela, ainda por vir.
    */
-  readonly estimadas?: readonly QuestaoEstimada[];
+  readonly estimadas?: readonly CaixaEstimada[];
   /**
    * Recortar de uma vez todas as caixas propostas.
    *
@@ -450,15 +461,12 @@ export default function PdfCropViewerInner({
   };
 
   /**
-   * Lê a camada de texto da página atual e pede ao domínio as questões propostas.
+   * Lê a camada de texto da página atual e a entrega à tela de cima.
    *
-   * `lerCamadaDeTexto` chama `getViewport({ scale: 1 })` por dentro — o que sobe para
-   * `segmentarPagina` são pontos do PDF, a mesma unidade em qualquer zoom, e é por isso que a
-   * caixa devolvida (normalizada 0..1) cabe de volta na conta de desenho abaixo sem conversão.
-   *
-   * Página sem nenhuma palavra (PDF escaneado, sem camada de texto) devolve `[]` direto, sem
-   * chamar o domínio: dizer "isto aqui não tem texto, desenhe à mão" é decisão da tela de cima,
-   * não do visualizador.
+   * `lerCamadaDeTexto` chama `getViewport({ scale: 1 })` por dentro — o que sobe são pontos do
+   * PDF, a mesma unidade em qualquer zoom, e é por isso que a caixa estimada (normalizada 0..1)
+   * cabe de volta na conta de desenho abaixo sem conversão. Página sem nenhuma palavra (PDF
+   * escaneado) sobe vazia: dizer "isto aqui não tem texto, desenhe à mão" é da tela de cima.
    */
   const estimar = async () => {
     const doc = docRef.current;
@@ -467,14 +475,7 @@ export default function PdfCropViewerInner({
     setEstimando(true);
     try {
       const page = await doc.getPage(pageNumber);
-      const camada = await lerCamadaDeTexto(page);
-
-      if (camada.palavras.length === 0) {
-        onEstimar([]);
-        return;
-      }
-
-      onEstimar(segmentarPagina(camada));
+      onEstimar(await lerCamadaDeTexto(page));
     } finally {
       setEstimando(false);
     }

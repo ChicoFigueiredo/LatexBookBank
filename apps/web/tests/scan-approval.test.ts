@@ -636,6 +636,15 @@ describe("aprovação contra o banco", () => {
     expect(run?.state).toBe("APPROVED");
     const history = await prisma.revision.count({ where: { entityType: "DOCUMENT_NODE", entityId: section!.id } });
     expect(history).toBeGreaterThan(0);
+    // O histórico que o editor do corpo lê (ARQ-04): numeração seguida, origem do sistema e o
+    // mesmo formato de snapshot que o salvamento manual grava — o diff da aba Histórico depende disso.
+    const { PrismaNodeBodyRepository } = await import("@modules/document-tree/infrastructure/prisma-node-body");
+    const revisions = await new PrismaNodeBodyRepository().listRevisions(section!.id);
+    expect(revisions.map((r) => r.revisionNumber)).toEqual(
+      Array.from({ length: history }, (_, index) => history - index),
+    );
+    expect(revisions.every((r) => r.origin === "SYSTEM" && r.summary === "corpo recebido do scan")).toBe(true);
+    expect(JSON.parse(revisions.at(-1)!.snapshotJson)).toEqual({ title: section!.title, bodyLatex: "" });
 
     // Aprovar de novo não faz nada.
     const again = await approveScan({ store, writer }, { runId, destinationId: null, includeSuggested: true });

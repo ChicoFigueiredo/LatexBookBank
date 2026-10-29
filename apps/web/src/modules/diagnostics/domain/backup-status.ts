@@ -1,3 +1,5 @@
+import { formatarTamanho } from "@/shared/format/bytes";
+
 import type { SectionStatus } from "./diagnostics";
 
 /**
@@ -65,7 +67,7 @@ export function describeBackupStatus(
 
   return {
     health: "ok",
-    summary: `Último backup: ${format(when)} · ${formatBytes(status.totalBytes ?? 0)}`,
+    summary: `Último backup: ${format(when)} · ${formatarTamanho(status.totalBytes ?? 0)}`,
     details,
   };
 }
@@ -75,9 +77,3 @@ const age = (hours: number): string =>
 
 const format = (date: Date | null): string =>
   date === null ? "—" : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}

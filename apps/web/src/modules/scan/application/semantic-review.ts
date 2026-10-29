@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AiProvider } from "@shared/ports/ai-provider";
 
 import { captureProfile } from "@modules/scan/domain/profiles";
-import { combineConfidence, isScanKind, type ScanKind } from "@modules/scan/domain/proposal";
+import { combineConfidence, isScanKind, kindsWhere, type ScanKind } from "@modules/scan/domain/proposal";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
 
 import type { SemanticPass } from "./run-scan";
@@ -32,7 +32,7 @@ const decisionsSchema = z.object({
 const DOUBT_THRESHOLD = 0.75;
 const BATCH_SIZE = 8;
 /** Tipos que a IA pode trocar. Título numerado e questão de prova têm evidência forte demais. */
-const RECLASSIFIABLE: ReadonlySet<ScanKind> = new Set(["CONTENT", "EXAMPLE", "EXERCISE", "NOTE", "SECTION", "SUBSECTION"]);
+const RECLASSIFIABLE = kindsWhere((traits) => traits.reclassifiable);
 
 /** O primeiro objeto JSON da resposta — modelo local às vezes cerca com ```json. */
 export function extractJson(text: string): unknown {

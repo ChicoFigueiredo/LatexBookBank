@@ -56,6 +56,7 @@ export type {
   AgentEvent,
   AgentRequest,
   AgentResult,
+  AiImage,
   AiMessage,
   AiModel,
   AiModelCapabilities,

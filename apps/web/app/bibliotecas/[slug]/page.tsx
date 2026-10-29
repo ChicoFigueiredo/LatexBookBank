@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { readLibraryShelf } from "@modules/workspaces/infrastructure/prisma-library-shelf";
+import { readLibraryShelf } from "@modules/publications/infrastructure/prisma-library-shelf";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 import { relativeTime } from "@/shared/format/relative-time";
 

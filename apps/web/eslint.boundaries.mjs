@@ -23,13 +23,12 @@ const deny = (patterns, message) => ({ group: patterns, message });
  * `@/modules/...` e o relativo `../../../infrastructure/...`. As formas com alias
  * (`@infrastructure/*`) continuam nos grupos; esta pega o que elas não pegam (TST-07, #273).
  *
- * **Exceção nomeada:** `@modules/preview/infrastructure/mathjax`. É o MathJax que a UI do preview
- * chama para desenhar a fórmula no navegador — infraestrutura sem banco, sem disco e sem rede, e
- * a única que um componente React legitimamente usa. Mover o arquivo para fora de
- * `infrastructure/` é assunto da frente I de arquitetura; até lá, a exceção fica escrita aqui.
+ * Sem exceção: o MathJax do preview, que a UI chama para desenhar a fórmula, morava em
+ * `preview/infrastructure` e era a única. Ele não tem banco, disco nem rede — é a biblioteca de
+ * desenho da tela —, e por isso passou a `preview/ui/render-math.ts` (frente I).
  */
 const denyInfrastructureAnywhere = (message) => ({
-  regex: "^(?!@modules/preview/infrastructure/mathjax$).*(^|/)infrastructure(/|$)",
+  regex: "(^|/)infrastructure(/|$)",
   message,
 });
 

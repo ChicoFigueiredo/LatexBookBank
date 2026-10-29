@@ -2,6 +2,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import ena from "./fixtures/profmat-ena-2023-p1-p2.json";
+
 /**
  * A ingestão ponta a ponta, na tela: subir → recortar → reconhecer → revisar.
  *
@@ -9,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * teste tem a dizer não é sobre rasterização — é sobre **o que a tela manda para cada rota** e
  * sobre a revisão continuar obrigatória. As regras do recorte estão em `crop-interaction.test.ts`.
  */
+
+const paginaDoEna = (ena as readonly unknown[])[0];
 
 vi.mock("@modules/assets/ui/PdfCropViewer", () => ({
   PdfCropViewer: ({
@@ -20,7 +24,7 @@ vi.mock("@modules/assets/ui/PdfCropViewer", () => ({
   }: {
     fileUrl: string;
     onCrop: (crop: unknown) => void;
-    onEstimar?: (estimadas: unknown) => void;
+    onEstimar?: (camada: unknown) => void;
     onCropLote?: (recortes: unknown) => void;
     onLoadError?: (motivo: string) => void;
   }) => (
@@ -40,19 +44,13 @@ vi.mock("@modules/assets/ui/PdfCropViewer", () => ({
       >
         recortar
       </button>
-      {/* Os dois gestos da estimativa, dublados: o que o teste tem a dizer é sobre o que a tela
-          manda para cada rota, e não sobre ler camada de texto — isso é de `pdf-text-layer`. */}
-      <button
-        onClick={() =>
-          onEstimar?.([
-            { numero: 1, box: { x: 0.1, y: 0.1, width: 0.8, height: 0.3 }, razao: "enunciado-ate-solucao", continuaNaProxima: false },
-            { numero: 2, box: { x: 0.1, y: 0.5, width: 0.8, height: 0.3 }, razao: "enunciado-ate-solucao", continuaNaProxima: false },
-          ])
-        }
-      >
-        estimar
+      {/* Os dois gestos da estimativa, dublados: o visualizador entrega a camada de texto da
+          página — ler o `pdf.js` é de `pdf-text-layer` —, e a tela estima nela. A página 1 do ENA
+          tem três questões; a escaneada não tem palavra nenhuma. */}
+      <button onClick={() => onEstimar?.(paginaDoEna)}>estimar</button>
+      <button onClick={() => onEstimar?.({ largura: 595, altura: 842, palavras: [] })}>
+        estimar vazio
       </button>
-      <button onClick={() => onEstimar?.([])}>estimar vazio</button>
       <button
         onClick={() =>
           onCropLote?.([
@@ -393,7 +391,7 @@ describe("estimar e recortar em lote", () => {
     const antes = calls.length;
     fireEvent.click(screen.getByText("estimar"));
 
-    expect(screen.getByText("2 questão(ões) estimada(s) nesta página")).toBeTruthy();
+    expect(screen.getByText("3 questão(ões) estimada(s) nesta página")).toBeTruthy();
     // Estimar é leitura da página, no cliente: não toca em rota nenhuma.
     expect(calls).toHaveLength(antes);
   });

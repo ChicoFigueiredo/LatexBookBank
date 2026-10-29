@@ -15,6 +15,7 @@ import { recordAgentRun, workspaceOfQuestion } from "@infrastructure/agent/prism
 import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
 import { aiProvider } from "@infrastructure/composition";
 import { env as appEnv } from "@/shared/config/env";
+import type { AskAgentResponse } from "@modules/agents/application/agent-contract";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../http";
 
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
       durationMs: outcome.record.durationMs,
       error: outcome.record.error ?? null,
       runId: outcome.runId,
-    });
+    } satisfies AskAgentResponse);
   } catch (error) {
     return toErrorResponse(error);
   }

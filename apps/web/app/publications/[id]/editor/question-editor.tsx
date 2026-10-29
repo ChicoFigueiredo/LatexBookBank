@@ -15,16 +15,13 @@ import {
 import { QuestionSourcePane } from "@modules/scan/ui/QuestionSourcePane";
 
 import { useEditorColumns } from "./editor-columns";
-import {
-  diffSnapshots,
-  type RevisionChange,
-  type RevisionSnapshot,
-} from "@modules/questions/domain/revision-diff";
-import { HistoryPanel, type RevisionRow } from "@modules/questions/ui/HistoryPanel";
+import { HistoryPanel } from "@modules/questions/ui/HistoryPanel";
+import { useQuestionDraft, type SaveState } from "@modules/questions/ui/use-question-draft";
+import { agentApi } from "@modules/agents/ui/agent-client";
+import { useQuestionHistory } from "@modules/questions/ui/use-question-history";
 import { figureSnippet } from "@modules/assets/domain/asset-ingestion";
 import type { Provenance } from "@modules/assets/domain/provenance";
 import { OriginPanel } from "@modules/assets/ui/OriginPanel";
-import type { QuestionMetadata } from "@modules/questions/domain/question-metadata";
 import { MetadataPanel } from "@modules/questions/ui/MetadataPanel";
 import { ValidationPane } from "@modules/questions/ui/ValidationPane";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
@@ -57,31 +54,12 @@ import { useRender } from "@modules/rendering/ui/use-render";
 /**
  * O editor da questão: abas por campo, autosave com debounce e conflito visível.
  *
- * O `updatedAt` é a moeda do salvamento — vai em toda requisição e volta em toda resposta. Quando
- * o servidor recusa com 409, o editor **para de salvar** e mostra o aviso: continuar tentando
- * transformaria uma recusa numa insistência que acabaria vencendo.
+ * O rascunho, o autosave e o conflito moram no `useQuestionDraft`; o histórico, no
+ * `useQuestionHistory`. Esta tela compõe os dois com as abas, as colunas e o Monaco.
  */
-
-const AUTOSAVE_DELAY_MS = 1200;
-
-/**
- * De quanto em quanto tempo o autosave insiste depois de uma falha (protótipo, 706–712).
- *
- * Sem isto o autosave desistia calado. O `catch` marcava `error`, um selo de três letras acendia
- * num canto da barra de abas, e **nada mais acontecia**: a próxima tecla digitada reagendava o
- * salvamento, então quem continuava escrevendo se recuperava sozinho e nunca via o problema. Quem
- * terminava o parágrafo e parava — que é o caso normal de quem acabou de escrever alguma coisa —
- * ficava com o texto só na tela, e fechava a aba com ele.
- *
- * Trinta segundos é o número do protótipo, e é o certo: rápido para recuperar um blip de rede sem
- * intervenção, lento para não martelar um servidor que já está fora.
- */
-const RETRY_DELAY_MS = 30_000;
 
 /** A palette de símbolos é painel fixo: fica fora do rateio das colunas. */
 const PALETTE_W = 280;
-
-type SaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
 /** Alternativas, só para o preview: quem as edita é a Fase 7. */
 export interface QuestionEditorOption {
@@ -184,9 +162,18 @@ export function QuestionEditor({
   // O campo de texto que o editor mostra. Ele **não** muda quando a pessoa vai para Alternativas:
   // voltar para "Conteúdo" e encontrar outra aba aberta seria perder o lugar sem motivo.
   const [field, setField] = useState<QuestionFieldId>("statementLatex");
-  const [draft, setDraft] = useState<Record<QuestionFieldId, string>>({ ...initial });
-  const [state, setState] = useState<SaveState>("idle");
-  const [message, setMessage] = useState<string | null>(null);
+  const {
+    draft,
+    state,
+    message,
+    setMessage,
+    blocked,
+    save,
+    changeField,
+    metadata,
+    loadMetadata,
+    changeMetadata,
+  } = useQuestionDraft({ publicationId, questionId, initial, initialVersion, onDirtyChange });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [rightTab, setRightTab] = useState<RightTab>("rapido");
@@ -223,211 +210,19 @@ export function QuestionEditor({
     fixedWidth: paletteOpen ? PALETTE_W : 0,
   });
 
-  /**
-   * O histórico é carregado **ao abrir a aba**, não junto com a questão.
-   *
-   * Uma questão editada cem vezes tem cem revisões, e trazê-las com o editor faria toda abertura
-   * pagar por uma tela que quase nunca se abre.
-   */
-  const [revisions, setRevisions] = useState<readonly RevisionRow[] | null>(null);
-  const [selectedRevision, setSelectedRevision] = useState<number | null>(null);
-  const [revisionChanges, setRevisionChanges] = useState<readonly RevisionChange[] | null>(null);
+  const history = useQuestionHistory({
+    questionId,
+    draft,
+    onRestored: () => window.location.reload(),
+    revert: agentApi.revertPatch,
+  });
 
-  /**
-   * Os metadados, carregados ao abrir a aba.
-   *
-   * Mesmo motivo do histórico: o DTO da árvore leva a dificuldade e a origem já formatadas, que é
-   * o que a lista desenha. Os campos crus só interessam a quem vai editá-los.
-   */
-  const [metadata, setMetadata] = useState<QuestionMetadata | null>(null);
-  const metadataRef = useRef<QuestionMetadata | null>(null);
-
-  const loadMetadata = useCallback(async () => {
-    const response = await fetch(`/api/publications/${publicationId}/questions/${questionId}`);
-    const payload = (await response.json()) as { metadata?: QuestionMetadata };
-    if (payload.metadata === undefined) return;
-
-    setMetadata(payload.metadata);
-    metadataRef.current = payload.metadata;
-  }, [publicationId, questionId]);
-
-  const loadHistory = useCallback(async () => {
-    const response = await fetch(`/api/questions/${questionId}/revisions`);
-    const payload = (await response.json()) as { revisions?: RevisionRow[] };
-    setRevisions(payload.revisions ?? []);
-  }, [questionId]);
-
-  /** O diff é da revisão contra o **estado atual** — é o que decide se vale restaurar. */
-  const selectRevision = useCallback(
-    async (revisionNumber: number) => {
-      setSelectedRevision(revisionNumber);
-      setRevisionChanges(null);
-
-      const response = await fetch(
-        `/api/questions/${questionId}/revisions?revision=${revisionNumber}`,
-      );
-      const payload = (await response.json()) as {
-        snapshot?: RevisionSnapshot;
-        current?: RevisionSnapshot | null;
-      };
-      if (!payload.snapshot || !payload.current) return;
-
-      // Os dois lados vêm do servidor. Montar o "atual" a partir do editor mostraria alternativa,
-      // metadado e tag como inalterados sempre — bem os campos onde o agente mais mexe.
-      setRevisionChanges(
-        diffSnapshots(payload.snapshot, {
-          ...payload.current,
-          // Exceto os três campos de texto, que podem ter edição não salva na tela: usar o valor
-          // do banco aqui esconderia do usuário justamente o que ele acabou de digitar.
-          statementLatex: draft.statementLatex,
-          solutionLatex: draft.solutionLatex,
-          complementLatex: draft.complementLatex,
-        }),
-      );
-    },
-    [draft, questionId],
-  );
-
-  const restoreRevision = useCallback(
-    async (revisionNumber: number) => {
-      await fetch("/api/agents/patches/revert", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ questionId, revisionNumber }),
-      });
-      // Recarregar em vez de aplicar no estado local: restaurar mexe em alternativas, metadados e
-      // tags, que esta tela não guarda — e um estado meio atualizado é pior que um recarregado.
-      window.location.reload();
-    },
-    [questionId],
-  );
-
-  // A versão vive em ref, não em state: ela muda a cada gravação e não desenha nada. Em state,
-  // cada salvamento re-renderizaria o editor inteiro — e o Monaco perde a posição do cursor.
-  const version = useRef(initialVersion);
   const editor = useRef<LatexEditorApi | null>(null);
-  const draftRef = useRef(draft);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    draftRef.current = draft;
-  }, [draft]);
-
-  useEffect(() => {
-    onDirtyChange?.(state === "dirty" ? questionId : null);
-
-    // Limpa ao trocar de questão e ao desmontar: sem isto o indicador ficaria preso no nó
-    // anterior, apontando "não salva" para uma questão que já foi gravada.
-    return () => onDirtyChange?.(null);
-  }, [state, questionId, onDirtyChange]);
-
-  const save = useCallback(async () => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-    setState("saving");
-
-    try {
-      const response = await fetch(`/api/publications/${publicationId}/questions/${questionId}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          expectedVersion: version.current,
-          ...draftRef.current,
-          // Os metadados vão no **mesmo** `PATCH`, com a mesma versão. Um segundo caminho de
-          // escrita teria o próprio token de concorrência a comparar, e as duas gravações
-          // passariam a se invalidar uma à outra a cada pausa da digitação.
-          ...(metadataRef.current ?? {}),
-        }),
-      });
-      const payload: unknown = await response.json().catch(() => null);
-      const read = (key: string): string | undefined => {
-        if (typeof payload !== "object" || payload === null || !(key in payload)) return undefined;
-        const value = (payload as Record<string, unknown>)[key];
-        return typeof value === "string" ? value : undefined;
-      };
-
-      if (response.status === 409) {
-        // Sem `setState("conflict")` o autosave voltaria a disparar em 1,2 s e insistiria até
-        // vencer. Parar é o comportamento: a spec §42 diz que conflito nunca sobrescreve.
-        setState("conflict");
-        setMessage(read("message") ?? "Esta questão mudou desde que você abriu.");
-        return;
-      }
-
-      if (!response.ok) {
-        setState("error");
-        setMessage(read("message") ?? `Falha ao salvar (status ${response.status}).`);
-        return;
-      }
-
-      const next = read("version");
-      if (next) version.current = next;
-      setState("saved");
-      setMessage(null);
-    } catch {
-      setState("error");
-      setMessage("Não foi possível falar com o servidor. O texto continua aqui.");
-    }
-  }, [publicationId, questionId]);
-
-  /**
-   * Depois de uma falha, insiste — mas só depois de **falha**, nunca depois de conflito.
-   *
-   * A distinção é a §42: conflito nunca sobrescreve. Insistir num 409 seria o autosave brigando
-   * pela versão de quem está com a tela aberta contra quem já gravou, e vencendo por repetição.
-   * Falha de rede é o oposto: ninguém gravou nada, e o único risco é o texto ficar para trás.
-   */
-  useEffect(() => {
-    if (state !== "error") return;
-
-    const retry = setTimeout(() => void save(), RETRY_DELAY_MS);
-    return () => clearTimeout(retry);
-  }, [state, save]);
-
-  /**
-   * Editar metadado usa o mesmo autosave do texto.
-   *
-   * O erro de validação vem do servidor e cai no mesmo `Banner`: o `MetadataPanel` já recusa
-   * localmente o que o domínio recusa, e o que passa por ele é o que a rota também aceita.
-   */
-  const handleMetadata = useCallback(
-    (patch: Partial<QuestionMetadata>) => {
-      setMetadata((current) => {
-        if (current === null) return current;
-        const next = { ...current, ...patch };
-        metadataRef.current = next;
-        return next;
-      });
-      setState((current) => (current === "conflict" ? current : "dirty"));
-
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
-    },
-    [save],
-  );
 
   const handleChange = useCallback(
-    (value: string) => {
-      setDraft((current) => ({ ...current, [field]: value }));
-      setState((current) => (current === "conflict" ? current : "dirty"));
-
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
-    },
-    [field, save],
+    (value: string) => changeField(field, value),
+    [changeField, field],
   );
-
-  // Um debounce pendente na desmontagem gravaria uma questão que não está mais aberta.
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-
-  const blocked = state === "conflict";
 
   /*
    * A saída do render — `Aluno` por padrão.
@@ -742,7 +537,7 @@ export function QuestionEditor({
                 </Field>
 
                 <div style={{ marginTop: "var(--space-4)" }}>
-                  <MetadataPanel metadata={metadata} onChange={handleMetadata} disabled={blocked} />
+                  <MetadataPanel metadata={metadata} onChange={changeMetadata} disabled={blocked} />
                 </div>
               </div>
             )
@@ -806,7 +601,7 @@ export function QuestionEditor({
                   onChange={(id) => {
                     const next = id as RightTab;
                     setRightTab(next);
-                    if (next === "historico" && revisions === null) void loadHistory();
+                    if (next === "historico" && history.revisions === null) void history.load();
                   }}
                   aria-label="Modo de visualização"
                 />
@@ -830,11 +625,11 @@ export function QuestionEditor({
                   />
                 ) : rightTab === "historico" ? (
                   <HistoryPanel
-                    revisions={revisions ?? []}
-                    changes={revisionChanges}
-                    selected={selectedRevision}
-                    onSelect={(number) => void selectRevision(number)}
-                    onRestore={(number) => void restoreRevision(number)}
+                    revisions={history.revisions ?? []}
+                    changes={history.changes}
+                    selected={history.selected}
+                    onSelect={(number) => void history.select(number)}
+                    onRestore={(number) => void history.restore(number)}
                     busy={blocked}
                   />
                 ) : rightTab === "rapido" ? (

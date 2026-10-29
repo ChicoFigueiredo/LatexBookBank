@@ -1,5 +1,6 @@
 import type { CatalogEntry } from "@/shared/ports/library-catalog";
 
+import { normalizeIsbn } from "./isbn";
 import type { PublicationDraftInput } from "./publication-draft";
 
 /**
@@ -98,12 +99,6 @@ export function duplicateSignalFor(
 /** É bloqueio, ou é só um aviso? */
 export const blocks = (signal: DuplicateSignal): boolean =>
   signal === "external-id" || signal === "isbn";
-
-const normalizeIsbn = (value: string | null): string | null => {
-  if (value === null) return null;
-  const limpo = value.replace(/[\s-]/g, "").toUpperCase();
-  return limpo === "" ? null : limpo;
-};
 
 /** Título e primeiro autor, sem acento nem caixa — o suficiente para desconfiar, não para decidir. */
 const titleKey = (title: string, authors: readonly string[]): string =>

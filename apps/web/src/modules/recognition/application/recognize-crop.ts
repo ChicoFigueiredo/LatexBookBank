@@ -1,4 +1,8 @@
-import { MathRecognitionError, type MathRecognitionProvider } from "@/shared/ports";
+import {
+  AiProviderError,
+  MathRecognitionError,
+  type MathRecognitionProvider,
+} from "@/shared/ports";
 
 import { candidateFrom, type RecognitionCandidate } from "../domain/recognition-review";
 
@@ -46,7 +50,12 @@ export interface RecognizeCropCommand {
 
 export async function recognizeCrop(
   deps: {
-    readonly recognizer: MathRecognitionProvider;
+    /**
+     * Montado na hora do pedido, e não antes: um endpoint que exige chave e está sem ela recusa
+     * ao montar o provider (ARQ-07), e essa recusa precisa seguir o caminho de qualquer falha do
+     * reconhecimento — registrada na âncora, com a mensagem que diz o que configurar.
+     */
+    readonly recognizer: () => MathRecognitionProvider;
     readonly log: RecognitionLog;
     readonly now?: () => Date;
   },
@@ -56,12 +65,18 @@ export async function recognizeCrop(
 
   let result;
   try {
-    result = await deps.recognizer.recognize({
+    result = await deps.recognizer().recognize({
       image: command.image,
       mimeType: command.mimeType,
       mode: command.mode,
     });
-  } catch (error) {
+  } catch (caught) {
+    // O provider que não monta (sem chave) falha como o reconhecimento: é a mesma resposta para
+    // quem pediu, e o mesmo registro na âncora.
+    const error =
+      caught instanceof AiProviderError
+        ? new MathRecognitionError(caught.message, caught.providerId, caught)
+        : caught;
     // A falha fica **registrada na âncora**: é o que faz a fila mostrar "erro" em vez de
     // "aguardando" depois de um recarregamento. A transcrição que a âncora já tinha **fica**
     // (#253): tentar de novo e dar timeout não pode apagar o que a tentativa anterior trouxe.

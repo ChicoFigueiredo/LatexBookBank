@@ -9,6 +9,8 @@ import {
   recordRecognitionFailure,
 } from "@modules/recognition/infrastructure/prisma-capture-queue";
 import { visionRecognizer } from "@infrastructure/composition";
+import { env as appEnv, visionConfigured } from "@/shared/config/env";
+import { MathRecognitionError } from "@/shared/ports";
 
 import { BadRequestError, toErrorResponse } from "../http";
 
@@ -30,8 +32,7 @@ const MODES = new Set(["display", "inline", "mixed", "text"]);
 
 export async function POST(request: Request) {
   try {
-    const vision = visionRecognizer();
-    if (vision === null) {
+    if (!visionConfigured(appEnv())) {
       // Modelo de visão é outro: o bom de código raramente enxerga. Sem ele configurado, dizer o
       // que falta é melhor que tentar com o modelo de texto e devolver algo sem sentido.
       return NextResponse.json(
@@ -72,10 +73,17 @@ export async function POST(request: Request) {
 
     // Falha do provider **não perde trabalho**: o recorte segue guardado, a falha fica na âncora,
     // e o 502 `recognition_failed` diz o que houve para a pessoa decidir entre tentar de novo e
-    // transcrever à mão.
+    // transcrever à mão. O reconhecedor é montado dentro do caso de uso (ARQ-07): um OpenRouter
+    // sem chave recusa ali, com a instrução de configuração, e cai no mesmo caminho de falha.
     const candidate = await recognizeCrop(
       {
-        recognizer: vision.recognizer,
+        recognizer: () => {
+          const vision = visionRecognizer();
+          if (vision === null) {
+            throw new MathRecognitionError("A visão deixou de estar configurada.", "composition");
+          }
+          return vision.recognizer;
+        },
         log: { recordRecognition, recordRecognitionFailure },
       },
       {
