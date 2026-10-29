@@ -1,5 +1,6 @@
 import type { AnchorRole } from "@modules/assets/domain/node-anchors";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 
 /**
  * A proposta de scan: o que um scan entendeu de um livro, antes de virar acervo (D45).
@@ -29,14 +30,198 @@ export type ScanKind = (typeof SCAN_KINDS)[number];
 export const isScanKind = (value: unknown): value is ScanKind =>
   typeof value === "string" && (SCAN_KINDS as readonly string[]).includes(value);
 
+/**
+ * Os traços de cada tipo, num lugar só (STM-13 da revisão de 2026-09-23).
+ *
+ * Antes, o que cada tipo é estava em nove conjuntos em seis arquivos — título, nó da aprovação,
+ * corpo, questão, sumário, reconhecimento, reclassificação — e um tipo novo esquecido num deles
+ * não quebrava a compilação: o item só deixava de ser reconhecido, de aparecer no filtro ou de
+ * virar nó. O `Record` completo é o que faz o compilador cobrar cada tipo novo aqui; os conjuntos
+ * de cada passada derivam desta tabela (`kindsWhere`).
+ */
+export interface ScanKindTraits {
+  /** Como a tela o nomeia. */
+  readonly label: string;
+  /** É título: a âncora é a linha do título, e o conteúdo vem nos filhos. */
+  readonly heading: boolean;
+  /** O sumário do livro o cita, e por isso ele confere o que o scan achou. */
+  readonly inToc: boolean;
+  /**
+   * O que a aprovação faz dele (ADR 0002): vira nó da árvore, vira questão, entra no corpo do nó
+   * de cima, ou é dobrado no enunciado da questão que o contém.
+   */
+  readonly approvesAs: "node" | "question" | "body" | "folded";
+  /** O tipo do nó, quando a aprovação o faz nó. */
+  readonly nodeKind: NodeKind | null;
+  /**
+   * A família entre cujos tipos o texto revisado ainda faz sentido ao trocar de perfil (#250): o
+   * LaTeX corrigido de um parágrafo, posto como título de uma seção, é texto no lugar errado.
+   */
+  readonly family: "título" | "texto" | "questão" | "item" | "figura";
+  /**
+   * Vai ao reconhecimento de matemática. Item e subitem ficam de fora: o exercício que os contém
+   * já os reconhece inteiros.
+   */
+  readonly recognizesMath: boolean;
+  /** A IA pode trocar o tipo. Título numerado e questão de prova têm evidência forte demais. */
+  readonly reclassifiable: boolean;
+  /** A linha da árvore mostra o começo do texto ao lado do rótulo: "1." sozinho não diz qual é. */
+  readonly withSnippet: boolean;
+}
+
+export const SCAN_KIND_TRAITS: Readonly<Record<ScanKind, ScanKindTraits>> = {
+  PART: {
+    label: "Parte",
+    heading: true,
+    inToc: true,
+    approvesAs: "node",
+    nodeKind: "PART",
+    family: "título",
+    recognizesMath: false,
+    reclassifiable: false,
+    withSnippet: false,
+  },
+  CHAPTER: {
+    label: "Capítulo",
+    heading: true,
+    inToc: true,
+    approvesAs: "node",
+    nodeKind: "CHAPTER",
+    family: "título",
+    recognizesMath: false,
+    reclassifiable: false,
+    withSnippet: false,
+  },
+  SECTION: {
+    label: "Seção",
+    heading: true,
+    inToc: true,
+    approvesAs: "node",
+    nodeKind: "SECTION",
+    family: "título",
+    recognizesMath: false,
+    reclassifiable: true,
+    withSnippet: false,
+  },
+  SUBSECTION: {
+    label: "Subseção",
+    heading: true,
+    inToc: true,
+    approvesAs: "node",
+    nodeKind: "SUBSECTION",
+    family: "título",
+    recognizesMath: false,
+    reclassifiable: true,
+    withSnippet: false,
+  },
+  CONTENT: {
+    label: "Texto",
+    heading: false,
+    inToc: false,
+    approvesAs: "body",
+    nodeKind: null,
+    family: "texto",
+    recognizesMath: true,
+    reclassifiable: true,
+    withSnippet: false,
+  },
+  // D56: o exemplo tem endereço próprio, e por isso é nó — e não mais texto no corpo da seção.
+  EXAMPLE: {
+    label: "Exemplo",
+    heading: false,
+    inToc: false,
+    approvesAs: "node",
+    nodeKind: "EXAMPLE",
+    family: "texto",
+    recognizesMath: true,
+    reclassifiable: true,
+    withSnippet: true,
+  },
+  EXERCISE_GROUP: {
+    label: "Exercícios",
+    heading: true,
+    inToc: false,
+    approvesAs: "node",
+    nodeKind: "QUESTION_GROUP",
+    family: "título",
+    recognizesMath: false,
+    reclassifiable: false,
+    withSnippet: false,
+  },
+  EXERCISE: {
+    label: "Exercício",
+    heading: false,
+    inToc: false,
+    approvesAs: "question",
+    nodeKind: null,
+    family: "questão",
+    recognizesMath: true,
+    reclassifiable: true,
+    withSnippet: true,
+  },
+  QUESTION: {
+    label: "Questão",
+    heading: false,
+    inToc: false,
+    approvesAs: "question",
+    nodeKind: null,
+    family: "questão",
+    recognizesMath: true,
+    reclassifiable: false,
+    withSnippet: true,
+  },
+  ITEM: {
+    label: "Item",
+    heading: false,
+    inToc: false,
+    approvesAs: "folded",
+    nodeKind: null,
+    family: "item",
+    recognizesMath: false,
+    reclassifiable: false,
+    withSnippet: true,
+  },
+  SUBITEM: {
+    label: "Subitem",
+    heading: false,
+    inToc: false,
+    approvesAs: "folded",
+    nodeKind: null,
+    family: "item",
+    recognizesMath: false,
+    reclassifiable: false,
+    withSnippet: true,
+  },
+  FIGURE: {
+    label: "Figura",
+    heading: false,
+    inToc: false,
+    approvesAs: "body",
+    nodeKind: null,
+    family: "figura",
+    recognizesMath: false,
+    reclassifiable: false,
+    withSnippet: false,
+  },
+  NOTE: {
+    label: "Nota",
+    heading: false,
+    inToc: false,
+    approvesAs: "body",
+    nodeKind: null,
+    family: "texto",
+    recognizesMath: true,
+    reclassifiable: true,
+    withSnippet: false,
+  },
+};
+
+/** Os tipos com um traço: é assim que cada passada monta o conjunto dela, a partir da tabela. */
+export const kindsWhere = (test: (traits: ScanKindTraits) => boolean): ReadonlySet<ScanKind> =>
+  new Set(SCAN_KINDS.filter((kind) => test(SCAN_KIND_TRAITS[kind])));
+
 /** Os tipos que são título: a âncora deles é a linha do título, e o conteúdo vem nos filhos. */
-export const HEADING_KINDS: ReadonlySet<ScanKind> = new Set([
-  "PART",
-  "CHAPTER",
-  "SECTION",
-  "SUBSECTION",
-  "EXERCISE_GROUP",
-]);
+export const HEADING_KINDS: ReadonlySet<ScanKind> = kindsWhere((traits) => traits.heading);
 
 /**
  * O estado de revisão de um item (§37 do prompt 03).

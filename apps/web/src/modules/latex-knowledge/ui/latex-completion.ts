@@ -2,7 +2,6 @@
 
 import * as monaco from "monaco-editor";
 
-import { LATEX_LANGUAGE_ID } from "@modules/latex/domain/latex-language";
 import { replaceStartColumn } from "@modules/latex-knowledge/domain/completion-range";
 import type { CompletionCandidate } from "@modules/latex-knowledge/domain/snippet-completion";
 
@@ -44,14 +43,18 @@ function toMonacoItem(
 /**
  * Registra o provider e devolve como desfazer.
  *
+ * A linguagem vem de quem chama: é o editor (módulo `latex`) que a define e que usa este provider,
+ * e importar o id de lá fecharia um ciclo entre os dois módulos.
+ *
  * Devolver o `IDisposable` não é formalidade: em desenvolvimento o hot reload reavalia o módulo, e
  * sem descartar o anterior cada recarga somaria mais um provider — a lista passaria a mostrar cada
  * sugestão duas, três, quatro vezes.
  */
 export function registerLatexCompletion(
+  languageId: string,
   candidates: readonly CompletionCandidate[],
 ): monaco.IDisposable {
-  return monaco.languages.registerCompletionItemProvider(LATEX_LANGUAGE_ID, {
+  return monaco.languages.registerCompletionItemProvider(languageId, {
     // A barra abre a lista sozinha. `Ctrl+Space` continua funcionando em qualquer posição — é o
     // Monaco que chama o provider, e o caminho sem barra abaixo é o que atende esse caso.
     triggerCharacters: ["\\"],

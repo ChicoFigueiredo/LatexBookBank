@@ -1,4 +1,4 @@
-import { rebalanceKeys } from "@modules/document-tree/domain/fractional-index";
+import { rebalanceKeys } from "@/shared/ordering/fractional-index";
 
 import {
   describeChanges,

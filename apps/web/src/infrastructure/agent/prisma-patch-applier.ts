@@ -7,7 +7,8 @@ import {
   type PatchTransaction,
 } from "@modules/agents/application/apply-question-patch";
 import type { QuestionState } from "@modules/agents/domain/patch-diff";
-import { rebalanceKeys } from "@modules/document-tree/domain/fractional-index";
+import { rebalanceKeys } from "@/shared/ordering/fractional-index";
+import { appendRevision } from "@modules/revisions/infrastructure/prisma-revision-writer";
 
 /**
  * A aplicação do patch, sobre o Prisma — **a única escrita do fluxo agêntico**.
@@ -114,29 +115,15 @@ function makeTransaction(client: Tx): PatchTransaction {
     },
 
     async writeRevision(input) {
-      // O número é contado **dentro** da transação: dois agentes gravando ao mesmo tempo não
-      // podem chegar ao mesmo, e a `@@unique` faria a segunda falhar em vez de sobrescrever.
-      const last = await client.revision.findFirst({
-        where: { entityType: "QUESTION", entityId: input.questionId },
-        orderBy: { revisionNumber: "desc" },
-        select: { revisionNumber: true },
+      // A numeração é do módulo de revisões, contada dentro desta transação.
+      return appendRevision(client, {
+        entityType: "QUESTION",
+        entityId: input.questionId,
+        origin: input.origin,
+        agentRunId: input.agentRunId,
+        summary: input.summary,
+        snapshotJson: input.snapshotJson,
       });
-
-      const revisionNumber = (last?.revisionNumber ?? 0) + 1;
-
-      await client.revision.create({
-        data: {
-          entityType: "QUESTION",
-          entityId: input.questionId,
-          revisionNumber,
-          origin: input.origin,
-          agentRunId: input.agentRunId,
-          summary: input.summary,
-          snapshotJson: input.snapshotJson,
-        },
-      });
-
-      return revisionNumber;
     },
 
     async applyFields(questionId, fields) {

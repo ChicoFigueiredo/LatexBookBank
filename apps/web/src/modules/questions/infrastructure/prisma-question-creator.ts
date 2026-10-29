@@ -6,6 +6,7 @@ import type {
   QuestionCreator,
 } from "@modules/questions/application/create-question";
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { insertNode } from "@modules/document-tree/infrastructure/prisma-node-writer";
 
 /**
  * Criar questão, nó, posição e alternativas — **numa transação só**.
@@ -15,68 +16,51 @@ import { prisma } from "@infrastructure/database/sqlite/client";
  * ser verificável — em falha, nem nó órfão nem questão órfã, e o teste consegue provar isso sem
  * subir a aplicação.
  *
- * A questão nasce e **depois** o nó aponta para ela. A ordem importa: `DocumentNode.questionId` é
- * a chave estrangeira, então a questão precisa existir primeiro. O aninhado do Prisma faria os
- * dois de uma vez, mas devolveria só o nó — e quem chama precisa dos dois ids para navegar.
+ * Quem grava é o escritor de nó (`insertNode`), o mesmo da aprovação do scan, de duplicar e dos
+ * imports: a questão primeiro, o nó apontando para ela, e a âncora de origem na lista do nó, como
+ * principal (D50), com as colunas antigas em sincronia.
  */
 export class PrismaQuestionCreator implements QuestionCreator {
   async createQuestionWithNode(input: NewQuestionNode): Promise<CreatedQuestion> {
     return prisma.$transaction(async (tx) => {
-      const question = await tx.question.create({
-        data: {
-          type: input.blueprint.type,
-          difficulty: input.blueprint.difficulty,
-          statementLatex: input.statementLatex ?? "",
-          solutionLatex: input.solutionLatex ?? "",
-          // Banca e ano herdados da questão anterior, quando havia uma. `??` e não spread
-          // condicional: `null` é o valor certo para "a anterior também não tinha".
-          board: input.board ?? null,
-          year: input.year ?? null,
-          ...(input.sourceAnchorId ? { sourceAnchorId: input.sourceAnchorId } : {}),
-          options: {
-            create: input.blueprint.optionSortKeys.map((sortKey, index) => ({
-              sortKey,
-              // O conteúdo vindo de uma captura revisada entra aqui; a criação manual nasce vazia.
-              // `?? ""` e não `?.statementLatex!`: uma lista mais curta que as chaves é caso
-              // legítimo — o candidato do OCR achou três alternativas onde o padrão são cinco.
-              statementLatex: input.options?.[index]?.statementLatex ?? "",
-              isCorrect: input.options?.[index]?.isCorrect ?? false,
-            })),
-          },
-        },
-        select: { id: true },
-      });
-
-      const node = await tx.documentNode.create({
-        data: {
+      const created = await insertNode(tx, {
+        columns: {
           publicationId: input.publicationId,
           parentId: input.parentId,
           kind: "QUESTION",
           title: input.title,
           originalLabel: input.originalLabel,
           sortKey: input.sortKey,
-          questionId: question.id,
-          ...(input.sourceAnchorId ? { sourceAnchorId: input.sourceAnchorId } : {}),
         },
-        select: { id: true },
+        question: {
+          columns: {
+            type: input.blueprint.type,
+            difficulty: input.blueprint.difficulty,
+            statementLatex: input.statementLatex ?? "",
+            solutionLatex: input.solutionLatex ?? "",
+            // Banca e ano herdados da questão anterior, quando havia uma. `??` e não spread
+            // condicional: `null` é o valor certo para "a anterior também não tinha".
+            board: input.board ?? null,
+            year: input.year ?? null,
+          },
+          options: input.blueprint.optionSortKeys.map((sortKey, index) => ({
+            sortKey,
+            // O conteúdo vindo de uma captura revisada entra aqui; a criação manual nasce vazia.
+            // `?? ""` e não `?.statementLatex!`: uma lista mais curta que as chaves é caso
+            // legítimo — o candidato do OCR achou três alternativas onde o padrão são cinco.
+            statementLatex: input.options?.[index]?.statementLatex ?? "",
+            isCorrect: input.options?.[index]?.isCorrect ?? false,
+          })),
+        },
+        anchors: input.sourceAnchorId
+          ? [{ sourceAnchorId: input.sourceAnchorId, role: "PRIMARY" }]
+          : [],
       });
 
-      // A âncora também entra na lista do nó, como principal (D50): é por ela que a arquitetura
-      // nova lê a origem, e a coluna acima fica só para quem ainda não migrou.
-      if (input.sourceAnchorId) {
-        await tx.documentNodeAnchor.create({
-          data: {
-            documentNodeId: node.id,
-            sourceAnchorId: input.sourceAnchorId,
-            sortOrder: 0,
-            role: "PRIMARY",
-          },
-        });
-      }
-
       return {
-        questionId: question.id,
-        nodeId: node.id,
+        // O escritor devolve a questão sempre que recebe uma, e aqui ela sempre vai.
+        questionId: created.questionId as string,
+        nodeId: created.nodeId,
         publicationId: input.publicationId,
       };
     });

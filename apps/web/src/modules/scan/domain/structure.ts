@@ -16,6 +16,7 @@ import { toNormalizedBox } from "./geometry";
 import type { PageModel } from "./page";
 import {
   combineConfidence,
+  kindsWhere,
   measure,
   type ProposedItem,
   type ProposedRegion,
@@ -532,7 +533,7 @@ function draftOf(
   };
 }
 
-const TOC_KINDS: ReadonlySet<ScanKind> = new Set(["PART", "CHAPTER", "SECTION", "SUBSECTION"]);
+const TOC_KINDS = kindsWhere((traits) => traits.inToc);
 
 /**
  * O sumário confere a estrutura (§19): o que ele cita e o scan achou ganha evidência; o que ele

@@ -9,11 +9,8 @@ import { buildLegacyImportReport } from "../src/modules/legacy-import/applicatio
 import { mapLegacyLibrary } from "../src/modules/legacy-import/application/map-legacy-library.ts";
 import { NodeLegacyFsProbe } from "../src/modules/legacy-import/infrastructure/node-legacy-fs-probe.ts";
 import { SqliteLegacyLibraryReader } from "../src/modules/legacy-import/infrastructure/sqlite-legacy-library-reader.ts";
-import {
-  normalizeIsbn,
-  toRuntime,
-  type ExistingIndex,
-} from "../src/modules/portability/application/import-workspace.ts";
+import { toRuntime, type ExistingIndex } from "../src/modules/portability/application/import-workspace.ts";
+import { normalizeIsbn } from "../src/modules/publications/domain/isbn.ts";
 
 /**
  * Simula o import de uma biblioteca inteira — mapeia, confere colisão contra o banco de

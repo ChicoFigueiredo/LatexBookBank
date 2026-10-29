@@ -117,7 +117,10 @@ function reachable(entry: string): Map<string, string[]> {
 
 const relative = (file: string) => path.relative(root, file).replaceAll(path.sep, "/");
 
-const PROVIDER = path.join(srcDir, "modules/agents/infrastructure/openai-compatible-provider.ts");
+const PROVIDER = path.join(
+  srcDir,
+  "infrastructure/ai/openai-compatible/openai-compatible-provider.ts",
+);
 const ENV = path.join(srcDir, "shared/config/env.ts");
 
 describe("a chave de IA não chega ao browser", () => {
@@ -169,7 +172,7 @@ describe("a chave de IA não chega ao browser", () => {
     expect(readers).toEqual(["src/shared/config/env.ts"]);
     expect([...mentions].sort()).toEqual([
       // Cita o nome na mensagem de credencial ausente — para o erro dizer o que fazer.
-      "src/modules/agents/infrastructure/openai-compatible-provider.ts",
+      "src/infrastructure/ai/openai-compatible/openai-compatible-provider.ts",
       "src/shared/config/env.ts",
     ]);
   });

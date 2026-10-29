@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   type NoDaEstrutura,
   faixaRevisada,
-  formatarTamanho,
   resumirCaptura,
   sumarizarCapitulos,
 } from "@modules/publications/domain/book-overview";
+import { formatarTamanho } from "@/shared/format/bytes";
 
 /**
  * O que esta tela conta é a resposta a "o livro está pronto?", e contar em árvore é onde ela

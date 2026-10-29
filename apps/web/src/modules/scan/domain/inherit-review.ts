@@ -1,5 +1,5 @@
 import { boxRect, intersectionOverUnion, overlapRatio } from "./geometry";
-import type { ScanKind } from "./proposal";
+import { SCAN_KIND_TRAITS, type ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
 
 /**
@@ -73,26 +73,12 @@ const spotScore = (a: ScanItem, b: ScanItem): number => {
 };
 
 /**
- * Famílias de tipo entre as quais o texto revisado faz sentido (#250, CAP-06).
- *
- * O tipo muda ao trocar de perfil, e o aceite atravessa assim mesmo. O texto, não: o LaTeX
- * corrigido de um parágrafo, posto como título de uma seção, é texto no lugar errado.
+ * Famílias de tipo entre as quais o texto revisado faz sentido (#250, CAP-06): o tipo muda ao
+ * trocar de perfil, e o aceite atravessa assim mesmo; o texto, só dentro da família. A família de
+ * cada tipo está na tabela de traços.
  */
-const FAMILY: Readonly<Record<ScanKind, string>> = {
-  PART: "título",
-  CHAPTER: "título",
-  SECTION: "título",
-  SUBSECTION: "título",
-  EXERCISE_GROUP: "título",
-  CONTENT: "texto",
-  EXAMPLE: "texto",
-  NOTE: "texto",
-  EXERCISE: "questão",
-  QUESTION: "questão",
-  ITEM: "item",
-  SUBITEM: "item",
-  FIGURE: "figura",
-};
+const sameKindFamily = (a: ScanKind, b: ScanKind): boolean =>
+  SCAN_KIND_TRAITS[a].family === SCAN_KIND_TRAITS[b].family;
 
 /**
  * O que a execução nova herda da anterior.
@@ -129,7 +115,7 @@ export function inheritReview(
   const inherited: { order: number; review: InheritedReview }[] = [];
   for (const { item, match, order } of pairs) {
     if (usedOld.has(match.id) || usedNew.has(item.id)) continue;
-    const sameFamily = FAMILY[match.kind] === FAMILY[item.kind];
+    const sameFamily = sameKindFamily(match.kind, item.kind);
     // Só a correção de texto, e de outra família: não há o que atravessar para este novo.
     const decidedState = match.reviewState === "APPROVED" || match.reviewState === "REJECTED";
     if (!decidedState && !sameFamily) continue;
@@ -148,4 +134,28 @@ export function inheritReview(
   }
 
   return inherited.sort((a, b) => a.order - b.order).map((entry) => entry.review);
+}
+
+/**
+ * Os itens novos com a decisão herdada aplicada: o que a varredura grava de volta ao trocar de
+ * perfil. Uma linha no laço (ARQ-14), e a regra inteira aqui, junto da que escolhe o que herdar.
+ */
+export function applyInheritedReview(
+  previous: readonly ScanItem[],
+  fresh: readonly ScanItem[],
+): readonly ScanItem[] {
+  const byId = new Map(fresh.map((item) => [item.id, item]));
+  return inheritReview(previous, fresh).flatMap((decision) => {
+    const item = byId.get(decision.id);
+    return item
+      ? [
+          {
+            ...item,
+            reviewState: decision.reviewState,
+            reviewedText: decision.reviewedText,
+            reviewedLatex: decision.reviewedLatex,
+          },
+        ]
+      : [];
+  });
 }

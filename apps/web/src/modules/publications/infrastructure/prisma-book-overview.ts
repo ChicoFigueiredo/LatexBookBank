@@ -6,11 +6,11 @@ import {
   type NoDaEstrutura,
   type ProgressoDeCaptura,
   faixaRevisada,
-  formatarTamanho,
   resumirCaptura,
   sumarizarCapitulos,
 } from "@modules/publications/domain/book-overview";
 import { formatarEdicao } from "@modules/publications/domain/shelf-labels";
+import { formatarTamanho } from "@/shared/format/bytes";
 
 /**
  * O overview de um livro — a parada entre escolher e editar (protótipo, 492–599).

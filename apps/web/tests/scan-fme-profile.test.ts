@@ -23,7 +23,7 @@ function line(text: string, size = 10, bold = false): TextLine {
     id: `l-${text.slice(0, 8)}-${size}`,
     pageNumber: 1,
     text,
-    spans: [{ text, size, fontName: "X", bold, italic: false, math: false, x0: 0, y0: 0, x1: 100, y1: size }],
+    spans: [{ text, baseline: size * 0.8, size, fontName: "X", bold, italic: false, math: false, x0: 0, y0: 0, x1: 100, y1: size }],
     size,
     fontName: "X",
     bold,

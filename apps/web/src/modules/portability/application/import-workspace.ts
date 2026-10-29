@@ -1,4 +1,7 @@
 import type { PortableWorkspace } from "../domain/portable-schema";
+import { normalizeIsbn } from "@modules/publications/domain/isbn";
+
+import type { ImportCollision } from "../domain/import-conflicts";
 import { translateSnapshotIds } from "../domain/snapshot-ids";
 import type { RuntimeWorkspace } from "./export-workspace";
 
@@ -15,13 +18,6 @@ import type { RuntimeWorkspace } from "./export-workspace";
  *
  * Ver spec §7 · issue #115.
  */
-
-export interface ImportCollision {
-  readonly kind: "workspace" | "publication" | "question";
-  readonly by: "legacyId" | "legacyUuid" | "isbn";
-  readonly value: string | number;
-  readonly existingId: string;
-}
 
 export interface ImportPlan {
   readonly workspace: RuntimeWorkspace;
@@ -78,19 +74,6 @@ export const EMPTY_INDEX: ExistingIndex = {
   publicationsByLegacyUuid: new Map(),
   publicationsByIsbn: new Map(),
   questionsByLegacyId: new Map(),
-};
-
-/**
- * O ISBN sem o que é enfeite de impressão.
- *
- * `978-85-357-0011-4` e `9788535700114` são o mesmo livro, e a ficha catalográfica escreve dos dois
- * jeitos. Comparar sem normalizar deixaria passar a duplicata mais óbvia que existe.
- */
-export const normalizeIsbn = (value: string | null | undefined): string | null => {
-  if (!value) return null;
-
-  const limpo = value.replace(/[\s-]/g, "").toUpperCase();
-  return limpo === "" ? null : limpo;
 };
 
 /**

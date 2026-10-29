@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { PrismaClient } from "@/generated/prisma/client";
-import type * as RevisionReader from "@infrastructure/agent/prisma-revision-reader";
+import type * as RevisionReader from "@modules/revisions/infrastructure/prisma-revision-reader";
 import type { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
 import { applyQuestionPatch } from "@modules/agents/application/apply-question-patch";
 import { PATCH_SCHEMA_VERSION, parseQuestionPatch } from "@modules/agents/domain/question-patch";
@@ -35,7 +35,7 @@ beforeAll(async () => {
   ({ prisma } = await import("@infrastructure/database/sqlite/client"));
   const { PrismaPatchApplier } = await import("@infrastructure/agent/prisma-patch-applier");
   applier = new PrismaPatchApplier();
-  reader = await import("@infrastructure/agent/prisma-revision-reader");
+  reader = await import("@modules/revisions/infrastructure/prisma-revision-reader");
 });
 
 afterAll(async () => {
@@ -74,7 +74,7 @@ describe("as revisões de uma questão", () => {
     await reescrever(id, "v2", "Segunda.");
     await reescrever(id, "v3", "Terceira.");
 
-    const todas = await reader.listRevisions(id);
+    const todas = await reader.listRevisions("QUESTION", id);
     expect(todas.map((r) => [r.revisionNumber, r.origin, r.summary.split(" (")[0]])).toEqual([
       [3, "AGENT", "Terceira."],
       [2, "AGENT", "Segunda."],
@@ -84,7 +84,9 @@ describe("as revisões de uma questão", () => {
     expect(todas.every((r) => !("snapshotJson" in r))).toBe(true);
     expect(todas.every((r) => r.createdAt instanceof Date)).toBe(true);
 
-    expect((await reader.listRevisions(id, 2)).map((r) => r.revisionNumber)).toEqual([3, 2]);
+    expect((await reader.listRevisions("QUESTION", id, 2)).map((r) => r.revisionNumber)).toEqual([
+      3, 2,
+    ]);
   });
 
   it("a revisão aberta traz o estado de antes daquela mudança", async () => {
@@ -92,8 +94,8 @@ describe("as revisões de uma questão", () => {
     await reescrever(id, "reescrito", "Reescreve.");
     await reescrever(id, "de novo", "De novo.");
 
-    const primeira = await reader.findRevision(id, 1);
-    const segunda = await reader.findRevision(id, 2);
+    const primeira = await reader.findRevision("QUESTION", id, 1);
+    const segunda = await reader.findRevision("QUESTION", id, 2);
 
     expect(JSON.parse(primeira?.snapshotJson ?? "{}")).toMatchObject({
       statementLatex: "original",
@@ -101,7 +103,7 @@ describe("as revisões de uma questão", () => {
     expect(JSON.parse(segunda?.snapshotJson ?? "{}")).toMatchObject({
       statementLatex: "reescrito",
     });
-    expect(await reader.findRevision(id, 3)).toBeNull();
+    expect(await reader.findRevision("QUESTION", id, 3)).toBeNull();
   });
 
   it("a revisão é da questão: nem a de outra questão, nem a de um nó com o mesmo id", async () => {
@@ -120,8 +122,10 @@ describe("as revisões de uma questão", () => {
       },
     });
 
-    expect(await reader.findRevision(minha.id, 1)).toBeNull();
-    expect(await reader.listRevisions(minha.id)).toEqual([]);
-    expect((await reader.listRevisions(outra.id)).map((r) => r.revisionNumber)).toEqual([1]);
+    expect(await reader.findRevision("QUESTION", minha.id, 1)).toBeNull();
+    expect(await reader.listRevisions("QUESTION", minha.id)).toEqual([]);
+    expect((await reader.listRevisions("QUESTION", outra.id)).map((r) => r.revisionNumber)).toEqual(
+      [1],
+    );
   });
 });

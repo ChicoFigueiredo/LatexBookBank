@@ -6,7 +6,7 @@ import {
 } from "@modules/agents/application/apply-question-patch";
 import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
-import { findRevision } from "@infrastructure/agent/prisma-revision-reader";
+import { findRevision } from "@modules/revisions/infrastructure/prisma-revision-reader";
 import type { RevertPatchResponse } from "@modules/agents/application/agent-contract";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       throw new BadRequestError("`revisionNumber` precisa ser um inteiro.");
     }
 
-    const revision = await findRevision(questionId, revisionNumber);
+    const revision = await findRevision("QUESTION", questionId, revisionNumber);
     if (revision === null) {
       return NextResponse.json(
         {

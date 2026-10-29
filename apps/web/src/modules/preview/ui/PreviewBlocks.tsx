@@ -9,7 +9,7 @@ import type {
   PreviewInline,
   SourceRange,
 } from "@modules/preview/domain/preview-model";
-import { renderMath } from "@modules/preview/infrastructure/mathjax";
+import { renderMath } from "@modules/preview/ui/render-math";
 
 /**
  * Os blocos do `PreviewModel`, em React.

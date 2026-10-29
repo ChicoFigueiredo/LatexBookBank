@@ -12,7 +12,10 @@ import {
   separarAlternativas,
   type AlternativaLida,
 } from "@modules/recognition/domain/separar-alternativas";
-import type { QuestaoEstimada } from "@modules/recognition/domain/segmentar-pagina";
+import {
+  segmentarPagina,
+  type QuestaoEstimada,
+} from "@modules/recognition/domain/segmentar-pagina";
 import {
   accept,
   candidateFrom,
@@ -677,7 +680,10 @@ export function IngestionPanel({
               mimeType={source.mimeType}
               onCrop={(crop) => void saveCrop(crop)}
               onLoadError={fonteNaoAbriu}
-              onEstimar={setEstimadas}
+              onEstimar={(camada) =>
+                // Página sem camada de texto (escaneada) é lista vazia, sem chamar a segmentação.
+                setEstimadas(camada.palavras.length === 0 ? [] : segmentarPagina(camada))
+              }
               {...(estimadas !== undefined ? { estimadas } : {})}
               onCropLote={(recortes) => void recortarLote(recortes)}
             />

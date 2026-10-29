@@ -1,3 +1,5 @@
+import type { PaginaDeTexto, PalavraNaPagina } from "@/shared/pdf-text/text-layer";
+
 /**
  * Onde estão as questões numa página de PDF que já veio com camada de texto.
  *
@@ -19,20 +21,6 @@
  * em vez de um prompt que às vezes obedece.
  */
 
-/** Uma palavra da camada de texto, em pontos do PDF, origem no topo-esquerda. */
-export interface PalavraNaPagina {
-  readonly texto: string;
-  readonly x: number;
-  readonly y: number;
-  readonly largura: number;
-  readonly altura: number;
-}
-
-export interface PaginaDeTexto {
-  readonly largura: number;
-  readonly altura: number;
-  readonly palavras: readonly PalavraNaPagina[];
-}
 
 /** Um recorte proposto — a caixa é normalizada 0..1, como manda o D28. */
 export interface QuestaoEstimada {

@@ -1,7 +1,10 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
+import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
 import { recordOwnedAsset } from "@modules/assets/infrastructure/prisma-owned-assets";
+import { insertNode } from "@modules/document-tree/infrastructure/prisma-node-writer";
 import type { RuntimeAsset } from "@modules/portability/application/export-workspace";
 import type { ImportReport } from "@modules/portability/application/import-archive";
 import type { ImportPlan } from "@modules/portability/application/import-workspace";
@@ -181,79 +184,12 @@ export async function writeImportedWorkspace(
       // âncoras por último — o recorte de uma âncora pode ser a figura de uma questão que vem
       // depois dela no arquivo.
       const nodeIdByRef = new Map<string, string>();
-      const questionIdByNode = new Map<string, string>();
 
       for (const node of publication.nodes) {
-        let questionId: string | null = null;
+        const question = node.question;
 
-        if (node.question !== null) {
-          const question = node.question;
-
-          const createdQuestion = await client.question.create({
-            data: {
-              type: question.type,
-              nickname: question.nickname,
-              statementLatex: question.statementLatex,
-              solutionLatex: question.solutionLatex,
-              complementLatex: question.complementLatex,
-              originalLatex: question.originalLatex,
-              difficulty: question.difficulty,
-              year: question.year,
-              board: question.board,
-              institution: question.institution,
-              role: question.role,
-              roleLevel: question.roleLevel,
-              publisher: question.publisher,
-              videoUrl: question.videoUrl,
-              status: question.status,
-              validationStatus: question.validationStatus,
-              legacyId: question.legacyId,
-            },
-            select: { id: true },
-          });
-
-          questionId = createdQuestion.id;
-          questions += 1;
-
-          idOf.set(question.id, createdQuestion.id);
-
-          for (const option of question.options) {
-            const createdOption = await client.questionOption.create({
-              data: {
-                questionId: createdQuestion.id,
-                sortKey: option.sortKey,
-                statementLatex: option.statementLatex,
-                solutionLatex: option.solutionLatex,
-                originalLatex: option.originalLatex,
-                isCorrect: option.isCorrect,
-                weight: option.weight,
-                legacyId: option.legacyId,
-                legacyMarcacao: option.legacyMarcacao,
-              },
-              select: { id: true },
-            });
-            idOf.set(option.id, createdOption.id);
-            options += 1;
-          }
-
-          for (const name of question.tags) {
-            const tagId = tagIdByName.get(name);
-            if (tagId === undefined) continue;
-            await client.questionTag.create({ data: { questionId: createdQuestion.id, tagId } });
-          }
-
-          // A figura da questão é da questão, e o livro é o contexto: `publicationId` junto.
-          for (const asset of question.assets) {
-            const id = await record(asset, {
-              publicationId: createdPublication.id,
-              questionId: createdQuestion.id,
-            });
-            if (id !== null && !assetIdBySha.has(asset.sha256)) assetIdBySha.set(asset.sha256, id);
-          }
-        }
-
-        const createdNode = await client.documentNode.create({
-          data: {
+        const created = await insertNode(client, {
+          columns: {
             publicationId: createdPublication.id,
             kind: node.kind,
             title: node.title,
@@ -264,14 +200,63 @@ export async function writeImportedWorkspace(
             legacyId: node.legacyId,
             bodyLatex: node.bodyLatex,
             deletedAt: date(node.deletedAt),
-            questionId,
           },
-          select: { id: true },
+          question:
+            question === null
+              ? null
+              : {
+                  columns: {
+                    type: question.type,
+                    nickname: question.nickname,
+                    statementLatex: question.statementLatex,
+                    solutionLatex: question.solutionLatex,
+                    complementLatex: question.complementLatex,
+                    originalLatex: question.originalLatex,
+                    difficulty: question.difficulty,
+                    year: question.year,
+                    board: question.board,
+                    institution: question.institution,
+                    role: question.role,
+                    roleLevel: question.roleLevel,
+                    publisher: question.publisher,
+                    videoUrl: question.videoUrl,
+                    status: question.status,
+                    validationStatus: question.validationStatus,
+                    legacyId: question.legacyId,
+                  },
+                  options: question.options.map((option) => ({
+                    sortKey: option.sortKey,
+                    statementLatex: option.statementLatex,
+                    solutionLatex: option.solutionLatex,
+                    originalLatex: option.originalLatex,
+                    isCorrect: option.isCorrect,
+                    weight: option.weight,
+                    legacyId: option.legacyId,
+                    legacyMarcacao: option.legacyMarcacao,
+                  })),
+                  tagIds: question.tags.flatMap((name) => tagIdByName.get(name) ?? []),
+                },
         });
 
-        nodeIdByRef.set(node.id, createdNode.id);
-        idOf.set(node.id, createdNode.id);
-        if (questionId !== null) questionIdByNode.set(node.id, questionId);
+        if (question !== null && created.questionId !== null) {
+          const questionId = created.questionId;
+          questions += 1;
+          idOf.set(question.id, questionId);
+          question.options.forEach((option, index) => {
+            const optionId = created.optionIds[index];
+            if (optionId !== undefined) idOf.set(option.id, optionId);
+          });
+          options += created.optionIds.length;
+
+          // A figura da questão é da questão, e o livro é o contexto: `publicationId` junto.
+          for (const asset of question.assets) {
+            const id = await record(asset, { publicationId: createdPublication.id, questionId });
+            if (id !== null && !assetIdBySha.has(asset.sha256)) assetIdBySha.set(asset.sha256, id);
+          }
+        }
+
+        nodeIdByRef.set(node.id, created.nodeId);
+        idOf.set(node.id, created.nodeId);
         nodes += 1;
       }
 
@@ -301,13 +286,13 @@ export async function writeImportedWorkspace(
         await client.documentNode.update({ where: { id }, data: { parentId } });
       }
 
-      // As âncoras renascem em ordem; a primeira responde pela coluna antiga do nó e da questão.
+      // As âncoras renascem em ordem, e a lista passa pelo mesmo escritor da aprovação e do
+      // editor: é ele que põe a principal na coluna antiga do nó e da questão.
       for (const node of publication.nodes) {
         const nodeId = nodeIdByRef.get(node.id);
         if (nodeId === undefined) continue;
 
-        let order = 0;
-        let primary: string | null = null;
+        const links: NodeAnchorLink[] = [];
         for (const anchor of node.anchors) {
           const sourceAssetId = pointer(anchor.sha256);
           if (sourceAssetId === null) continue;
@@ -329,23 +314,14 @@ export async function writeImportedWorkspace(
             },
             select: { id: true },
           });
-          await client.documentNodeAnchor.create({
-            data: {
-              documentNodeId: nodeId,
-              sourceAnchorId: createdAnchor.id,
-              sortOrder: order++,
-              role: anchor.role,
-            },
+          // Papel que este banco não conhece (um arquivo escrito à mão) entra como continuação,
+          // como na aprovação do scan: a âncora não se perde, e não disputa a principal.
+          links.push({
+            sourceAnchorId: createdAnchor.id,
+            role: isAnchorRole(anchor.role) ? anchor.role : "CONTINUATION",
           });
-          primary ??= createdAnchor.id;
         }
-        if (primary) {
-          await client.documentNode.update({ where: { id: nodeId }, data: { sourceAnchorId: primary } });
-          const questionId = questionIdByNode.get(node.id);
-          if (questionId) {
-            await client.question.update({ where: { id: questionId }, data: { sourceAnchorId: primary } });
-          }
-        }
+        if (links.length > 0) await writeNodeAnchors(client, nodeId, planNodeAnchors(links));
       }
     }
 

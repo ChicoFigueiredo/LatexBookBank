@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   OpenAiCompatibleProvider,
   parseCompletion,
-} from "@modules/agents/infrastructure/openai-compatible-provider";
+} from "@infrastructure/ai/openai-compatible/openai-compatible-provider";
 import { runAgentTurn } from "@modules/agents/application/run-agent-turn";
 import { EMPTY_CONTEXT } from "@modules/agents/domain/agent-context";
 import type { AgentTool } from "@modules/agents/domain/tool-contract";

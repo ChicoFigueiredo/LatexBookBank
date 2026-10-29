@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { parseSnapshot } from "@modules/questions/domain/revision-diff";
 import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
-import { findRevision, listRevisions } from "@infrastructure/agent/prisma-revision-reader";
+import {
+  findRevision,
+  listRevisions,
+} from "@modules/revisions/infrastructure/prisma-revision-reader";
 import type {
   RevisionDetailResponse,
   RevisionListResponse,
@@ -38,7 +41,7 @@ export async function GET(
 
     if (wanted === null) {
       // A data em ISO explícito, que é o que o JSON já fazia com o `Date`: o contrato diz texto.
-      const revisions = (await listRevisions(questionId)).map((row) => ({
+      const revisions = (await listRevisions("QUESTION", questionId)).map((row) => ({
         ...row,
         createdAt: row.createdAt.toISOString(),
       }));
@@ -53,7 +56,7 @@ export async function GET(
       );
     }
 
-    const revision = await findRevision(questionId, number);
+    const revision = await findRevision("QUESTION", questionId, number);
     if (revision === null) {
       return NextResponse.json(
         { error: "revision_not_found", message: `A questão não tem a revisão ${number}.` },

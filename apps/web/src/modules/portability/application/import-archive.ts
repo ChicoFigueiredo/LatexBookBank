@@ -1,4 +1,8 @@
-import { deduplicarColisoes, type ConflitoDeImportacao } from "../domain/import-conflicts";
+import {
+  deduplicarColisoes,
+  type ConflitoDeImportacao,
+  type ImportCollision,
+} from "../domain/import-conflicts";
 import {
   DEFAULT_ARCHIVE_LIMITS,
   readArchive,
@@ -6,12 +10,7 @@ import {
   type ArchiveLimits,
 } from "../domain/portable-archive";
 import type { PortableManifest, PortableWorkspace } from "../domain/portable-schema";
-import {
-  toRuntime,
-  type ExistingIndex,
-  type ImportCollision,
-  type ImportPlan,
-} from "./import-workspace";
+import { toRuntime, type ExistingIndex, type ImportPlan } from "./import-workspace";
 
 /**
  * Importar um `.lbb`: ler, simular contra o destino e — se for o caso — gravar.

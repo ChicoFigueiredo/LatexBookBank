@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { env as appEnv } from "@/shared/config/env";
-import { OpenAiCompatibleProvider } from "@modules/agents/infrastructure/openai-compatible-provider";
+import { OpenAiCompatibleProvider } from "@infrastructure/ai/openai-compatible/openai-compatible-provider";
 import { VisionMathRecognizer } from "@modules/recognition/infrastructure/vision-math-recognizer";
 import type { MathPass, SemanticPass } from "@modules/scan/application/run-scan";
 import { createMathPass } from "@modules/scan/application/math-recognition";
@@ -29,8 +29,14 @@ export function semanticPassFromEnv(env: Env): SemanticPass | null {
 export function mathPassFromEnv(env: Env): MathPass | null {
   const model = process.env["AI_VISION_MODEL"] ?? null;
   if (!env.aiBaseUrl || !model) return null;
-  return createMathPass(
-    new VisionMathRecognizer({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey, model }),
-    model,
-  );
+  try {
+    // O mesmo provider da passada semântica e do agente (ARQ-07): a visão é outro modelo no
+    // mesmo endpoint, não outro cliente.
+    const provider = new OpenAiCompatibleProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey });
+    return createMathPass(new VisionMathRecognizer(provider, model), model);
+  } catch {
+    // Endpoint que exige chave, sem chave: sem matemática, como a passada semântica — e não um
+    // 401 em cada item da fila.
+    return null;
+  }
 }

@@ -1,6 +1,14 @@
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
 
-import { LOW_CONFIDENCE, type ReviewState, type ScanKind } from "./proposal";
+import {
+  HEADING_KINDS,
+  kindsWhere,
+  LOW_CONFIDENCE,
+  SCAN_KIND_TRAITS,
+  SCAN_KINDS,
+  type ReviewState,
+  type ScanKind,
+} from "./proposal";
 
 /**
  * O que a tela de revisão mostra, calculado fora do React (D47): a árvore achatada com
@@ -54,21 +62,9 @@ export function flattenTree<T extends ViewItem>(items: readonly T[]): TreeRow<T>
   return rows;
 }
 
-export const KIND_LABELS: Readonly<Record<ScanKind, string>> = {
-  PART: "Parte",
-  CHAPTER: "Capítulo",
-  SECTION: "Seção",
-  SUBSECTION: "Subseção",
-  CONTENT: "Texto",
-  EXAMPLE: "Exemplo",
-  EXERCISE_GROUP: "Exercícios",
-  EXERCISE: "Exercício",
-  QUESTION: "Questão",
-  ITEM: "Item",
-  SUBITEM: "Subitem",
-  FIGURE: "Figura",
-  NOTE: "Nota",
-};
+export const KIND_LABELS: Readonly<Record<ScanKind, string>> = Object.fromEntries(
+  SCAN_KINDS.map((kind) => [kind, SCAN_KIND_TRAITS[kind].label]),
+) as Record<ScanKind, string>;
 
 export const STATE_LABELS: Readonly<Record<ReviewState, string>> = {
   AUTO_ACCEPTABLE: "sugerido",
@@ -92,7 +88,7 @@ export function rowLabel(item: ViewItem): string {
   return clip(first) || KIND_LABELS[item.kind];
 }
 
-const WITH_SNIPPET: ReadonlySet<ScanKind> = new Set(["EXERCISE", "QUESTION", "ITEM", "SUBITEM", "EXAMPLE"]);
+const WITH_SNIPPET = kindsWhere((traits) => traits.withSnippet);
 const clip = (text: string) => (text.length > 60 ? `${text.slice(0, 57)}…` : text);
 
 export type ViewFilter = "all" | "pending" | "low" | "problems" | "structure";
@@ -105,7 +101,9 @@ export const FILTER_LABELS: Readonly<Record<ViewFilter, string>> = {
   structure: "Estrutura",
 };
 
-const STRUCTURE: ReadonlySet<ScanKind> = new Set(["PART", "CHAPTER", "SECTION", "SUBSECTION", "EXERCISE_GROUP"]);
+const STRUCTURE = HEADING_KINDS;
+/** O que o tom da sobreposição pinta como questão: ela e o que se dobra no enunciado dela. */
+const QUESTION_TONE = kindsWhere((traits) => traits.approvesAs === "question" || traits.approvesAs === "folded");
 
 export function matchesFilter(item: ViewItem, filter: ViewFilter): boolean {
   switch (filter) {
@@ -182,7 +180,7 @@ function toneOf(item: ViewItem, selected: boolean): OverlayTone {
   if (item.documentNodeId || item.reviewState === "APPROVED") return "accepted";
   if (item.diagnostic && item.diagnostic.status !== "complete") return "warning";
   if (STRUCTURE.has(item.kind)) return "structure";
-  if (item.kind === "EXERCISE" || item.kind === "QUESTION" || item.kind === "ITEM" || item.kind === "SUBITEM") return "question";
+  if (QUESTION_TONE.has(item.kind)) return "question";
   return "content";
 }
 

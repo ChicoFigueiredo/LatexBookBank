@@ -5,9 +5,10 @@ import {
   recordRecognition,
   recordRecognitionFailure,
 } from "@modules/recognition/infrastructure/prisma-capture-queue";
+import { OpenAiCompatibleProvider } from "@infrastructure/ai/openai-compatible/openai-compatible-provider";
 import { VisionMathRecognizer } from "@modules/recognition/infrastructure/vision-math-recognizer";
 import { env as appEnv } from "@/shared/config/env";
-import { MathRecognitionError } from "@/shared/ports";
+import { AiProviderError, MathRecognitionError } from "@/shared/ports";
 
 import { BadRequestError, toErrorResponse } from "../tree-http";
 
@@ -74,11 +75,12 @@ export async function POST(request: Request) {
     const rawAnchor = form.get("anchorId");
     anchorId = typeof rawAnchor === "string" && rawAnchor !== "" ? rawAnchor : null;
 
-    const recognizer = new VisionMathRecognizer({
-      baseUrl: env.aiBaseUrl,
-      apiKey: env.aiApiKey,
+    // O mesmo provider do agente (ARQ-07): um OpenRouter sem chave recusa aqui, com a instrução
+    // de configuração, e cai no mesmo caminho de falha do reconhecimento logo abaixo.
+    const recognizer = new VisionMathRecognizer(
+      new OpenAiCompatibleProvider({ baseUrl: env.aiBaseUrl, apiKey: env.aiApiKey }),
       model,
-    });
+    );
 
     const result = await recognizer.recognize({
       image: new Uint8Array(await image.arrayBuffer()),
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(candidateFrom(cropAssetId, result));
   } catch (error) {
-    if (error instanceof MathRecognitionError) {
+    if (error instanceof MathRecognitionError || error instanceof AiProviderError) {
       // Falha do provider **não perde trabalho**: o recorte segue guardado, e a mensagem diz o
       // que houve para a pessoa decidir entre tentar de novo e transcrever à mão.
       //

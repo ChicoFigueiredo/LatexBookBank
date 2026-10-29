@@ -1,4 +1,4 @@
-import { generateNKeysBetween } from "@modules/document-tree/domain/fractional-index";
+import { generateNKeysBetween } from "@/shared/ordering/fractional-index";
 
 // Os plugins se registram ao serem importados, e é o registry que diz o que pode nascer.
 import "./plugins";

@@ -156,7 +156,3 @@ function bounds(rects: readonly Rect[]): Rect {
 }
 
 export const positionOf = (line: DocLine): Position => ({ slot: line.slot, y: line.y0 });
-
-export function comparePositions(a: Position, b: Position): number {
-  return a.slot - b.slot || a.y - b.y;
-}
