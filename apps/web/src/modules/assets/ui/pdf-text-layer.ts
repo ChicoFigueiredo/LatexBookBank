@@ -1,11 +1,12 @@
-import type {
-  PaginaDeTexto,
-  PalavraNaPagina,
-} from "@modules/recognition/domain/segmentar-pagina";
+import {
+  palavraNaLinhaDeBase,
+  type PaginaDeTexto,
+  type PalavraNaPagina,
+} from "@/shared/pdf-text/text-layer";
 
 /**
- * O adapter que lê a camada de texto do `pdf.js` e devolve o formato que o domínio de
- * "Estimar questões" espera (`segmentarPagina`).
+ * O adapter que lê a camada de texto do `pdf.js` e devolve o formato comum da camada de texto
+ * (`shared/pdf-text`), o mesmo que o motor do scan produz e que `segmentarPagina` lê.
  *
  * Por que um adapter e não a chamada direta na tela: o `pdf.js` fala a língua dele — origem no
  * canto **inferior** esquerdo, y crescendo para cima, e um item por `TextItem` **ou**
@@ -121,13 +122,17 @@ export async function lerCamadaDeTexto(page: unknown): Promise<PaginaDeTexto> {
 
     const [, , , , e, f] = campos.transform;
 
-    palavras.push({
-      texto,
-      x: e,
-      y: viewport.height - f - campos.height,
-      largura: campos.width,
-      altura: campos.height,
-    });
+    // `f` é a linha de base no eixo do PDF; virada para o eixo do domínio, a palavra sai pela
+    // mesma conta do motor do scan (`palavraNaLinhaDeBase`): topo = base − corpo.
+    palavras.push(
+      palavraNaLinhaDeBase({
+        texto,
+        x: e,
+        largura: campos.width,
+        linhaDeBase: viewport.height - f,
+        corpo: campos.height,
+      }),
+    );
   }
 
   return { largura: viewport.width, altura: viewport.height, palavras };

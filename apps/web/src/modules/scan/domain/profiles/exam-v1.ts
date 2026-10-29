@@ -1,11 +1,7 @@
-import {
-  segmentarPagina,
-  type PaginaDeTexto,
-  type QuestaoEstimada,
-} from "@modules/recognition/domain/segmentar-pagina";
+import { segmentarPagina, type QuestaoEstimada } from "@modules/recognition/domain/segmentar-pagina";
 
 import type { CaptureProfile, DraftItem } from "../capture-profile";
-import type { PageModel } from "../page";
+import { toPaginaDeTexto, type PageModel } from "../page";
 import type { ProposedRegion } from "../proposal";
 import { semanticPrompt } from "./semantic-prompt";
 
@@ -18,29 +14,6 @@ import { semanticPrompt } from "./semantic-prompt";
  * que o perfil acrescenta é só o que o scan precisa e a captura não: a continuação na página
  * seguinte como segunda âncora do mesmo item.
  */
-
-/**
- * A página do motor no formato da segmentação. Mesma conta do adaptador do navegador
- * (`pdf-text-layer.ts`): o topo do trecho é a linha de base menos o corpo.
- */
-export function toPaginaDeTexto(page: PageModel): PaginaDeTexto {
-  return {
-    largura: page.width,
-    altura: page.height,
-    palavras: page.lines.flatMap((line) =>
-      line.spans.map((span) => {
-        const baseline = span.y1 - span.size * 0.22;
-        return {
-          texto: span.text,
-          x: span.x0,
-          y: baseline - span.size,
-          largura: span.x1 - span.x0,
-          altura: span.size,
-        };
-      }),
-    ),
-  };
-}
 
 function region(pageNumber: number, estimate: QuestaoEstimada, role: ProposedRegion["role"]): ProposedRegion {
   return { pageNumber, box: estimate.box, role };

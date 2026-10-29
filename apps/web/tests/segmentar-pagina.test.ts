@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   segmentarPagina,
-  type PaginaDeTexto,
-  type PalavraNaPagina,
   type QuestaoEstimada,
 } from "@modules/recognition/domain/segmentar-pagina";
+import type { PaginaDeTexto, PalavraNaPagina } from "@/shared/pdf-text/text-layer";
 
 import fixture from "./fixtures/profmat-ena-2023-p1-p2.json";
 

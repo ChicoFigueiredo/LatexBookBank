@@ -1,3 +1,5 @@
+import { palavraNaLinhaDeBase, type PaginaDeTexto } from "@/shared/pdf-text/text-layer";
+
 import { fontTraits, looksLikeMath } from "./fonts";
 import { median, type Rect } from "./geometry";
 import { composeSpacingAccents, endsWithSpacingAccent, isSpacingAccent } from "./text";
@@ -41,6 +43,11 @@ export interface RawPage {
 
 export interface TextSpan extends Rect {
   readonly text: string;
+  /**
+   * A linha de base, como o leitor a deu. A caixa (`y0`/`y1`) deriva dela pela métrica abaixo, e
+   * a métrica muda com a fonte — quem precisa da base a lê aqui, sem desfazer a conta.
+   */
+  readonly baseline: number;
   readonly size: number;
   readonly fontName: string;
   readonly bold: boolean;
@@ -98,6 +105,7 @@ export function toTextSpan(raw: RawSpan): TextSpan {
 
   return {
     text,
+    baseline: raw.baseline,
     x0: raw.x0,
     x1: raw.x1,
     y0: hanging ? raw.baseline : raw.baseline - raw.size * ASCENT,
@@ -348,5 +356,30 @@ function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[],
     bold: share((span) => span.bold) >= 0.6,
     italic: share((span) => span.italic && !span.math) >= 0.6,
     mathRatio: share((span) => inMath.has(span)),
+  };
+}
+
+/**
+ * A página do motor como camada de texto, no formato da segmentação da captura (ARQ-06).
+ *
+ * Cada trecho vira uma palavra pela mesma conta do leitor do navegador (`palavraNaLinhaDeBase`),
+ * a partir da linha de base guardada — e não da caixa, que no glifo pendurado da fonte de extensão
+ * desce 2,6 corpos abaixo da base.
+ */
+export function toPaginaDeTexto(page: PageModel): PaginaDeTexto {
+  return {
+    largura: page.width,
+    altura: page.height,
+    palavras: page.lines.flatMap((line) =>
+      line.spans.map((span) =>
+        palavraNaLinhaDeBase({
+          texto: span.text,
+          x: span.x0,
+          largura: span.x1 - span.x0,
+          linhaDeBase: span.baseline,
+          corpo: span.size,
+        }),
+      ),
+    ),
   };
 }

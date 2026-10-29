@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { segmentarPagina, type PaginaDeTexto } from "@modules/recognition/domain/segmentar-pagina";
+import { segmentarPagina } from "@modules/recognition/domain/segmentar-pagina";
 import { assembleDocument } from "@modules/scan/domain/document";
-import { buildLines } from "@modules/scan/domain/page";
+import { buildLines, toPaginaDeTexto } from "@modules/scan/domain/page";
 import { captureProfile, registeredCaptureProfiles } from "@modules/scan/domain/profiles";
-import { toPaginaDeTexto } from "@modules/scan/domain/profiles/exam-v1";
 import type { Proposal, ProposedItem, ScanKind } from "@modules/scan/domain/proposal";
 import { buildProposal } from "@modules/scan/domain/structure";
+import type { PaginaDeTexto } from "@/shared/pdf-text/text-layer";
 
 import ena from "./fixtures/profmat-ena-2023-p1-p2.json";
 import { fixturePages } from "./support/scan-fixtures";
@@ -324,6 +324,27 @@ describe("exam-v1 — a segmentação da captura, sem mudança", () => {
         expect(q.box.height).toBeCloseTo(e.box.height, 4);
       });
     }
+  });
+
+  it("o glifo pendurado da fonte de extensão fica na linha dele, e não 2,4 corpos abaixo (ARQ-06)", () => {
+    // Um ∑ de display em cmex10: o motor desenha a caixa dele pendurada abaixo da linha de base
+    // (`EXTENSION_DESCENT`), e a camada de texto da segmentação lê a base, não a caixa.
+    const page = buildLines({
+      pageNumber: 1,
+      width: 600,
+      height: 800,
+      spans: [
+        { text: "1.", x0: 50, x1: 60, baseline: 300, size: 10, fontName: "CMR10", endsLine: false },
+        { text: "∑", x0: 70, x1: 80, baseline: 300, size: 10, fontName: "CMEX10", endsLine: false },
+      ],
+      graphics: [],
+    });
+
+    const palavras = toPaginaDeTexto(page).palavras;
+    expect(palavras.map((p) => [p.texto, p.y, p.altura])).toEqual([
+      ["1.", 290, 10],
+      ["∑", 290, 10],
+    ]);
   });
 });
 
