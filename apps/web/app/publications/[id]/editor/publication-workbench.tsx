@@ -36,6 +36,7 @@ import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
 import { sameTag } from "@modules/questions/domain/tag";
+import { questionApi } from "@modules/questions/ui/question-client";
 
 import { InfraStatusBar } from "../../../infra-status";
 import { useRailCounts } from "../../../rail-counts";
@@ -921,14 +922,14 @@ function NodeDetail({
               variant="primary"
               icon="check"
               onClick={() => {
-                void fetch(`/api/publications/${publicationId}/questions/${node.question?.id}`, {
-                  method: "PATCH",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({
-                    expectedVersion: node.question?.version,
+                const question = node.question;
+                if (!question) return;
+                void questionApi
+                  .patchAndForget(publicationId, question.id, {
+                    expectedVersion: question.version,
                     status: "READY",
-                  }),
-                }).then(() => window.location.reload());
+                  })
+                  .then(() => window.location.reload());
               }}
             >
               Conferido
@@ -1018,14 +1019,14 @@ function NodeDetail({
                   pior que um recarregado.
                 */
                 onTypeChange={(type) => {
-                  void fetch(`/api/publications/${publicationId}/questions/${node.question?.id}`, {
-                    method: "PATCH",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({
-                      expectedVersion: node.question?.version,
+                  const question = node.question;
+                  if (!question) return;
+                  void questionApi
+                    .patchAndForget(publicationId, question.id, {
+                      expectedVersion: question.version,
                       type,
-                    }),
-                  }).then(() => window.location.reload());
+                    })
+                    .then(() => window.location.reload());
                 }}
                 initialVersion={node.question.version}
                 initial={{
