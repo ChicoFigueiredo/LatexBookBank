@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { ScanRunner } from "@modules/scan/application/scan-store";
-import { questionLatex } from "@modules/scan/domain/approval-latex";
+import { contentLatex, questionLatex } from "@modules/scan/domain/approval-latex";
 import { planApproval, type ApprovalInput } from "@modules/scan/domain/approval-plan";
 import { captureProfile } from "@modules/scan/domain/profiles";
 import { applyReview, InvalidReviewError } from "@modules/scan/domain/review";
@@ -116,6 +116,21 @@ describe("operações de revisão", () => {
     const merged = applyReview(after, { type: "merge", itemIds: [kept!.id, created!.id] }, book, newId);
     expect(merged.deletedIds).toEqual([created!.id]);
     expect(merged.upserts[0]?.regions.map((r) => r.role)).toEqual(["PRIMARY", "CONTINUATION"]);
+  });
+
+  it("unir guarda o LaTeX reconhecido de cada parte, e não só o revisado (#250, CAP-07)", () => {
+    // Um parágrafo que atravessa a página foi proposto em dois. A pessoa corrige o LaTeX do
+    // primeiro e une: a matemática que o modelo reconheceu no segundo sumia do acervo.
+    const recognized = { latex: "$\\int_0^1 f(x)\\,dx = 3$", confidence: 0.9, alternatives: [], providerId: "v", model: "m", durationMs: 1, recognizedAt: "" };
+    const a = item({ id: "a", key: "A", kind: "CONTENT", parentKey: "S", sortOrder: 3, text: "Seja f contínua.", reviewedLatex: "Seja $f$ contínua." });
+    const b = item({ id: "b", key: "B", kind: "CONTENT", parentKey: "S", sortOrder: 4, text: "f(x)dx = 3", needsMath: true, mathResult: recognized });
+
+    const revisado = applyReview([chapter, section, a, b], { type: "merge", itemIds: ["a", "b"] }, book, newId).upserts[0];
+    expect(contentLatex(revisado!)).toBe("Seja $f$ contínua.\n$\\int_0^1 f(x)\\,dx = 3$");
+
+    // Sem revisão nenhuma, o reconhecimento pago também fica — antes, a aprovação caía no texto cru.
+    const crus = applyReview([chapter, section, { ...a, reviewedLatex: null }, b], { type: "merge", itemIds: ["a", "b"] }, book, newId).upserts[0];
+    expect(contentLatex(crus!)).toBe("Seja f contínua.\n$\\int_0^1 f(x)\\,dx = 3$");
   });
 
   it("âncora: acrescentar, redimensionar, reordenar e marcar papel; a primeira é a principal", () => {
