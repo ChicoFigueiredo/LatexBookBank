@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ImportCollision } from "@modules/portability/application/import-workspace";
+import type { ImportCollision } from "@modules/portability/domain/import-conflicts";
 import {
   type ConflitoDeImportacao,
   deduplicarColisoes,

@@ -1,4 +1,5 @@
 import { readHomeOverview } from "@modules/workspaces/infrastructure/prisma-home-overview";
+import { formatarTamanho } from "@/shared/format/bytes";
 import { relativeTime } from "@/shared/format/relative-time";
 
 import { HomeScreen } from "./home-screen";
@@ -40,7 +41,7 @@ export default async function HomePage() {
               ...overview.continueWhere,
               updatedLabel: relativeTime(overview.continueWhere.updatedAt, agora),
               sourceLabel: overview.continueWhere.source
-                ? `${overview.continueWhere.source.filename} · ${megabytes(overview.continueWhere.source.sizeBytes)}`
+                ? `${overview.continueWhere.source.filename} · ${formatarTamanho(overview.continueWhere.source.sizeBytes)}`
                 : null,
             }
           : null
@@ -67,8 +68,3 @@ function saudacao(agora: Date): string {
   if (hora < 18) return "Boa tarde";
   return "Boa noite";
 }
-
-const megabytes = (bytes: number): string =>
-  bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;

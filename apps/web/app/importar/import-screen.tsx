@@ -10,7 +10,7 @@ import {
   numero,
 } from "@modules/portability/domain/import-conflicts";
 import { LBB_CARRIES, LBB_LEAVES } from "@modules/portability/domain/backup-scope";
-import { formatarTamanho } from "@modules/publications/domain/book-overview";
+import { formatarTamanho } from "@/shared/format/bytes";
 
 import { useAcervoStyles } from "../acervo-styles";
 import { useInfraStatus } from "../infra-status";

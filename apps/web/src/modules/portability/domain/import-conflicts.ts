@@ -1,4 +1,10 @@
-import type { ImportCollision } from "../application/import-workspace";
+/** Uma chave do arquivo que já existe no destino: quem colide, por qual chave e com quem. */
+export interface ImportCollision {
+  readonly kind: "workspace" | "publication" | "question";
+  readonly by: "legacyId" | "legacyUuid" | "isbn";
+  readonly value: string | number;
+  readonly existingId: string;
+}
 
 /**
  * De colisões de chave para conflitos que uma pessoa lê.

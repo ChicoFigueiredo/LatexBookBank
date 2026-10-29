@@ -110,18 +110,6 @@ function contarSubarvore(
 }
 
 /**
- * "38,2 MB" — vírgula, porque o produto é em português e o número é lido, não calculado.
- *
- * Abaixo de 1 MB vira KB inteiro: "0,4 MB" não diz nada que "412 KB" não diga melhor.
- */
-export function formatarTamanho(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return "—";
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-
-  return `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
-}
-
-/**
  * O progresso da captura — e por que o denominador do protótipo não existe aqui.
  *
  * O protótipo escreve `148 / ~410`, onde 410 é a estimativa por página do PDF. **Não temos a

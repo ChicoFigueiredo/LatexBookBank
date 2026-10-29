@@ -15,6 +15,7 @@ import {
   type RenderStats,
 } from "@modules/rendering/infrastructure/prisma-render-stats";
 import { env as appEnv } from "@/shared/config/env";
+import { formatarTamanho } from "@/shared/format/bytes";
 
 /**
  * O que está no ar, e o que não está.
@@ -116,12 +117,15 @@ function describeRenderCache(stats: RenderStats | null): SectionStatus {
     summary:
       stats.jobs === 0
         ? "Nada compilado ainda"
-        : `${stats.jobs} job(s) · ${formatBytes(stats.cacheBytes)} em ${stats.artifacts} artefato(s)`,
+        : `${stats.jobs} job(s) · ${formatarTamanho(stats.cacheBytes)} em ${stats.artifacts} artefato(s)`,
     details: [
       { label: "Jobs", value: `${stats.jobs} (${stats.failed} com falha)` },
       // Derivado é descartável (D29): este número é quanto se recupera apagando, e é a única
       // razão de ele estar na tela.
-      { label: "Tamanho do cache", value: `${formatBytes(stats.cacheBytes)} — descartável (D29)` },
+      {
+        label: "Tamanho do cache",
+        value: `${formatarTamanho(stats.cacheBytes)} — descartável (D29)`,
+      },
       {
         label: "Último erro",
         value:
@@ -265,12 +269,6 @@ async function readBackupStatus(): Promise<SectionStatus> {
 
 const format = (date: Date | null): string =>
   date === null ? "—" : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 const describeDatabase = (url: string): string =>
   url.startsWith("file:") ? `SQLite em ${url.slice("file:".length)}` : "PostgreSQL";
