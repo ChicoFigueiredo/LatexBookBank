@@ -68,6 +68,13 @@ export function createSemanticPass(provider: AiProvider, model: string, now: () 
       }
 
       const byKey = new Map(items.map((item) => [item.key, item]));
+      const childrenOf = new Map<string, ScanItem[]>();
+      for (const item of items) {
+        if (item.parentKey) childrenOf.set(item.parentKey, [...(childrenOf.get(item.parentKey) ?? []), item]);
+      }
+      // Figura não: a passada de figuras roda antes, e a figura que a IA inventasse sairia sem
+      // arquivo, levando o parágrafo junto (#250, CAP-17).
+      const allowedKinds: readonly ScanKind[] = profile.kinds.filter((kind) => kind !== "FIGURE");
       const doubtful = items.filter(
         (item) =>
           item.reviewState !== "APPROVED" &&
@@ -94,7 +101,7 @@ export function createSemanticPass(provider: AiProvider, model: string, now: () 
         const prompt = profile.buildSemanticPrompt({
           profile: { id: profile.id, label: profile.label },
           previousStructure,
-          allowedKinds: profile.kinds,
+          allowedKinds,
           candidates: batch.map((item) => ({
             key: item.key,
             kind: item.kind,
@@ -122,9 +129,14 @@ export function createSemanticPass(provider: AiProvider, model: string, now: () 
 
         for (const decision of parsed.decisions) {
           const item = batch.find((candidate) => candidate.key === decision.key);
-          if (!item || !isScanKind(decision.kind) || !profile.kinds.includes(decision.kind)) continue;
+          if (!item || !isScanKind(decision.kind) || !allowedKinds.includes(decision.kind)) continue;
           const parentKind = item.parentKey ? (byKey.get(item.parentKey)?.kind ?? null) : null;
           if (!profile.canContain(parentKind, decision.kind)) continue;
+          // O pai **e** os filhos, como na troca de tipo da revisão (#250, CAP-17): a seção que vira
+          // conteúdo deixaria as subseções sob um nó que não as contém, e a aprovação as subiria
+          // para o avô sem aviso.
+          const decided = decision.kind;
+          if (childrenOf.get(item.key)?.some((child) => !profile.canContain(decided, child.kind))) continue;
 
           const confidenceParts = { ...item.confidenceParts, semantic: decision.confidence };
           changed.push({

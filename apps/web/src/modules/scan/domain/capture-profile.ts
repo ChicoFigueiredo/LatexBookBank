@@ -198,6 +198,16 @@ export interface CaptureProfile {
   /** Divisores de coluna a partir das linhas do documento inteiro. */
   columnHints?(lines: readonly TextLine[]): readonly number[];
   /**
+   * O documento é diagramado em uma coluna só: a página não é dividida em colunas.
+   *
+   * A detecção de colunas é por página e por evidência, e uma grade de itens curtos — `a)` e `b)`
+   * na mesma linha, `c)` e `d)` na de baixo — tem a mesma cara de duas colunas: inícios
+   * alinhados e nada atravessando a calha. Lida como coluna, a grade saía a, c, b, d. Quem sabe
+   * que o livro não tem coluna dupla é o perfil da coleção, e então o que fica lado a lado na
+   * mesma altura é lido da esquerda para a direita.
+   */
+  readonly singleColumn?: boolean;
+  /**
    * As zonas do documento, cada uma com regra própria (ADR 0009).
    *
    * Calculado uma vez, antes da caminhada, a partir das páginas inteiras: as zonas de um livro

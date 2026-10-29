@@ -101,13 +101,56 @@ describe("herdar a revisão ao trocar de perfil", () => {
   });
 
   it("um item anterior serve a um novo, no máximo", () => {
-    // O perfil novo parte em dois o que o anterior via como um só: o aceite não se duplica.
+    // O perfil novo parte em dois o que o anterior via como um só: o aceite não se duplica. As
+    // metades têm mais da metade da área do todo — menos que isso já não é o mesmo lugar (CAP-06).
     const anterior = [item({ id: "velho", regions: at(1, 0.1, 0.4), reviewState: "APPROVED" })];
-    const novo = [item({ id: "metade-a", regions: at(1, 0.1, 0.18) }), item({ id: "metade-b", regions: at(1, 0.3, 0.18) })];
+    const novo = [item({ id: "metade-a", regions: at(1, 0.1, 0.22) }), item({ id: "metade-b", regions: at(1, 0.3, 0.22) })];
 
     const herdado = inheritReview(anterior, novo);
     expect(herdado).toHaveLength(1);
     expect(herdado[0]?.fromId).toBe("velho");
+  });
+
+  /*
+    #250, CAP-06: o casamento olhava a interseção sobre a **menor** caixa, e dava o item anterior
+    ao primeiro novo que casasse. Um título pequeno dentro do bloco revisado herdava o aceite e o
+    LaTeX do bloco inteiro — e o texto do segundo parágrafo entrava duas vezes no corpo.
+  */
+  it("caixa pequena dentro da grande não herda: título e parágrafos de um bloco revisado (CAP-06)", () => {
+    const anterior = [
+      item({ id: "bloco", kind: "CONTENT", regions: at(1, 0.2, 0.4), reviewState: "APPROVED", reviewedLatex: "P1 corrigido. P2 corrigido." }),
+    ];
+    const novo = [
+      item({ id: "titulo", kind: "SECTION", regions: at(1, 0.2, 0.03) }),
+      item({ id: "p1", kind: "CONTENT", regions: at(1, 0.23, 0.18) }),
+      item({ id: "p2", kind: "CONTENT", regions: at(1, 0.42, 0.18) }),
+    ];
+
+    expect(inheritReview(anterior, novo)).toEqual([]);
+  });
+
+  it("o anterior vai ao novo que mais coincide com ele, e não ao primeiro da lista", () => {
+    const anterior = [item({ id: "velho", regions: at(1, 0.1), reviewState: "APPROVED" })];
+    const novo = [item({ id: "vizinho", regions: at(1, 0.14) }), item({ id: "mesmo", regions: at(1, 0.1) })];
+
+    expect(inheritReview(anterior, novo).map((h) => h.id)).toEqual(["mesmo"]);
+  });
+
+  it("o texto revisado só atravessa entre itens da mesma família de tipo", () => {
+    // O lugar é o mesmo e o aceite atravessa — trocar de perfil é trocar de vocabulário —, mas o
+    // LaTeX de um parágrafo não é o título de uma seção.
+    const anterior = [item({ id: "velho", kind: "CONTENT", regions: at(1, 0.1), reviewState: "APPROVED", reviewedLatex: "Texto corrigido." })];
+
+    const comoTitulo = inheritReview(anterior, [item({ id: "novo", kind: "SECTION", regions: at(1, 0.1) })]);
+    expect(comoTitulo).toEqual([expect.objectContaining({ id: "novo", reviewState: "APPROVED", reviewedLatex: null })]);
+    const comoExemplo = inheritReview(anterior, [item({ id: "novo", kind: "EXAMPLE", regions: at(1, 0.1) })]);
+    expect(comoExemplo[0]?.reviewedLatex).toBe("Texto corrigido.");
+  });
+
+  it("o item que já está no acervo não empresta a revisão", () => {
+    const anterior = [item({ id: "velho", regions: at(1, 0.1), reviewState: "APPROVED", documentNodeId: "no-1" })];
+
+    expect(inheritReview(anterior, [item({ id: "novo", regions: at(1, 0.1) })])).toEqual([]);
   });
 
   it("o limiar é mais frouxo que o da aprovação, e de propósito", () => {

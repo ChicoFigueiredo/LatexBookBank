@@ -1,4 +1,5 @@
 import type { NodeKind, NumberingStyle } from "./node-kind";
+import type { BodyReviewFacts } from "./node-body";
 
 /**
  * Porta de leitura da árvore de conteúdo.
@@ -18,6 +19,8 @@ export interface TreeNodeRecord {
   readonly numberingStyle: NumberingStyle;
   readonly originalLabel: string | null;
   readonly question: TreeQuestionRecord | null;
+  /** Com o que o nó sem questão responde *a revisar* (#252). Ausente: nada a conferir. */
+  readonly body?: BodyReviewFacts | null;
 }
 
 export interface TreeQuestionRecord {

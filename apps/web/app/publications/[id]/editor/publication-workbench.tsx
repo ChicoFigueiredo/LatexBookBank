@@ -818,7 +818,7 @@ export function PublicationWorkbench({
               size="sm"
               variant={toReviewOnly ? "primary" : "ghost"}
               aria-pressed={toReviewOnly}
-              title="Só as questões que o scan ou o reconhecimento escreveu e ninguém conferiu"
+              title="Só as questões e os corpos que o scan ou o reconhecimento escreveu e ninguém conferiu"
               onClick={() => setToReviewOnly((current) => !current)}
             >
               A revisar
@@ -1133,6 +1133,23 @@ function NodeDetail({
                     expectedVersion: node.question?.version,
                     status: "READY",
                   }),
+                }).then(() => window.location.reload());
+              }}
+            >
+              Conferido
+            </Button>
+          ) : node.toReview ? (
+            /*
+              O mesmo gesto para o corpo (#252): o exemplo ou a teoria que o scan escreveu. O texto
+              não muda — quem precisa corrigir edita, e editar já tira do filtro.
+            */
+            <Button
+              size="sm"
+              variant="primary"
+              icon="check"
+              onClick={() => {
+                void fetch(`/api/publications/${publicationId}/nodes/${node.id}/body/conferido`, {
+                  method: "POST",
                 }).then(() => window.location.reload());
               }}
             >

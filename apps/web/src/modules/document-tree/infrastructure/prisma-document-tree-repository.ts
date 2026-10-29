@@ -33,6 +33,8 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         sortKey: true,
         numberingStyle: true,
         originalLabel: true,
+        // A âncora principal do nó: com a última revisão, responde se o corpo é *a revisar*.
+        sourceAnchor: { select: { extractionMethod: true } },
         question: {
           select: {
             id: true,
@@ -67,6 +69,30 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
       },
     });
 
+    /*
+      O corpo *a revisar* (#252) precisa de dois fatos que a linha do nó não traz: se o corpo tem
+      texto — sem carregar o texto de todos os corpos para desenhar a árvore — e a última revisão
+      de cada nó. Duas consultas a mais, e nenhuma coluna nova (D40).
+    */
+    const withBody = new Set(
+      (
+        await prisma.documentNode.findMany({
+          where: { publicationId, deletedAt: null, questionId: null, bodyLatex: { not: "" } },
+          select: { id: true },
+        })
+      ).map((row) => row.id),
+    );
+    const lastRevision = new Map<string, { origin: string; summary: string }>();
+    for (const ids of inChunks([...withBody])) {
+      const revisions = await prisma.revision.findMany({
+        where: { entityType: "DOCUMENT_NODE", entityId: { in: ids } },
+        orderBy: { revisionNumber: "asc" },
+        select: { entityId: true, origin: true, summary: true },
+      });
+      // Em ordem crescente, a última escrita de cada nó é a que fica no mapa.
+      for (const { entityId, ...revision } of revisions) lastRevision.set(entityId, revision);
+    }
+
     return rows.map((row) => {
       if (!isNodeKind(row.kind)) {
         throw new Error(`NodeKind desconhecido no nó ${row.id}: ${row.kind}`);
@@ -84,6 +110,13 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         numberingStyle: row.numberingStyle,
         originalLabel: row.originalLabel,
         question: row.question,
+        body: withBody.has(row.id)
+          ? {
+              hasBody: true,
+              anchorMethod: row.sourceAnchor?.extractionMethod ?? null,
+              lastRevision: lastRevision.get(row.id) ?? null,
+            }
+          : null,
       };
     });
   }
@@ -241,6 +274,9 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             title: true,
             numberingStyle: true,
             originalLabel: true,
+            // O corpo é a teoria da seção e o texto inteiro do exemplo (D56): sem ele, a cópia
+            // nasce como um galho vazio (#252).
+            bodyLatex: true,
             sourceAnchorId: true,
             // As âncoras vão junto, pelo mesmo motivo do `sourceAnchorId` da questão: a origem é
             // do conteúdo (D50).
@@ -307,6 +343,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
             sortKey: step.sortKey,
             numberingStyle: source.numberingStyle,
             originalLabel: source.originalLabel,
+            bodyLatex: source.bodyLatex,
             sourceAnchorId: source.sourceAnchorId,
             ...(createdQuestion ? { questionId: createdQuestion.id } : {}),
             ...(source.anchors.length > 0

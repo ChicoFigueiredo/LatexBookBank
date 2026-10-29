@@ -6,7 +6,7 @@ import "@modules/questions/domain/plugins";
 import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
 import { optionsOf, pluginFor } from "@modules/questions/domain/question-type-plugin";
 
-import { contentLatex, exampleBody, exampleTitle, figureLatex, questionLatex } from "./approval-latex";
+import { bodyPieceLatex, exampleBody, exampleTitle, questionLatex } from "./approval-latex";
 import { boxRect, intersectionOverUnion } from "./geometry";
 import type { ProposedRegion, ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
@@ -70,6 +70,14 @@ export type ApprovalStep =
       readonly question: PlannedQuestion | null;
       /** O corpo do nó, quando ele nasce com texto: hoje só o exemplo (D56). */
       readonly body: string | null;
+      /**
+       * Onde o nó entra entre os irmãos, pela ordem do livro (#248, CAP-04): logo depois do irmão
+       * que o precede no livro e já tem nó, ou, sem ele, logo antes do que o segue. Os dois
+       * `null`: no fim, como antes. Na aprovação em rodadas, o exercício 3 aprovado depois do 4
+       * entrava depois dele.
+       */
+      readonly placeAfter: NodeRef | null;
+      readonly placeBefore: NodeRef | null;
     }
   | { readonly type: "reuseNode"; readonly itemIds: readonly string[]; readonly nodeId: string }
   | {
@@ -81,6 +89,11 @@ export type ApprovalStep =
       readonly sourceText: string;
       /** O recorte já gravado, quando é figura (D58): a âncora passa a apontar para o arquivo. */
       readonly cropAssetId: string | null;
+      /**
+       * Os trechos que já estão no corpo e vêm **depois** deste no livro, na ordem do livro
+       * (#248, CAP-04). O trecho entra antes do primeiro que o escritor achar; sem nenhum, no fim.
+       */
+      readonly followedBy: readonly string[];
     }
   | {
       /**
@@ -96,6 +109,8 @@ export type ApprovalStep =
       readonly anchors: readonly ProposedRegion[];
       readonly sourceText: string;
       readonly cropAssetId: string | null;
+      /** Como no `appendBody`: o que já está no enunciado e vem depois deste trecho no livro. */
+      readonly followedBy: readonly string[];
     }
   | { readonly type: "alreadyInCollection"; readonly itemIds: readonly string[]; readonly nodeId: string };
 
@@ -269,7 +284,69 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     return direct.flatMap((child) => [child, ...descendants(child)]);
   };
 
-  for (const item of [...items].sort((a, b) => a.sortOrder - b.sortOrder)) {
+  /*
+    A ordem do livro entre o que já entrou e o que entra agora (#248, CAP-04).
+
+    A aprovação em rodadas é o fluxo normal — aceitar os sugeridos, revisar o resto, aprovar de
+    novo —, e o escritor punha todo nó novo no fim dos irmãos e todo trecho no fim do corpo: o
+    exercício 3 aprovado depois do 4 ia para depois dele. Aqui o plano anota, pelo `sortOrder` dos
+    itens, o vizinho de cada nó novo e os trechos que vêm depois de cada trecho novo; o escritor,
+    que conhece os `sortKey`, encaixa.
+  */
+  const refKey = (ref: NodeRef): string =>
+    ref.type === "root" ? "root" : ref.type === "existing" ? `existing:${ref.id}` : `planned:${ref.ref}`;
+  const nodeById = new Map(input.existingNodes.map((node) => [node.id, node]));
+  const placedNodes = new Map<string, { sortOrder: number; ref: NodeRef }[]>();
+  const placedPieces = new Map<string, { sortOrder: number; latex: string }[]>();
+  const placeNode = (container: NodeRef, sortOrder: number, ref: NodeRef) => {
+    const key = refKey(container);
+    placedNodes.set(key, [...(placedNodes.get(key) ?? []), { sortOrder, ref }]);
+  };
+  const placePiece = (container: NodeRef, sortOrder: number, latex: string) => {
+    const key = refKey(container);
+    placedPieces.set(key, [...(placedPieces.get(key) ?? []), { sortOrder, latex: latex.trim() }]);
+  };
+  for (const item of items) {
+    const node = item.documentNodeId ? nodeById.get(item.documentNodeId) : undefined;
+    if (!node || item.reviewState === "REJECTED") continue;
+    if (NODE_KIND[item.kind] || QUESTION_KINDS.has(item.kind)) {
+      placeNode(node.parentId ? { type: "existing", id: node.parentId } : { type: "root" }, item.sortOrder, { type: "existing", id: node.id });
+    } else if (BODY_KINDS.has(item.kind)) {
+      placePiece({ type: "existing", id: node.id }, item.sortOrder, bodyPieceLatex(item));
+    }
+  }
+  /** O irmão já posto que precede o item no livro, e o que o segue. */
+  const neighbors = (container: NodeRef, sortOrder: number) => {
+    const siblings = placedNodes.get(refKey(container)) ?? [];
+    const before = siblings.filter((s) => s.sortOrder < sortOrder).sort((a, b) => b.sortOrder - a.sortOrder)[0];
+    const after = siblings.filter((s) => s.sortOrder > sortOrder).sort((a, b) => a.sortOrder - b.sortOrder)[0];
+    return { placeAfter: before?.ref ?? null, placeBefore: after?.ref ?? null };
+  };
+  const following = (container: NodeRef, sortOrder: number): string[] =>
+    (placedPieces.get(refKey(container)) ?? [])
+      .filter((piece) => piece.sortOrder > sortOrder)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((piece) => piece.latex);
+
+  /*
+    O pai antes do filho, e no resto a ordem do livro (#248, CAP-16).
+
+    Reparentear na revisão só troca o pai: a figura do alto da página posta sob a seção que começa
+    logo abaixo tem `sortOrder` menor que o da seção. Percorrendo só pelo `sortOrder`, ela chegava
+    antes do pai e era pulada com "o item acima dele ainda não foi aprovado" — falso.
+  */
+  const order: ScanItem[] = [];
+  const queued = new Set<string>();
+  const enqueue = (item: ScanItem) => {
+    if (queued.has(item.key)) return;
+    queued.add(item.key);
+    const parent = effectiveParent(item);
+    if (parent) enqueue(parent);
+    order.push(item);
+  };
+  for (const item of [...items].sort((a, b) => a.sortOrder - b.sortOrder)) enqueue(item);
+
+  for (const item of order) {
     if (!eligible(item) || FOLDED_KINDS.has(item.kind)) continue;
 
     const container = containerFor(item);
@@ -298,6 +375,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
       if (reuse) {
         steps.push({ type: "reuseNode", itemIds: [item.id], nodeId: reuse.id });
         resolved.set(item.key, { type: "existing", id: reuse.id });
+        placeNode(container, item.sortOrder, { type: "existing", id: reuse.id });
       } else {
         steps.push({
           type: "createNode",
@@ -313,8 +391,10 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
           sourceText: item.text,
           question: null,
           body: item.kind === "EXAMPLE" ? exampleBody(item) : null,
+          ...neighbors(container, item.sortOrder),
         });
         resolved.set(item.key, { type: "planned", ref: item.id });
+        placeNode(container, item.sortOrder, { type: "planned", ref: item.id });
       }
       continue;
     }
@@ -323,6 +403,8 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     if (duplicate) {
       steps.push({ type: "alreadyInCollection", itemIds: [item.id], nodeId: duplicate });
       resolved.set(item.key, { type: "existing", id: duplicate });
+      // A questão que já está no acervo também é vizinha; o escritor confere se ela mora neste pai.
+      if (QUESTION_KINDS.has(item.kind)) placeNode(container, item.sortOrder, { type: "existing", id: duplicate });
       continue;
     }
 
@@ -384,8 +466,10 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         sourceText: item.text,
         question: { type, ...latex },
         body: null,
+        ...neighbors(container, item.sortOrder),
       });
       resolved.set(item.key, { type: "planned", ref: item.id });
+      placeNode(container, item.sortOrder, { type: "planned", ref: item.id });
       plannedQuestions.add(item.id);
       continue;
     }
@@ -395,12 +479,14 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         skipped.push({ itemId: item.id, reason: "texto fora de qualquer seção: escolha um destino" });
         continue;
       }
+      const latex = bodyPieceLatex(item);
       steps.push({
         // Dentro de uma questão, o texto vai ao enunciado dela; nos outros nós, ao corpo (#246).
         type: isQuestionNode(container) ? "appendStatement" : "appendBody",
         itemIds: [item.id],
         target: container,
-        latex: item.kind === "FIGURE" ? figureLatex(item) : contentLatex(item),
+        latex,
+        followedBy: following(container, item.sortOrder),
         cropAssetId: item.kind === "FIGURE" ? (typeof item.metadata["figureAsset"] === "string" ? item.metadata["figureAsset"] : null) : null,
         anchors: item.regions.map((region) => ({
           ...region,
@@ -409,6 +495,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         sourceText: item.text,
       });
       resolved.set(item.key, container);
+      placePiece(container, item.sortOrder, latex);
       continue;
     }
 

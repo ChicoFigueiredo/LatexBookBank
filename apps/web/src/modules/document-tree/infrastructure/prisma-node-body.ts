@@ -1,10 +1,12 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import type {
   NodeBodyRecord,
   NodeBodyRepository,
 } from "@modules/document-tree/application/save-node-body";
+import type { NodeBodySnapshot } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
 
 const SELECT = {
@@ -32,6 +34,30 @@ function toRecord(row: {
     bodyLatex: row.bodyLatex,
     updatedAt: row.updatedAt,
   };
+}
+
+/** A revisão `USER` do nó, com o número seguinte contado dentro da transação. */
+async function writeUserRevision(
+  tx: Prisma.TransactionClient,
+  nodeId: string,
+  summary: string,
+  snapshot: NodeBodySnapshot,
+): Promise<void> {
+  const last = await tx.revision.findFirst({
+    where: { entityType: "DOCUMENT_NODE", entityId: nodeId },
+    orderBy: { revisionNumber: "desc" },
+    select: { revisionNumber: true },
+  });
+  await tx.revision.create({
+    data: {
+      entityType: "DOCUMENT_NODE",
+      entityId: nodeId,
+      revisionNumber: (last?.revisionNumber ?? 0) + 1,
+      origin: "USER",
+      summary,
+      snapshotJson: JSON.stringify(snapshot),
+    },
+  });
 }
 
 export class PrismaNodeBodyRepository implements NodeBodyRepository {
@@ -63,6 +89,12 @@ export class PrismaNodeBodyRepository implements NodeBodyRepository {
     return row?.workspaceId ?? null;
   }
 
+  async recordReview(input: Parameters<NodeBodyRepository["recordReview"]>[0]): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await writeUserRevision(tx, input.nodeId, input.summary, input.current);
+    });
+  }
+
   async save(input: Parameters<NodeBodyRepository["save"]>[0]): Promise<NodeBodyRecord | null> {
     return prisma.$transaction(async (tx) => {
       // A versão vai **no `where`** (#259): ler, comparar e depois gravar deixa duas abas passarem
@@ -74,21 +106,7 @@ export class PrismaNodeBodyRepository implements NodeBodyRepository {
       });
       if (updated.count === 0) return null;
 
-      const last = await tx.revision.findFirst({
-        where: { entityType: "DOCUMENT_NODE", entityId: input.nodeId },
-        orderBy: { revisionNumber: "desc" },
-        select: { revisionNumber: true },
-      });
-      await tx.revision.create({
-        data: {
-          entityType: "DOCUMENT_NODE",
-          entityId: input.nodeId,
-          revisionNumber: (last?.revisionNumber ?? 0) + 1,
-          origin: "USER",
-          summary: input.summary,
-          snapshotJson: JSON.stringify(input.previous),
-        },
-      });
+      await writeUserRevision(tx, input.nodeId, input.summary, input.previous);
       const row = await tx.documentNode.findUniqueOrThrow({
         where: { id: input.nodeId },
         select: SELECT,

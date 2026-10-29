@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { FAILED_METHOD } from "@modules/recognition/domain/capture-queue";
 import { candidateFrom } from "@modules/recognition/domain/recognition-review";
-import { recordRecognition } from "@modules/recognition/infrastructure/prisma-capture-queue";
+import {
+  recordRecognition,
+  recordRecognitionFailure,
+} from "@modules/recognition/infrastructure/prisma-capture-queue";
 import { VisionMathRecognizer } from "@modules/recognition/infrastructure/vision-math-recognizer";
 import { env as appEnv } from "@/shared/config/env";
 import { MathRecognitionError } from "@/shared/ports";
@@ -108,12 +110,12 @@ export async function POST(request: Request) {
       // "aguardando" depois de um recarregamento — a diferença entre "ainda não tentei" e
       // "tentei e não deu".
       if (anchorId !== null) {
-        await recordRecognition(anchorId, {
-          latex: "",
-          method: FAILED_METHOD,
-          model: null,
-          metadataJson: JSON.stringify({ error: error.message, at: new Date().toISOString() }),
-        }).catch(() => undefined);
+        //
+        // A transcrição que a âncora já tinha **fica** (#253): reconhecer de novo e dar timeout
+        // não pode apagar o que a tentativa anterior trouxe.
+        await recordRecognitionFailure(anchorId, { error: error.message, at: new Date() }).catch(
+          () => undefined,
+        );
       }
 
       return NextResponse.json(

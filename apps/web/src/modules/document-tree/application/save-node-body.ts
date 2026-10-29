@@ -37,7 +37,16 @@ export interface NodeBodyRepository {
     readonly previous: NodeBodySnapshot;
     readonly summary: string;
   }): Promise<NodeBodyRecord | null>;
+  /** Grava só a revisão — o corpo não muda. É o rastro de "uma pessoa leu isto" (#252). */
+  recordReview(input: {
+    readonly nodeId: string;
+    readonly current: NodeBodySnapshot;
+    readonly summary: string;
+  }): Promise<void>;
 }
+
+/** O resumo da revisão que *conferir* deixa no histórico do nó. */
+export const BODY_CONFIRMED = "corpo conferido";
 
 export async function saveNodeBody(
   repository: NodeBodyRepository,
@@ -85,4 +94,28 @@ export async function saveNodeBody(
     );
   }
   return { record, written: true };
+}
+
+/**
+ * Conferir o corpo de um nó (D40, #252): o exemplo ou a teoria que o scan escreveu foi lido contra
+ * o PDF, e sai de *a revisar*.
+ *
+ * O texto não muda — quem precisa corrigir edita, e editar já conta como leitura. O que conferir
+ * grava é uma revisão `USER` com o estado atual: a pergunta *a revisar* olha a origem da última
+ * revisão, e esta passa a ser de uma pessoa.
+ */
+export async function confirmNodeBody(
+  repository: NodeBodyRepository,
+  command: { readonly publicationId: string; readonly nodeId: string },
+): Promise<void> {
+  const current = await repository.find(command.publicationId, command.nodeId);
+  if (!current) throw new NodeNotFoundError(command.nodeId);
+  if (!canHaveBody(current.kind)) {
+    throw new InvalidNodeBodyError("Questão não tem corpo: confira pelo enunciado.");
+  }
+  await repository.recordReview({
+    nodeId: command.nodeId,
+    current: { title: current.title, bodyLatex: current.bodyLatex },
+    summary: BODY_CONFIRMED,
+  });
 }

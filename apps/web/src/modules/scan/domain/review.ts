@@ -1,9 +1,10 @@
 import { isAnchorRole, type AnchorRole } from "@modules/assets/domain/node-anchors";
 import { normalizeAnchor, type NormalizedBox } from "@modules/assets/domain/source-anchor";
+import { escapeLatexText } from "@modules/latex/domain/latex-escape";
 
 import type { CaptureProfile } from "./capture-profile";
 import { isScanKind, type ProposedRegion, type ScanKind } from "./proposal";
-import type { ScanItem } from "./scan-item";
+import { effectiveLatex, effectiveText, type ScanItem } from "./scan-item";
 
 /**
  * As operações de revisão da proposta (§36 do prompt 03).
@@ -286,8 +287,14 @@ function merge(context: Context, ids: readonly string[]): ReviewResult {
     reviewedText: selected.some((i) => i.reviewedText !== null)
       ? selected.map((i) => i.reviewedText ?? i.text).join("\n")
       : null,
-    reviewedLatex: selected.some((i) => i.reviewedLatex !== null)
-      ? selected.map((i) => i.reviewedLatex ?? i.latex ?? "").join("\n")
+    /*
+      O LaTeX que vale em cada parte — o revisado, senão o do reconhecimento, senão o da camada de
+      texto, senão o texto escapado (#250, CAP-07). Juntar só o revisado jogava fora a matemática
+      que o modelo reconheceu na outra parte, e o `mathResult` some com a união: o que ele trouxe
+      precisa ficar aqui.
+    */
+    reviewedLatex: selected.some((i) => i.reviewedLatex !== null || i.mathResult !== null)
+      ? selected.map((i) => effectiveLatex(i) ?? escapeLatexText(effectiveText(i))).join("\n")
       : null,
     needsMath: selected.some((item) => item.needsMath),
     mathResult: null,
