@@ -179,17 +179,26 @@ test.describe("o caminho da questão", () => {
     await page.goto(`/publications/${publicationId}/editor?node=${alvo}`);
     await abrirPrimeiraQuestao(page);
 
-    // O render fica pendurado de propósito: se a edição depende dele, é agora que trava.
+    // O render fica pendurado de propósito, até o teste soltá-lo: se a edição depende dele, é
+    // agora que trava. Uma espera fixa de 8 s podia acabar antes da digitação numa máquina
+    // carregada, e aí o teste digitava com o render já respondido.
+    let soltarRender = () => {};
+    const renderPendurado = new Promise<void>((resolve) => {
+      soltarRender = resolve;
+    });
     await page.route("**/questions/*/render", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 8_000));
+      await renderPendurado;
       await route.fulfill({ status: 503, json: { message: "worker fora do ar" } });
     });
 
     await page.getByRole("tab", { name: "PDF compilado" }).click();
+    const pedidoDeRender = page.waitForRequest("**/questions/*/render");
     await page
       .getByRole("button", { name: /Compilar/i })
       .first()
       .click();
+    // O render saiu e está em curso: é deste estado que a digitação tem de escapar.
+    await pedidoDeRender;
 
     const editor = page.getByRole("group", { name: /Editor LaTeX/ });
     await editor.locator(".monaco-editor .view-lines").click();
@@ -198,6 +207,7 @@ test.describe("o caminho da questão", () => {
 
     // Digitou **enquanto** a compilação estava em curso.
     await expect(page.getByText("não salvo", { exact: true })).toBeVisible({ timeout: 5_000 });
+    soltarRender();
 
     // E desfaz, para não deixar resíduo.
     await page.keyboard.press("Backspace");
