@@ -10,7 +10,7 @@ import { writeImportedWorkspace } from "@modules/portability/infrastructure/pris
 import { storage } from "@infrastructure/composition";
 import { readCappedBody } from "@/shared/http/read-capped-body";
 
-import { toErrorResponse } from "../../http";
+import { BadRequestError, toErrorResponse } from "../../http";
 
 /**
  * Importa um `.lbb`.
@@ -34,12 +34,7 @@ export async function POST(request: Request) {
     // pega o corpo que não o declara (#270). Ler tudo para depois comparar era aceitar 5 GB.
     // O teto é o do leitor e o da exportação (SEC-03): o `.lbb` que o app gera, o app aceita.
     const bytes = await readCappedBody(request, MAX_ARCHIVE_BYTES);
-    if (bytes.byteLength === 0) {
-      return NextResponse.json(
-        { error: "bad_request", message: "O corpo precisa ser o arquivo `.lbb`." },
-        { status: 400 },
-      );
-    }
+    if (bytes.byteLength === 0) throw new BadRequestError("O corpo precisa ser o arquivo `.lbb`.");
 
     const params = new URL(request.url).searchParams;
     const files = storage();

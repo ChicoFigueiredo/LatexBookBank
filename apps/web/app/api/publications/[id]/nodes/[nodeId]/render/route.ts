@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { RendererNotConfiguredError } from "@modules/rendering/domain/renderer-not-configured";
 import { PrismaNodeBodyRepository } from "@modules/document-tree/infrastructure/prisma-node-body";
 import { renderDocument } from "@modules/rendering/application/render-document";
 import { nodeRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
 import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
 
-import { parseRenderProfile, rendererNotConfigured, renderJobResponse } from "../../../../../render-http";
+import { parseRenderProfile, renderJobResponse } from "../../../../../render-http";
 import { toErrorResponse } from "../../../../../http";
 import { readJson } from "../../../../../http";
 
@@ -31,7 +32,7 @@ export async function POST(
     }
 
     const wiring = renderWiringFromEnv();
-    if (wiring === null) return rendererNotConfigured();
+    if (wiring === null) throw new RendererNotConfiguredError();
 
     const body = await readJson(request).catch(() => ({}) as Record<string, unknown>);
     const profile = parseRenderProfile(body);

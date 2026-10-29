@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   recognizeCrop,
+  VisionNotConfiguredError,
   type RecognitionMode,
 } from "@modules/recognition/application/recognize-crop";
 import {
@@ -32,17 +33,9 @@ const MODES = new Set(["display", "inline", "mixed", "text"]);
 
 export async function POST(request: Request) {
   try {
-    if (!visionConfigured(appEnv())) {
-      // Modelo de visão é outro: o bom de código raramente enxerga. Sem ele configurado, dizer o
-      // que falta é melhor que tentar com o modelo de texto e devolver algo sem sentido.
-      return NextResponse.json(
-        {
-          error: "vision_not_configured",
-          message: "Defina `AI_BASE_URL` e `AI_VISION_MODEL` em `apps/web/.env.local`.",
-        },
-        { status: 503 },
-      );
-    }
+    // Modelo de visão é outro: o bom de código raramente enxerga. Sem ele configurado, dizer o
+    // que falta é melhor que tentar com o modelo de texto e devolver algo sem sentido.
+    if (!visionConfigured(appEnv())) throw new VisionNotConfiguredError();
 
     const form = await request.formData().catch(() => null);
     if (form === null) throw new BadRequestError("Envie como `multipart/form-data`.");

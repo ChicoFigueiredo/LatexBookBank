@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { InvalidSortKeyError } from "@/shared/ordering/fractional-index";
+import { AlternativaDeOutraQuestaoError } from "@modules/agents/application/apply-question-patch";
+import { VisionNotConfiguredError } from "@modules/recognition/application/recognize-crop";
+import { RenderArtifactNotFoundError } from "@modules/rendering/domain/render-artifact-not-found";
+import { RendererNotConfiguredError } from "@modules/rendering/domain/renderer-not-configured";
 import { NoSourcePdfError } from "@modules/scan/application/start-scan";
 import { PublicationInAssessmentsError } from "@modules/publications/domain/publication-draft";
 import { LibraryNotFoundError } from "@modules/workspaces/domain/library";
@@ -69,6 +73,40 @@ describe("a tabela única de erro para HTTP", () => {
       new ConcurrencyConflictError("Question", "q1", "a", "b"),
       409,
       { error: "conflict", expectedVersion: "a", actualVersion: "b" },
+    ],
+    // ADR 0011: o que saía como 500, e o que as rotas montavam à mão, com o status e o código de
+    // sempre.
+    [
+      "patch com alternativa de outra questão",
+      new AlternativaDeOutraQuestaoError("q1", ["o9"]),
+      400,
+      { error: "option_from_another_question" },
+    ],
+    [
+      "worker de render não configurado",
+      new RendererNotConfiguredError(),
+      503,
+      {
+        error: "renderer_not_configured",
+        message:
+          "`RENDERER_BASE_URL` e `RENDERER_SECRET` não estão definidos. " +
+          "Suba o worker com `docker compose up -d` e preencha o `.env.local`.",
+      },
+    ],
+    [
+      "modelo de visão não configurado",
+      new VisionNotConfiguredError(),
+      503,
+      {
+        error: "vision_not_configured",
+        message: "Defina `AI_BASE_URL` e `AI_VISION_MODEL` em `apps/web/.env.local`.",
+      },
+    ],
+    [
+      "artefato que o job não tem",
+      new RenderArtifactNotFoundError("j1", "page-1.svg"),
+      404,
+      { error: "not_found", message: "Artefato `page-1.svg` não existe no job j1." },
     ],
   ];
 

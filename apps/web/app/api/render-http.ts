@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 
 import type { RenderDocumentResult } from "@modules/rendering/application/render-document";
 import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
-import { RENDERER_NOT_CONFIGURED_MESSAGE } from "@modules/rendering/infrastructure/render-wiring";
 import type { RenderProfile } from "@/shared/ports";
 
 import { BadRequestError } from "./http";
@@ -10,15 +9,10 @@ import { BadRequestError } from "./http";
 /**
  * O HTTP das rotas de render, num lugar só.
  *
- * A guarda de "worker não configurado", o perfil, o DTO do job e o 503 de worker fora do ar se
- * repetiam nas rotas da questão, do nó e do candidato — e as mensagens já tinham divergido.
+ * O perfil e o DTO do job se repetiam nas rotas da questão, do nó e do candidato — e as mensagens
+ * já tinham divergido. O "worker não configurado" é `RendererNotConfiguredError`, traduzido pela
+ * tabela de `http.ts` como qualquer outro erro (ADR 0011).
  */
-
-export const rendererNotConfigured = (): NextResponse =>
-  NextResponse.json(
-    { error: "renderer_not_configured", message: RENDERER_NOT_CONFIGURED_MESSAGE },
-    { status: 503 },
-  );
 
 /** O perfil pedido, ou o de preview quando o corpo não diz. */
 export function parseRenderProfile(body: Record<string, unknown>): RenderProfile {

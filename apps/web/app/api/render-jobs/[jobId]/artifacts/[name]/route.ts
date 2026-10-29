@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-
 import { findRenderArtifact } from "@modules/rendering/infrastructure/prisma-render-job-repository";
 import { storage } from "@infrastructure/composition";
 import { servedContentHeaders } from "@/shared/http/served-content";
@@ -7,6 +5,7 @@ import { asStorageKey, AssetNotFoundError } from "@/shared/ports";
 
 import { withErrors } from "../../../../http";
 import { ArtifactEvictedError } from "@modules/rendering/domain/artifact-evicted";
+import { RenderArtifactNotFoundError } from "@modules/rendering/domain/render-artifact-not-found";
 
 /**
  * Baixa um artefato de render.
@@ -28,12 +27,7 @@ export const GET = withErrors(async function GET(
 
   const asset = await findRenderArtifact(jobId, name);
 
-  if (asset === null) {
-    return NextResponse.json(
-      { error: "not_found", message: `Artefato \`${name}\` não existe no job ${jobId}.` },
-      { status: 404 },
-    );
-  }
+  if (asset === null) throw new RenderArtifactNotFoundError(jobId, name);
 
   const stored = await storage()
     .get(asStorageKey(asset.storageKey))

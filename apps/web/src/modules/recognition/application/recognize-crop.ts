@@ -23,6 +23,17 @@ import { candidateFrom, type RecognitionCandidate } from "../domain/recognition-
 export type RecognitionMode = "display" | "inline" | "mixed" | "text";
 
 /**
+ * Não há modelo de visão configurado — e reconhecer com o modelo de texto devolveria algo sem
+ * sentido. O 503 sai da tabela de `app/api/http.ts` (ADR 0011).
+ */
+export class VisionNotConfiguredError extends Error {
+  constructor() {
+    super("Defina `AI_BASE_URL` e `AI_VISION_MODEL` em `apps/web/.env.local`.");
+    this.name = "VisionNotConfiguredError";
+  }
+}
+
+/**
  * A âncora e o recorte que foi lido. Os dois vêm do formulário, e a gravação só acontece quando a
  * âncora é mesmo a daquele recorte (SEC-06): a transcrição de uma imagem não vai para outra.
  */
