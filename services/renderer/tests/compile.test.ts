@@ -4,14 +4,16 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_RENDER_OPTIONS, type RenderBundle } from "@latexbookbank/render-contract";
 
 import { buildDocument, compile } from "../src/compile.ts";
+import { describeComTex } from "./tex.ts";
 
 /**
  * A compilação, contra o `pdflatex` de verdade.
  *
  * Não há dublê aqui de propósito. O que este worker faz é chamar dois binários e ler o que eles
  * produzem; um teste com processo falso verificaria que eu sei escrever um processo falso. O TeX
- * Live está na máquina de desenvolvimento e vai estar na imagem — se não estiver, é isto que
- * falha, e falhar aqui é melhor do que descobrir no droplet.
+ * Live está na máquina de desenvolvimento e no job `renderer-tex` do CI, que exige o TeX
+ * (`RENDERER_REQUIRE_TEX=1`): lá, a falta dele é falha. Onde não há TeX, os blocos que compilam
+ * são pulados com o motivo no nome — ver `tests/tex.ts`.
  */
 
 const bundle = (over: Partial<RenderBundle> = {}): RenderBundle => ({
@@ -62,7 +64,44 @@ describe("buildDocument", () => {
   });
 });
 
-describe("compile", () => {
+/** O que o worker recusa antes de chamar o TeX: roda em qualquer máquina, com ou sem `pdflatex`. */
+describe("compile — recusas antes do TeX", () => {
+  it("recusa `\\write18` antes de tocar o disco", async () => {
+    const { result, artifacts } = await compile(
+      bundle({ sourceLatex: "\\immediate\\write18{touch /tmp/invadido}" }),
+      new Map(),
+      deps,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.diagnostics[0]?.message).toContain("execução de shell");
+    expect(artifacts.size).toBe(0);
+  });
+
+  it("recusa asset cujo sha256 não bate com os bytes", async () => {
+    // Ou o transporte corrompeu, ou trocaram o arquivo no caminho. As duas hipóteses pedem parar.
+    const png = Buffer.from("nao e png");
+
+    await expect(
+      compile(
+        bundle({
+          assets: [
+            {
+              name: "ponto.png",
+              mimeType: "image/png",
+              sizeBytes: png.byteLength,
+              sha256: "0".repeat(64),
+            },
+          ],
+        }),
+        new Map([["ponto.png", png]]),
+        deps,
+      ),
+    ).rejects.toThrow(/sha256 não confere/);
+  });
+});
+
+describeComTex("compile", () => {
   it("compila um documento simples e devolve PDF e PNG", async () => {
     const { result, artifacts } = await compile(bundle(), new Map(), deps);
 
@@ -116,18 +155,6 @@ describe("compile", () => {
     expect(result.stdout).toContain("pdfTeX");
   });
 
-  it("recusa `\\write18` antes de tocar o disco", async () => {
-    const { result, artifacts } = await compile(
-      bundle({ sourceLatex: "\\immediate\\write18{touch /tmp/invadido}" }),
-      new Map(),
-      deps,
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.diagnostics[0]?.message).toContain("execução de shell");
-    expect(artifacts.size).toBe(0);
-  });
-
   it("grava o asset e o LaTeX o encontra", async () => {
     // Um PNG 1×1 de verdade: o `\includegraphics` precisa de arquivo que o TeX consiga ler.
     const png = Buffer.from(
@@ -156,28 +183,6 @@ describe("compile", () => {
     );
 
     expect(result.success).toBe(true);
-  });
-
-  it("recusa asset cujo sha256 não bate com os bytes", async () => {
-    // Ou o transporte corrompeu, ou trocaram o arquivo no caminho. As duas hipóteses pedem parar.
-    const png = Buffer.from("nao e png");
-
-    await expect(
-      compile(
-        bundle({
-          assets: [
-            {
-              name: "ponto.png",
-              mimeType: "image/png",
-              sizeBytes: png.byteLength,
-              sha256: "0".repeat(64),
-            },
-          ],
-        }),
-        new Map([["ponto.png", png]]),
-        deps,
-      ),
-    ).rejects.toThrow(/sha256 não confere/);
   });
 
   it("não deixa diretório temporário para trás", async () => {
@@ -215,7 +220,7 @@ describe("compile", () => {
  * Live, `\openin` abre qualquer caminho, e o que ele lê volta no log — que a aplicação grava, mostra
  * e manda ao modelo de IA. Na imagem do worker, `/proc/1/environ` trazia o `RENDERER_SECRET`.
  */
-describe("compile — leitura de arquivo", () => {
+describeComTex("compile — leitura de arquivo", () => {
   const leitura = (caminho: string) =>
     bundle({
       sourceLatex: [

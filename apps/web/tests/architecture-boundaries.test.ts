@@ -107,6 +107,96 @@ describe("agente propõe, nunca escreve", () => {
   });
 });
 
+/**
+ * Os furos que a revisão de 2026-09-23 mediu (TST-07, #273): cada um destes imports passava pelo
+ * lint, que só negava as formas com alias. Um caso por furo, no caminho em que ele foi medido.
+ */
+describe("os furos medidos na revisão de 2026-09-23", () => {
+  const REPOSITORIO_PRISMA = `import { PrismaQuestionRepository } from "@modules/questions/infrastructure/prisma-question-repository";\nexport const R = PrismaQuestionRepository;`;
+
+  it("domínio não importa a infraestrutura de outro módulo", async () => {
+    const messages = await lintAs(DOMAIN_FILE, REPOSITORIO_PRISMA);
+    expect(messages.join("\n")).toMatch(/Domínio não importa infraestrutura/);
+  });
+
+  it("domínio não alcança a infraestrutura por caminho relativo", async () => {
+    const messages = await lintAs(
+      DOMAIN_FILE,
+      `import { db } from "../../../infrastructure/database/sqlite/client";\nexport const d = db;`,
+    );
+    expect(messages.join("\n")).toMatch(/Domínio não importa infraestrutura/);
+  });
+
+  it("domínio não usa import() dinâmico, que o no-restricted-imports não enxerga", async () => {
+    const messages = await lintAs(
+      DOMAIN_FILE,
+      `export async function ler() {\n  const fs = await import("node:fs");\n  return fs;\n}`,
+    );
+    expect(messages.join("\n")).toMatch(/Domínio não carrega módulo em tempo de execução/);
+  });
+
+  it("domínio não usa require, pelo mesmo motivo", async () => {
+    const messages = await lintAs(
+      DOMAIN_FILE,
+      `export function ler() {\n  return require("node:fs");\n}`,
+    );
+    expect(messages.join("\n")).toMatch(/Domínio não carrega módulo em tempo de execução/);
+  });
+
+  it("domínio não conhece o driver do banco", async () => {
+    const messages = await lintAs(
+      DOMAIN_FILE,
+      `import { createClient } from "@libsql/client";\nexport const c = createClient;`,
+    );
+    expect(messages.join("\n")).toMatch(/Domínio não conhece o driver/);
+  });
+
+  it("o agente não alcança o PatchApplier", async () => {
+    const messages = await lintAs(
+      "src/modules/agents/application/violation.ts",
+      `import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";\nexport const P = PrismaPatchApplier;`,
+    );
+    expect(messages.join("\n")).toMatch(/O agente não aplica patch/);
+  });
+
+  it("o agente não importa a infraestrutura de outro módulo", async () => {
+    const messages = await lintAs(AGENT_FILE, REPOSITORIO_PRISMA);
+    expect(messages.join("\n")).toMatch(/O agente não acessa/);
+  });
+
+  it("o domínio do agente continua sendo domínio: o bloco do agente não apaga o do domínio", async () => {
+    // Em flat config o último bloco que casa substitui `no-restricted-imports` inteiro. O do agente
+    // vinha depois do de domínio, e em `agents/domain` o filesystem passava.
+    const messages = await lintAs(
+      AGENT_FILE,
+      `import { readFileSync } from "node:fs";\nexport const r = readFileSync;`,
+    );
+    expect(messages.join("\n")).toMatch(/Domínio não toca o filesystem/);
+  });
+
+  it("componente React não importa o repositório Prisma de um módulo", async () => {
+    const messages = await lintAs(UI_FILE, `${REPOSITORIO_PRISMA}\nexport const C = () => null;`);
+    expect(messages.join("\n")).toMatch(/Componente React não importa infraestrutura/);
+  });
+
+  it("a exceção nomeada: o MathJax do preview é infraestrutura que a UI pode usar", async () => {
+    const messages = await lintAs(
+      "src/modules/preview/ui/Allowed.tsx",
+      `import { renderMath } from "@modules/preview/infrastructure/mathjax";\nexport const R = renderMath;`,
+    );
+    expect(messages).toHaveLength(0);
+  });
+
+  it("o SQL cru continua barrado no domínio, mesmo com a regra de import dinâmico ao lado", async () => {
+    // As duas são `no-restricted-syntax`; se a nova viesse num bloco separado, apagaria a outra.
+    const messages = await lintAs(
+      DOMAIN_FILE,
+      `export const q = (db: { $queryRaw: unknown }) => db.$queryRaw;`,
+    );
+    expect(messages.join("\n")).toMatch(/SQL cru fora de infrastructure/);
+  });
+});
+
 describe("a camada de application continua livre", () => {
   it("pode orquestrar infraestrutura", async () => {
     const messages = await lintAs(

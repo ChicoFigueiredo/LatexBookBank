@@ -212,6 +212,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Nenhum componente React importa Prisma
 - ✅ O agente não tem caminho de escrita no banco
 - ✅ Todas as regras verificadas com violação proposital antes de marcar
+- ✅ Sem furo por caminho relativo, infraestrutura de outro módulo, `import()`/`require`, driver do banco nem `PatchApplier` no agente *(#273 — cada furo medido na revisão de 2026-09-23 é um caso de `architecture-boundaries.test.ts`)*
 
 **As quatro fronteiras primárias** — #5 *(D23)*
 - ✅ `Repository` — convenção por agregado documentada; `ConcurrencyConflictError` definido *(o `TransactionRunner` que existia aqui foi removido na #191: nunca teve implementação nem chamador)*
@@ -615,7 +616,7 @@ Levantados em 2026-08-07, antes do planejamento. Não precisam ser refeitos.
 - ✅ Profile **Legacy Compatibility** a partir do `latex-includes.tex` real *(34 packages, na ordem original — `fontenc` antes de `inputenc`, `xcolor` antes de quem o usa; reordenar por gosto só aparece três questões depois)*
 - ✅ As três macros do legado *(`\tikzmark`, `\colorcancel`, `\ontop`; sem elas, as questões de álgebra param de compilar)*
 - ✅ Profile **Question Preview**, enxuto *(o legado carrega 34 packages; `abntex2cite` e `rotating` para desenhar três linhas custam segundos que a pessoa espera olhando. Recorta no conteúdo, senão uma questão de quatro linhas vira uma imagem 90% branca)*
-- ✅ Teste confere o perfil contra o **arquivo legado real**, e se declara pulado onde ele não existe *(o CI não tem o acervo; um teste vermelho por isso viraria ruído até alguém desativá-lo)*
+- ✅ Teste confere o perfil contra o **arquivo legado real**, e se declara pulado onde ele não existe *(o CI não tem o acervo; um teste vermelho por isso viraria ruído até alguém desativá-lo. O caminho vem de `LEGACY_LATEX_PREAMBLE` no `.env.local`; sem ela o nome do teste diz o que falta, e apontando para arquivo que sumiu ele falha)*
 - ✅ **Os dois perfis compilam na imagem, conferidos de olho** *(integral, `\colorcancel` vermelho, `9,8 m s⁻²` e as letras vindas do `label`)*
 - ✅ `LatexBuilder` monta o bundle a partir da questão *(letra da alternativa vem de `label=\alph*)`, nunca escrita no texto — D9)*
 - ✅ Resposta **omitida por padrão** *(é o que se mostra ao aluno; incluir o gabarito por engano seria o pior defeito possível)*
