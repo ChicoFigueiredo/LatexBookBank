@@ -5,7 +5,7 @@ import type {
   UploadAssetResponse,
 } from "@modules/assets/application/asset-contract";
 import type { RecognitionCandidate } from "@modules/recognition/domain/recognition-review";
-import { readReply, type JsonReply } from "@/shared/http/api-client";
+import { readLenientReply, readReply, type JsonReply } from "@/shared/http/api-client";
 
 /**
  * As três rotas da captura — subir, recortar, reconhecer —, tipadas pelo contrato que elas
@@ -86,14 +86,14 @@ export const captureApi = {
   },
 
   /**
-   * Reconhecer dentro do lote: só importa se deu certo. O corpo não é lido — a transcrição fica
-   * guardada na âncora, e a fila de captura é quem a mostra.
+   * Reconhecer dentro do lote: só importa se deu certo. O corpo não decide nada, nem quando não é
+   * JSON — a transcrição fica guardada na âncora, e a fila de captura é quem a mostra.
    */
   async recognizeInBatch(request: RecognizeRequest): Promise<boolean> {
-    const response = await fetch("/api/recognition", {
+    const reply = await readLenientReply<RecognitionCandidate>("/api/recognition", {
       method: "POST",
       body: recognizeForm(request),
     });
-    return response.ok;
+    return reply.ok;
   },
 };
