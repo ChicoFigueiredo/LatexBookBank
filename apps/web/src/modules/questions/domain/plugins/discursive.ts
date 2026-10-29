@@ -13,6 +13,7 @@ import { commonPreview, validateCommon } from "./shared";
 export const discursivePlugin: QuestionTypePlugin = {
   type: "DISCURSIVE",
   label: "Discursiva",
+  options: null,
 
   validate(question) {
     const issues = [...validateCommon(question)];

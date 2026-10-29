@@ -20,6 +20,7 @@ import { validateCommon } from "./shared";
 export const multipleCorrectPlugin: QuestionTypePlugin = {
   type: "MULTIPLE_CORRECT",
   label: "Múltipla escolha",
+  options: { initial: 5, exclusiveCorrect: false },
 
   validate(question) {
     const issues = [...validateCommon(question)];

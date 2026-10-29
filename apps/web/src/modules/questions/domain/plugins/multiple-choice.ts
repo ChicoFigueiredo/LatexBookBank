@@ -23,6 +23,7 @@ import { validateCommon } from "./shared";
 export const multipleChoicePlugin: QuestionTypePlugin = {
   type: "MULTIPLE_CHOICE",
   label: "Escolha simples",
+  options: { initial: 5, exclusiveCorrect: true },
 
   validate(question) {
     const issues = [...validateCommon(question)];

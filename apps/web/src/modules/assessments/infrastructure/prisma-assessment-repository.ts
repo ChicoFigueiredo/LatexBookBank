@@ -4,6 +4,7 @@ import { prisma } from "@infrastructure/database/sqlite/client";
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
 
 import { candidatesWhere } from "./prisma-candidate-where";
+import { assessmentContentOf } from "@modules/assessments/domain/question-content";
 import type { AssessmentQuestionContent } from "@modules/assessments/domain/assessment-template";
 import type { Variant } from "@modules/assessments/domain/variant";
 import type { AssessmentRecord } from "@modules/assessments/application/compose-assessment";
@@ -302,6 +303,7 @@ export async function contentFor(
     where: { id: { in: [...questionIds] } },
     select: {
       id: true,
+      type: true,
       statementLatex: true,
       solutionLatex: true,
       options: {
@@ -315,18 +317,9 @@ export async function contentFor(
   return Object.fromEntries(
     rows.map((row) => [
       row.id,
-      {
-        questionId: row.id,
-        statementLatex: row.statementLatex,
-        solutionLatex: row.solutionLatex,
-        options: Object.fromEntries(
-          row.options.map((option) => [option.id, option.statementLatex]),
-        ),
-        correctOptionId: row.options.find((option) => option.isCorrect)?.id ?? null,
-        points: null,
-        // Excluir um capítulo marca a subárvore inteira, então o nó da própria questão basta.
-        inTrash: row.node?.deletedAt != null,
-      },
+      // O tipo decide o que se imprime, e quem responde é o plugin dele (#262).
+      // Excluir um capítulo marca a subárvore inteira, então o nó da própria questão basta (#263).
+      assessmentContentOf(row, { inTrash: row.node?.deletedAt != null }),
     ]),
   );
 }

@@ -40,7 +40,7 @@ interface ItemRow {
   readonly questionId: string;
   readonly excerpt: string;
   readonly optionCount: number;
-  readonly hasCorrect: boolean;
+  readonly missingCorrect: boolean;
   readonly inTrash: boolean;
 }
 
@@ -53,7 +53,7 @@ interface Detail {
 interface Composed {
   readonly label: string;
   readonly seed: number;
-  readonly answers: Readonly<Record<string, string>>;
+  readonly answers: Readonly<Record<string, readonly string[]>>;
   readonly latex: Readonly<Record<TemplateAudience, string>>;
 }
 
@@ -139,7 +139,7 @@ export function AssessmentBuilder({ assessmentId, candidates = [] }: AssessmentB
   };
 
   const inProva = new Set(detail?.items.map((item) => item.questionId) ?? []);
-  const missingAnswer = (detail?.items ?? []).filter((item) => !item.hasCorrect);
+  const missingAnswer = (detail?.items ?? []).filter((item) => item.missingCorrect);
   const inTrash = (detail?.items ?? []).filter((item) => item.inTrash);
 
   return (
@@ -250,9 +250,9 @@ export function AssessmentBuilder({ assessmentId, candidates = [] }: AssessmentB
           </h3>
 
           <div className="lbb-asm-key">
-            {Object.entries(composed.answers).map(([questionId, letter], index) => (
+            {Object.entries(composed.answers).map(([questionId, letters], index) => (
               <Badge key={questionId} tone="accent">
-                {index + 1}) {letter}
+                {index + 1}) {letters.join(", ")}
               </Badge>
             ))}
           </div>

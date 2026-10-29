@@ -24,7 +24,9 @@ const question = (id: string, correct: string): AssessmentQuestionContent => ({
   statementLatex: `Enunciado de ${id}`,
   solutionLatex: "",
   options: { [`${id}-o1`]: "um", [`${id}-o2`]: "dois", [`${id}-o3`]: "três" },
-  correctOptionId: correct,
+  correctOptionIds: [correct],
+  hasOptions: true,
+  supported: true,
   points: null,
   inTrash: false,
 });
@@ -100,11 +102,11 @@ describe("as três versões", () => {
     const variant = composeVariant(assessment, spec, content);
     const versions = composeVersions(assessment, variant, content);
 
-    for (const [questionId, letter] of Object.entries(versions.answers)) {
-      const correct = content[questionId]!.correctOptionId!;
+    for (const [questionId, letters] of Object.entries(versions.answers)) {
+      const [correct] = content[questionId]!.correctOptionIds;
       const printed = variant.questions.find((q) => q.questionId === questionId)!;
 
-      expect(printed.labelByOptionId[correct]).toBe(letter);
+      expect(letters).toEqual([printed.labelByOptionId[correct!]]);
     }
   });
 
@@ -130,7 +132,7 @@ describe("as três versões", () => {
   it("questão sem correta não derruba a prova — fica fora do gabarito", () => {
     // Discursiva não tem alternativa, e recusar a prova inteira por isso seria absurdo. Quem
     // avisa que o gabarito ficará incompleto é a tela, antes de imprimir.
-    const semCorreta = { ...content, q1: { ...content["q1"]!, correctOptionId: null } };
+    const semCorreta = { ...content, q1: { ...content["q1"]!, correctOptionIds: [] } };
     const variant = composeVariant(assessment, spec, semCorreta);
     const versions = composeVersions(assessment, variant, semCorreta);
 

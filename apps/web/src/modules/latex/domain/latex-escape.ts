@@ -14,7 +14,11 @@
  * não sabe que virou LaTeX. Quem protege a compilação é o worker, que roda sem `shell-escape` e
  * sem rede.
  *
- * Ver spec §19 · issue #193.
+ * Mora em `latex/` e não em `recognition/` desde a #262: a avaliação escapava o cabeçalho com uma
+ * cópia própria, em várias passadas e sem a barra invertida, e `Lista 1\2` virava o comando `\2`.
+ * Um escape só, para quem precisar escrever texto num `.tex`.
+ *
+ * Ver spec §19 · issue #193 · #262.
  */
 
 /**

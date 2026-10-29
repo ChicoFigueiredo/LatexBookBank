@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  escapeText,
   renderAssessment,
   TEMPLATE_AUDIENCES,
   type AssessmentQuestionContent,
@@ -24,7 +23,9 @@ const content: Record<string, AssessmentQuestionContent> = {
     statementLatex: "Um capital de \\SI{1000}{\\real} rende quanto?",
     solutionLatex: "$M = C(1+it)$",
     options: { "o-a": "\\SI{1020}{\\real}", "o-b": "\\SI{1060}{\\real}", "o-e": "nenhuma" },
-    correctOptionId: "o-b",
+    correctOptionIds: ["o-b"],
+    hasOptions: true,
+    supported: true,
     points: 2,
     inTrash: false,
   },
@@ -33,7 +34,9 @@ const content: Record<string, AssessmentQuestionContent> = {
     statementLatex: "Demonstre o teorema.",
     solutionLatex: "A demonstração usa uma paralela.",
     options: {},
-    correctOptionId: null,
+    correctOptionIds: [],
+    hasOptions: false,
+    supported: true,
     points: 3,
     inTrash: false,
   },
@@ -167,8 +170,33 @@ describe("escape", () => {
   });
 
   it("escapa o que o LaTeX trata como comando", () => {
-    expect(escapeText("100% de R$ 50 & mais")).toBe("100\\% de R\\$ 50 \\& mais");
-    expect(escapeText("a~b^c")).toBe("a\\~{}b\\^{}c");
+    const latex = renderAssessment({
+      audience: "STUDENT",
+      header: { ...header, title: "100% de R$ 50 & mais", subtitle: null, notes: null },
+      variant,
+      content,
+    });
+
+    expect(latex).toContain("100\\% de R\\$ 50 \\& mais");
+  });
+
+  it("a barra invertida, o til e o circunflexo saem como caracteres (#262 · STM-08)", () => {
+    // `Lista 1\2` virava `\2` no cabeçalho: erro de compilação, ou um comando executado no lugar
+    // do texto. E `\~{}` é um acento sobre o vazio, não o til.
+    const latex = renderAssessment({
+      audience: "STUDENT",
+      header: { ...header, title: "Lista 1\\2", subtitle: null, notes: "use a~b^c" },
+      variant,
+      content,
+    });
+
+    expect(latex).toContain("Lista 1\\textbackslash{}2");
+    expect(latex).toContain("use a\\textasciitilde{}b\\textasciicircum{}c");
+  });
+
+  it("o cabeçalho diz Variante, e não Versão — o termo do glossário", () => {
+    expect(render("STUDENT")).toContain("Variante A");
+    expect(render("STUDENT")).not.toContain("Versão");
   });
 });
 

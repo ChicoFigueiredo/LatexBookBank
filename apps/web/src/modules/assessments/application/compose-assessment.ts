@@ -55,6 +55,22 @@ export class MissingQuestionError extends Error {
 }
 
 /**
+ * Há questão de tipo que a avaliação não sabe imprimir nem corrigir (#262).
+ *
+ * Um tipo sem plugin não diz se tem alternativas nem quantas corretas aceita. Imprimi-lo como
+ * escolha simples daria um gabarito errado — o defeito que só aparece na correção.
+ */
+export class UnsupportedQuestionTypeError extends Error {
+  constructor(readonly questionIds: readonly string[]) {
+    super(
+      `${questionIds.length} questão(ões) da prova são de um tipo que a avaliação ainda não sabe ` +
+        "imprimir. Tire-as da prova ou troque o tipo delas.",
+    );
+    this.name = "UnsupportedQuestionTypeError";
+  }
+}
+
+/**
  * Há questão da prova cujo nó está na lixeira (#263).
  *
  * Recusa, e não pula: pular daria uma prova com uma questão a menos do que a tela mostra, e
@@ -90,6 +106,11 @@ export function composeVariant(
     .map((item) => item.questionId);
   if (inTrash.length > 0) throw new QuestionsInTrashError(inTrash);
 
+  const unsupported = assessment.items
+    .filter((item) => content[item.questionId]?.supported === false)
+    .map((item) => item.questionId);
+  if (unsupported.length > 0) throw new UnsupportedQuestionTypeError(unsupported);
+
   return buildVariant({
     label: spec.label,
     seed: spec.seed,
@@ -110,8 +131,8 @@ export function composeVariant(
 
 export interface ComposedVersions {
   readonly variant: Variant;
-  /** `questionId` → letra da correta, na **letra que foi impressa**. */
-  readonly answers: Readonly<Record<string, string>>;
+  /** `questionId` → letras das corretas, **como foram impressas**. */
+  readonly answers: Readonly<Record<string, readonly string[]>>;
   readonly latexByAudience: Readonly<Record<TemplateAudience, string>>;
 }
 
@@ -134,12 +155,10 @@ export function composeVersions(
     variantLabel: variant.label,
   };
 
-  const correctByQuestion: Record<string, string> = {};
+  const correctByQuestion: Record<string, readonly string[]> = {};
   for (const question of variant.questions) {
-    const correct = content[question.questionId]?.correctOptionId;
-    if (correct !== null && correct !== undefined) {
-      correctByQuestion[question.questionId] = correct;
-    }
+    const correct = content[question.questionId]?.correctOptionIds;
+    if (correct !== undefined) correctByQuestion[question.questionId] = correct;
   }
 
   const latexByAudience = Object.fromEntries(

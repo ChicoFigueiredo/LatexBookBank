@@ -50,6 +50,7 @@ const question = (over: Partial<QuestionForRender> = {}): QuestionForRender => (
 const plugin: QuestionTypePlugin = {
   type: FAKE_TYPE,
   label: "Verdadeiro ou falso (teste)",
+  options: { initial: 2, exclusiveCorrect: true },
   validate: () => [],
   buildLatexBlocks: (q) => [
     { origin: "statementLatex", lines: [`\\marcaDoTipo{${q.statementLatex}}`], prefixLines: 0 },

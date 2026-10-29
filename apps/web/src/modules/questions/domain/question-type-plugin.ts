@@ -57,10 +57,31 @@ export interface BuildLatexOptions {
   readonly includeSolution?: boolean;
 }
 
+/**
+ * O que um tipo com alternativas declara sobre elas.
+ *
+ * Declarado no plugin, e não em tabelas por tipo espalhadas pelo código: a avaliação, o editor e a
+ * criação perguntam aqui, e um tipo novo diz isto uma vez, no arquivo dele.
+ */
+export interface OptionsCapability {
+  /** Quantas alternativas a questão ganha ao nascer. */
+  readonly initial: number;
+  /** Só uma pode ser correta: marcar uma desmarca as outras. */
+  readonly exclusiveCorrect: boolean;
+}
+
 export interface QuestionTypePlugin {
   readonly type: QuestionType;
   /** Nome em português, para a interface. */
   readonly label: string;
+
+  /**
+   * As alternativas do tipo, ou `null` quando ele não as tem.
+   *
+   * `null` não apaga nada: trocar uma escolha simples para discursiva deixa as alternativas no
+   * banco. Quer dizer que elas **não aparecem** — nem na prova, nem no gabarito (#262).
+   */
+  readonly options: OptionsCapability | null;
 
   validate(question: QuestionForPlugin): readonly ValidationIssue[];
 

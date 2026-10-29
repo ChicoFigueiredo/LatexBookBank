@@ -6,6 +6,7 @@ import {
   EmptyAssessmentError,
   MissingQuestionError,
   QuestionsInTrashError,
+  UnsupportedQuestionTypeError,
 } from "@modules/assessments/application/compose-assessment";
 import {
   contentFor,
@@ -92,6 +93,16 @@ export async function POST(
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof UnsupportedQuestionTypeError) {
+      return NextResponse.json(
+        {
+          error: "unsupported_question_type",
+          message: error.message,
+          questionIds: error.questionIds,
+        },
+        { status: 409 },
+      );
+    }
     if (error instanceof QuestionsInTrashError) {
       return NextResponse.json(
         { error: "questions_in_trash", message: error.message, questionIds: error.questionIds },
