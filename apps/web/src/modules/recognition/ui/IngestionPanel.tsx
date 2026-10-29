@@ -7,6 +7,7 @@ import { AssetDropzone } from "@modules/assets/ui/AssetDropzone";
 import { PdfCropViewer } from "@modules/assets/ui/PdfCropViewer";
 import { optionLabelAt } from "@modules/questions/domain/question-type";
 import {
+  aplicarDivisoes,
   detectarBlocoUnido,
   separarAlternativas,
   type AlternativaLida,
@@ -22,6 +23,8 @@ import {
   type RecognitionCandidate,
 } from "@modules/recognition/domain/recognition-review";
 import type { MathRecognitionResult } from "@/shared/ports";
+
+import { captureApi } from "./capture-client";
 
 /**
  * A ingestão visual, ponta a ponta: subir → recortar → reconhecer → revisar.
@@ -128,22 +131,6 @@ export interface IngestionPanelProps {
    * continuava mostrando a pendência “Sem PDF fonte anexado” já resolvida.
    */
   readonly onBookSourceAttached?: () => void;
-}
-
-/** Aplica as divisões aceitas até nenhuma mais casar. Ver o comentário no consumidor. */
-function aplicarDivisoes(
-  options: readonly AlternativaLida[],
-  divididos: ReadonlyMap<string, readonly AlternativaLida[]>,
-): readonly AlternativaLida[] {
-  let atual = options;
-
-  for (let passada = 0; passada < 5; passada += 1) {
-    const proxima = atual.flatMap((opcao) => divididos.get(opcao.statementLatex) ?? [opcao]);
-    if (proxima.length === atual.length) return proxima;
-    atual = proxima;
-  }
-
-  return atual;
 }
 
 /** Os quatro do contrato de reconhecimento, com o rótulo que a tela usa. */
@@ -317,23 +304,13 @@ export function IngestionPanel({
     setBusy("subindo");
     setError(null);
     try {
-      const form = new FormData();
-      form.set("file", file);
-      form.set("workspaceId", workspaceId);
       // O livro vai junto — e é o que faltava. Sem ele o `Asset` nascia com `publicationId` nulo,
       // `Publication.sourcePdfAssetId` continuava nulo, e o PDF que alguém acabou de subir pela
       // pendência "Sem PDF fonte anexado" sumia do livro em silêncio: a tela mostrava o
       // arquivo, dava para recortar, e na visita seguinte a pendência estava lá de novo.
-      form.set("publicationId", publicationId);
+      const { ok, body: payload } = await captureApi.upload({ file, workspaceId, publicationId });
 
-      const response = await fetch("/api/assets", { method: "POST", body: form });
-      const payload = (await response.json()) as {
-        id?: string;
-        becameBookSource?: boolean;
-        message?: string;
-      };
-
-      if (!response.ok || payload.id === undefined) {
+      if (!ok || payload.id === undefined) {
         setError(payload.message ?? "O arquivo não foi aceito.");
         return;
       }
@@ -372,22 +349,16 @@ export function IngestionPanel({
     setBusy("salvando o recorte");
     setError(null);
     try {
-      const form = new FormData();
-      form.set("image", crop.png, "crop.png");
-      form.set("sourceAssetId", source.assetId);
-      form.set("publicationId", publicationId);
-      form.set("pageNumber", String(crop.pageNumber));
-      for (const [key, value] of Object.entries(crop.box)) form.set(key, String(value));
-      if (questionId !== null) form.set("questionId", questionId);
+      const { ok, body: payload } = await captureApi.saveCrop({
+        png: crop.png,
+        sourceAssetId: source.assetId,
+        publicationId,
+        pageNumber: crop.pageNumber,
+        box: crop.box,
+        questionId,
+      });
 
-      const response = await fetch("/api/assets/crop", { method: "POST", body: form });
-      const payload = (await response.json()) as {
-        cropAssetId?: string;
-        anchorId?: string;
-        message?: string;
-      };
-
-      if (!response.ok || payload.cropAssetId === undefined || payload.anchorId === undefined) {
+      if (!ok || payload.cropAssetId === undefined || payload.anchorId === undefined) {
         setError(payload.message ?? "O recorte não foi salvo.");
         return;
       }
@@ -441,30 +412,27 @@ export function IngestionPanel({
 
     for (const [indice, recorte] of recortes.entries()) {
       try {
-        const form = new FormData();
-        form.set("image", recorte.png, "crop.png");
-        form.set("sourceAssetId", source.assetId);
-        form.set("publicationId", publicationId);
-        form.set("pageNumber", String(recorte.pageNumber));
-        for (const [chave, valor] of Object.entries(recorte.box)) form.set(chave, String(valor));
-
-        const salvo = await fetch("/api/assets/crop", { method: "POST", body: form });
-        const guardado = (await salvo.json()) as { cropAssetId?: string; anchorId?: string };
-        if (!salvo.ok || !guardado.cropAssetId) {
+        const { ok: salvo, body: guardado } = await captureApi.saveCrop({
+          png: recorte.png,
+          sourceAssetId: source.assetId,
+          publicationId,
+          pageNumber: recorte.pageNumber,
+          box: recorte.box,
+        });
+        if (!salvo || !guardado.cropAssetId) {
           falhas += 1;
           continue;
         }
 
         // O reconhecimento é a parte cara e a que pode não existir (modelo fora do ar). O recorte
         // já está salvo neste ponto, então falhar aqui custa a transcrição, nunca o recorte.
-        const pedido = new FormData();
-        pedido.set("image", recorte.png, "crop.png");
-        pedido.set("cropAssetId", guardado.cropAssetId);
-        pedido.set("mode", MODO_DO_PROVIDER("questao"));
-        if (guardado.anchorId !== undefined) pedido.set("anchorId", guardado.anchorId);
-
-        const lido = await fetch("/api/recognition", { method: "POST", body: pedido });
-        if (!lido.ok) falhas += 1;
+        const lido = await captureApi.recognizeInBatch({
+          png: recorte.png,
+          cropAssetId: guardado.cropAssetId,
+          mode: MODO_DO_PROVIDER("questao"),
+          anchorId: guardado.anchorId ?? null,
+        });
+        if (!lido) falhas += 1;
       } catch {
         falhas += 1;
       }
@@ -486,26 +454,24 @@ export function IngestionPanel({
     setBusy("reconhecendo");
     setProgresso((atual) => [...atual, "lendo texto e matemática"]);
     try {
-      const form = new FormData();
-      form.set("image", png, "crop.png");
-      form.set("cropAssetId", assetId);
-      form.set("mode", MODO_DO_PROVIDER(modo));
       // A âncora vai junto para o servidor **guardar** o que o modelo leu. É o que faz reconhecer
       // dez recortes e fechar a aba não perder as dez transcrições (§26).
-      if (anchor !== null) form.set("anchorId", anchor);
+      const { ok, body: payload } = await captureApi.recognize({
+        png,
+        cropAssetId: assetId,
+        mode: MODO_DO_PROVIDER(modo),
+        anchorId: anchor,
+      });
 
-      const response = await fetch("/api/recognition", { method: "POST", body: form });
-      const payload = (await response.json()) as
-        (RecognitionCandidate & { message?: string }) | { message?: string };
-
-      if (!response.ok) {
+      if (!ok) {
         // Falha do reconhecedor **não perde trabalho**: o recorte já está guardado, e a pessoa
         // pode transcrever à mão ou tentar de novo.
-        setError((payload as { message?: string }).message ?? "O reconhecimento falhou.");
+        setError(payload.message ?? "O reconhecimento falhou.");
         setCandidate(candidateFrom(assetId, emptyResult()));
         return;
       }
 
+      // Resposta 200 é o candidato inteiro (`candidateFrom` na rota); o `Partial` é do leitor.
       setCandidate(payload as RecognitionCandidate);
     } catch {
       setError("Não deu para falar com o servidor.");

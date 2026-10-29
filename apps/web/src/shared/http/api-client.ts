@@ -59,6 +59,28 @@ export function sendJson<T>(url: string, method: string, body?: unknown): Promis
   });
 }
 
+/**
+ * A resposta lida sem decidir por quem chama: status e corpo, com os campos de sucesso opcionais.
+ *
+ * Para as telas que tratam a recusa e a resposta incompleta do mesmo jeito ("faltou o `id`" e
+ * "a rota disse não" dão a mesma mensagem). Corpo que não é JSON sobe como erro de leitura.
+ */
+export interface JsonReply<T> {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly body: Partial<T> & ApiErrorBody;
+}
+
+export async function readReply<T>(url: string, init?: RequestInit): Promise<JsonReply<T>> {
+  const response = await fetch(url, init);
+  const payload = (await response.json()) as unknown;
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: asErrorBody(payload) as Partial<T> & ApiErrorBody,
+  };
+}
+
 function asErrorBody(payload: unknown): ApiErrorBody {
   return typeof payload === "object" && payload !== null ? (payload as ApiErrorBody) : {};
 }
