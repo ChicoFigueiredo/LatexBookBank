@@ -1439,6 +1439,49 @@ Frente I (I10). Substitui a linha "Idioma" do README e completa a D54.
   conflitos de importação (`ImportConflict`), a localidade da IA (`aiLocality`), `ScanWorkspace`
   (`ScanReview`) e os scripts `relink-legacy-library.ts` e `close-merged-issues.sh`.
 
+#### D75 — O que a revisão do conjunto corrigiu, e o que fica declarado
+
+Revisão de código em dois eixos sobre `6dc8662..41b4766` (frentes B a I), em 2026-10-29.
+
+- **Apagar a importação mexe no enunciado com histórico.** Quando o trecho retirado está no
+  enunciado de uma questão que a importação não criou, a escrita grava uma revisão `SYSTEM` com o
+  estado inteiro da questão e revalida (complemento da D61 e da D65).
+- **Restaurar escolhe a `sortKey` dentro da transação.** A regra (`restoredSortKey`) é do
+  domínio; a porta `restoreMany` lê os irmãos vivos na mesma transação em que restaura.
+- **Um teto só para o `.lbb`: 1 GB** (`MAX_ARCHIVE_BYTES`), no corpo da rota, no total que o
+  leitor descompacta e na exportação, que recusa com `export_too_large` em vez de gerar um arquivo
+  que não volta. O `next.config.ts` leva `experimental.proxyClientMaxBodySize` ao mesmo valor: com
+  o `proxy.ts` ativo, o Next cortava em 10 MB, calado, o corpo de toda requisição (completa a D68).
+- **Id vindo do corpo passa por guarda de escopo.** `agentRunId` precisa ser de um turno sobre a
+  mesma questão (404 `agent_run_not_found`); a transcrição e a proveniência só vão para a âncora
+  do recorte informado. `tests/body-id-scope.test.ts` varre `app/api/**/route.ts` e exige, para
+  cada id lido do corpo, um guarda alcançável com linha na tabela de erros, ou o motivo escrito de
+  ser o próprio escopo.
+- **A regra da lixeira é do domínio** (`planTrashPurge`): o adaptador responde fatos e apaga o
+  que mandarem (D71).
+- **A raiz de composição devolve porta**: `aiProvider()` é um `ConfiguredAiProvider` (a porta mais
+  as capacidades do endpoint). A geometria normalizada mora em `src/shared/geometry`. O modo do
+  reconhecimento é vocabulário do domínio (`RECOGNITION_MODES`).
+- **A tela fala pelo cliente** (ADR 0010): conferir o corpo (`POST …/body/confirm`, antes
+  `…/body/conferido`), a lixeira e o import ganharam contrato e cliente; os clientes da questão,
+  do agente, da captura e do scan passam pelo `api-client` (`readLenientReply` para quem tolera
+  corpo que não é JSON).
+
+**Declarado, e não corrigido:**
+- **Tipo sem plugin** (STM-02) não ganhou um estado explícito de "tipo não suportado": na
+  aprovação do scan ele cede ao padrão do perfil, e um teste prende isso. Um estado novo mexeria nos
+  DTOs da árvore e da busca, e nenhum perfil gera tipo sem plugin hoje.
+- **Dois `waitForTimeout(2_000)`** continuam nos E2E (`questao.spec.ts` e `hidratacao.spec.ts`),
+  depois de um estado positivo: esperam erros tardios do Monaco, que não têm estado observável
+  (TST-15).
+- **O aplicador de patch recusa alternativa de outra questão** (400
+  `option_from_another_question`) e o `book-fme-v1` ganhou `singleColumn`: os dois foram além do
+  que os achados pediam, e ficam — o primeiro fecha um caminho que deixava a questão sem correta,
+  e o segundo é o que a B7 adiada vai versionar.
+- Ainda há `fetch` direto em telas menores (`/api/search` da bancada, `DiagnosticsView`,
+  `trash-dialog`, `use-render.ts`) e respostas do scan sem `satisfies` (get, review, reprocess,
+  start, switch-profile), que passam a seguir a ADR 0010 quando o arquivo for mexido.
+
 ---
 
 ## 4. Arquitetura
