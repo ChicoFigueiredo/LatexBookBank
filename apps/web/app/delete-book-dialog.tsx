@@ -37,6 +37,8 @@ interface Contents {
   readonly nodeCount: number;
   readonly assetCount: number;
   readonly anchorCount: number;
+  /** As provas que usam questão do livro — com qualquer uma, a exclusão é recusada (#258). */
+  readonly assessments: readonly string[];
 }
 
 /**
@@ -92,6 +94,8 @@ function DeleteBookConfirmation({
   }, [targetId]);
 
   const confirmed = typed.trim().replace(/\s+/g, " ") === target.title;
+  // O servidor recusa de qualquer jeito; o botão desligado diz isso antes de a pessoa digitar.
+  const blocked = (contents?.assessments.length ?? 0) > 0;
 
   const submit = async () => {
     setBusy(true);
@@ -132,12 +136,27 @@ function DeleteBookConfirmation({
           <Button variant="ghost" disabled={busy} onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="danger" disabled={busy || !confirmed} onClick={() => void submit()}>
+          <Button
+            variant="danger"
+            disabled={busy || !confirmed || blocked}
+            onClick={() => void submit()}
+          >
             {busy ? "Excluindo…" : "Excluir livro"}
           </Button>
         </>
       }
     >
+      {blocked && contents && (
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <Callout tone="warn" title="Este livro não pode ser excluído agora">
+            {contents.assessments.length === 1
+              ? `Uma questão dele está na avaliação “${contents.assessments[0]}”.`
+              : `Questões dele estão nas avaliações ${contents.assessments.map((title) => `“${title}”`).join(", ")}.`}{" "}
+            Tire as questões das avaliações antes de excluir o livro.
+          </Callout>
+        </div>
+      )}
+
       <Callout tone="danger" title="Não há como desfazer">
         {contents ? describe(contents) : "Levantando o que existe dentro…"} Isso sai do banco e do
         disco — e a lixeira não alcança livro, só nó e questão. O único caminho de volta é um
@@ -159,7 +178,7 @@ function DeleteBookConfirmation({
               if (error) setError(null);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && confirmed && !busy) void submit();
+              if (event.key === "Enter" && confirmed && !blocked && !busy) void submit();
             }}
           />
         </Field>

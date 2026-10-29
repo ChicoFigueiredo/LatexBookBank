@@ -103,12 +103,35 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     return created.id;
   }
 
+  /**
+   * Renomear e mover **não** mudam a versão do nó (#259).
+   *
+   * `updatedAt` é o token de concorrência do **corpo** (`saveNodeBody`), e o `@updatedAt` do Prisma
+   * o avançaria aqui. Com o corpo aberto, renomear o capítulo na árvore ou arrastá-lo fazia o
+   * autosave seguinte bater em 409 — sobre um texto que ninguém mais tinha tocado. Título e
+   * posição são da árvore, não do corpo: o valor é regravado igual, na mesma transação.
+   */
   async rename(nodeId: string, title: string | null): Promise<void> {
-    await prisma.documentNode.update({ where: { id: nodeId }, data: { title } });
+    await prisma.$transaction(async (tx) => {
+      const { updatedAt } = await tx.documentNode.findUniqueOrThrow({
+        where: { id: nodeId },
+        select: { updatedAt: true },
+      });
+      await tx.documentNode.update({ where: { id: nodeId }, data: { title, updatedAt } });
+    });
   }
 
   async move(nodeId: string, parentId: string | null, sortKey: string): Promise<void> {
-    await prisma.documentNode.update({ where: { id: nodeId }, data: { parentId, sortKey } });
+    await prisma.$transaction(async (tx) => {
+      const { updatedAt } = await tx.documentNode.findUniqueOrThrow({
+        where: { id: nodeId },
+        select: { updatedAt: true },
+      });
+      await tx.documentNode.update({
+        where: { id: nodeId },
+        data: { parentId, sortKey, updatedAt },
+      });
+    });
   }
 
   /**
@@ -129,11 +152,20 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     });
   }
 
-  async restoreMany(nodeIds: readonly string[]): Promise<void> {
+  async restoreMany(
+    nodeIds: readonly string[],
+    reposition?: { readonly nodeId: string; readonly sortKey: string },
+  ): Promise<void> {
     if (nodeIds.length === 0) return;
     await prisma.$transaction(async (tx) => {
       for (const ids of inChunks(nodeIds)) {
         await tx.documentNode.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
+      }
+      if (reposition) {
+        await tx.documentNode.update({
+          where: { id: reposition.nodeId },
+          data: { sortKey: reposition.sortKey },
+        });
       }
     });
   }
@@ -142,7 +174,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     const rows = await prisma.documentNode.findMany({
       where: { publicationId, deletedAt: { not: null } },
       orderBy: { deletedAt: "desc" },
-      select: { id: true, parentId: true, title: true, kind: true, deletedAt: true },
+      select: { id: true, parentId: true, title: true, kind: true, sortKey: true, deletedAt: true },
     });
 
     return rows.map((row) => {
@@ -154,6 +186,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         parentId: row.parentId,
         title: row.title,
         kind: row.kind,
+        sortKey: row.sortKey,
         deletedAt: row.deletedAt as Date,
       };
     });

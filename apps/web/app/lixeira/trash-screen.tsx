@@ -30,6 +30,15 @@ export interface TrashItemView {
   readonly deletedLabel: string;
   readonly restoresCount: number;
   readonly took: string | null;
+  /** O pai que também está na lixeira, excluído depois: este item só volta depois dele. */
+  readonly waitsFor: string | null;
+}
+
+/** O que o esvaziar deixou na lixeira porque uma avaliação usa (#258). */
+interface HeldItem {
+  readonly nodeId: string;
+  readonly title: string;
+  readonly assessments: readonly string[];
 }
 
 export interface TrashScreenProps {
@@ -58,6 +67,7 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emptying, setEmptying] = useState(false);
+  const [held, setHeld] = useState<readonly HeldItem[]>([]);
 
   const restaurar = async (item: TrashItemView) => {
     setBusy(item.id);
@@ -90,13 +100,35 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
         <h1 className="lbb-greet-title">Lixeira</h1>
         <p className="lbb-book-sub" style={{ marginTop: 6, maxWidth: "48rem" }}>
           Excluir um item o manda para cá com tudo o que é dele — alternativas, tags, recorte de
-          origem. Nada é apagado de verdade até você esvaziar.
+          origem. Nada é apagado de verdade até você esvaziar. Restaurar devolve o item com o que
+          saiu junto com ele; o que você já tinha excluído antes, à parte, continua aqui e volta
+          separado.
         </p>
 
         {error && (
           <div style={{ marginTop: "var(--space-4)" }}>
             <Callout tone="danger" title="Não deu">
               {error}
+            </Callout>
+          </div>
+        )}
+
+        {/*
+          O esvaziar não apaga a questão que uma avaliação usa: ela continua aqui, e o aviso diz
+          qual prova a prende — tirar dela, ou restaurar, é decisão de quem lê.
+        */}
+        {held.length > 0 && (
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <Callout
+              tone="warn"
+              title={
+                held.length === 1
+                  ? "1 item ficou na lixeira porque está numa avaliação"
+                  : `${held.length} itens ficaram na lixeira porque estão em avaliações`
+              }
+            >
+              {held.map((item) => `${item.title} (${item.assessments.join(", ")})`).join(" · ")}.
+              Para apagá-los, tire-os da avaliação primeiro.
             </Callout>
           </div>
         )}
@@ -129,15 +161,23 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
                   </div>
                 </div>
 
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  loading={busy === item.id}
-                  onClick={() => void restaurar(item)}
-                >
-                  {/* A promessa é numérica, e o número vem da mesma conta que a restauração usa. */}
-                  {item.restoresCount > 1 ? `Restaurar (${item.restoresCount} itens)` : "Restaurar"}
-                </Button>
+                {item.waitsFor ? (
+                  // Desabilitado **com motivo**: o pai foi excluído depois, e este item volta para
+                  // debaixo dele — restaurá-lo antes o deixaria sob um nó invisível.
+                  <span className="lbb-trash-meta">restaure “{item.waitsFor}” antes</span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={busy === item.id}
+                    onClick={() => void restaurar(item)}
+                  >
+                    {/* A promessa é numérica, e o número vem da mesma conta que a restauração usa. */}
+                    {item.restoresCount > 1
+                      ? `Restaurar (${item.restoresCount} itens)`
+                      : "Restaurar"}
+                  </Button>
+                )}
               </div>
             ))}
 
@@ -155,8 +195,9 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
         <EmptyTrashConfirmation
           objectCount={objectCount}
           onClose={() => setEmptying(false)}
-          onEmptied={() => {
+          onEmptied={(ficaram) => {
             setEmptying(false);
+            setHeld(ficaram);
             router.refresh();
           }}
         />
@@ -182,7 +223,7 @@ function EmptyTrashConfirmation({
 }: {
   readonly objectCount: number;
   readonly onClose: () => void;
-  readonly onEmptied: () => void;
+  readonly onEmptied: (held: readonly HeldItem[]) => void;
 }) {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -230,7 +271,8 @@ function EmptyTrashConfirmation({
         return;
       }
 
-      onEmptied();
+      const payload = (await response.json()) as { held?: readonly HeldItem[] };
+      onEmptied(payload.held ?? []);
     } catch {
       setError("Não deu para falar com o servidor.");
     } finally {
@@ -264,7 +306,8 @@ function EmptyTrashConfirmation({
     >
       <Callout tone="danger" title="Não há lixeira da lixeira">
         {aviso} Os recortes de origem no PDF
-        ficam — eles são a proveniência, e podem pertencer a questões que continuam vivas.
+        ficam — eles são a proveniência, e podem pertencer a questões que continuam vivas. A
+        questão que está numa avaliação também fica, até sair da prova.
       </Callout>
 
       <div style={{ marginTop: "var(--space-4)" }}>

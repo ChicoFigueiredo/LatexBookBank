@@ -200,3 +200,22 @@ export class PublicationConfirmationMismatchError extends Error {
     this.name = "PublicationConfirmationMismatchError";
   }
 }
+
+/**
+ * Recusa a exclusão de um livro que tem questão numa avaliação (#258).
+ *
+ * A prova referencia a questão, nunca a copia, e o banco não deixa apagá-la (`ON DELETE RESTRICT`).
+ * Ao contrário da lixeira, não dá para guardar só a questão: sem o livro ela ficaria sem nó,
+ * invisível em toda tela menos na prova. Tirar a questão da prova é decisão de quem fez a prova —
+ * a exclusão do livro não a toma por ele.
+ */
+export class PublicationInAssessmentsError extends Error {
+  constructor(readonly assessments: readonly string[]) {
+    super(
+      assessments.length === 1
+        ? `Uma questão deste livro está na avaliação “${assessments[0]}”. Tire-a da avaliação antes de excluir o livro.`
+        : `Questões deste livro estão nas avaliações ${assessments.map((title) => `“${title}”`).join(", ")}. Tire-as das avaliações antes de excluir o livro.`,
+    );
+    this.name = "PublicationInAssessmentsError";
+  }
+}

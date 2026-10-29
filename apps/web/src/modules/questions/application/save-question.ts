@@ -4,6 +4,10 @@ import type {
   QuestionRepository,
   QuestionSnapshot,
 } from "@modules/questions/domain/question-repository";
+import {
+  afterQuestionChanged,
+  type QuestionValidation,
+} from "@modules/questions/application/validate-question";
 
 /**
  * Salvar uma questão sem perder trabalho de ninguém.
@@ -57,9 +61,16 @@ function changedFields(current: QuestionSnapshot, edit: QuestionEdit): (keyof Qu
   return keys.filter((key) => edit[key] !== undefined && edit[key] !== current[key]);
 }
 
+/**
+ * `validation`, quando vem, revalida depois de gravar — e só quando gravou: o autosave dispara por
+ * tempo, e reavaliar a cada pausa da digitação seria custo por questão que não mudou. Fica fora
+ * da escrita com concorrência otimista: uma falha de validação desfazendo o salvamento seria
+ * perder o texto de quem digitava por causa de um selo (ver `afterQuestionChanged`).
+ */
 export async function saveQuestion(
   repository: QuestionRepository,
   command: SaveQuestionCommand,
+  validation?: QuestionValidation,
 ): Promise<SaveQuestionResult> {
   const current = await repository.findById(command.questionId);
   if (!current) throw new QuestionNotFoundError(command.questionId);
@@ -99,6 +110,10 @@ export async function saveQuestion(
       latest ? latest.updatedAt.toISOString() : "desconhecida",
     );
   }
+
+  // `keepVersion` é a versão que este salvamento devolve ao cliente: o veredito é gravado sem
+  // movê-la, ou o próprio salvamento invalidaria quem ele acabou de responder (#166).
+  if (validation) await afterQuestionChanged(validation, command.questionId, saved.updatedAt);
 
   return { snapshot: saved, written: true };
 }

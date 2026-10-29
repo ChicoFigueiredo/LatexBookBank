@@ -26,13 +26,17 @@ export interface NodeBodyRecord {
 
 export interface NodeBodyRepository {
   find(publicationId: string, nodeId: string): Promise<NodeBodyRecord | null>;
-  /** Grava o corpo e a revisão do estado anterior na mesma transação; devolve o registro novo. */
+  /**
+   * Grava o corpo e a revisão do estado anterior na mesma transação, **só se** a versão ainda for
+   * `expectedUpdatedAt`; devolve o registro novo, ou `null` quando outra escrita chegou antes.
+   */
   save(input: {
     readonly nodeId: string;
+    readonly expectedUpdatedAt: Date;
     readonly bodyLatex: string;
     readonly previous: NodeBodySnapshot;
     readonly summary: string;
-  }): Promise<NodeBodyRecord>;
+  }): Promise<NodeBodyRecord | null>;
 }
 
 export async function saveNodeBody(
@@ -64,9 +68,21 @@ export async function saveNodeBody(
 
   const record = await repository.save({
     nodeId: command.nodeId,
+    expectedUpdatedAt: command.expectedUpdatedAt,
     bodyLatex,
     previous: { title: current.title, bodyLatex: current.bodyLatex },
     summary: current.bodyLatex === "" ? "corpo criado" : "corpo editado",
   });
+
+  // Perdeu a corrida entre a leitura e a escrita — outra aba gravou no meio. Nada foi gravado.
+  if (!record) {
+    const latest = await repository.find(command.publicationId, command.nodeId);
+    throw new ConcurrencyConflictError(
+      "DocumentNode",
+      command.nodeId,
+      command.expectedUpdatedAt.toISOString(),
+      latest ? latest.updatedAt.toISOString() : "desconhecida",
+    );
+  }
   return { record, written: true };
 }

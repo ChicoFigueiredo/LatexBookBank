@@ -7,6 +7,7 @@ import {
 import { NothingApprovedError } from "@modules/agents/domain/apply-patch";
 import { parseQuestionPatch, PatchRejectedError } from "@modules/agents/domain/question-patch";
 import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
+import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
 
@@ -36,13 +37,12 @@ export async function POST(request: Request) {
 
     const agentRunId = typeof body["agentRunId"] === "string" ? body["agentRunId"] : null;
 
-    const result = await applyQuestionPatch(new PrismaPatchApplier(), {
-      questionId,
-      patch,
-      approvedChangeIds,
-      origin: "AGENT",
-      agentRunId,
-    });
+    const result = await applyQuestionPatch(
+      new PrismaPatchApplier(),
+      { questionId, patch, approvedChangeIds, origin: "AGENT", agentRunId },
+      // O patch que corrige o gabarito tira a questão do vermelho na hora.
+      new PrismaValidationWriter(),
+    );
 
     return NextResponse.json(result);
   } catch (error) {
