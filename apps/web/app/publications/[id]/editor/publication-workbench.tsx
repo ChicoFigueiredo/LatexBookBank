@@ -926,10 +926,7 @@ function NodeDetail({
                 const question = node.question;
                 if (!question) return;
                 void questionApi
-                  .patchAndForget(publicationId, question.id, {
-                    expectedVersion: question.version,
-                    status: "READY",
-                  })
+                  .confirm(publicationId, question.id, question.version)
                   .then(() => window.location.reload());
               }}
             >
@@ -1023,10 +1020,7 @@ function NodeDetail({
                   const question = node.question;
                   if (!question) return;
                   void questionApi
-                    .patchAndForget(publicationId, question.id, {
-                      expectedVersion: question.version,
-                      type,
-                    })
+                    .changeType(publicationId, question.id, question.version, type)
                     .then(() => window.location.reload());
                 }}
                 initialVersion={node.question.version}
