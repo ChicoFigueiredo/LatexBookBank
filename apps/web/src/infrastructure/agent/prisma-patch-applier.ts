@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import {
   OptionFromAnotherQuestionError,
   type PatchApplier,
@@ -21,9 +22,6 @@ import { readQuestionState } from "./prisma-question-state";
  *
  * Ver spec §35 · issue #101.
  */
-
-/** O cliente dentro da transação. `prisma.$transaction` entrega um cliente restrito. */
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 const METADATA_COLUMNS = new Set([
   "difficulty",

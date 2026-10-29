@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@infrastructure/database/sqlite/client";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type { QuestionState } from "@modules/agents/domain/patch-diff";
 import type { RevisionOrigin } from "@modules/revisions/domain/revision";
 import { appendRevision } from "@modules/revisions/infrastructure/prisma-revision-writer";
@@ -17,7 +17,7 @@ import { appendRevision } from "@modules/revisions/infrastructure/prisma-revisio
  */
 export async function readQuestionState(
   questionId: string,
-  client: Prisma.TransactionClient = prisma,
+  client: Tx = prisma,
 ): Promise<QuestionState | null> {
   const row = await client.question.findUnique({
     where: { id: questionId },
@@ -75,7 +75,7 @@ export async function readQuestionState(
  * da questão sabe mostrar e restaurar. Devolve `null`, sem gravar nada, quando a questão sumiu.
  */
 export async function appendQuestionRevision(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   input: {
     readonly questionId: string;
     readonly origin: RevisionOrigin;

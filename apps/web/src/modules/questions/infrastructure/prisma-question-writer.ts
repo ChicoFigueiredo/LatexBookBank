@@ -1,3 +1,4 @@
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -12,8 +13,6 @@ import type { Prisma } from "@/generated/prisma/client";
  * Sem `server-only` e sem o cliente do módulo: o importador legado roda pela linha de comando, com
  * o cliente dele, e chega aqui com a transação aberta.
  */
-
-type Tx = Prisma.TransactionClient;
 
 /**
  * As colunas que quem cria escolhe. O que fica de fora é decidido aqui: `id` e datas são do banco,

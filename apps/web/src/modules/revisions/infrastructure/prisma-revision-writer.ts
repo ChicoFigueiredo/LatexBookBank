@@ -1,4 +1,4 @@
-import type { Prisma } from "@/generated/prisma/client";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type { NewRevision } from "@modules/revisions/domain/revision";
 
 /**
@@ -15,10 +15,7 @@ import type { NewRevision } from "@modules/revisions/domain/revision";
  *
  * Sem `server-only` e sem o cliente do módulo: quem chama traz a transação.
  */
-export async function appendRevision(
-  tx: Prisma.TransactionClient,
-  revision: NewRevision,
-): Promise<number> {
+export async function appendRevision(tx: Tx, revision: NewRevision): Promise<number> {
   const last = await tx.revision.findFirst({
     where: { entityType: revision.entityType, entityId: revision.entityId },
     orderBy: { revisionNumber: "desc" },

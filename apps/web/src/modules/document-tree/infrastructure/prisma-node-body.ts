@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@infrastructure/database/sqlite/client";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type {
   NodeBodyRecord,
   NodeBodyRepository,
@@ -47,7 +47,7 @@ function toRecord(row: {
  * com o mesmo formato, e é aqui que ele mora. A numeração é do módulo de revisões.
  */
 export async function appendNodeRevision(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   input: {
     readonly nodeId: string;
     readonly origin: RevisionOrigin;

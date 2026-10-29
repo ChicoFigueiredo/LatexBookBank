@@ -1,3 +1,4 @@
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type { Prisma } from "@/generated/prisma/client";
 import { planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
 import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
@@ -19,8 +20,6 @@ import {
  * Sem `server-only` e sem o cliente do módulo, pelo mesmo motivo do escritor de questão: o import
  * legado chega aqui pela linha de comando, com a transação dele.
  */
-
-type Tx = Prisma.TransactionClient;
 
 /** As colunas do nó que quem cria escolhe; `questionId` e `sourceAnchorId` são decididos aqui. */
 export type NewNodeColumns = Pick<

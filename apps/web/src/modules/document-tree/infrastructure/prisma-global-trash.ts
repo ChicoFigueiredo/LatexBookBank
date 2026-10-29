@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type {
   TrashPurge,
   TrashPurgeTransaction,
@@ -249,9 +250,6 @@ function purgeTransaction(tx: Tx): TrashPurgeTransaction {
     },
   };
 }
-
-/** O cliente dentro da transação. `prisma.$transaction` entrega um cliente restrito. */
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /** Questão → títulos das avaliações que a usam. Só entram as questões que alguma prova usa. */
 async function assessmentsUsing(
