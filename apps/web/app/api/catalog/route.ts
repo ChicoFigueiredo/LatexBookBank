@@ -5,7 +5,7 @@ import { CalibreCatalogProvider } from "@modules/publications/infrastructure/cal
 import { existingPublicationsOf } from "@modules/publications/infrastructure/prisma-catalog-import";
 
 import { readJson } from "../tree-http";
-import { parseCatalogPath, toCatalogErrorResponse } from "./catalog-http";
+import { resolveCatalogRoot, toCatalogErrorResponse } from "./catalog-http";
 
 /**
  * Abre um catálogo Calibre e lista o que há dentro.
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   try {
     const body = await readJson(request);
 
-    const root = parseCatalogPath(body["path"]);
+    const root = await resolveCatalogRoot(body["path"]);
     const libraryId = typeof body["libraryId"] === "string" ? body["libraryId"] : "";
     const query = typeof body["query"] === "string" ? body["query"] : "";
 
