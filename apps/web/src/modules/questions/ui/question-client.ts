@@ -8,6 +8,7 @@ import type {
 } from "@modules/questions/application/question-contract";
 import type { QuestionMetadata } from "@modules/questions/domain/question-metadata";
 import type { QuestionStatus, QuestionType } from "@modules/questions/domain/question-type";
+import { readLenientReply, readReply, type JsonReply } from "@/shared/http/api-client";
 
 /**
  * As rotas da questão que o editor usa, tipadas pelo contrato que elas mesmas anotam.
@@ -36,60 +37,70 @@ export type SaveOutcome =
 const questionUrl = (publicationId: string, questionId: string) =>
   `/api/publications/${publicationId}/questions/${questionId}`;
 
-/** Lê um campo de texto de um corpo que pode não ser objeto, nem JSON. */
-function readString(payload: unknown, key: string): string | null {
-  if (typeof payload !== "object" || payload === null || !(key in payload)) return null;
-  const value = (payload as Record<string, unknown>)[key];
-  return typeof value === "string" ? value : null;
-}
+/** Texto, ou `null`: o corpo da recusa é de quem respondeu, e pode não trazer o campo. */
+const textOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null);
+
+/**
+ * O `PATCH` lido sem lançar: corpo que não é JSON não derruba a gravação, porque o status já diz o
+ * que aconteceu. Só a rede fora lança.
+ */
+const patch = (
+  publicationId: string,
+  questionId: string,
+  edit: QuestionEdit,
+): Promise<JsonReply<SaveQuestionResponse>> =>
+  readLenientReply<SaveQuestionResponse>(questionUrl(publicationId, questionId), {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(edit),
+  });
 
 export const questionApi = {
   /** Os metadados crus, para a aba que os edita. `null` quando a rota não os devolveu. */
   async metadata(publicationId: string, questionId: string): Promise<QuestionMetadata | null> {
-    const response = await fetch(questionUrl(publicationId, questionId));
-    const payload = (await response.json()) as Partial<QuestionDetailResponse>;
+    const { body } = await readReply<QuestionDetailResponse>(
+      questionUrl(publicationId, questionId),
+    );
     // A rota manda a dificuldade como o número da coluna (ver `QuestionMetadataDto`); a tela
     // sempre a tratou como `Difficulty`, e continua tratando — o estreitamento fica só aqui.
-    return (payload.metadata as QuestionMetadata | undefined) ?? null;
+    return (body.metadata as QuestionMetadata | undefined) ?? null;
   },
 
   async save(publicationId: string, questionId: string, edit: QuestionEdit): Promise<SaveOutcome> {
-    const response = await fetch(questionUrl(publicationId, questionId), {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(edit),
-    });
-    // Corpo que não é JSON não derruba a gravação: o status já diz o que aconteceu.
-    const payload: unknown = await response.json().catch(() => null);
+    const reply = await patch(publicationId, questionId, edit);
 
-    if (response.status === 409) {
-      return { kind: "conflict", message: readString(payload, "message") };
+    if (reply.status === 409) {
+      return { kind: "conflict", message: textOrNull(reply.body.message) };
     }
-    if (!response.ok) {
-      return { kind: "failed", status: response.status, message: readString(payload, "message") };
+    if (!reply.ok) {
+      return { kind: "failed", status: reply.status, message: textOrNull(reply.body.message) };
     }
-    return {
-      kind: "saved",
-      version: readString(payload, "version" satisfies keyof SaveQuestionResponse),
-    };
+    return { kind: "saved", version: textOrNull(reply.body.version) };
   },
 
   /**
-   * Grava e não lê a resposta: os gestos que usam isto (trocar o tipo, *Conferido*) recarregam a
-   * página em seguida, com sucesso ou recusa.
+   * *Conferido*: a questão sai de rascunho e vai para pronta. A tela recarrega depois, com
+   * sucesso ou recusa — por isso a resposta não decide nada aqui.
    */
-  async patchAndForget(publicationId: string, questionId: string, edit: QuestionEdit) {
-    await fetch(questionUrl(publicationId, questionId), {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(edit),
-    });
-  },
+  confirm: (publicationId: string, questionId: string, expectedVersion: string) =>
+    patch(publicationId, questionId, { expectedVersion, status: "READY" }),
+
+  /**
+   * Trocar o tipo muda a forma da questão — some ou volta uma aba inteira —, e a tela recarrega
+   * depois, com sucesso ou recusa.
+   */
+  changeType: (
+    publicationId: string,
+    questionId: string,
+    expectedVersion: string,
+    type: QuestionType,
+  ) => patch(publicationId, questionId, { expectedVersion, type }),
 
   async revisions(questionId: string): Promise<RevisionListResponse["revisions"]> {
-    const response = await fetch(`/api/questions/${questionId}/revisions`);
-    const payload = (await response.json()) as Partial<RevisionListResponse>;
-    return payload.revisions ?? [];
+    const { body } = await readReply<RevisionListResponse>(
+      `/api/questions/${questionId}/revisions`,
+    );
+    return body.revisions ?? [];
   },
 
   /** A revisão e o estado atual; `null` quando falta um dos dois lados. */
@@ -102,11 +113,10 @@ export const questionApi = {
       })
     | null
   > {
-    const response = await fetch(
+    const { body } = await readReply<RevisionDetailResponse>(
       `/api/questions/${questionId}/revisions?revision=${revisionNumber}`,
     );
-    const payload = (await response.json()) as Partial<RevisionDetailResponse>;
-    if (!payload.snapshot || !payload.current) return null;
-    return { snapshot: payload.snapshot, current: payload.current };
+    if (!body.snapshot || !body.current) return null;
+    return { snapshot: body.snapshot, current: body.current };
   },
 };

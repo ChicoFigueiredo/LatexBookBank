@@ -227,7 +227,8 @@ describe("o histórico", () => {
 
     expect(result.current.revisions).toBeNull();
     await act(() => result.current.load());
-    expect(fetch).toHaveBeenLastCalledWith("/api/questions/q-1/revisions");
+    // Só o caminho: a leitura passa pelo `api-client`, que repassa o `init` (aqui, nenhum).
+    expect(fetch.mock.lastCall?.[0]).toBe("/api/questions/q-1/revisions");
     expect(result.current.revisions?.map((row) => row.revisionNumber)).toEqual([3]);
 
     await act(() => result.current.select(3));

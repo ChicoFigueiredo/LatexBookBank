@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import type { ProfileSuggestionResponse } from "@modules/scan/application/scan-contract";
 import { suggestCaptureProfile } from "@modules/scan/application/suggest-profile";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 import { storageKeyOfAsset } from "@modules/scan/infrastructure/prisma-scan-store";
@@ -19,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const { sources, storage, opener } = scanDeps();
     const suggestion = await suggestCaptureProfile({ sources, storage, opener, sourceKey: storageKeyOfAsset }, id);
-    return NextResponse.json(suggestion ?? { ranking: [], sampledPages: 0 });
+    return NextResponse.json((suggestion ?? { ranking: [], sampledPages: 0 }) satisfies ProfileSuggestionResponse);
   } catch (error) {
     return toErrorResponse(error);
   }

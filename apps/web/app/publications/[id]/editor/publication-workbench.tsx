@@ -35,6 +35,7 @@ import { previousSource } from "@modules/questions/domain/inherited-metadata";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
 import { NODE_STATUS_LABELS, type NodeStatusId } from "@modules/document-tree/domain/node-status";
+import { nodeBodyApi } from "@modules/document-tree/ui/node-body-client";
 import { sameTag } from "@modules/questions/domain/tag";
 import { questionApi } from "@modules/questions/ui/question-client";
 
@@ -925,10 +926,7 @@ function NodeDetail({
                 const question = node.question;
                 if (!question) return;
                 void questionApi
-                  .patchAndForget(publicationId, question.id, {
-                    expectedVersion: question.version,
-                    status: "READY",
-                  })
+                  .confirm(publicationId, question.id, question.version)
                   .then(() => window.location.reload());
               }}
             >
@@ -944,9 +942,9 @@ function NodeDetail({
               variant="primary"
               icon="check"
               onClick={() => {
-                void fetch(`/api/publications/${publicationId}/nodes/${node.id}/body/conferido`, {
-                  method: "POST",
-                }).then(() => window.location.reload());
+                void nodeBodyApi
+                  .confirm(publicationId, node.id)
+                  .then(() => window.location.reload());
               }}
             >
               Conferido
@@ -1022,10 +1020,7 @@ function NodeDetail({
                   const question = node.question;
                   if (!question) return;
                   void questionApi
-                    .patchAndForget(publicationId, question.id, {
-                      expectedVersion: question.version,
-                      type,
-                    })
+                    .changeType(publicationId, question.id, question.version, type)
                     .then(() => window.location.reload());
                 }}
                 initialVersion={node.question.version}

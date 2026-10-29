@@ -81,6 +81,24 @@ export async function readReply<T>(url: string, init?: RequestInit): Promise<Jso
   };
 }
 
+/**
+ * Como `readReply`, mas um corpo que não é JSON vira `{}` em vez de erro de leitura: só a rede
+ * fora lança.
+ *
+ * Para os gestos em que o status basta — gravar e recarregar a tela com sucesso ou recusa, saber se
+ * o reconhecimento em lote passou — e para quem lê a mensagem quando ela vem, mas não pode cair
+ * porque um proxy respondeu HTML no lugar da rota (o autosave, o scan).
+ */
+export async function readLenientReply<T>(url: string, init?: RequestInit): Promise<JsonReply<T>> {
+  const response = await fetch(url, init);
+  const payload = (await response.json().catch(() => null)) as unknown;
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: asErrorBody(payload) as Partial<T> & ApiErrorBody,
+  };
+}
+
 function asErrorBody(payload: unknown): ApiErrorBody {
   return typeof payload === "object" && payload !== null ? (payload as ApiErrorBody) : {};
 }

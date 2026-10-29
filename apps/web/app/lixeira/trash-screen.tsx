@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button, Callout, EmptyState, Field, Icon, Input, Modal, type IconName } from "@/design-system";
+import type { HeldTrashItem } from "@modules/document-tree/application/trash-contract";
+import { trashApi } from "@modules/document-tree/ui/trash-client";
 
 import { useAcervoStyles } from "../acervo-styles";
 import { AppShell } from "../app-shell";
@@ -34,13 +36,6 @@ export interface TrashItemView {
   readonly waitsFor: string | null;
 }
 
-/** O que o esvaziar deixou na lixeira porque uma avaliação usa (#258). */
-interface HeldItem {
-  readonly nodeId: string;
-  readonly title: string;
-  readonly assessments: readonly string[];
-}
-
 export interface TrashScreenProps {
   readonly items: readonly TrashItemView[];
   readonly footer: string;
@@ -67,21 +62,17 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emptying, setEmptying] = useState(false);
-  const [held, setHeld] = useState<readonly HeldItem[]>([]);
+  const [held, setHeld] = useState<readonly HeldTrashItem[]>([]);
 
   const restaurar = async (item: TrashItemView) => {
     setBusy(item.id);
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/publications/${item.publicationId}/nodes/${item.id}/restore`,
-        { method: "POST" },
-      );
+      const reply = await trashApi.restore(item.publicationId, item.id);
 
-      if (!response.ok) {
-        const payload = (await response.json()) as { message?: string };
-        setError(payload.message ?? "Não deu para restaurar.");
+      if (!reply.ok) {
+        setError(reply.body.message ?? "Não deu para restaurar.");
         return;
       }
 
@@ -223,7 +214,7 @@ function EmptyTrashConfirmation({
 }: {
   readonly objectCount: number;
   readonly onClose: () => void;
-  readonly onEmptied: (held: readonly HeldItem[]) => void;
+  readonly onEmptied: (held: readonly HeldTrashItem[]) => void;
 }) {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -237,9 +228,8 @@ function EmptyTrashConfirmation({
 
     void (async () => {
       try {
-        const response = await fetch("/api/trash");
-        const payload = (await response.json()) as { objectCount?: number };
-        if (atual && typeof payload.objectCount === "number") setAgora(payload.objectCount);
+        const { body } = await trashApi.summary();
+        if (atual && typeof body.objectCount === "number") setAgora(body.objectCount);
       } catch {
         // Sem o número fresco o diálogo ainda funciona com o da página — só fica menos informado.
       }
@@ -264,15 +254,13 @@ function EmptyTrashConfirmation({
     setError(null);
 
     try {
-      const response = await fetch("/api/trash", { method: "DELETE" });
-      if (!response.ok) {
-        const payload = (await response.json()) as { message?: string };
-        setError(payload.message ?? "Não deu para esvaziar.");
+      const reply = await trashApi.empty();
+      if (!reply.ok) {
+        setError(reply.body.message ?? "Não deu para esvaziar.");
         return;
       }
 
-      const payload = (await response.json()) as { held?: readonly HeldItem[] };
-      onEmptied(payload.held ?? []);
+      onEmptied(reply.body.held ?? []);
     } catch {
       setError("Não deu para falar com o servidor.");
     } finally {

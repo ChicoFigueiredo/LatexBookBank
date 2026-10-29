@@ -4,11 +4,13 @@ import type {
   ApplyPatchResponse,
   AskAgentResponse,
   CandidateRenderResponse,
+  RevertPatchResponse,
 } from "@modules/agents/application/agent-contract";
 import type { ContextItem } from "@modules/agents/domain/agent-context";
 import type { AgentMode } from "@modules/agents/domain/agent-run";
 import type { QuestionPatch } from "@modules/agents/domain/question-patch";
-import { sendJson, type ApiErrorBody } from "@/shared/http/api-client";
+import type { LatexField } from "@modules/rendering/domain/render-source";
+import { readLenientReply, readReply, sendJson, type JsonReply } from "@/shared/http/api-client";
 
 /**
  * As rotas do agente, tipadas pelo contrato que elas mesmas anotam.
@@ -30,16 +32,15 @@ export const agentApi = {
    */
   candidateRender: async (input: {
     readonly questionId: string;
-    /** O campo de texto; a rota recusa o que não for um (`isLatexField`). */
-    readonly field: string;
+    readonly field: LatexField;
     readonly value: string;
-  }): Promise<Partial<CandidateRenderResponse> & ApiErrorBody> => {
-    const response = await fetch("/api/agents/candidate-render", {
+  }): Promise<JsonReply<CandidateRenderResponse>["body"]> => {
+    const { body } = await readReply<CandidateRenderResponse>("/api/agents/candidate-render", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
     });
-    return (await response.json()) as Partial<CandidateRenderResponse> & ApiErrorBody;
+    return body;
   },
 
   applyPatch: (input: {
@@ -49,14 +50,15 @@ export const agentApi = {
   }) => sendJson<ApplyPatchResponse>("/api/agents/patches/apply", "POST", input),
 
   /**
-   * Volta a questão a uma revisão. A resposta (`RevertPatchResponse`) não é lida: o histórico
-   * recarrega a tela de qualquer jeito, com sucesso ou recusa, e só a rede fora interrompe.
+   * Volta a questão a uma revisão. A resposta (`RevertPatchResponse`) não decide nada, nem a
+   * recusa, nem um corpo que não é JSON: o histórico recarrega a tela de qualquer jeito, e só a
+   * rede fora interrompe.
    */
   revertPatch: async (input: {
     readonly questionId: string;
     readonly revisionNumber: number;
   }): Promise<void> => {
-    await fetch("/api/agents/patches/revert", {
+    await readLenientReply<RevertPatchResponse>("/api/agents/patches/revert", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),

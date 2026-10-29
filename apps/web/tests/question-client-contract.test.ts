@@ -121,6 +121,47 @@ describe("o cliente da questão fala a língua das rotas", () => {
     expect(await questionApi.metadata("outra-publicacao", questionId)).toBeNull();
   });
 
+  it("Conferido e trocar o tipo gravam com a versão, e a recusa volta lida, sem lançar", async () => {
+    const { library, questionId, publicationId, questionApi } = await cenario("q-contrato-6");
+    const versao = async () =>
+      (
+        await library.prisma.question.findUniqueOrThrow({ where: { id: questionId } })
+      ).updatedAt.toISOString();
+
+    const conferida = await questionApi.confirm(publicationId, questionId, await versao());
+    expect(conferida.ok).toBe(true);
+    expect(conferida.body.version).toEqual(expect.any(String));
+
+    const trocada = await questionApi.changeType(
+      publicationId,
+      questionId,
+      await versao(),
+      "TRUE_FALSE",
+    );
+    expect(trocada.ok).toBe(true);
+
+    const gravada = await library.prisma.question.findUniqueOrThrow({ where: { id: questionId } });
+    expect(gravada.status).toBe("READY");
+    expect(gravada.type).toBe("TRUE_FALSE");
+
+    // Versão velha: a tela recarrega do mesmo jeito, então a recusa não pode virar exceção.
+    const velha = await questionApi.confirm(publicationId, questionId, new Date(0).toISOString());
+    expect(velha.ok).toBe(false);
+    expect(velha.status).toBe(409);
+  });
+
+  it("gravação com resposta que não é JSON diz o status, e não derruba o autosave", async () => {
+    const { questionApi } = await import("@modules/questions/ui/question-client");
+    restore = installRouteFetch(
+      [],
+      () => new Response("<html>502 Bad Gateway</html>", { status: 502 }),
+    ).restore;
+
+    const outcome = await questionApi.save("p", "q", { expectedVersion: "v" });
+
+    expect(outcome).toEqual({ kind: "failed", status: 502, message: null });
+  });
+
   it("o histórico lista as revisões e devolve os dois lados do diff", async () => {
     const { questionId, questionApi } = await cenario("q-contrato-5");
     const { agentApi } = await import("@modules/agents/ui/agent-client");

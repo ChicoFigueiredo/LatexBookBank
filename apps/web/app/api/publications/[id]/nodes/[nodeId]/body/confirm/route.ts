@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import type { ConfirmNodeBodyResponse } from "@modules/document-tree/application/node-body-contract";
 import { confirmNodeBody } from "@modules/document-tree/application/save-node-body";
 import { PrismaNodeBodyRepository } from "@modules/document-tree/infrastructure/prisma-node-body";
 
@@ -18,7 +19,7 @@ export async function POST(
   const { id, nodeId } = await params;
   try {
     await confirmNodeBody(new PrismaNodeBodyRepository(), { publicationId: id, nodeId });
-    return NextResponse.json({ confirmed: true });
+    return NextResponse.json({ confirmed: true } satisfies ConfirmNodeBodyResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
