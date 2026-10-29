@@ -1,6 +1,3 @@
-import { parseLatexPreview } from "@modules/preview/domain/parse-latex-preview";
-import type { PreviewBlock } from "@modules/preview/domain/preview-model";
-
 import type { QuestionForPlugin, ValidationIssue } from "../question-type-plugin";
 
 /**
@@ -9,6 +6,16 @@ import type { QuestionForPlugin, ValidationIssue } from "../question-type-plugin
  * Fica aqui, e não numa classe base: herança entre plugins criaria a tentação de sobrescrever
  * comportamento pela metade, e o ponto do registry é cada tipo ser lido por inteiro num arquivo só.
  */
+
+/**
+ * Cinco alternativas.
+ *
+ * É o formato do acervo e o do vestibular brasileiro, e é o que o design mostra na validação
+ * ("✓ 5 alternativas"). Nascer com **zero** obrigaria a clicar cinco vezes antes de escrever a
+ * primeira palavra; nascer com duas obrigaria a três. O número não é regra — acrescentar e remover
+ * continua livre —, é onde o trabalho começa.
+ */
+export const DEFAULT_OPTION_COUNT = 5;
 
 /** Validações que valem para qualquer tipo. */
 export function validateCommon(question: QuestionForPlugin): ValidationIssue[] {
@@ -82,12 +89,4 @@ export function countDollars(latex: string): number {
     if (latex[i] === "$") count += 1;
   }
   return count;
-}
-
-/** Enunciado, resolução e complemento em blocos — a parte do preview que não depende do tipo. */
-export function commonPreview(
-  question: QuestionForPlugin,
-  extra: readonly PreviewBlock[] = [],
-): readonly PreviewBlock[] {
-  return [...parseLatexPreview(question.statementLatex), ...extra];
 }

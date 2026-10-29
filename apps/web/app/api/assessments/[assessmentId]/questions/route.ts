@@ -45,6 +45,18 @@ export async function POST(
       );
     }
 
+    if (!result.added && result.reason === "in_trash") {
+      // 409: o pedido é válido, é o estado da questão que o impede. Uma aba aberta antes da
+      // exclusão ainda oferece o botão, e a prova sairia impressa com a questão excluída (#263).
+      return NextResponse.json(
+        {
+          error: "question_in_trash",
+          message: "Esta questão está na lixeira. Restaure-a antes de pô-la numa prova.",
+        },
+        { status: 409 },
+      );
+    }
+
     // `200 added:false` e não erro: clicar duas vezes em "acrescentar" é gesto, não engano, e o
     // schema já garante que a mesma questão não entra duas vezes.
     return NextResponse.json(result, { status: result.added ? 201 : 200 });

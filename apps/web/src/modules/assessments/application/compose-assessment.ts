@@ -55,6 +55,39 @@ export class MissingQuestionError extends Error {
 }
 
 /**
+ * Há questão de tipo que a avaliação não sabe imprimir nem corrigir (#262).
+ *
+ * Um tipo sem plugin não diz se tem alternativas nem quantas corretas aceita. Imprimi-lo como
+ * escolha simples daria um gabarito errado — o defeito que só aparece na correção.
+ */
+export class UnsupportedQuestionTypeError extends Error {
+  constructor(readonly questionIds: readonly string[]) {
+    super(
+      `${questionIds.length} questão(ões) da prova são de um tipo que a avaliação ainda não sabe ` +
+        "imprimir. Tire-as da prova ou troque o tipo delas.",
+    );
+    this.name = "UnsupportedQuestionTypeError";
+  }
+}
+
+/**
+ * Há questão da prova cujo nó está na lixeira (#263).
+ *
+ * Recusa, e não pula: pular daria uma prova com uma questão a menos do que a tela mostra, e
+ * imprimir daria uma questão que a pessoa acha ter excluído. Quem decide é ela — tirar da prova ou
+ * restaurar da lixeira —, e por isso a recusa leva a lista.
+ */
+export class QuestionsInTrashError extends Error {
+  constructor(readonly questionIds: readonly string[]) {
+    super(
+      `${questionIds.length} questão(ões) da prova estão na lixeira. Tire-as da prova ou ` +
+        "restaure-as antes de sortear a variante.",
+    );
+    this.name = "QuestionsInTrashError";
+  }
+}
+
+/**
  * Sorteia a variante a partir do conteúdo real das questões.
  *
  * O conteúdo entra inteiro, e não só a contagem de alternativas: o sorteio precisa dos **ids**,
@@ -67,6 +100,16 @@ export function composeVariant(
   content: Readonly<Record<string, AssessmentQuestionContent>>,
 ): Variant {
   if (assessment.items.length === 0) throw new EmptyAssessmentError();
+
+  const inTrash = assessment.items
+    .filter((item) => content[item.questionId]?.inTrash === true)
+    .map((item) => item.questionId);
+  if (inTrash.length > 0) throw new QuestionsInTrashError(inTrash);
+
+  const unsupported = assessment.items
+    .filter((item) => content[item.questionId]?.supported === false)
+    .map((item) => item.questionId);
+  if (unsupported.length > 0) throw new UnsupportedQuestionTypeError(unsupported);
 
   return buildVariant({
     label: spec.label,
@@ -88,8 +131,8 @@ export function composeVariant(
 
 export interface ComposedVersions {
   readonly variant: Variant;
-  /** `questionId` → letra da correta, na **letra que foi impressa**. */
-  readonly answers: Readonly<Record<string, string>>;
+  /** `questionId` → letras das corretas, **como foram impressas**. */
+  readonly answers: Readonly<Record<string, readonly string[]>>;
   readonly latexByAudience: Readonly<Record<TemplateAudience, string>>;
 }
 
@@ -112,12 +155,10 @@ export function composeVersions(
     variantLabel: variant.label,
   };
 
-  const correctByQuestion: Record<string, string> = {};
+  const correctByQuestion: Record<string, readonly string[]> = {};
   for (const question of variant.questions) {
-    const correct = content[question.questionId]?.correctOptionId;
-    if (correct !== null && correct !== undefined) {
-      correctByQuestion[question.questionId] = correct;
-    }
+    const correct = content[question.questionId]?.correctOptionIds;
+    if (correct !== undefined) correctByQuestion[question.questionId] = correct;
   }
 
   const latexByAudience = Object.fromEntries(

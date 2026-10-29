@@ -1,7 +1,10 @@
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
 import type { AnchorRole } from "@modules/assets/domain/node-anchors";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
+// Os plugins se registram ao serem importados, e é o plugin que diz se o tipo tem alternativas.
+import "@modules/questions/domain/plugins";
 import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
+import { optionsOf, pluginFor } from "@modules/questions/domain/question-type-plugin";
 
 import { bodyPieceLatex, exampleBody, exampleTitle, questionLatex } from "./approval-latex";
 import { boxRect, intersectionOverUnion } from "./geometry";
@@ -415,10 +418,17 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
         vestibular com alternativas, no mesmo volume. O padrão do perfil vira o que sempre deveria
         ter sido — o que vale quando ninguém disse nada.
       */
+      /*
+        O carimbo só vale para tipo com plugin: sem plugin a questão nasceria sem validação, sem
+        corpo e sem gabarito, e a criação a recusa. O padrão do perfil fica no lugar — é o que vale
+        quando ninguém disse nada que o produto saiba tratar. E ter alternativas é o plugin quem
+        diz: a lista própria daqui discordava da criação (TRUE_FALSE nascia com zero aqui e duas lá).
+      */
       const stamped = item.metadata["questionType"];
-      const fromZone = typeof stamped === "string" && isQuestionType(stamped);
+      const fromZone =
+        typeof stamped === "string" && isQuestionType(stamped) && pluginFor(stamped) !== null;
       const wanted = fromZone ? stamped : profile.defaultQuestionType;
-      const withOptions = wanted === "MULTIPLE_CHOICE" || wanted === "MULTIPLE_CORRECT";
+      const withOptions = optionsOf(wanted) !== null;
       /*
         Múltipla escolha tem quatro ou cinco alternativas — e o que tem menos é outra coisa.
 

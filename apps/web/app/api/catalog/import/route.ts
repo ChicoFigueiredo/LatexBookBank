@@ -11,7 +11,7 @@ import { PrismaPublicationRepository } from "@modules/publications/infrastructur
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
 import { readJson } from "../../tree-http";
-import { parseCatalogPath, toCatalogErrorResponse } from "../catalog-http";
+import { resolveCatalogRoot, toCatalogErrorResponse } from "../catalog-http";
 
 /** Importa um livro do catálogo para uma biblioteca do acervo. */
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const result = await importFromCatalog(
       {
-        catalog: new CalibreCatalogProvider(parseCatalogPath(body["path"])),
+        catalog: new CalibreCatalogProvider(await resolveCatalogRoot(body["path"])),
         libraries: new PrismaLibraryRepository(),
         publications: new PrismaPublicationRepository(),
         assets: new PrismaCatalogAssetWriter(),

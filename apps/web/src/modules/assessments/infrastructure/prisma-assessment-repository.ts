@@ -4,6 +4,7 @@ import { prisma } from "@infrastructure/database/sqlite/client";
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
 
 import { candidatesWhere } from "./prisma-candidate-where";
+import { assessmentContentOf } from "@modules/assessments/domain/question-content";
 import type { AssessmentQuestionContent } from "@modules/assessments/domain/assessment-template";
 import type { Variant } from "@modules/assessments/domain/variant";
 import type { AssessmentRecord } from "@modules/assessments/application/compose-assessment";
@@ -126,7 +127,10 @@ function parseIds(raw: string): readonly string[] {
  */
 export type AddQuestionResult =
   | { readonly added: true }
-  | { readonly added: false; readonly reason: "already" | "no_section" | "foreign" };
+  | {
+      readonly added: false;
+      readonly reason: "already" | "no_section" | "foreign" | "in_trash";
+    };
 
 export async function addQuestion(
   assessmentId: string,
@@ -154,7 +158,9 @@ export async function addQuestion(
           publications: {
             where: { nodes: { some: { questionId } } },
             take: 1,
-            select: { id: true },
+            // O nó vem junto para a conferência da lixeira: é da biblioteca, mas pode estar
+            // excluído — e aí entrar na prova é imprimir uma questão que a pessoa excluiu (#263).
+            select: { id: true, nodes: { where: { questionId }, select: { deletedAt: true } } },
           },
         },
       },
@@ -162,7 +168,11 @@ export async function addQuestion(
   });
 
   if (escopo === null) return { added: false, reason: "no_section" };
-  if (escopo.workspace.publications.length === 0) return { added: false, reason: "foreign" };
+  const [publication] = escopo.workspace.publications;
+  if (publication === undefined) return { added: false, reason: "foreign" };
+  if (publication.nodes.some((node) => node.deletedAt !== null)) {
+    return { added: false, reason: "in_trash" };
+  }
 
   const section = await prisma.assessmentSection.findFirst({
     where: { assessmentId },
@@ -293,28 +303,23 @@ export async function contentFor(
     where: { id: { in: [...questionIds] } },
     select: {
       id: true,
+      type: true,
       statementLatex: true,
       solutionLatex: true,
       options: {
         orderBy: { sortKey: "asc" },
         select: { id: true, statementLatex: true, isCorrect: true },
       },
+      node: { select: { deletedAt: true } },
     },
   });
 
   return Object.fromEntries(
     rows.map((row) => [
       row.id,
-      {
-        questionId: row.id,
-        statementLatex: row.statementLatex,
-        solutionLatex: row.solutionLatex,
-        options: Object.fromEntries(
-          row.options.map((option) => [option.id, option.statementLatex]),
-        ),
-        correctOptionId: row.options.find((option) => option.isCorrect)?.id ?? null,
-        points: null,
-      },
+      // O tipo decide o que se imprime, e quem responde é o plugin dele (#262).
+      // Excluir um capítulo marca a subárvore inteira, então o nó da própria questão basta (#263).
+      assessmentContentOf(row, { inTrash: row.node?.deletedAt != null }),
     ]),
   );
 }

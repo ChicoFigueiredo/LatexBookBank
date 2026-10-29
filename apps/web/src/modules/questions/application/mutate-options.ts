@@ -5,34 +5,27 @@ import {
   OptionNotFoundError,
   type OptionRecord,
 } from "../domain/option-mutations";
+// Os plugins se registram ao serem importados; sem esta linha, nenhum tipo seria exclusivo.
+import "../domain/plugins";
 import type { QuestionType } from "../domain/question-type";
+import { optionsOf } from "../domain/question-type-plugin";
 
 /**
  * As mutações de alternativa, com o banco no meio.
  *
  * A regra continua no domínio; aqui só se lê, se decide qual função chamar e se grava. Nenhum
  * `if` de negócio — o único condicional que sobra é "qual tipo permite mais de uma correta", e
- * ele vem da tabela abaixo, não de um `switch` espalhado.
+ * quem responde é o plugin do tipo, não uma tabela daqui.
  */
 
 /**
- * Tipos em que **só uma** alternativa pode ser correta.
+ * Só **uma** alternativa pode ser correta neste tipo?
  *
- * Tabela, e não `switch`: acrescentar um tipo é acrescentar uma linha, e o guard da #79 continua
- * valendo. `TRUE_FALSE` entra porque cada item é verdadeiro **ou** falso; `MULTIPLE_CORRECT` e
- * `SUM_OF_CORRECT` ficam de fora porque a natureza deles é ter várias.
+ * O plugin declara. Tipo sem alternativas ou sem plugin responde "não": marcar uma correta não
+ * desmarca as outras, e nada se perde em silêncio num tipo que o produto ainda não sabe tratar.
  */
-const EXCLUSIVE_CORRECT: Readonly<Record<QuestionType, boolean>> = {
-  DISCURSIVE: true,
-  MULTIPLE_CHOICE: true,
-  TRUE_FALSE: true,
-  CESPE: true,
-  MULTIPLE_CORRECT: false,
-  SUM_OF_CORRECT: false,
-  RELATED_ITEMS: false,
-};
-
-export const isExclusiveCorrect = (type: QuestionType): boolean => EXCLUSIVE_CORRECT[type];
+export const isExclusiveCorrect = (type: QuestionType): boolean =>
+  optionsOf(type)?.exclusiveCorrect ?? false;
 
 export interface OptionWriter {
   listOptions(questionId: string): Promise<readonly OptionRecord[]>;

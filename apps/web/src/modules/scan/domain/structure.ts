@@ -1,4 +1,4 @@
-import { escapeLatexText, hasUnreadableSymbol } from "@modules/recognition/domain/latex-escape";
+import { escapeLatexText, hasUnreadableSymbol } from "@modules/latex/domain/latex-escape";
 
 import {
   zoneOfPage,

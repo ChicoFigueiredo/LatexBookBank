@@ -1,10 +1,11 @@
 import "server-only";
 
 import { createClient, type Client, type Row } from "@libsql/client";
-import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { logger } from "@/shared/observability/logger";
 import {
   CatalogFileMissingError,
   CatalogUnavailableError,
@@ -171,23 +172,29 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
 
   /** Lê um arquivo do diretório do livro, recusando qualquer caminho que saia da raiz. */
   private async ler(bookPath: string, filename: string): Promise<Uint8Array> {
-    const alvo = path.resolve(this.root, bookPath, filename);
-    const raiz = path.resolve(this.root);
+    const resolvido = path.resolve(this.root, bookPath, filename);
+    const raiz = await realpath(this.root).catch(() => path.resolve(this.root));
 
-    // `path.resolve` já normaliza `..`; o que resta é confirmar que o resultado continua dentro.
-    // O separador no fim evita que `/acervo-2` passe por estar dentro de `/acervo`.
-    if (alvo !== raiz && !alvo.startsWith(raiz + path.sep)) {
-      throw new CatalogUnavailableError(
-        `O catálogo aponta para fora da biblioteca: ${filename}`,
-        this.id,
-      );
-    }
+    // `path.resolve` já normaliza `..`, e o `realpath` desfaz os symlinks (#256, SEC-05): um
+    // arquivo dentro da biblioteca só pelo nome, e que aponta para fora dela, também é recusado.
+    // Arquivo que não existe não tem caminho real — e é o "arquivo ausente" de sempre.
+    const alvo = await realpath(resolvido).catch(() => null);
+    if (alvo === null && !dentro(resolvido, raiz)) this.fora(filename);
+    if (alvo === null) throw new CatalogFileMissingError(filename);
+    if (!dentro(alvo, raiz)) this.fora(filename);
 
     try {
       return new Uint8Array(await readFile(alvo));
     } catch {
       throw new CatalogFileMissingError(filename);
     }
+  }
+
+  private fora(filename: string): never {
+    throw new CatalogUnavailableError(
+      `O catálogo aponta para fora da biblioteca: ${filename}`,
+      this.id,
+    );
   }
 
   /**
@@ -219,10 +226,14 @@ export class CalibreCatalogProvider implements LibraryCatalogProvider {
       if (error instanceof CatalogUnavailableError || error instanceof CatalogFileMissingError) {
         throw error;
       }
-      throw new CatalogUnavailableError(
-        `Não deu para ler o catálogo: ${error instanceof Error ? error.message : "erro desconhecido"}`,
-        this.id,
-      );
+      // O erro do libSQL fica no log do servidor, e a resposta diz só o que a tela precisa
+      // (#256, SEC-05): a mensagem crua distinguia "não é um banco" de "não deu para abrir", e
+      // isso conta a quem pergunta o que há no disco.
+      logger.warn("import", "calibre.catalog_unreadable", {
+        root: this.root,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new CatalogUnavailableError("Não deu para ler o catálogo desta pasta.", this.id);
     } finally {
       client?.close();
       await rm(temporario, { recursive: true, force: true });
@@ -393,3 +404,7 @@ function indiceDeSerie(value: unknown): string | null {
 
   return Number.isInteger(numero) ? String(numero) : String(numero);
 }
+
+/** O caminho fica dentro da raiz? O separador no fim evita que `/acervo-2` passe por `/acervo`. */
+const dentro = (alvo: string, raiz: string): boolean =>
+  alvo === raiz || alvo.startsWith(raiz.endsWith(path.sep) ? raiz : raiz + path.sep);

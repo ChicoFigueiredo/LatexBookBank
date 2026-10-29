@@ -10,7 +10,7 @@ import {
   registeredTypes,
   type QuestionForPlugin,
 } from "@modules/questions/domain/question-type-plugin";
-import { optionLabelAt } from "@modules/questions/domain/question-type";
+import { optionLabelAt, QUESTION_TYPES } from "@modules/questions/domain/question-type";
 
 const question = (over: Partial<QuestionForPlugin> = {}): QuestionForPlugin => ({
   type: "MULTIPLE_CHOICE",
@@ -231,8 +231,46 @@ describe("validações comuns", () => {
  * Sem ele, "nenhum `switch` global sobre tipo de questão" é uma recomendação — e recomendação
  * some na terceira pressa. Com sete tipos e mais por vir, cada `switch` esquecido não dá erro de
  * compilação: dá comportamento errado numa tela só.
+ *
+ * E não só `switch` (revisão de 2026-09-23, TST-11): o guard via só `switch`, e a decisão por tipo
+ * escapava por `type === "DISCURSIVE"` no editor, por `wanted === "MULTIPLE_CHOICE" || …` no scan e
+ * por uma `Record<QuestionType, boolean>` nas alternativas. Agora as três formas são procuradas
+ * fora do registry, dos plugins e do vocabulário — que são os lugares que **devem** falar de tipo.
  */
-describe("nenhum `switch` global sobre tipo de questão", () => {
+const TYPE_NAME = `"(?:${QUESTION_TYPES.join("|")})"`;
+
+const DECISIONS: readonly { readonly what: string; readonly pattern: RegExp }[] = [
+  {
+    what: "`switch` sobre o tipo",
+    // `kind` entra porque é como o discriminante costuma se chamar aqui; um `switch` sobre `kind`
+    // de tipo de questão seria a mesma falha com outro nome.
+    pattern: /switch\s*\(\s*[\w.]*\b(type|questionType|kind)\b[^)]*\)/,
+  },
+  {
+    what: "comparação com o nome de um tipo",
+    pattern: new RegExp(`[!=]==?\\s*${TYPE_NAME}|${TYPE_NAME}\\s*[!=]==?`),
+  },
+  { what: "tabela por tipo", pattern: /(?:Record|Map)<\s*QuestionType\b/ },
+];
+
+/** As decisões por tipo que o trecho toma por conta própria. */
+function typeDecisionsIn(code: string): string[] {
+  return DECISIONS.filter(({ what, pattern }) => {
+    if (!pattern.test(code)) return false;
+    // `switch` sobre `type` ou `kind` é comum (nó, bloco, mensagem); só conta no arquivo que fala
+    // de tipo de questão.
+    return what !== DECISIONS[0]!.what || /QUESTION_TYPES|QuestionType/.test(code);
+  }).map(({ what }) => what);
+}
+
+/** Os lugares que resolvem por tipo: o registry, os plugins e o vocabulário. */
+const MAY_DECIDE = [
+  "/questions/domain/plugins/",
+  "/questions/domain/question-type-plugin.ts",
+  "/questions/domain/question-type.ts",
+];
+
+describe("nenhuma decisão por tipo de questão fora do registry", () => {
   const roots = ["src", "app"].map((dir) => fileURLToPath(new URL(`../${dir}`, import.meta.url)));
 
   function walk(dir: string): string[] {
@@ -243,24 +281,46 @@ describe("nenhum `switch` global sobre tipo de questão", () => {
     });
   }
 
-  it("nenhum arquivo faz `switch` sobre o tipo", () => {
+  it("nenhum arquivo decide por tipo com `switch`, comparação ou tabela própria", () => {
     const offenders: string[] = [];
 
     for (const root of roots) {
       for (const file of walk(root)) {
-        // O próprio registry e os plugins podem falar de tipo — são eles que resolvem por tipo.
-        if (file.includes("/questions/domain/")) continue;
+        if (MAY_DECIDE.some((allowed) => file.includes(allowed))) continue;
 
-        const code = readFileSync(file, "utf8");
-        if (/switch\s*\(\s*[\w.]*\b(type|questionType|kind)\b[^)]*\)/.test(code)) {
-          // `kind` entra na busca porque é como o discriminante costuma se chamar aqui; um
-          // `switch` sobre `kind` de tipo de questão seria a mesma falha com outro nome.
-          if (/QUESTION_TYPES|QuestionType/.test(code)) offenders.push(file);
+        for (const what of typeDecisionsIn(readFileSync(file, "utf8"))) {
+          offenders.push(`${file.slice(file.indexOf("/apps/web/") + 10)}: ${what}`);
         }
       }
     }
 
     expect(offenders).toEqual([]);
+  });
+
+  describe("o guard enxerga as formas que escapavam", () => {
+    it.each([
+      ['type === "DISCURSIVE" ? a : b', "comparação com o nome de um tipo"],
+      [
+        'wanted === "MULTIPLE_CHOICE" || wanted === "MULTIPLE_CORRECT"',
+        "comparação com o nome de um tipo",
+      ],
+      ['"MULTIPLE_CORRECT" !== questionType', "comparação com o nome de um tipo"],
+      ["const t: Readonly<Record<QuestionType, boolean>> = {}", "tabela por tipo"],
+      ["const t: ReadonlyMap<QuestionType, number> = new Map()", "tabela por tipo"],
+      ["const t = new Map<QuestionType, number>()", "tabela por tipo"],
+      ["let x: QuestionType; switch (x.type) {}", "`switch` sobre o tipo"],
+    ])("%s", (code, what) => {
+      expect(typeDecisionsIn(code)).toContain(what);
+    });
+
+    it.each([
+      'node.kind === "QUESTION"',
+      'useState<QuestionType>("MULTIPLE_CHOICE")',
+      "switch (block.kind) {}",
+      "optionsOf(type) === null",
+    ])("e deixa passar o que não decide por tipo: %s", (code) => {
+      expect(typeDecisionsIn(code)).toEqual([]);
+    });
   });
 });
 
