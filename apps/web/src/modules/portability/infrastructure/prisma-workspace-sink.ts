@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { recordOwnedAsset } from "@modules/assets/infrastructure/prisma-owned-assets";
 import type { RuntimeAsset } from "@modules/portability/application/export-workspace";
+import type { ImportReport } from "@modules/portability/application/import-archive";
 import type { ImportPlan } from "@modules/portability/application/import-workspace";
 import type { ArchiveAsset } from "@modules/portability/domain/portable-archive";
 import { translateSnapshotIds } from "@modules/portability/domain/snapshot-ids";
@@ -23,18 +24,6 @@ import type { StorageProvider } from "@/shared/ports";
  *
  * Ver spec §7 · issue #117 · #268.
  */
-
-export interface ImportReport {
-  readonly workspaceId: string;
-  readonly publications: number;
-  readonly nodes: number;
-  readonly questions: number;
-  readonly options: number;
-  readonly assets: number;
-  /** Assets que o dado referencia e o arquivo não trouxe. */
-  readonly missingAssets: readonly string[];
-  readonly tags: number;
-}
 
 const date = (iso: string | null): Date | null => (iso === null ? null : new Date(iso));
 

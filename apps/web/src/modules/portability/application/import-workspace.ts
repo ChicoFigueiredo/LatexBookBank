@@ -17,7 +17,7 @@ import type { RuntimeWorkspace } from "./export-workspace";
  */
 
 export interface ImportCollision {
-  readonly kind: "publication" | "question";
+  readonly kind: "workspace" | "publication" | "question";
   readonly by: "legacyId" | "legacyUuid" | "isbn";
   readonly value: string | number;
   readonly existingId: string;
@@ -35,9 +35,24 @@ export interface ImportPlan {
   readonly collisions: readonly ImportCollision[];
 }
 
+/**
+ * O que o destino já tem, com o **escopo** de cada chave (ACV-11, #270).
+ *
+ * A numeração do legado recomeça em cada biblioteca: o livro 7 e a questão 101 da biblioteca 42
+ * não têm nada a ver com o livro 7 e a questão 101 da biblioteca 1. Um índice global colidia os
+ * dois, e o dry-run de uma biblioteca nova acusava centenas de "conflitos" com livros de outras —
+ * até a pessoa aprender a ignorar o relatório. Por isso:
+ *
+ * - a biblioteca colide pelo `legacyId` dela (`IdBiblio`, único de verdade);
+ * - o livro colide por `legacyId` **só dentro** da biblioteca de mesma origem;
+ * - a questão colide por `legacyId` **só dentro** do livro que colidiu;
+ * - `legacyUuid` e ISBN continuam globais — eles significam "este livro" em qualquer lugar.
+ */
 export interface ExistingIndex {
-  /** `legacyId` de publicação → id no destino. */
-  readonly publicationsByLegacyId: ReadonlyMap<number, string>;
+  /** `legacyId` da biblioteca (`IdBiblio`) → id do workspace no destino. */
+  readonly workspacesByLegacyId: ReadonlyMap<number, string>;
+  /** id do workspace → (`legacyId` do livro → id da publicação). */
+  readonly publicationsByLegacyId: ReadonlyMap<string, ReadonlyMap<number, string>>;
   readonly publicationsByLegacyUuid: ReadonlyMap<string, string>;
   /**
    * ISBN normalizado → id no destino. A chave que funciona para livro nascido **no app**.
@@ -53,10 +68,12 @@ export interface ExistingIndex {
    * está na contracapa dele.
    */
   readonly publicationsByIsbn: ReadonlyMap<string, string>;
-  readonly questionsByLegacyId: ReadonlyMap<number, string>;
+  /** id da publicação → (`legacyId` da questão → id da questão). */
+  readonly questionsByLegacyId: ReadonlyMap<string, ReadonlyMap<number, string>>;
 }
 
 export const EMPTY_INDEX: ExistingIndex = {
+  workspacesByLegacyId: new Map(),
   publicationsByLegacyId: new Map(),
   publicationsByLegacyUuid: new Map(),
   publicationsByIsbn: new Map(),
@@ -90,10 +107,27 @@ export function toRuntime(
 ): ImportPlan {
   const collisions: ImportCollision[] = [];
 
+  // A biblioteca de mesma origem, se o destino tem uma: é o único escopo em que o `legacyId` de um
+  // livro quer dizer alguma coisa.
+  const sameOrigin =
+    portable.legacyId === null ? undefined : existing.workspacesByLegacyId.get(portable.legacyId);
+  if (sameOrigin !== undefined && portable.legacyId !== null) {
+    collisions.push({
+      kind: "workspace",
+      by: "legacyId",
+      value: portable.legacyId,
+      existingId: sameOrigin,
+    });
+  }
+
   const publications = portable.publications.map((publication) => {
-    if (publication.legacyId !== null) {
-      const found = existing.publicationsByLegacyId.get(publication.legacyId);
+    /** Os livros do destino que são este, por qualquer chave — o escopo das questões dele. */
+    const matched = new Set<string>();
+
+    if (publication.legacyId !== null && sameOrigin !== undefined) {
+      const found = existing.publicationsByLegacyId.get(sameOrigin)?.get(publication.legacyId);
       if (found !== undefined) {
+        matched.add(found);
         collisions.push({
           kind: "publication",
           by: "legacyId",
@@ -106,6 +140,7 @@ export function toRuntime(
     if (isbn !== null) {
       const found = existing.publicationsByIsbn.get(isbn);
       if (found !== undefined) {
+        matched.add(found);
         collisions.push({ kind: "publication", by: "isbn", value: isbn, existingId: found });
       }
     }
@@ -113,6 +148,7 @@ export function toRuntime(
     if (publication.legacyUuid !== null) {
       const found = existing.publicationsByLegacyUuid.get(publication.legacyUuid);
       if (found !== undefined) {
+        matched.add(found);
         collisions.push({
           kind: "publication",
           by: "legacyUuid",
@@ -150,14 +186,16 @@ export function toRuntime(
         const question = node.question;
 
         if (question !== null && question.legacyId !== null) {
-          const found = existing.questionsByLegacyId.get(question.legacyId);
-          if (found !== undefined) {
+          for (const publicationId of matched) {
+            const found = existing.questionsByLegacyId.get(publicationId)?.get(question.legacyId);
+            if (found === undefined) continue;
             collisions.push({
               kind: "question",
               by: "legacyId",
               value: question.legacyId,
               existingId: found,
             });
+            break;
           }
         }
 

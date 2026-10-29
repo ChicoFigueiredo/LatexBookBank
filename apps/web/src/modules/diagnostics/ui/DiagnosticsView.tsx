@@ -130,12 +130,18 @@ export function DiagnosticsView({ diagnostics, workspaces }: DiagnosticsViewProp
   const confirmImport = async () => {
     if (pending === null) return;
 
-    const { file } = pending;
+    const { file, collisions } = pending;
     setPending(null);
     setImportReport("importando…");
 
     try {
-      const real = await fetch("/api/workspaces/import", { method: "POST", body: file });
+      // Quem confirmou viu as colisões: o aceite vai junto, e o servidor recusa gravar sem ele
+      // (#270). Sem colisão no dry-run, não há o que aceitar — e uma que surja entre o dry-run e
+      // este POST volta como 409, em vez de passar sem ninguém ter visto.
+      const real = await fetch(
+        `/api/workspaces/import${collisions > 0 ? "?acceptCollisions=1" : ""}`,
+        { method: "POST", body: file },
+      );
       const done = (await real.json()) as { report?: Record<string, number>; message?: string };
 
       setImportReport(

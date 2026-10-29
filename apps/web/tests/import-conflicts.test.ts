@@ -90,6 +90,12 @@ describe("fraseDoConflito", () => {
     );
   });
 
+  it("a biblioteca de mesma origem diz que o arquivo entra ao lado, sem tocar nela", () => {
+    expect(fraseDoConflito(conflito({ title: "Fundamentos", kind: "workspace" }))).toBe(
+      "A biblioteca “Fundamentos” já veio desta mesma origem. O arquivo entra como uma biblioteca nova, ao lado dela.",
+    );
+  });
+
   it("singular de “1 questão”", () => {
     expect(
       fraseDoConflito(conflito({ title: "X", existingQuestions: 1, incomingQuestions: 2 })),

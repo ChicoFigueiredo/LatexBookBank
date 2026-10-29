@@ -1283,7 +1283,9 @@ e eles escondiam o que falta de verdade)*
 - ✅ Verifica `formatVersion` — **antes** do checksum
 - ✅ Verifica checksums e recusa arquivo corrompido
 - ✅ Religa assets ao `StorageProvider` de destino *(chaves novas — é o que o endereço por hash compra)*
-- ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão
+- ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão *(desde a #270 o servidor exige:
+  com colisão, gravar pede `acceptCollisions=1`, e sem ele é 409 e nada é gravado. E a colisão tem
+  escopo — livro por `legacyId` só na biblioteca de mesma origem, questão só no livro que colidiu)*
 - ✅ **Nada é sobrescrito em silêncio**
 - ✅ Relatório de importação *(com `dryRun=1` para ver antes de gravar)*
 - ✅ UI de importação *(com dry-run **antes** de gravar, sempre — e desde a #189 a confirmação é um

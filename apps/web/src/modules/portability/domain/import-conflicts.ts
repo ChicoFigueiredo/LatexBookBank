@@ -18,7 +18,7 @@ import type { ImportCollision } from "../application/import-workspace";
  */
 
 export interface ConflitoDeImportacao {
-  readonly kind: "publication" | "question";
+  readonly kind: "workspace" | "publication" | "question";
   /** Como o item se chama no acervo — é por ele que a pessoa reconhece o que está em jogo. */
   readonly title: string;
   /** Quantas questões o item **já tem** aqui. `null` quando a contagem não se aplica. */
@@ -60,6 +60,10 @@ export function deduplicarColisoes(
  */
 export function fraseDoConflito(conflito: ConflitoDeImportacao): string {
   const nome = `“${conflito.title}”`;
+
+  if (conflito.kind === "workspace") {
+    return `A biblioteca ${nome} já veio desta mesma origem. O arquivo entra como uma biblioteca nova, ao lado dela.`;
+  }
 
   if (conflito.kind === "question") {
     return `${nome} já existe no acervo. A questão do arquivo entra como cópia.`;

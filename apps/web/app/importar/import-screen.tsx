@@ -74,7 +74,14 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/workspaces/import${dryRun ? "?dryRun=1" : ""}`, {
+      // Gravar depois de ver conflitos leva o aceite: o servidor recusa sem ele (#270), e um
+      // conflito que surja entre a simulação e a gravação volta como recusa, não passa calado.
+      const query = dryRun
+        ? "?dryRun=1"
+        : (preview?.conflicts.length ?? 0) > 0
+          ? "?acceptCollisions=1"
+          : "";
+      const response = await fetch(`/api/workspaces/import${query}`, {
         method: "POST",
         headers: { "content-type": "application/zip" },
         body: chosen,

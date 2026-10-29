@@ -4,7 +4,11 @@ import {
   toPortable,
   type RuntimeWorkspace,
 } from "@modules/portability/application/export-workspace";
-import { toRuntime } from "@modules/portability/application/import-workspace";
+import {
+  EMPTY_INDEX,
+  toRuntime,
+  type ExistingIndex,
+} from "@modules/portability/application/import-workspace";
 import { readArchive, writeArchive } from "@modules/portability/domain/portable-archive";
 
 /** `sha256` de mentira, mas com a forma de um — o schema da v3 confere. */
@@ -317,16 +321,29 @@ describe("round-trip pelo arquivo inteiro", () => {
   });
 });
 
+/** Um índice do destino vazio, com só o que o teste preenche. */
+const index = (over: Partial<ExistingIndex> = {}): ExistingIndex => ({ ...EMPTY_INDEX, ...over });
+
+/** A biblioteca 42 do legado — a origem que dá escopo ao `legacyId` do livro (ACV-11). */
+const fromLibrary42 = () => toPortable({ ...runtime(), legacyId: 42 });
+
 describe("colisões — nada é sobrescrito em silêncio", () => {
-  it("publicação com o mesmo `legacyId` no destino vira colisão relatada", () => {
+  it("a biblioteca de mesma origem (`legacyId`) vira colisão relatada", () => {
+    const plan = toRuntime(fromLibrary42(), index({ workspacesByLegacyId: new Map([[42, "ws-42"]]) }));
+
+    expect(plan.collisions).toContainEqual({ kind: "workspace", by: "legacyId", value: 42, existingId: "ws-42" });
+  });
+
+  it("publicação com o mesmo `legacyId` **na biblioteca de mesma origem** vira colisão relatada", () => {
     // Um import que atualizasse por conta própria transformaria "trazer um acervo" em
     // "sobrescrever o meu", e a diferença só apareceria depois de o trabalho de alguém sumir.
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map([[7, "id-existente"]]),
-      publicationsByLegacyUuid: new Map(),
-      publicationsByIsbn: new Map(),
-      questionsByLegacyId: new Map(),
-    });
+    const plan = toRuntime(
+      fromLibrary42(),
+      index({
+        workspacesByLegacyId: new Map([[42, "ws-42"]]),
+        publicationsByLegacyId: new Map([["ws-42", new Map([[7, "id-existente"]])]]),
+      }),
+    );
 
     expect(plan.collisions).toContainEqual({
       kind: "publication",
@@ -334,6 +351,30 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
       value: 7,
       existingId: "id-existente",
     });
+  });
+
+  it("o mesmo `legacyId` de livro em **outra** biblioteca não é o mesmo livro (ACV-11)", () => {
+    // A numeração do legado recomeça em cada biblioteca: o livro 7 da biblioteca 1 não tem nada a
+    // ver com o livro 7 da 42, e acusar conflito ensinava a pessoa a ignorar o relatório.
+    const plan = toRuntime(
+      fromLibrary42(),
+      index({
+        workspacesByLegacyId: new Map([[1, "ws-1"]]),
+        publicationsByLegacyId: new Map([["ws-1", new Map([[7, "livro-de-outra"]])]]),
+        questionsByLegacyId: new Map([["livro-de-outra", new Map([[101, "questao-de-outra"]])]]),
+      }),
+    );
+
+    expect(plan.collisions).toEqual([]);
+  });
+
+  it("arquivo sem origem legada não colide livro por `legacyId` — não há escopo que lhe dê sentido", () => {
+    const plan = toRuntime(
+      toPortable(runtime()),
+      index({ publicationsByLegacyId: new Map([["ws-1", new Map([[7, "livro-de-outra"]])]]) }),
+    );
+
+    expect(plan.collisions).toEqual([]);
   });
 
   it("**ISBN** também colide — a chave que funciona para livro nascido no app", () => {
@@ -345,14 +386,12 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
      *
      * O ISBN é o identificador que a pessoa digitou, e significa "é este livro" fora deste banco.
      */
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map(),
-      publicationsByLegacyUuid: new Map(),
+    const plan = toRuntime(
+      toPortable(runtime()),
       // Sem hífen no índice, com hífen no arquivo: é assim que a ficha catalográfica escreve, e
       // comparar sem normalizar deixaria passar a duplicata mais óbvia que existe.
-      publicationsByIsbn: new Map([["9788535700114", "id-mesmo-livro"]]),
-      questionsByLegacyId: new Map(),
-    });
+      index({ publicationsByIsbn: new Map([["9788535700114", "id-mesmo-livro"]]) }),
+    );
 
     expect(plan.collisions).toContainEqual({
       kind: "publication",
@@ -372,26 +411,36 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
         ...semChaves,
         publications: [{ ...publicacao!, legacyId: null, legacyUuid: null, isbn: null }],
       }),
-      {
-        publicationsByLegacyId: new Map(),
-        publicationsByLegacyUuid: new Map(),
-        publicationsByIsbn: new Map([["9788535700114", "outro"]]),
-        questionsByLegacyId: new Map(),
-      },
+      index({ publicationsByIsbn: new Map([["9788535700114", "outro"]]) }),
     );
 
     expect(plan.collisions).toEqual([]);
   });
 
-  it("questão com o mesmo `legacyId` também é relatada", () => {
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map(),
-      publicationsByLegacyUuid: new Map(),
-      publicationsByIsbn: new Map(),
-      questionsByLegacyId: new Map([[101, "q-existente"]]),
-    });
+  it("questão com o mesmo `legacyId` é relatada **dentro do livro que colidiu**, e só ali", () => {
+    const plan = toRuntime(
+      toPortable(runtime()),
+      index({
+        publicationsByLegacyUuid: new Map([["legacy-uuid-1", "mesmo-livro"]]),
+        questionsByLegacyId: new Map([
+          ["mesmo-livro", new Map([[101, "q-existente"]])],
+          ["outro-livro", new Map([[101, "q-de-outro-livro"]])],
+        ]),
+      }),
+    );
 
-    expect(plan.collisions.map((entry) => entry.kind)).toEqual(["question"]);
+    expect(plan.collisions.filter((entry) => entry.kind === "question")).toEqual([
+      { kind: "question", by: "legacyId", value: 101, existingId: "q-existente" },
+    ]);
+  });
+
+  it("questão de livro que não colidiu não é relatada, mesmo com o `legacyId` igual", () => {
+    const plan = toRuntime(
+      toPortable(runtime()),
+      index({ questionsByLegacyId: new Map([["outro-livro", new Map([[101, "q-de-outro-livro"]])]]) }),
+    );
+
+    expect(plan.collisions).toEqual([]);
   });
 
   it("destino vazio não gera colisão nenhuma", () => {
@@ -399,12 +448,7 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
   });
 
   it("o plano existe mesmo com colisão — quem decide é quem chamou", () => {
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map([[7, "id-existente"]]),
-      publicationsByLegacyUuid: new Map(),
-      publicationsByIsbn: new Map(),
-      questionsByLegacyId: new Map(),
-    });
+    const plan = toRuntime(toPortable(runtime()), index({ publicationsByIsbn: new Map([["9788535700114", "x"]]) }));
 
     expect(plan.workspace.publications).toHaveLength(1);
   });

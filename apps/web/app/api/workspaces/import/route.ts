@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { toRuntime } from "@modules/portability/application/import-workspace";
-import { readArchive } from "@modules/portability/domain/portable-archive";
+import { importArchive } from "@modules/portability/application/import-archive";
 import {
   ArchiveTooLargeError,
   CorruptArchiveError,
   RetiredFormatVersionError,
   UnknownFormatVersionError,
 } from "@modules/portability/domain/portable-schema";
-import { deduplicarColisoes } from "@modules/portability/domain/import-conflicts";
 import {
   describeConflicts,
   readExistingIndex,
@@ -24,14 +22,15 @@ import { toErrorResponse } from "../../tree-http";
  * Importa um `.lbb`.
  *
  * `dryRun=1` devolve o relatório sem gravar nada — é o que permite ver as colisões antes de
- * decidir. **Nada é sobrescrito**: colisão vira relatório, e o import cria um workspace novo.
+ * decidir. **Nada é sobrescrito**: colisão vira relatório, e o import cria um workspace novo. Com
+ * colisão, gravar exige `acceptCollisions=1`; sem ele a resposta é 409 com os conflitos (#270).
  *
  * O `toRuntime` era chamado aqui **sem o índice do destino**, caindo no `EMPTY_INDEX`: a detecção
  * de colisão existia, era testada, e a simulação respondia zero conflitos em qualquer cenário. A
  * tela dizia isso com todas as letras, que é o pior tipo de defeito — o que soa como boa notícia.
  * `readExistingIndex` é a pergunta ao banco que faltava.
  *
- * Ver spec §7 · issue #117.
+ * Ver spec §7 · issue #117 · #270.
  */
 export const dynamic = "force-dynamic";
 
@@ -50,34 +49,49 @@ export async function POST(request: Request) {
       );
     }
 
-    const { manifest, workspace, assets } = await readArchive(bytes);
-    const plan = toRuntime(workspace, await readExistingIndex());
-
-    // Uma linha por item, não por chave: um livro que casa por `legacyId` **e** por `legacyUuid`
-    // produz duas colisões, e "2 conflitos" para um livro só faz procurar o segundo que não há.
-    const conflitos = await describeConflicts(deduplicarColisoes(plan.collisions), workspace);
-
-    if (new URL(request.url).searchParams.get("dryRun") === "1") {
-      return NextResponse.json({
-        dryRun: true,
-        manifest,
-        conflicts: conflitos,
-        collisions: plan.collisions,
-        wouldCreate: manifest.counts,
-        sizeBytes: bytes.byteLength,
-      });
-    }
-
+    const params = new URL(request.url).searchParams;
     const storage = new LocalFileStorageProvider({ rootDir: appEnv().storageRoot });
-    const report = await writeImportedWorkspace(plan, assets, storage);
+    const outcome = await importArchive(
+      bytes,
+      {
+        dryRun: params.get("dryRun") === "1",
+        acceptCollisions: params.get("acceptCollisions") === "1",
+      },
+      {
+        readIndex: readExistingIndex,
+        describeConflicts,
+        write: (plan, assets) => writeImportedWorkspace(plan, assets, storage),
+      },
+    );
 
-    return NextResponse.json({
-      dryRun: false,
-      manifest,
-      conflicts: conflitos,
-      collisions: plan.collisions,
-      report,
-    });
+    const seen = {
+      manifest: outcome.manifest,
+      conflicts: outcome.conflicts,
+      collisions: outcome.collisions,
+    };
+
+    switch (outcome.kind) {
+      case "simulated":
+        return NextResponse.json({
+          dryRun: true,
+          ...seen,
+          wouldCreate: outcome.manifest.counts,
+          sizeBytes: bytes.byteLength,
+        });
+      case "needs-decision":
+        // O servidor exige a decisão, e não só a tela: sem `acceptCollisions=1`, nada é gravado.
+        return NextResponse.json(
+          {
+            error: "collisions_need_decision",
+            message:
+              "O arquivo colide com o que já está no acervo. Veja os conflitos e confirme para importar como cópia (acceptCollisions=1).",
+            ...seen,
+          },
+          { status: 409 },
+        );
+      case "imported":
+        return NextResponse.json({ dryRun: false, ...seen, report: outcome.report });
+    }
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
       return NextResponse.json(
