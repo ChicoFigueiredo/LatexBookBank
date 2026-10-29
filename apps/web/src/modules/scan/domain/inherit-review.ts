@@ -135,3 +135,27 @@ export function inheritReview(
 
   return inherited.sort((a, b) => a.order - b.order).map((entry) => entry.review);
 }
+
+/**
+ * Os itens novos com a decisão herdada aplicada: o que a varredura grava de volta ao trocar de
+ * perfil. Uma linha no laço (ARQ-14), e a regra inteira aqui, junto da que escolhe o que herdar.
+ */
+export function applyInheritedReview(
+  previous: readonly ScanItem[],
+  fresh: readonly ScanItem[],
+): readonly ScanItem[] {
+  const byId = new Map(fresh.map((item) => [item.id, item]));
+  return inheritReview(previous, fresh).flatMap((decision) => {
+    const item = byId.get(decision.id);
+    return item
+      ? [
+          {
+            ...item,
+            reviewState: decision.reviewState,
+            reviewedText: decision.reviewedText,
+            reviewedLatex: decision.reviewedLatex,
+          },
+        ]
+      : [];
+  });
+}

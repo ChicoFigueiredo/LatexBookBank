@@ -1,5 +1,10 @@
-import { buildLines } from "@modules/scan/domain/page";
-import { rankProfiles, type RankedProfile } from "@modules/scan/domain/profiles";
+import type { CaptureProfile } from "@modules/scan/domain/capture-profile";
+import { buildLines, type PageModel } from "@modules/scan/domain/page";
+import {
+  PROFILE_MISMATCH_MARGIN,
+  rankProfiles,
+  type RankedProfile,
+} from "@modules/scan/domain/profiles";
 
 import type { OpenedPdf, PdfDocumentOpener } from "./pdf-document";
 import type { ScanSourceReader } from "./scan-store";
@@ -81,4 +86,39 @@ export async function suggestCaptureProfile(
   } finally {
     await pdf?.close();
   }
+}
+
+/**
+ * O perfil escolhido foi o errado? (ADR 0007)
+ *
+ * As páginas já estão lidas e os perfis já sabem se pontuar — a mesma nota que sugere antes da
+ * varredura acusa depois dela. O sintoma que motivou isto é mudo por natureza: varrer um livro com
+ * o perfil errado não dá erro nenhum, dá 453 seções onde deviam existir vinte.
+ *
+ * **A mesma amostra**, e não o livro inteiro. A nota é densidade de sinais por página, e um perfil
+ * cujos marcos são raros — 61 banners em 420 páginas — afunda quando o denominador é o volume
+ * todo. Medido: com o livro inteiro, o `book-fme-v1` acusava a si mesmo de ter lido errado o livro
+ * para o qual foi escrito. Com a amostra, ele ganha de longe, que é o mesmo resultado que a
+ * sugestão dá antes de a varredura começar.
+ *
+ * O aviso lidera pelo que é certo — este perfil reconheceu pouco — e só depois nomeia o candidato.
+ * A ordem importa: o alarme acerta sempre que dispara, e o palpite de qual seria o perfil certo
+ * pode errar num livro para o qual ainda não existe perfil nenhum.
+ */
+export function profileMismatchWarning(
+  pages: readonly PageModel[],
+  profile: CaptureProfile,
+): string | null {
+  const ranking = rankProfiles(
+    samplePageNumbers(pages.length).flatMap((n) => {
+      const page = pages[n - 1];
+      return page ? [page] : [];
+    }),
+  );
+  const best = ranking[0];
+  const chosen = ranking.find((entry) => entry.id === profile.id);
+  if (!best || !chosen || best.id === profile.id) return null;
+  if (best.score - chosen.score <= PROFILE_MISMATCH_MARGIN) return null;
+
+  return `O perfil "${profile.label}" reconheceu pouco deste PDF (${chosen.evidence}). O que mais se parece com ele é "${best.label}" (${best.evidence}) — confira a proposta antes de aprovar.`;
 }

@@ -5,6 +5,7 @@ import type { AiProvider } from "@shared/ports/ai-provider";
 import { MathRecognitionError, type MathRecognitionProvider } from "@shared/ports/math-recognition";
 
 import type { OpenedPdf } from "@modules/scan/application/pdf-document";
+import type { MathPass, SemanticPass } from "@modules/scan/application/run-scan";
 import type { ScanRunner } from "@modules/scan/application/scan-store";
 import { isInterrupted, normalizeSettings, InvalidScanSettingsError } from "@modules/scan/domain/scan-run";
 
@@ -170,6 +171,66 @@ describe("execução contra o banco", () => {
     // Só as páginas que faltavam foram lidas de novo.
     expect(reread).toBe(9 - 3);
     expect((await store.listItems(run.id)).filter((item) => item.kind === "CHAPTER")).toHaveLength(2);
+  });
+
+  it("cancelar no meio de uma passada termina cancelada, com o que a passada já gravou (ARQ-14)", async () => {
+    const { startScan } = await import("@modules/scan/application/start-scan");
+    const { runScan } = await import("@modules/scan/application/run-scan");
+    const { cancelScan } = await import("@modules/scan/application/control-scan");
+    const { publication, store, runner, startDeps, runDeps } = await pieces("formulas.pdf", "run-cancel-pass");
+
+    const { run } = await startScan(startDeps, {
+      publicationId: publication.id,
+      profileId: "book-v1",
+      recognizeMath: "always",
+    });
+
+    // A passada de matemática grava um item e, no meio, alguém pede para parar.
+    const math: MathPass = {
+      providerId: "fake-vision",
+      model: "qwen-vl",
+      run: async ({ items, save }) => {
+        await save({ upserts: [{ ...items[0]!, reviewedText: "gravado antes de parar" }], deletedIds: [] });
+        await cancelScan({ store, runner }, run.id);
+        return { calls: 1, warnings: [] };
+      },
+    };
+
+    await runScan({ ...runDeps, math }, run.id);
+
+    const stopped = await store.findRun(run.id);
+    expect(stopped?.state).toBe("CANCELLED");
+    const items = await store.listItems(run.id);
+    expect(items.some((item) => item.reviewedText === "gravado antes de parar")).toBe(true);
+  });
+
+  it("cancelar durante a última passada também cancela, e não entrega a proposta como pronta", async () => {
+    // Antes do contrato das passadas, só a matemática conferia o cancelamento depois de rodar:
+    // com ela desligada, parar no meio da IA terminava em "pronta para revisão".
+    const { startScan } = await import("@modules/scan/application/start-scan");
+    const { runScan } = await import("@modules/scan/application/run-scan");
+    const { cancelScan } = await import("@modules/scan/application/control-scan");
+    const { publication, store, runner, startDeps, runDeps } = await pieces("formulas.pdf", "run-cancel-ai");
+
+    const { run } = await startScan(startDeps, {
+      publicationId: publication.id,
+      profileId: "book-v1",
+      useAi: true,
+      recognizeMath: "never",
+    });
+
+    const semantic: SemanticPass = {
+      providerId: "ollama",
+      model: "llama3.1:8b",
+      run: async () => {
+        await cancelScan({ store, runner }, run.id);
+        return { changed: [], calls: 1 };
+      },
+    };
+
+    await runScan({ ...runDeps, semantic }, run.id);
+
+    expect((await store.findRun(run.id))?.state).toBe("CANCELLED");
   });
 
   it("falhar grava o motivo e não perde as páginas lidas", async () => {
