@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { restoreNode } from "@modules/document-tree/application/mutate-tree";
+import type { RestoreNodeResponse } from "@modules/document-tree/application/trash-contract";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 
 import { toErrorResponse } from "../../../../../http";
@@ -22,7 +23,7 @@ export async function POST(
 
   try {
     const restored = await restoreNode({ reader: repository, writer: repository }, id, nodeId);
-    return NextResponse.json({ restored });
+    return NextResponse.json({ restored } satisfies RestoreNodeResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
