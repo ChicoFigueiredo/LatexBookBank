@@ -109,3 +109,18 @@ export function profileForBaseUrl(baseUrl: string): AiProfile {
   if (url.includes("11434") || url.includes("ollama")) return AI_PROFILES.ollama;
   return AI_PROFILES.custom;
 }
+
+/**
+ * O que o endpoint sabe fazer: o perfil, corrigido pelo que a configuração declara.
+ *
+ * `AI_TOOL_CALLING=true` só **liga** o tool calling — o perfil conservador protege o caso comum,
+ * e a declaração existe para o caso bom (`qwen3-coder:30b` no Ollama). Uma regra só, para que a
+ * rota do agente, o painel e o /diagnostico digam a mesma coisa.
+ */
+export function capabilitiesFor(
+  baseUrl: string,
+  declared: { readonly toolCalling: boolean },
+): AiModelCapabilities {
+  const assumed = profileForBaseUrl(baseUrl).assumedCapabilities;
+  return { ...assumed, toolCalling: assumed.toolCalling || declared.toolCalling };
+}

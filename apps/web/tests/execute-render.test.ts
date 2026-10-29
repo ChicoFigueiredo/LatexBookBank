@@ -106,8 +106,11 @@ class FakeStorage implements StorageProvider {
   async get(_key: StorageKey): Promise<never> {
     throw new Error("não usado");
   }
-  async exists(_key: StorageKey) {
-    return true;
+  /** Chaves que "sumiram" do storage — a limpeza de derivados (D29) apagou. */
+  readonly gone = new Set<string>();
+
+  async exists(key: StorageKey) {
+    return !this.gone.has(key);
   }
   async delete(_key: StorageKey) {
     /* não usado */
@@ -127,6 +130,12 @@ class FakeJobs implements RenderJobRepository {
     const record: RenderJobRecord = { ...job, id: `id-${this.created.length}` };
     this.byHash.set(`${job.workspaceId}/${job.contentHash}`, record);
     return record;
+  }
+
+  async remove(jobId: string): Promise<void> {
+    for (const [key, record] of this.byHash) {
+      if (record.id === jobId) this.byHash.delete(key);
+    }
   }
 }
 
@@ -202,6 +211,7 @@ describe("executeRender", () => {
         ordem.push("banco");
         return jobs.create(j);
       },
+      remove: (id) => jobs.remove(id),
     };
 
     await executeRender(input, {
@@ -272,11 +282,11 @@ describe("executeRender", () => {
     expect(outro.cacheHit).toBe(false);
   });
 
-  it("falha também entra no cache", async () => {
+  it("falha do documento também entra no cache", async () => {
     // Recompilar o mesmo LaTeX quebrado dá o mesmo erro; gastar `pdflatex` para reconfirmar é
     // desperdício que a pessoa sente.
     const executor = new FakeExecutor({
-      result: result({ success: false, pdf: null, png: [] }),
+      result: result({ success: false, failureKind: "document", pdf: null, png: [] }),
       artifacts: new Map(),
     });
     const d = deps(executor, new FakeStorage(), new FakeJobs());
@@ -287,6 +297,76 @@ describe("executeRender", () => {
     expect(first.job.state).toBe("FAILED");
     expect(second.cacheHit).toBe(true);
     expect(executor.calls).toBe(1);
+  });
+
+  it.each(["timeout", "worker"] as const)(
+    "falha de %s não entra no cache — a próxima compilação tenta de novo",
+    async (failureKind) => {
+      // O 1º render de uma questão pesada coincide com a montagem do formato e passa do prazo; o
+      // /tmp do contêiner enche. Nenhum dos dois é do documento, e guardá-los respondia "passou
+      // de 30000 ms" para aquele LaTeX, instantaneamente, para sempre.
+      const executor = new FakeExecutor({
+        result: result({ success: false, failureKind, pdf: null, png: [] }),
+        artifacts: new Map(),
+      });
+      const jobs = new FakeJobs();
+      const d = deps(executor, new FakeStorage(), jobs);
+
+      const first = await executeRender(input, d);
+      const second = await executeRender(input, d);
+
+      expect(first.job.state).toBe("FAILED");
+      expect(second.cacheHit).toBe(false);
+      expect(executor.calls).toBe(2);
+      expect(jobs.created).toHaveLength(0);
+    },
+  );
+
+  it("job cujo artefato sumiu do storage não é cache — recompila e substitui", async () => {
+    // "O artefato foi descartado do storage. Recompile" só é conselho se recompilar recompila.
+    const executor = new FakeExecutor(outcome());
+    const storage = new FakeStorage();
+    const jobs = new FakeJobs();
+    const d = deps(executor, storage, jobs);
+
+    const first = await executeRender(input, d);
+    storage.gone.add(first.job.artifacts[0]?.storageKey ?? "");
+    const second = await executeRender(input, d);
+
+    expect(second.cacheHit).toBe(false);
+    expect(executor.calls).toBe(2);
+    expect(second.job.id).not.toBe(first.job.id);
+    expect((await executeRender(input, d)).job.id).toBe(second.job.id);
+  });
+
+  it("`force` recompila mesmo com cache, e o novo job passa a ser o cache", async () => {
+    const executor = new FakeExecutor(outcome());
+    const d = deps(executor, new FakeStorage(), new FakeJobs());
+
+    const first = await executeRender(input, d);
+    const forced = await executeRender({ ...input, force: true }, d);
+
+    expect(forced.cacheHit).toBe(false);
+    expect(executor.calls).toBe(2);
+    expect((await executeRender(input, d)).job.id).toBe(forced.job.id);
+    expect(forced.job.id).not.toBe(first.job.id);
+  });
+
+  it("a versão vem de quem compila: a imagem reconstruída invalida o cache sem bump manual", async () => {
+    // Acrescentar um pacote ao Dockerfile e rodar `docker compose build` sem mexer em
+    // RENDERER_VERSION: a versão que o worker reporta muda, e é ela que entra no hash.
+    const executor = new FakeExecutor(outcome());
+    const storage = new FakeStorage();
+    const jobs = new FakeJobs();
+    let reported = "0.0.0-dev+aaaa";
+    const d = { executor, storage, jobs, rendererVersion: () => Promise.resolve(reported) };
+
+    await executeRender(input, d);
+    reported = "0.0.0-dev+bbbb";
+    const depois = await executeRender(input, d);
+
+    expect(depois.cacheHit).toBe(false);
+    expect(executor.calls).toBe(2);
   });
 
   it("job sem PDF não grava artefato nenhum", async () => {

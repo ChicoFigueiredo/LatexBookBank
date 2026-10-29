@@ -18,13 +18,42 @@ export interface RenderWorkerConfig {
   readonly secret: string;
   /** Teto do lado do cliente; o worker tem o dele, e o menor vence. */
   readonly requestTimeoutMs?: number;
+  /** Injetável para teste; em produção é `Date.now`. */
+  readonly now?: () => number;
 }
 
 const AUTH_HEADER = "x-render-secret";
 const DEFAULT_TIMEOUT_MS = 120_000;
 
+/**
+ * Por quanto tempo a versão lida do `/health` vale.
+ *
+ * Curto: depois de `docker compose up -d --build`, a próxima compilação precisa ver a imagem nova
+ * em segundos, não depois de reiniciar a aplicação. Uma ida ao `/health` a cada 30 s é nada.
+ */
+const VERSION_TTL_MS = 30_000;
+
 export class RenderWorkerExecutor implements RenderExecutor {
+  private version: { readonly value: string; readonly at: number } | null = null;
+
   constructor(private readonly config: RenderWorkerConfig) {}
+
+  /**
+   * A versão de quem compila, como o worker a reporta — é ela que entra no hash de cache.
+   *
+   * Lida do ambiente da aplicação, ela só mudava quando alguém lembrava de mudar `RENDERER_VERSION`:
+   * acrescentar um pacote ao Dockerfile e reconstruir a imagem deixava o cache servindo a falha
+   * antiga ("File `tkz-euclide.sty' not found") como se nada tivesse mudado. O worker carimba a
+   * própria imagem (ver `services/renderer/src/build-id.ts`).
+   */
+  async rendererVersion(): Promise<string> {
+    const now = (this.config.now ?? Date.now)();
+    if (this.version !== null && now - this.version.at < VERSION_TTL_MS) return this.version.value;
+
+    const health = await this.health();
+    this.version = { value: health.rendererVersion, at: now };
+    return health.rendererVersion;
+  }
 
   async health(): Promise<RenderHealth> {
     const response = await this.fetch("/health", { method: "GET" }, false);
@@ -60,6 +89,13 @@ export class RenderWorkerExecutor implements RenderExecutor {
 
     if (status.result === null) {
       throw new Error(`O worker devolveu o job \`${bundle.jobId}\` sem resultado.`);
+    }
+
+    if (response.status === 422 && !status.result.success) {
+      // 422 é o worker dizendo que o erro é **dele** — bundle recusado, asset corrompido, disco
+      // cheio —, e nada disso o mesmo LaTeX repete. Marcado aqui também porque um worker anterior
+      // ao `failureKind` não o manda, e sem a marca a falha iria para o cache como do documento.
+      return { result: { ...status.result, failureKind: "worker" }, artifacts: new Map() };
     }
 
     // Os artefatos vêm depois do status, um a um. É sequencial de propósito: o worker tem um

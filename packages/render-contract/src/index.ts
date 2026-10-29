@@ -13,6 +13,7 @@ export { DEFAULT_RENDER_OPTIONS } from "./render-bundle.ts";
 export type {
   RenderArtifactDescriptor,
   RenderDiagnostic,
+  RenderFailureKind,
   RenderHealth,
   RenderJobState,
   RenderJobStatus,

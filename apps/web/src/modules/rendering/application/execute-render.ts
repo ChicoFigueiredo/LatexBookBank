@@ -1,6 +1,6 @@
 import type { RenderBundle } from "@latexbookbank/render-contract";
 
-import type { RenderExecutor, StorageProvider } from "@/shared/ports";
+import { asStorageKey, type RenderExecutor, type StorageProvider } from "@/shared/ports";
 
 import { logger as defaultLogger, type Logger } from "@/shared/observability/logger";
 
@@ -36,6 +36,8 @@ export interface ExecuteRenderInput {
   readonly questionId: string | null;
   readonly bundle: RenderBundle;
   readonly assets?: ReadonlyMap<string, Uint8Array>;
+  /** Recompila mesmo com cache, e o resultado novo passa a ser o cache. */
+  readonly force?: boolean;
 }
 
 export interface ExecuteRenderResult {
@@ -53,7 +55,13 @@ export interface ExecuteRenderDeps {
   readonly executor: RenderExecutor;
   readonly storage: StorageProvider;
   readonly jobs: RenderJobRepository;
-  readonly rendererVersion: string;
+  /**
+   * A versão de quem compila — entra no hash de cache.
+   *
+   * Função quando vem do worker (`/health`): é a imagem que compila quem sabe se mudou, e a versão
+   * lida do ambiente da aplicação só mudava quando alguém lembrava de mudá-la.
+   */
+  readonly rendererVersion: string | (() => Promise<string>);
   /**
    * Onde os eventos vão. Injetável, e por isso o teste consegue afirmar **o que** foi registrado.
    *
@@ -69,17 +77,29 @@ export async function executeRender(
   deps: ExecuteRenderDeps,
 ): Promise<ExecuteRenderResult> {
   const log = deps.logger ?? defaultLogger;
-  const contentHash = await renderContentHash(input.bundle, deps.rendererVersion);
+  const rendererVersion =
+    typeof deps.rendererVersion === "string" ? deps.rendererVersion : await deps.rendererVersion();
+  const contentHash = await renderContentHash(input.bundle, rendererVersion);
   // O hash abreviado, não o LaTeX: o log é para correlacionar, e o enunciado de uma prova não
   // tem por que existir em duas cópias, uma delas fora do banco (spec §14).
   const hash = contentHash.slice(0, 12);
 
   const cached = await deps.jobs.findByContentHash(input.workspaceId, contentHash);
   if (cached !== null) {
-    // Job que falhou também é cache: recompilar o mesmo LaTeX quebrado dá o mesmo erro, e gastar
-    // três segundos de `pdflatex` para reconfirmar isso é desperdício que a pessoa sente.
-    log.info("render", "cache_hit", { hash, jobId: cached.id, success: cached.success });
-    return { job: cached, cacheHit: true };
+    // Job que falhou também é cache — só falha **do documento** chega a ser gravada, e recompilar
+    // o mesmo LaTeX quebrado dá o mesmo erro.
+    //
+    // Mas o cache só vale enquanto for verdade. Um artefato descartado do storage (D29) faria a
+    // tela achar que tem PDF e o download falhar, e o conselho "recompile" daria cache hit no
+    // mesmo job; quem pede `force` quer justamente não ler o cache.
+    const stale = input.force === true || !(await artifactsExist(cached, deps.storage));
+    if (!stale) {
+      log.info("render", "cache_hit", { hash, jobId: cached.id, success: cached.success });
+      return { job: cached, cacheHit: true };
+    }
+
+    log.info("render", "cache_dropped", { hash, jobId: cached.id, forced: input.force === true });
+    await deps.jobs.remove(cached.id);
   }
 
   log.info("render", "started", { hash, profileId: input.bundle.profile.id });
@@ -114,6 +134,12 @@ export async function executeRender(
     });
   }
 
+  // Falha que não é do documento — prazo estourado, worker com defeito — é do momento, e não vai
+  // para o cache: a próxima compilação tenta de novo. O worker sem `failureKind` é anterior ao
+  // campo, e a leitura dele continua a de antes.
+  const failureKind = result.success ? null : (result.failureKind ?? "document");
+  const cacheable = failureKind === null || failureKind === "document";
+
   const job: NewRenderJob = {
     workspaceId: input.workspaceId,
     questionId: input.questionId,
@@ -128,6 +154,17 @@ export async function executeRender(
     stderr: truncateLog(result.stderr),
     artifacts: stored,
   };
+
+  if (!cacheable) {
+    log.warn("render", "transient_failure", {
+      hash,
+      failureKind,
+      durationMs: result.durationMs,
+      diagnostics: result.diagnostics.length,
+    });
+    // O id é o da execução: não há linha no banco, e não há artefato para baixar por ele.
+    return { job: { ...job, id: input.bundle.jobId }, cacheHit: false };
+  }
 
   const created = await deps.jobs.create(job);
 
@@ -144,4 +181,12 @@ export async function executeRender(
   });
 
   return { job: created, cacheHit: false };
+}
+
+/** Todos os artefatos do job ainda estão no storage? */
+async function artifactsExist(job: RenderJobRecord, storage: StorageProvider): Promise<boolean> {
+  for (const artifact of job.artifacts) {
+    if (!(await storage.exists(asStorageKey(artifact.storageKey)))) return false;
+  }
+  return true;
 }

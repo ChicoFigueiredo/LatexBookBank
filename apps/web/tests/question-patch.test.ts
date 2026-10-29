@@ -109,16 +109,17 @@ describe("coerência interna", () => {
     ).toThrow(/duas vezes/);
   });
 
-  it("**duas corretas** é recusado antes de chegar à tela", () => {
-    // O erro que a §8.5 mais teme, e que o agente comete ao "corrigir" o gabarito.
-    expect(() =>
+  it("**duas corretas** passam pelo schema — quem decide é o tipo", () => {
+    // O schema não sabe o tipo, e numa MULTIPLE_CORRECT marcar duas é o gabarito certo. A recusa
+    // da múltipla escolha mora em `checkAnswerKeyForType` (ver patch-applier-db.test.ts).
+    expect(
       patch({
         options: [
           { optionId: "o-1", isCorrect: true },
           { optionId: "o-2", isCorrect: true },
         ],
-      }),
-    ).toThrow(/mais de uma alternativa como correta/);
+      }).options,
+    ).toHaveLength(2);
   });
 
   it("reordenação com id repetido é recusada", () => {

@@ -6,6 +6,7 @@ import {
   type RevisionSnapshot,
 } from "@modules/questions/domain/revision-diff";
 import { snapshotOf } from "@modules/agents/domain/apply-patch";
+import type { QuestionState } from "@modules/agents/domain/patch-diff";
 
 /**
  * O diff entre revisões, e a prova de que restaurar devolve o estado **exato**.
@@ -27,6 +28,13 @@ const snapshot = (over: Partial<RevisionSnapshot> = {}): RevisionSnapshot => ({
   metadata: { board: "CESPE", year: 2024 },
   tags: ["juros"],
   ...over,
+});
+
+/** O estado completo que `snapshotOf` grava: o tipo e a posição de cada alternativa (versão 2). */
+const asState = (snapshot: RevisionSnapshot): QuestionState => ({
+  ...snapshot,
+  type: snapshot.type ?? "MULTIPLE_CHOICE",
+  options: snapshot.options.map((option, index) => ({ ...option, sortKey: `a${index}` })),
 });
 
 describe("o que mudou entre duas revisões", () => {
@@ -123,14 +131,16 @@ describe("restaurar devolve o estado exato", () => {
   it("o snapshot sobrevive à ida e volta por JSON, sem perder nada", () => {
     // É a garantia inteira da Fase 10: `snapshotOf` grava, `parseSnapshot` lê, e o que sai tem
     // que ser idêntico ao que entrou — não parecido.
-    const original = snapshot({
-      statementLatex: "Um capital de \\SI{1000}{\\real} à taxa de 2\\%",
-      solutionLatex: "M = C(1+it)",
-      complementLatex: "",
-      nickname: "Juros — 1",
-      metadata: { board: "Cesgranrio", year: 2014, difficulty: 5, videoUrl: null },
-      tags: ["juros simples", "matemática financeira"],
-    });
+    const original = asState(
+      snapshot({
+        statementLatex: "Um capital de \\SI{1000}{\\real} à taxa de 2\\%",
+        solutionLatex: "M = C(1+it)",
+        complementLatex: "",
+        nickname: "Juros — 1",
+        metadata: { board: "Cesgranrio", year: 2014, difficulty: 5, videoUrl: null },
+        tags: ["juros simples", "matemática financeira"],
+      }),
+    );
 
     const restored = parseSnapshot(snapshotOf(original));
 
@@ -145,7 +155,7 @@ describe("restaurar devolve o estado exato", () => {
       statementLatex: "Qual é a razão? \\frac{1}{2} \\\\ \\textbf{Atenção}",
     });
 
-    const restored = parseSnapshot(snapshotOf(original));
+    const restored = parseSnapshot(snapshotOf(asState(original)));
     expect(restored.statementLatex).toBe(original.statementLatex);
   });
 
@@ -168,7 +178,7 @@ describe("restaurar devolve o estado exato", () => {
       ],
     });
 
-    const restored = parseSnapshot(snapshotOf(original));
+    const restored = parseSnapshot(snapshotOf(asState(original)));
     const correct = restored.options.filter((option) => option.isCorrect);
 
     expect(correct).toHaveLength(1);

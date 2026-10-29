@@ -469,7 +469,9 @@ export function PublicationWorkbench({
   const previewChange = useCallback(
     async (change: { id: string; before: string; after: string }) => {
       const questionId = selected?.question?.id;
-      const field = change.id.startsWith("field:") ? change.id.slice("field:".length) : null;
+      // O id é `field:<campo>:<impressão do antes>` — a impressão não é parte do nome do campo.
+      const [kind, target] = change.id.split(":");
+      const field = kind === "field" && target !== undefined ? target : null;
       if (!questionId || field === null) throw new Error("Esta linha não é um campo de texto.");
 
       const compile = async (value: string) => {

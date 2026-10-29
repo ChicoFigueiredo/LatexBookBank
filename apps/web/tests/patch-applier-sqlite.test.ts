@@ -102,17 +102,36 @@ async function estado(questionId: string) {
   };
 }
 
+/**
+ * Os ids das linhas que a tela mostraria, filtrados pelo começo: o id leva a impressão do valor
+ * anterior (F3, #266), então o teste aprova como a tela aprova — calculando o diff do estado lido.
+ */
+async function aprovadas(
+  questionId: string,
+  proposta: ReturnType<typeof patch>,
+  prefixos: readonly string[],
+): Promise<string[]> {
+  const { readQuestionState } = await import("@infrastructure/agent/prisma-question-state");
+  const { diffPatch } = await import("@modules/agents/domain/patch-diff");
+  const state = await readQuestionState(questionId);
+  if (state === null) throw new Error("questão sumiu");
+  return diffPatch(state, proposta)
+    .map((change) => change.id)
+    .filter((id) => prefixos.some((prefixo) => id === prefixo || id.startsWith(`${prefixo}:`)));
+}
+
 describe("aplicar o patch aprovado", () => {
   it("grava só as linhas aprovadas, e a revisão do estado anterior vem junto", async () => {
     const { question } = await questaoNoLivro();
 
+    const proposta = patch({
+      fields: [{ field: "statementLatex", value: "Qual é a taxa à vista?" }],
+      metadata: { board: "CEBRASPE" },
+    });
     const result = await applyQuestionPatch(applier, {
       questionId: question.id,
-      patch: patch({
-        fields: [{ field: "statementLatex", value: "Qual é a taxa à vista?" }],
-        metadata: { board: "CEBRASPE" },
-      }),
-      approvedChangeIds: ["field:statementLatex"],
+      patch: proposta,
+      approvedChangeIds: await aprovadas(question.id, proposta, ["field:statementLatex"]),
     });
 
     expect(result.revisionNumber).toBe(1);
@@ -132,14 +151,20 @@ describe("aplicar o patch aprovado", () => {
   it("marcar outra correta desmarca a anterior, reordenar dá chave nova, e as tags são o conjunto", async () => {
     const { workspace, question, um, dois, tres } = await questaoNoLivro();
 
+    const proposta = patch({
+      options: [{ optionId: dois, isCorrect: true }],
+      reorder: { optionIds: [tres, dois, um] },
+      tags: { names: ["porcentagem"] },
+    });
+
     await applyQuestionPatch(applier, {
       questionId: question.id,
-      patch: patch({
-        options: [{ optionId: dois, isCorrect: true }],
-        reorder: { optionIds: [tres, dois, um] },
-        tags: { names: ["porcentagem"] },
-      }),
-      approvedChangeIds: [`option:${dois}:correct`, "reorder", "tags"],
+      patch: proposta,
+      approvedChangeIds: await aprovadas(question.id, proposta, [
+        `option:${dois}:correct`,
+        "reorder",
+        "tags",
+      ]),
     });
 
     expect(await estado(question.id)).toMatchObject({
@@ -181,22 +206,24 @@ describe("reverter", () => {
     const { question, um, dois, tres } = await questaoNoLivro();
     const antes = await estado(question.id);
 
+    const proposta = patch({
+      fields: [{ field: "statementLatex", value: "Mudou." }],
+      options: [{ optionId: tres, isCorrect: true }],
+      reorder: { optionIds: [dois, tres, um] },
+      metadata: { board: "FGV" },
+      tags: { names: [] },
+    });
+
     await applyQuestionPatch(applier, {
       questionId: question.id,
-      patch: patch({
-        fields: [{ field: "statementLatex", value: "Mudou." }],
-        options: [{ optionId: tres, isCorrect: true }],
-        reorder: { optionIds: [dois, tres, um] },
-        metadata: { board: "FGV" },
-        tags: { names: [] },
-      }),
-      approvedChangeIds: [
+      patch: proposta,
+      approvedChangeIds: await aprovadas(question.id, proposta, [
         "field:statementLatex",
         `option:${tres}:correct`,
         "reorder",
         "metadata:board",
         "tags",
-      ],
+      ]),
     });
     const [primeira] = await prisma.revision.findMany({
       where: { entityType: "QUESTION", entityId: question.id },

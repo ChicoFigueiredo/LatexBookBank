@@ -1,5 +1,5 @@
-import { diffPatch, type Change, type QuestionState } from "./patch-diff";
-import type { QuestionPatch } from "./question-patch";
+import { diffPatch, exclusiveCorrectFor, type Change, type QuestionState } from "./patch-diff";
+import { PatchRejectedError, type QuestionPatch } from "./question-patch";
 
 /**
  * O que aplicar, dado o que o usuário **aprovou**.
@@ -21,7 +21,10 @@ export interface ApplyPlan {
   readonly changes: readonly Change[];
   /** Os campos de texto a gravar. Só os aprovados aparecem. */
   readonly fields: Readonly<Record<string, string | null>>;
-  /** Por id de alternativa. */
+  /**
+   * Por id de alternativa, com o gabarito **inteiro** que muda: num tipo exclusivo, a correta
+   * antiga vem aqui desmarcada. Quem grava não decide regra de tipo nenhuma.
+   */
   readonly options: readonly {
     readonly id: string;
     readonly statementLatex?: string;
@@ -49,6 +52,24 @@ export class NothingApprovedError extends Error {
 }
 
 /**
+ * Recusa duas corretas num tipo que admite uma só.
+ *
+ * Duas corretas numa múltipla escolha é o erro que a spec §8.5 mais teme, e o agente o comete com
+ * frequência ao "corrigir" o gabarito. Conferido contra o tipo **do banco**, e não no schema: o
+ * schema não sabe o tipo, e recusar duas corretas sempre impedia a MULTIPLE_CORRECT de receber o
+ * gabarito dela. Roda na proposta (a mensagem volta para o modelo) e de novo ao aplicar.
+ */
+export function checkAnswerKeyForType(patch: QuestionPatch, type: string): void {
+  const marked = patch.options.filter((entry) => entry.isCorrect === true).length;
+  if (marked <= 1 || !exclusiveCorrectFor(type)) return;
+
+  const message =
+    `Uma questão ${type} admite uma correta só, e o patch marca ${marked}. ` +
+    "Marque apenas a alternativa correta.";
+  throw new PatchRejectedError(`O patch foi recusado. ${message}`, [message]);
+}
+
+/**
  * Monta o plano a partir do estado atual, do patch e dos ids aprovados.
  *
  * `approved` é obrigatório e não tem default. Um default — "tudo", ou "nada" — seria a decisão
@@ -59,6 +80,9 @@ export function planApply(
   patch: QuestionPatch,
   approved: readonly string[],
 ): ApplyPlan {
+  checkAnswerKeyForType(patch, state.type);
+  const exclusive = exclusiveCorrectFor(state.type);
+
   const live = diffPatch(state, patch);
   const liveIds = new Set(live.map((change) => change.id));
 
@@ -75,33 +99,45 @@ export function planApply(
   let tags: readonly string[] | null = null;
 
   for (const change of changes) {
+    // O id é `tipo:alvo[:detalhe]:impressão` — a impressão só serve para conferir o estado.
+    const [, target, what] = change.id.split(":");
+
     switch (change.kind) {
       case "field": {
-        const field = change.id.slice("field:".length);
-        const entry = patch.fields.find((candidate) => candidate.field === field);
+        const entry = patch.fields.find((candidate) => candidate.field === target);
         if (entry) {
           // `nickname` vazio vira `null`: a coluna é anulável, e `""` seria um apelido em branco
           // em vez de nenhum apelido.
-          fields[field] = field === "nickname" && entry.value.trim() === "" ? null : entry.value;
+          fields[entry.field] =
+            entry.field === "nickname" && entry.value.trim() === "" ? null : entry.value;
         }
         break;
       }
 
       case "option": {
-        const [, optionId, what] = change.id.split(":");
-        const entry = patch.options.find((candidate) => candidate.optionId === optionId);
-        if (!entry || optionId === undefined) break;
+        const entry = patch.options.find((candidate) => candidate.optionId === target);
+        if (!entry || target === undefined) break;
 
         // Texto e gabarito são duas aprovações distintas na tela; aprovar uma não arrasta a
         // outra, e por isso a mesma alternativa pode chegar aqui em dois passos.
-        const current = options.get(optionId) ?? { id: optionId };
+        const current = options.get(target) ?? { id: target };
         if (what === "text" && entry.statementLatex !== undefined) {
           current.statementLatex = entry.statementLatex;
         }
         if (what === "correct" && entry.isCorrect !== undefined) {
           current.isCorrect = entry.isCorrect;
+
+          // A regra do tipo, aplicada aqui e mostrada na mesma linha do diff: num tipo
+          // exclusivo, a correta antiga deixa de ser. Numa MULTIPLE_CORRECT, nada mais muda.
+          if (exclusive && entry.isCorrect) {
+            for (const other of state.options) {
+              if (other.isCorrect && other.id !== target) {
+                options.set(other.id, { ...options.get(other.id), id: other.id, isCorrect: false });
+              }
+            }
+          }
         }
-        options.set(optionId, current);
+        options.set(target, current);
         break;
       }
 
@@ -110,9 +146,8 @@ export function planApply(
         break;
 
       case "metadata": {
-        const key = change.id.slice("metadata:".length);
-        if (patch.metadata && key in patch.metadata) {
-          metadata[key] = (patch.metadata as Record<string, unknown>)[key];
+        if (target !== undefined && patch.metadata && target in patch.metadata) {
+          metadata[target] = (patch.metadata as Record<string, unknown>)[target];
         }
         break;
       }
@@ -135,18 +170,40 @@ export function planApply(
  */
 export function snapshotOf(state: QuestionState): string {
   return JSON.stringify({
+    snapshotVersion: SNAPSHOT_VERSION,
+    type: state.type,
     statementLatex: state.statementLatex,
     solutionLatex: state.solutionLatex,
     complementLatex: state.complementLatex,
     nickname: state.nickname,
     options: state.options.map((option) => ({
       id: option.id,
+      sortKey: option.sortKey,
       statementLatex: option.statementLatex,
       isCorrect: option.isCorrect,
     })),
     metadata: state.metadata,
     tags: [...state.tags],
   });
+}
+
+/**
+ * A versão 2 acrescenta o tipo e a posição de cada alternativa: sem eles, restaurar devolvia uma
+ * questão com o tipo trocado depois, e a ordem só por aproximação. Revisão antiga não tem os dois
+ * campos, e a restauração dela faz o que dá — ver `revertQuestion`.
+ */
+export const SNAPSHOT_VERSION = 2;
+
+/** O snapshot lido de volta: as revisões gravadas antes da versão 2 não têm tipo nem posição. */
+export interface QuestionSnapshot extends Omit<QuestionState, "type" | "options"> {
+  readonly snapshotVersion?: number;
+  readonly type?: string;
+  readonly options: readonly {
+    readonly id: string;
+    readonly sortKey?: string;
+    readonly statementLatex: string;
+    readonly isCorrect: boolean;
+  }[];
 }
 
 /** Uma frase para a timeline, antes de abrir diff nenhum. */

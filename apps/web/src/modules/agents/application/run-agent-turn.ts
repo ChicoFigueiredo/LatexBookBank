@@ -237,7 +237,9 @@ export async function runAgentTurn(input: RunTurnInput): Promise<RunTurnOutput> 
       );
     }
 
-    messages.push({ role: "assistant", content: result.text });
+    // As chamadas vão junto: cada mensagem `tool` abaixo responde a uma delas, e a OpenAI e o
+    // OpenRouter recusam a resposta que não tem a chamada correspondente.
+    messages.push({ role: "assistant", content: result.text, toolCalls: result.toolCalls });
 
     for (const call of result.toolCalls) {
       messages.push({ role: "tool", result: await executeCall(call, byName, toolCalls, now) });

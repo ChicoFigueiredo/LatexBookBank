@@ -1,4 +1,12 @@
-import { describeChanges, planApply, snapshotOf, type ApplyPlan } from "../domain/apply-patch";
+import { rebalanceKeys } from "@modules/document-tree/domain/fractional-index";
+
+import {
+  describeChanges,
+  planApply,
+  snapshotOf,
+  type ApplyPlan,
+  type QuestionSnapshot,
+} from "../domain/apply-patch";
 import type { QuestionState } from "../domain/patch-diff";
 import type { QuestionPatch } from "../domain/question-patch";
 import {
@@ -38,6 +46,15 @@ export interface PatchTransaction {
     options: readonly { id: string; statementLatex?: string; isCorrect?: boolean }[],
   ): Promise<void>;
   applyReorder(questionId: string, optionIds: readonly string[]): Promise<void>;
+  /**
+   * Deixa as alternativas **exatamente** como na lista: apaga as que não estão nela, recria com o
+   * mesmo id as que faltam e grava texto, gabarito e posição de todas. É a restauração — nenhuma
+   * regra de tipo se aplica, porque o estado restaurado já foi um estado válido.
+   */
+  restoreOptions(
+    questionId: string,
+    options: readonly { id: string; sortKey: string; statementLatex: string; isCorrect: boolean }[],
+  ): Promise<void>;
   applyMetadata(questionId: string, metadata: Readonly<Record<string, unknown>>): Promise<void>;
   applyTags(questionId: string, names: readonly string[]): Promise<void>;
 }
@@ -141,7 +158,17 @@ export async function revertQuestion(
   input: { questionId: string; snapshotJson: string; summary: string },
   validation?: QuestionValidation,
 ): Promise<number> {
-  const snapshot = JSON.parse(input.snapshotJson) as QuestionState;
+  const snapshot = JSON.parse(input.snapshotJson) as QuestionSnapshot;
+
+  // A revisão gravada antes da versão 2 não tem a posição: a ordem dela é a da lista, e as chaves
+  // são refeitas na mesma ordem. Com a posição, ela volta como era.
+  const fallbackKeys = rebalanceKeys(snapshot.options.length);
+  const options = snapshot.options.map((option, index) => ({
+    id: option.id,
+    sortKey: option.sortKey ?? (fallbackKeys[index] as string),
+    statementLatex: option.statementLatex,
+    isCorrect: option.isCorrect,
+  }));
 
   const revisionNumber = await applier.transact(async (tx) => {
     const state = await tx.readStateForUpdate(input.questionId);
@@ -160,19 +187,12 @@ export async function revertQuestion(
       solutionLatex: snapshot.solutionLatex,
       complementLatex: snapshot.complementLatex,
       nickname: snapshot.nickname,
+      // O tipo pode ter mudado depois da revisão (o PATCH da questão aceita trocá-lo); sem
+      // restaurá-lo, a "restauração" devolveria uma discursiva com as alternativas de uma múltipla
+      // escolha. Revisão antiga não sabe o tipo, e ele fica como está.
+      ...(snapshot.type === undefined ? {} : { type: snapshot.type }),
     });
-    await tx.applyOptions(
-      input.questionId,
-      snapshot.options.map((option) => ({
-        id: option.id,
-        statementLatex: option.statementLatex,
-        isCorrect: option.isCorrect,
-      })),
-    );
-    await tx.applyReorder(
-      input.questionId,
-      snapshot.options.map((option) => option.id),
-    );
+    await tx.restoreOptions(input.questionId, options);
     await tx.applyMetadata(input.questionId, snapshot.metadata);
     await tx.applyTags(input.questionId, snapshot.tags);
 

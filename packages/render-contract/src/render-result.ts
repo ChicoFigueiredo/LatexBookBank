@@ -50,6 +50,9 @@ export interface RenderDiagnostic {
   readonly file: string | null;
 }
 
+/** De quem é a falha: do documento, do relógio ou do worker. Ver `RenderResult.failureKind`. */
+export type RenderFailureKind = "document" | "timeout" | "worker";
+
 export interface RenderResult {
   readonly jobId: string;
   /**
@@ -59,6 +62,18 @@ export interface RenderResult {
    * tratar aviso como falha esconderia o resultado de quem só queria ver a questão.
    */
   readonly success: boolean;
+  /**
+   * Por que não saiu PDF — ausente quando saiu.
+   *
+   * Só `document` é resultado do documento: o mesmo LaTeX dá a mesma falha, e a aplicação pode
+   * guardá-la no cache. `timeout` (a máquina estava ocupada, o formato estava sendo montado) e
+   * `worker` (disco cheio, asset corrompido no caminho, binário ausente) são do momento, e
+   * guardá-los transformava uma falha passageira numa resposta permanente para aquele LaTeX.
+   *
+   * Opcional por compatibilidade: um worker anterior a este campo não o manda, e a aplicação trata
+   * a ausência como `document`, que era a leitura de antes.
+   */
+  readonly failureKind?: RenderFailureKind;
   readonly pdf: RenderArtifactDescriptor | null;
   /** Uma entrada por página. Questão avulsa dá uma; lista inteira dá várias. */
   readonly png: readonly RenderArtifactDescriptor[];

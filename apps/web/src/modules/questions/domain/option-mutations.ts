@@ -1,5 +1,10 @@
 import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
 
+// Os plugins se registram ao serem importados; sem esta linha, nenhum tipo seria exclusivo.
+import "./plugins";
+import type { QuestionType } from "./question-type";
+import { optionsOf } from "./question-type-plugin";
+
 /**
  * As operações sobre alternativas, como funções puras.
  *
@@ -136,6 +141,16 @@ export function keyForMove(
 
   return generateKeyBetween(others[index - 1]?.sortKey ?? null, others[index]?.sortKey ?? null);
 }
+
+/**
+ * Só **uma** alternativa pode ser correta neste tipo?
+ *
+ * O plugin declara (E4). Tipo sem alternativas ou sem plugin responde "não": marcar uma correta não
+ * desmarca as outras, e nada se perde em silêncio num tipo que o produto ainda não sabe tratar. Mora
+ * no domínio porque o patch do agente e a restauração de revisão precisam da mesma regra (F3).
+ */
+export const isExclusiveCorrect = (type: QuestionType): boolean =>
+  optionsOf(type)?.exclusiveCorrect ?? false;
 
 /**
  * Marca uma alternativa como correta.

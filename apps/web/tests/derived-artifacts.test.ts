@@ -77,6 +77,12 @@ class DiscardableJobs implements RenderJobRepository {
     return record;
   }
 
+  async remove(jobId: string): Promise<void> {
+    for (const [key, record] of this.byHash) {
+      if (record.id === jobId) this.byHash.delete(key);
+    }
+  }
+
   /** O descarte que a D29 permite: some tudo, e o produto continua íntegro. */
   discardEverything(): void {
     this.byHash = new Map();

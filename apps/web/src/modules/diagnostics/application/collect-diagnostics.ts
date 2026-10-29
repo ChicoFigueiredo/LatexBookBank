@@ -3,7 +3,7 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { profileForBaseUrl } from "@modules/agents/domain/ai-profile";
+import { capabilitiesFor, profileForBaseUrl } from "@modules/agents/domain/ai-profile";
 import {
   describeBackupStatus,
   type BackupStatusFile,
@@ -71,7 +71,7 @@ export async function collectDiagnostics(): Promise<Diagnostics> {
 
     renderer,
     renderCache: describeRenderCache(stats),
-    ai: describeAi(env.aiBaseUrl, env.aiModel, env.aiApiKey !== null),
+    ai: describeAi(env.aiBaseUrl, env.aiModel, env.aiApiKey !== null, env.aiToolCalling),
     backup,
   };
 }
@@ -185,7 +185,12 @@ async function probeRenderer(
   }
 }
 
-function describeAi(baseUrl: string | null, model: string | null, hasKey: boolean): SectionStatus {
+function describeAi(
+  baseUrl: string | null,
+  model: string | null,
+  hasKey: boolean,
+  toolCallingDeclared: boolean,
+): SectionStatus {
   if (baseUrl === null) {
     return {
       health: "unconfigured",
@@ -205,7 +210,13 @@ function describeAi(baseUrl: string | null, model: string | null, hasKey: boolea
       { label: "Endereço", value: baseUrl },
       // A chave **nunca** aparece — nem truncada. O que a página precisa dizer é se existe.
       { label: "Chave", value: hasKey ? "definida" : "ausente" },
-      { label: "Tool calling", value: profile.assumedCapabilities.toolCalling ? "sim" : "não" },
+      // O mesmo cálculo da rota do agente: `AI_TOOL_CALLING=true` liga o que o perfil não assume.
+      {
+        label: "Tool calling",
+        value: capabilitiesFor(baseUrl, { toolCalling: toolCallingDeclared }).toolCalling
+          ? "sim"
+          : "não",
+      },
     ],
   };
 }
