@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseMathSvg } from "@modules/preview/domain/math-svg";
 import { maskUrlFor } from "@shared/css-mask";
-import { renderMath } from "@modules/preview/infrastructure/mathjax";
+import { renderMath } from "@modules/preview/ui/render-math";
 
 /**
  * O MathJax roda aqui de verdade.
