@@ -28,7 +28,14 @@ import type { QuestionMetadata } from "@modules/questions/domain/question-metada
 import { MetadataPanel } from "@modules/questions/ui/MetadataPanel";
 import { ValidationPane } from "@modules/questions/ui/ValidationPane";
 import { QUESTION_FIELDS, type QuestionFieldId } from "@modules/latex/domain/latex-language";
+import "@modules/questions/domain/plugins";
 import type { QuestionType } from "@modules/questions/domain/question-type";
+import {
+  optionsOf,
+  pluginFor,
+  registeredPlugins,
+  visibleOptions,
+} from "@modules/questions/domain/question-type-plugin";
 
 import { OptionsPane } from "./options-pane";
 import { TagsPane } from "./tags-pane";
@@ -112,14 +119,15 @@ const EXTRA_PANES = [
 ] as const;
 
 /**
- * A discursiva **não** mostra aba de alternativas.
+ * Tipo sem alternativas — a discursiva — **não** mostra a aba delas.
  *
  * Não é que estejam faltando — é que não existem (design §10). Uma aba que abre numa lista vazia
  * com um botão "Adicionar" convida a criar alternativa em questão que não tem, e o resultado é o
- * aviso `discursive_has_options` que a validação teria de explicar depois.
+ * aviso `discursive_has_options` que a validação teria de explicar depois. Quem diz se o tipo tem
+ * alternativas é o plugin dele.
  */
 const panesFor = (type: QuestionType) =>
-  type === "DISCURSIVE" ? EXTRA_PANES.filter((entry) => entry.id !== "options") : EXTRA_PANES;
+  optionsOf(type) === null ? EXTRA_PANES.filter((entry) => entry.id !== "options") : EXTRA_PANES;
 
 type Pane = QuestionFieldId | (typeof EXTRA_PANES)[number]["id"];
 
@@ -686,7 +694,7 @@ export function QuestionEditor({
             <OptionsPane
               publicationId={publicationId}
               questionId={questionId}
-              exclusive={questionType !== "MULTIPLE_CORRECT"}
+              exclusive={optionsOf(questionType)?.exclusiveCorrect ?? false}
               disabled={blocked}
             />
           ) : pane === "tags" ? (
@@ -719,11 +727,17 @@ export function QuestionEditor({
                     disabled={blocked}
                     onChange={(event) => onTypeChange?.(event.target.value as QuestionType)}
                   >
-                    <option value="MULTIPLE_CHOICE">Escolha simples · uma correta</option>
-                    <option value="MULTIPLE_CORRECT">
-                      Múltipla escolha · uma ou mais corretas
-                    </option>
-                    <option value="DISCURSIVE">Discursiva · sem alternativas</option>
+                    {registeredPlugins().map((entry) => (
+                      <option key={entry.type} value={entry.type}>
+                        {entry.label} · {entry.hint}
+                      </option>
+                    ))}
+                    {/* Tipo do acervo sem plugin: aparece pelo nome, e não se escolhe de volta. */}
+                    {pluginFor(questionType) === null && (
+                      <option value={questionType} disabled>
+                        {questionType} · tipo não suportado
+                      </option>
+                    )}
                   </Select>
                 </Field>
 
@@ -829,7 +843,9 @@ export function QuestionEditor({
                       statementLatex: draft.statementLatex,
                       solutionLatex: draft.solutionLatex,
                       complementLatex: draft.complementLatex,
-                      options,
+                      // A discursiva guarda as alternativas de quando foi escolha simples; o
+                      // preview mostra as do tipo, como o PDF (ARQ-05).
+                      options: visibleOptions(questionType, options),
                     }}
                     // Só enquanto um campo de texto está aberto: nas abas de alternativas, tags e
                     // metadados não há cursor no LaTeX para acender coisa nenhuma.

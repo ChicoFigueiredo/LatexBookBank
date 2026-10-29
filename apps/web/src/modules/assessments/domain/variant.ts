@@ -89,31 +89,37 @@ function buildQuestion(question: VariantQuestionInput, prng: Prng): VariantQuest
 }
 
 /**
- * O gabarito de uma variante: a letra que a resposta certa recebeu.
+ * O gabarito de uma variante: as letras que as respostas certas receberam.
  *
  * Sai do mapa, e não de um novo embaralhamento — é a diferença entre "conferir contra o que foi
  * impresso" e "torcer para dar o mesmo".
+ *
+ * Uma **lista** por questão, na ordem impressa: a múltipla escolha tem várias corretas, e devolver
+ * só a primeira era o gabarito que penalizava quem acertou a segunda (#262).
  */
 export function answerKey(
   variant: Variant,
-  correctByQuestion: Readonly<Record<string, string>>,
-): Readonly<Record<string, string>> {
-  const key: Record<string, string> = {};
+  correctByQuestion: Readonly<Record<string, readonly string[]>>,
+): Readonly<Record<string, readonly string[]>> {
+  const key: Record<string, readonly string[]> = {};
 
   for (const question of variant.questions) {
-    const correctOptionId = correctByQuestion[question.questionId];
-    if (correctOptionId === undefined) continue;
+    const correct = correctByQuestion[question.questionId];
+    if (correct === undefined || correct.length === 0) continue;
 
-    const label = question.labelByOptionId[correctOptionId];
     // Alternativa correta que não está na variante é dado incoerente, não um caso a preencher com
     // um traço: quem monta a prova precisa saber antes de imprimi-la.
-    if (label === undefined) {
-      throw new Error(
-        `A questão \`${question.questionId}\` marca como correta uma alternativa que não está na variante.`,
-      );
+    for (const optionId of correct) {
+      if (question.labelByOptionId[optionId] === undefined) {
+        throw new Error(
+          `A questão \`${question.questionId}\` marca como correta uma alternativa que não está na variante.`,
+        );
+      }
     }
 
-    key[question.questionId] = label;
+    key[question.questionId] = question.optionIds
+      .filter((optionId) => correct.includes(optionId))
+      .map((optionId) => question.labelByOptionId[optionId] as string);
   }
 
   return key;

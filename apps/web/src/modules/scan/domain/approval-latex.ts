@@ -1,4 +1,4 @@
-import { escapeLatexText, UNICODE_MATH, UNICODE_MATH_CHARS } from "@modules/recognition/domain/latex-escape";
+import { escapeLatexText, UNICODE_MATH, UNICODE_MATH_CHARS } from "@modules/latex/domain/latex-escape";
 
 import type { ScanItem } from "./scan-item";
 

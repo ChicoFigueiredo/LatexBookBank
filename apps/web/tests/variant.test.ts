@@ -140,14 +140,14 @@ describe("o gabarito", () => {
     // A diferença entre conferir contra o que foi impresso e torcer para dar o mesmo.
     const variant = buildVariant({ label: "A", seed: 99, questions });
     const correct = Object.fromEntries(
-      questions.map((q) => [q.questionId, `${q.questionId.replace("q-", "q")}-o2`]),
+      questions.map((q) => [q.questionId, [`${q.questionId.replace("q-", "q")}-o2`]]),
     );
 
     const key = answerKey(variant, correct);
 
     for (const question of variant.questions) {
-      const expected = question.labelByOptionId[correct[question.questionId] as string];
-      expect(key[question.questionId]).toBe(expected);
+      const expected = question.labelByOptionId[correct[question.questionId]![0]!];
+      expect(key[question.questionId]).toEqual([expected]);
     }
   });
 
@@ -157,7 +157,7 @@ describe("o gabarito", () => {
     const b = buildVariant({ label: "B", seed: 2, questions });
 
     const correct = Object.fromEntries(
-      questions.map((q) => [q.questionId, `${q.questionId.replace("q-", "q")}-o0`]),
+      questions.map((q) => [q.questionId, [`${q.questionId.replace("q-", "q")}-o0`]]),
     );
 
     expect(answerKey(a, correct)).not.toEqual(answerKey(b, correct));
@@ -167,7 +167,7 @@ describe("o gabarito", () => {
     // Dado incoerente precisa aparecer antes de a prova ser impressa.
     const variant = buildVariant({ label: "A", seed: 1, questions });
 
-    expect(() => answerKey(variant, { "q-0": "inexistente" })).toThrow(/não está na variante/);
+    expect(() => answerKey(variant, { "q-0": ["inexistente"] })).toThrow(/não está na variante/);
   });
 
   it("questão sem gabarito declarado simplesmente não entra na chave", () => {
