@@ -26,6 +26,7 @@ const question = (id: string, correct: string): AssessmentQuestionContent => ({
   options: { [`${id}-o1`]: "um", [`${id}-o2`]: "dois", [`${id}-o3`]: "três" },
   correctOptionId: correct,
   points: null,
+  inTrash: false,
 });
 
 const content: Record<string, AssessmentQuestionContent> = {

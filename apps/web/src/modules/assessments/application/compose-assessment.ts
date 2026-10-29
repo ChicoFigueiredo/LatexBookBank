@@ -55,6 +55,23 @@ export class MissingQuestionError extends Error {
 }
 
 /**
+ * Há questão da prova cujo nó está na lixeira (#263).
+ *
+ * Recusa, e não pula: pular daria uma prova com uma questão a menos do que a tela mostra, e
+ * imprimir daria uma questão que a pessoa acha ter excluído. Quem decide é ela — tirar da prova ou
+ * restaurar da lixeira —, e por isso a recusa leva a lista.
+ */
+export class QuestionsInTrashError extends Error {
+  constructor(readonly questionIds: readonly string[]) {
+    super(
+      `${questionIds.length} questão(ões) da prova estão na lixeira. Tire-as da prova ou ` +
+        "restaure-as antes de sortear a variante.",
+    );
+    this.name = "QuestionsInTrashError";
+  }
+}
+
+/**
  * Sorteia a variante a partir do conteúdo real das questões.
  *
  * O conteúdo entra inteiro, e não só a contagem de alternativas: o sorteio precisa dos **ids**,
@@ -67,6 +84,11 @@ export function composeVariant(
   content: Readonly<Record<string, AssessmentQuestionContent>>,
 ): Variant {
   if (assessment.items.length === 0) throw new EmptyAssessmentError();
+
+  const inTrash = assessment.items
+    .filter((item) => content[item.questionId]?.inTrash === true)
+    .map((item) => item.questionId);
+  if (inTrash.length > 0) throw new QuestionsInTrashError(inTrash);
 
   return buildVariant({
     label: spec.label,

@@ -26,6 +26,7 @@ const content: Record<string, AssessmentQuestionContent> = {
     options: { "o-a": "\\SI{1020}{\\real}", "o-b": "\\SI{1060}{\\real}", "o-e": "nenhuma" },
     correctOptionId: "o-b",
     points: 2,
+    inTrash: false,
   },
   "q-2": {
     questionId: "q-2",
@@ -34,6 +35,7 @@ const content: Record<string, AssessmentQuestionContent> = {
     options: {},
     correctOptionId: null,
     points: 3,
+    inTrash: false,
   },
 };
 

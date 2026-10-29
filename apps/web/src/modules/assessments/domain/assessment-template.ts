@@ -26,6 +26,14 @@ export interface AssessmentQuestionContent {
   /** `optionId` da correta, quando há uma. */
   readonly correctOptionId: string | null;
   readonly points: number | null;
+  /**
+   * O nó da questão está na lixeira (#263).
+   *
+   * A prova referencia a questão, e excluí-la da árvore não a tira da prova. Sem este campo, a
+   * variante seguinte a imprimia — no gabarito e na versão do professor — enquanto a pessoa a
+   * achava excluída.
+   */
+  readonly inTrash: boolean;
 }
 
 export interface AssessmentHeader {

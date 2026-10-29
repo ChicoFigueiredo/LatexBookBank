@@ -5,6 +5,7 @@ import {
   composeVersions,
   EmptyAssessmentError,
   MissingQuestionError,
+  QuestionsInTrashError,
 } from "@modules/assessments/application/compose-assessment";
 import {
   contentFor,
@@ -29,6 +30,9 @@ import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
  */
 export const dynamic = "force-dynamic";
 
+/** O maior `Int` do banco. */
+const MAX_SEED = 2_147_483_647;
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ assessmentId: string }> },
@@ -42,10 +46,18 @@ export async function POST(
     if (label === "") throw new BadRequestError("`label` é obrigatório — é o nome da variante.");
 
     const rawSeed = body["seed"];
-    if (rawSeed !== undefined && (typeof rawSeed !== "number" || !Number.isInteger(rawSeed))) {
-      throw new BadRequestError("`seed` precisa ser um inteiro.");
+    // A seed é `Int` no banco (32 bits com sinal), e o sorteio a lê como `seed >>> 0`: fora de
+    // 0…2147483647 ela ou não grava, ou vira outra seed (-1 e 4294967295 dão a mesma prova) (#263).
+    if (
+      rawSeed !== undefined &&
+      (typeof rawSeed !== "number" ||
+        !Number.isInteger(rawSeed) ||
+        rawSeed < 0 ||
+        rawSeed > MAX_SEED)
+    ) {
+      throw new BadRequestError(`\`seed\` precisa ser um inteiro de 0 a ${MAX_SEED}.`);
     }
-    const seed = rawSeed ?? Date.now() % 2_147_483_647;
+    const seed = rawSeed ?? Date.now() % MAX_SEED;
 
     const assessment = await findAssessment(assessmentId);
     if (assessment === null) {
@@ -80,6 +92,12 @@ export async function POST(
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof QuestionsInTrashError) {
+      return NextResponse.json(
+        { error: "questions_in_trash", message: error.message, questionIds: error.questionIds },
+        { status: 409 },
+      );
+    }
     if (error instanceof EmptyAssessmentError || error instanceof MissingQuestionError) {
       return NextResponse.json(
         { error: "cannot_compose", message: error.message },

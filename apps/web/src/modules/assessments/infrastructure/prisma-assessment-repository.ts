@@ -126,7 +126,10 @@ function parseIds(raw: string): readonly string[] {
  */
 export type AddQuestionResult =
   | { readonly added: true }
-  | { readonly added: false; readonly reason: "already" | "no_section" | "foreign" };
+  | {
+      readonly added: false;
+      readonly reason: "already" | "no_section" | "foreign" | "in_trash";
+    };
 
 export async function addQuestion(
   assessmentId: string,
@@ -154,7 +157,9 @@ export async function addQuestion(
           publications: {
             where: { nodes: { some: { questionId } } },
             take: 1,
-            select: { id: true },
+            // O nó vem junto para a conferência da lixeira: é da biblioteca, mas pode estar
+            // excluído — e aí entrar na prova é imprimir uma questão que a pessoa excluiu (#263).
+            select: { id: true, nodes: { where: { questionId }, select: { deletedAt: true } } },
           },
         },
       },
@@ -162,7 +167,11 @@ export async function addQuestion(
   });
 
   if (escopo === null) return { added: false, reason: "no_section" };
-  if (escopo.workspace.publications.length === 0) return { added: false, reason: "foreign" };
+  const [publication] = escopo.workspace.publications;
+  if (publication === undefined) return { added: false, reason: "foreign" };
+  if (publication.nodes.some((node) => node.deletedAt !== null)) {
+    return { added: false, reason: "in_trash" };
+  }
 
   const section = await prisma.assessmentSection.findFirst({
     where: { assessmentId },
@@ -299,6 +308,7 @@ export async function contentFor(
         orderBy: { sortKey: "asc" },
         select: { id: true, statementLatex: true, isCorrect: true },
       },
+      node: { select: { deletedAt: true } },
     },
   });
 
@@ -314,6 +324,8 @@ export async function contentFor(
         ),
         correctOptionId: row.options.find((option) => option.isCorrect)?.id ?? null,
         points: null,
+        // Excluir um capítulo marca a subárvore inteira, então o nó da própria questão basta.
+        inTrash: row.node?.deletedAt != null,
       },
     ]),
   );

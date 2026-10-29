@@ -54,6 +54,8 @@ export async function GET(
           // Sem correta marcada, a prova sai — mas o gabarito daquela questão fica em branco, e
           // quem monta precisa ver isso **antes** de imprimir.
           hasCorrect: question?.correctOptionId != null,
+          // Na lixeira, a variante não sai: a tela precisa dizer qual é antes de alguém tentar.
+          inTrash: question?.inTrash === true,
         };
       }),
     });
