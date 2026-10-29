@@ -185,3 +185,30 @@ describe("exists e delete", () => {
     await expect(storage.delete(key)).resolves.toBeUndefined();
   });
 });
+
+/*
+  Escrita atômica (#243, PLT-10 da revisão de 2026-09-23).
+
+  O arquivo é endereçado pelo hash, e o `put` pulava a escrita quando a chave já existia. Um crash
+  ou um disco cheio no meio da gravação de um PDF de 40 MB deixava um arquivo truncado **com o nome
+  certo**, e toda gravação futura do mesmo conteúdo o aceitava como bom, para sempre.
+*/
+describe("arquivo truncado", () => {
+  it("o put do mesmo conteúdo regrava o que ficou pela metade", async () => {
+    const original = bytes("um PDF inteiro, com começo, meio e fim");
+    const stored = await storage.put({
+      workspaceId: "ws_1",
+      content: original,
+      mimeType: "application/pdf",
+    });
+
+    // O que um crash no meio da gravação deixa para trás: o nome certo, com metade dos bytes.
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(path.join(rootDir, String(stored.storageKey)), original.slice(0, 10));
+
+    await storage.put({ workspaceId: "ws_1", content: original, mimeType: "application/pdf" });
+
+    const lido = await storage.get(stored.storageKey);
+    expect(new TextDecoder().decode(lido.content)).toBe("um PDF inteiro, com começo, meio e fim");
+  });
+});

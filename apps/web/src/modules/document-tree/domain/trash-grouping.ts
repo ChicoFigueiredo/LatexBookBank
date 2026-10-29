@@ -128,6 +128,7 @@ const NOMES: Readonly<Record<string, string>> = {
   QUESTION: "Questão",
   FIGURE: "Figura",
   NOTE: "Nota",
+  EXAMPLE: "Exemplo",
 };
 
 export const nomeDoTipo = (kind: string): string => NOMES[kind] ?? "Nó";

@@ -33,8 +33,32 @@ export async function loadQuestionAssets(
   sourceLatex: string,
   storage: StorageProvider,
 ): Promise<ResolvedAssets> {
+  return await load({ questionId, renderJobId: null }, sourceLatex, storage);
+}
+
+/**
+ * As figuras que o **corpo de um nó** referencia (D58).
+ *
+ * O corpo do capítulo passou a ter `\includegraphics` quando as figuras do scan chegaram, e as
+ * figuras pertencem ao **livro**, não a uma questão: elas entram no acervo antes de existir
+ * questão nenhuma. Sem isto, o corpo compilava com `File not found` — o erro que manda procurar
+ * defeito no texto de quem escreveu.
+ */
+export async function loadPublicationAssets(
+  publicationId: string,
+  sourceLatex: string,
+  storage: StorageProvider,
+): Promise<ResolvedAssets> {
+  return await load({ publicationId, renderJobId: null }, sourceLatex, storage);
+}
+
+async function load(
+  where: { readonly questionId?: string; readonly publicationId?: string; readonly renderJobId: null },
+  sourceLatex: string,
+  storage: StorageProvider,
+): Promise<ResolvedAssets> {
   const rows = await prisma.asset.findMany({
-    where: { questionId, renderJobId: null },
+    where,
     select: {
       storageKey: true,
       mimeType: true,

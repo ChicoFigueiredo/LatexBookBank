@@ -1,3 +1,4 @@
+import { snapshotOf } from "@modules/scan/domain/capture-profile";
 import { captureProfile } from "@modules/scan/domain/profiles";
 import {
   ENGINE_VERSION,
@@ -38,6 +39,8 @@ export interface StartScanCommand {
   readonly useAi?: unknown;
   readonly recognizeMath?: unknown;
   readonly forceNew?: boolean;
+  /** Trocar de perfil: a execução nova herda desta o que uma pessoa decidiu. */
+  readonly inheritFrom?: string;
 }
 
 export async function startScan(
@@ -66,7 +69,8 @@ export async function startScan(
     }),
   );
 
-  if (!command.forceNew) {
+  // Herdar é sempre uma execução nova: reabrir a anterior seria não ter trocado de perfil.
+  if (!command.forceNew && command.inheritFrom === undefined) {
     const existing = await deps.store.findLatestByKey(command.publicationId, runKey);
     if (existing && existing.state !== "FAILED" && existing.state !== "CANCELLED") {
       if (isInProgress(existing.state)) deps.runner.ensure(existing.id);
@@ -80,9 +84,12 @@ export async function startScan(
     sourceAssetId: source.assetId,
     profileId: profile.id,
     profileVersion: profile.version,
+    // O retrato vai junto: é o que sobra da decisão de hoje se o perfil sair amanhã (ADR 0008).
+    profileSnapshot: snapshotOf(profile),
     engineVersion: ENGINE_VERSION,
     settings,
     runKey,
+    inheritedFromRunId: command.inheritFrom ?? null,
     pageFrom: settings.pageFrom,
     pageTo: settings.pageTo ?? 0,
   });

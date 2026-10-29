@@ -6,6 +6,8 @@ import { join } from "node:path";
 
 import type { RenderProfile } from "@latexbookbank/render-contract";
 
+import { PARANOID_FILE_ACCESS } from "./tex-sandbox.ts";
+
 /**
  * Preâmbulo pré-compilado (`mylatexformat`).
  *
@@ -132,7 +134,8 @@ async function buildFormat(
           // `-ini` começa do TeX puro e nem `\documentclass` existe.
           "&pdflatex",
           "mylatexformat.ltx",
-          join(work, "src.tex"),
+          // Relativo ao `cwd`: no modo paranoico, caminho absoluto fora de `TEXMFOUTPUT` é recusado.
+          "src.tex",
         ],
         {
           cwd: work,
@@ -143,6 +146,7 @@ async function buildFormat(
             HOME: work,
             TEXMFVAR: join(work, ".texmf-var"),
             SOURCE_DATE_EPOCH: "0",
+            ...PARANOID_FILE_ACCESS,
           },
         },
         () => resolve(),

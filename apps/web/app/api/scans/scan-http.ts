@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { ApprovalConflictError } from "@modules/scan/application/approve-scan";
 import { ScanRunNotFoundError, ScanRunStateError } from "@modules/scan/application/control-scan";
 import { NoSourcePdfError, UnknownCaptureProfileError } from "@modules/scan/application/start-scan";
 import { InvalidScanSettingsError } from "@modules/scan/domain/scan-run";
@@ -21,7 +22,7 @@ export function toScanErrorResponse(error: unknown): NextResponse {
   if (error instanceof NoSourcePdfError) {
     return NextResponse.json({ error: "no_source_pdf", message: error.message }, { status: 409 });
   }
-  if (error instanceof ScanRunStateError) {
+  if (error instanceof ScanRunStateError || error instanceof ApprovalConflictError) {
     return NextResponse.json({ error: "conflict", message: error.message }, { status: 409 });
   }
   return toErrorResponse(error);

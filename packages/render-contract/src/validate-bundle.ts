@@ -121,13 +121,33 @@ export function validateRenderBundle(bundle: RenderBundle): void {
 }
 
 /**
+ * As formas de pedir shell que a checagem conhece (#244, SEC-08): `\write18` com barra, o nome
+ * montado por `\csname` (inteiro ou partido pelo `\endcsname`) ou por `^^5c` (a barra em
+ * hexadecimal), o fluxo 18 por número (`\write\number18`) e a entrada por pipe em qualquer
+ * `\…input` (`\input|`, `\@@input|`) ou `\openin`, que também executa comando. A palavra solta,
+ * sem barra, é prosa.
+ */
+const SHELL_ESCAPE = [
+  /\\write\s*(?:\\number\s*)?18/,
+  /csname\s*write\s*(?:\\endcsname\s*)?18/,
+  /ShellEscape/,
+  /\^\^5c/i,
+  /\\[@A-Za-z]*input\s*\{?\s*\|/,
+  /\\openin\s*\\?\w+\s*=?\s*\{?\s*\|/,
+];
+
+/**
  * `\write18` no fonte.
  *
  * A defesa de verdade é o `pdflatex` rodar sem `-shell-escape`, e é lá que ela vive. Isto aqui é a
  * segunda camada, e existe porque a primeira é uma flag: basta alguém acrescentar um argumento
  * "para testar" e ela some sem deixar rastro. Um bundle que **pede** execução de shell é sinal de
  * que algo está muito errado, e recusar é mais barato que investigar depois.
+ *
+ * É heurística, e diz isso: o TeX tem jeitos demais de montar um nome de controle, e uma lista
+ * nunca fecha. A leitura de arquivo fora do job é outra camada, no worker (`openin_any=p`), e
+ * olha só o `sourceLatex`: o preâmbulo vem do perfil, que é código do servidor.
  */
 export function requestsShellEscape(sourceLatex: string): boolean {
-  return /\\(write18|immediate\s*\\write18|ShellEscape)/.test(sourceLatex);
+  return SHELL_ESCAPE.some((pattern) => pattern.test(sourceLatex));
 }

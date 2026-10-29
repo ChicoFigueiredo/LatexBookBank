@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Callout, Checkbox, EmptyState, Field, Input, PageHeader, Select, injectCss } from "@/design-system";
-import { scanApi, type ScanRunView } from "@modules/scan/ui/scan-client";
+import { scanApi, type ProfileSuggestionView, type ScanRunView } from "@modules/scan/ui/scan-client";
 
 import { AppShell } from "../../../app-shell";
 
@@ -31,13 +31,31 @@ export interface ScanStartScreenProps {
   readonly title: string;
   readonly library?: { readonly name: string; readonly slug: string };
   readonly source: { readonly filename: string } | null;
-  readonly profiles: readonly { readonly id: string; readonly label: string; readonly description: string; readonly version: number }[];
+  readonly profiles: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly description: string;
+    readonly version: number;
+    readonly documentKind: "BOOK" | "EXAM";
+    readonly kinds: readonly string[];
+  }[];
   readonly suggestedProfile: string;
+  /** O perfil que o livro lembrava e não existe mais, se for o caso (ADR 0008). */
+  readonly rememberedMissing?: string | null;
+  /** O livro já foi varrido antes? Sem lembrança, um palpite confiante vale mais que `book-v1`. */
+  readonly hasMemory?: boolean;
   readonly runs: readonly ScanRunView[];
   readonly aiConfigured: boolean;
   readonly visionConfigured: boolean;
   readonly aviso: string;
+  /** Acabou de apagar uma importação: a tela diz onde o que foi apagado está (D57). */
+  readonly importRemoved?: boolean;
 }
+
+/** Acima disto o palpite se aplica sozinho num livro sem lembrança: o perfil se reconheceu. */
+const CONFIDENT = 0.35;
+/** Abaixo disto não se diz nada: palpite fraco atrapalha mais do que o silêncio. */
+const WORTH_OFFERING = 0.2;
 
 const STATE_TONE: Record<string, "info" | "ok" | "danger" | "neutral" | "accent"> = {
   READY_FOR_REVIEW: "accent",
@@ -53,10 +71,13 @@ export function ScanStartScreen({
   source,
   profiles,
   suggestedProfile,
+  rememberedMissing = null,
+  hasMemory = false,
   runs,
   aiConfigured,
   visionConfigured,
   aviso,
+  importRemoved = false,
 }: ScanStartScreenProps) {
   injectCss("lbb-scan-start", CSS);
   const router = useRouter();
@@ -72,6 +93,53 @@ export function ScanStartScreen({
   const [error, setError] = useState<string | null>(null);
 
   const profile = profiles.find((p) => p.id === profileId);
+
+  /*
+    O palpite lido do PDF (ADR 0007).
+
+    Vem por rota, depois da tela: abrir o PDF custa perto de um segundo, e a escolha não precisa
+    esperar por ele. Sem lembrança e com palpite confiante, ele se aplica sozinho — a alternativa
+    era o literal `book-v1` num caderno do ENEM. Com lembrança, ele só se oferece: quem varreu
+    este livro antes sabe mais do que oito páginas sabem.
+  */
+  const [suggestion, setSuggestion] = useState<ProfileSuggestionView | null>(null);
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
+  /*
+    Quem já escolheu, escolheu.
+
+    O palpite chega perto de um segundo depois da tela, e nesse intervalo dá tempo de a pessoa
+    mexer no seletor. Aplicar por cima seria trocar a escolha dela pelas costas — e sem aviso,
+    porque a tela já mostrava o perfil certo quando ela clicou em Escanear.
+
+    Um `ref`, e não estado: o efeito roda uma vez, e só `ref` entrega o valor de **agora** dentro
+    de uma promessa que começou antes. Com `useState`, o closure guardaria o `false` da montagem e
+    a guarda não guardaria nada.
+  */
+  const touched = useRef(false);
+
+  useEffect(() => {
+    if (source === null) return;
+    let alive = true;
+    scanApi
+      .suggestProfile(publicationId)
+      .then((result) => {
+        if (!alive) return;
+        setSuggestion(result);
+        const best = result.ranking[0];
+        if (!touched.current && !hasMemory && best && best.score >= CONFIDENT && profiles.some((p) => p.id === best.id)) {
+          setProfileId(best.id);
+          setSuggestionApplied(true);
+        }
+      })
+      // Palpite é conveniência: se a rota falhar, a tela continua inteira e a escolha é sua.
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [publicationId, source, hasMemory, profiles]);
+
+  const best = suggestion?.ranking[0];
+  const offerBest = best !== undefined && best.score >= WORTH_OFFERING && best.id !== profileId;
 
   const start = async () => {
     setBusy(true);
@@ -109,6 +177,23 @@ export function ScanStartScreen({
     >
       <PageHeader eyebrow="SCAN ESTRUTURAL" title={title} meta={source ? `PDF fonte: ${source.filename}` : undefined} />
 
+      {importRemoved && (
+        <div style={{ padding: "0 var(--space-4)" }}>
+          <Banner
+            tone="ok"
+            title="Importação apagada"
+            actions={
+              <Button size="sm" variant="secondary" href="/lixeira">
+                Abrir a lixeira
+              </Button>
+            }
+          >
+            O que a varredura criou foi para a lixeira, e de lá dá para restaurar. O que você
+            editou à mão depois de aprovar ficou onde estava. Pode varrer o livro de novo.
+          </Banner>
+        </div>
+      )}
+
       {!source ? (
         <div style={{ padding: 24 }}>
           <EmptyState
@@ -129,8 +214,21 @@ export function ScanStartScreen({
               O scan lê o PDF e propõe a estrutura — capítulos, seções, exemplos, exercícios — com as âncoras de cada
               um. Nada entra no livro antes de você revisar e aprovar.
             </Callout>
+            {rememberedMissing !== null && (
+              <Banner tone="warn" title="O perfil que este livro usava saiu">
+                A última varredura deste livro usou <strong>{rememberedMissing}</strong>, que não está
+                mais no código. Escolha o perfil abaixo com atenção: não dá para repetir a de antes.
+              </Banner>
+            )}
             <Field label="Perfil de captura" hint={profile?.description}>
-              <Select value={profileId} onChange={(event) => setProfileId(event.target.value)}>
+              <Select
+                value={profileId}
+                onChange={(event) => {
+                  touched.current = true;
+                  setSuggestionApplied(false);
+                  setProfileId(event.target.value);
+                }}
+              >
                 {profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label} ({p.id})
@@ -138,6 +236,42 @@ export function ScanStartScreen({
                 ))}
               </Select>
             </Field>
+            {suggestionApplied && best && (
+              <Callout tone="ok">
+                Escolhido pelo PDF: as primeiras {suggestion?.sampledPages} páginas parecem
+                <strong> {best.label}</strong> ({best.evidence}). Troque se não for.
+              </Callout>
+            )}
+            {offerBest && best && (
+              <Callout tone="warn">
+                As primeiras {suggestion?.sampledPages} páginas parecem mais
+                <strong> {best.label}</strong> ({best.evidence}).{" "}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setProfileId(best.id);
+                    setSuggestionApplied(false);
+                  }}
+                >
+                  Usar {best.label}
+                </Button>
+              </Callout>
+            )}
+            {profile && (
+              /*
+                De que tipo é o perfil, e o que ele sabe achar.
+
+                O contrato tem estes dois campos desde sempre e a tela os descartava, então nada
+                impedia rodar "Prova do ENEM" num livro-texto e esperar capítulos.
+              */
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
+                <Badge tone={profile.documentKind === "EXAM" ? "accent" : "info"}>
+                  {profile.documentKind === "EXAM" ? "para prova" : "para livro"}
+                </Badge>
+                <small style={{ color: "var(--text-muted)" }}>acha: {profile.kinds.join(" · ").toLowerCase()}</small>
+              </div>
+            )}
             <div className="lbb-scan-start-row">
               <Field label="Da página">
                 <Input type="number" min={1} value={pageFrom} onChange={(event) => setPageFrom(event.target.value)} />
@@ -183,6 +317,13 @@ export function ScanStartScreen({
                   <div>
                     {run.profileId}@{run.profileVersion} · páginas {run.pageFrom}–{run.pageTo || "?"}
                     {run.settings.useAi ? " · IA" : ""}
+                    {/* Perfil que saiu do código: a proposta continua legível e aprovável, não editável. */}
+                    {!profiles.some((p) => p.id === run.profileId) && (
+                      <>
+                        {" "}
+                        <Badge tone="neutral">perfil fora do código</Badge>
+                      </>
+                    )}
                   </div>
                   <small>
                     {new Date(run.createdAt).toLocaleString("pt-BR")}

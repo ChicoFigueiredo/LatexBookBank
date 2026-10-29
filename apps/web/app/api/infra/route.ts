@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { collectDiagnostics } from "@modules/diagnostics/application/collect-diagnostics";
+import { env } from "@/shared/config/env";
 
 import { toErrorResponse } from "../tree-http";
 
@@ -25,6 +26,8 @@ export async function GET() {
     const diagnostics = await collectDiagnostics();
 
     return NextResponse.json({
+      // Que servidor é este: o E2E confere `e2e` antes do primeiro teste (#241).
+      instance: env().instance,
       renderer: { health: diagnostics.renderer.health, summary: diagnostics.renderer.summary },
       ai: { health: diagnostics.ai.health, summary: diagnostics.ai.summary },
       backup: { health: diagnostics.backup.health, summary: diagnostics.backup.summary },

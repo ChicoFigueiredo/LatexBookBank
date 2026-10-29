@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { buildLines, type PageModel } from "@modules/scan/domain/page";
-import { captureProfile } from "@modules/scan/domain/profiles";
+import type { DocumentZone } from "@modules/scan/domain/capture-profile";
+import { captureProfile, rankProfiles } from "@modules/scan/domain/profiles";
+import { samplePageNumbers } from "@modules/scan/application/suggest-profile";
 import type { Proposal } from "@modules/scan/domain/proposal";
 import { buildProposal } from "@modules/scan/domain/structure";
 import { PdfjsDocumentReader } from "@modules/scan/infrastructure/pdfjs-document-reader";
@@ -52,11 +54,15 @@ interface Measured {
   readonly pages: number;
   readonly ms: number;
   readonly proposal: Proposal | null;
+  /** As primeiras páginas, do tamanho que a tela amostra: é o que a sugestão enxergaria. */
+  readonly sample: readonly PageModel[];
+  /** As zonas que o perfil achou neste documento (ADR 0009); vazio quando ele não declara nenhuma. */
+  readonly zones: readonly DocumentZone[];
 }
 
 async function measure(entry: CorpusEntry): Promise<Measured> {
   const file = path.resolve(root, entry.path);
-  if (!existsSync(file)) return { entry, available: false, pages: 0, ms: 0, proposal: null };
+  if (!existsSync(file)) return { entry, available: false, pages: 0, ms: 0, proposal: null, sample: [], zones: [] };
 
   const started = performance.now();
   const pdf = await new PdfjsDocumentReader().open(new Uint8Array(readFileSync(file)));
@@ -69,7 +75,19 @@ async function measure(entry: CorpusEntry): Promise<Measured> {
   const profile = captureProfile(entry.profile);
   if (!profile) throw new Error(`perfil ${entry.profile} não registrado`);
   const proposal = buildProposal(pages, profile);
-  return { entry, available: true, pages: pages.length, ms: Math.round(performance.now() - started), proposal };
+  return {
+    entry,
+    available: true,
+    pages: pages.length,
+    ms: Math.round(performance.now() - started),
+    proposal,
+    // A mesma amostra que a tela usa — espalhada, não as primeiras (ADR 0007).
+    zones: profile.zones?.(pages) ?? [],
+    sample: samplePageNumbers(pages.length).flatMap((n) => {
+      const page = pages[n - 1];
+      return page ? [page] : [];
+    }),
+  };
 }
 
 const questions = (proposal: Proposal) => proposal.items.filter((item) => item.kind === "QUESTION");
@@ -126,6 +144,7 @@ function bookSection(measured: Measured): string {
     `| exemplos | ${k("EXAMPLE")} |`,
     `| blocos de exercícios · exercícios · itens | ${k("EXERCISE_GROUP")} · ${k("EXERCISE")} · ${k("ITEM")} |`,
     `| trechos de teoria | ${k("CONTENT")} |`,
+    `| figuras | ${k("FIGURE")} |`,
     `| âncoras · itens com mais de uma · que atravessam página | ${proposal.metrics.regions} · ${proposal.metrics.multiRegion} · ${proposal.metrics.multiPage} |`,
     `| baixa confiança (< 0,70) | ${proposal.metrics.lowConfidence} |`,
     `| sugeridos para aprovação em lote | ${suggested} |`,
@@ -158,10 +177,95 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     }
   });
 
+  /*
+    A sugestão de perfil, contra os PDFs de verdade (ADR 0007).
+
+    O sintético prova que a conta funciona; só o caderno real prova que ela serve. A amostra é a
+    mesma que a tela usa — oito páginas —, e o manifesto já diz qual perfil cada PDF pede, então
+    o corpus responde de graça se o palpite acerta.
+  */
+  it("o palpite de perfil acerta o que o manifesto diz", () => {
+    for (const result of results.filter((r) => r.proposal !== null)) {
+      const sample = result.pages > 0 ? result.sample : [];
+      if (sample.length === 0) continue;
+      const ranking = rankProfiles(sample);
+      expect(ranking[0]?.id, `${result.entry.label} — ${ranking.map((r) => `${r.id}:${r.score.toFixed(2)}`).join(" ")}`).toBe(
+        result.entry.profile,
+      );
+    }
+  });
+
+  /*
+    O aceite da Fase 25: o *Fundamentos* lido pelo perfil da coleção.
+
+    Os números são do vol. 1 e vêm do livro, não da implementação: 10 capítulos e 83 seções estão
+    no sumário, os itens de teoria vão de 1 a 159 e os exercícios de 1 a 568. O que se afirma aqui
+    é o que o `book-v1` não conseguia — ele achava 0 exercícios, 0 exemplos e 453 falsas seções.
+  */
+  it("o Fundamentos: a estrutura do livro, e nada vindo dos gabaritos", () => {
+    /*
+      O `return` é para a máquina que não tem este PDF — o corpus é pessoal e fica fora do git.
+      Mas se o manifesto **pede** o perfil e o arquivo está lá, o aceite tem de rodar: sem esta
+      distinção, o dia em que a entrada sumisse do manifesto o aceite passaria calado.
+      */
+    const pedido = entries.some((entry) => entry.profile === "book-fme-v1");
+    const fme = results.find((r) => r.entry.profile === "book-fme-v1" && r.proposal !== null);
+    if (!pedido) return;
+    expect(fme, "o manifesto pede book-fme-v1, e a medição não chegou").toBeDefined();
+    if (!fme) return;
+    const items = fme.proposal!.items;
+    const count = (kind: string) => items.filter((item) => item.kind === kind).length;
+
+    // Os números são os medidos, não pisos frouxos: se a estrutura mudar, o teste diz quanto.
+    const capitulos = items.filter((item) => item.kind === "CHAPTER");
+    expect(capitulos.filter((item) => item.number !== null).length, "capítulos numerados").toBe(10);
+    // E a seção de vestibulares é um capítulo à parte, com os dez temas dentro dele.
+    const vestibulares = capitulos.find((item) => item.number === null);
+    expect(vestibulares?.title, "abertura da zona de vestibulares").toBe("Questões de vestibulares");
+    const temas = items.filter((item) => item.kind === "EXERCISE_GROUP" && item.parentKey === vestibulares?.key);
+    expect(temas.map((tema) => tema.title), "temas de vestibular").toHaveLength(10);
+
+    expect(count("SECTION"), "seções romanas").toBe(83);
+    expect(count("SUBSECTION"), "itens de teoria").toBe(159);
+    // 1 a 568, sem buraco: o banner da p. 117 chega como "E X E R C ê C I O S" e escondia 188–193.
+    expect(count("EXERCISE"), "exercícios discursivos").toBe(568);
+    const numeros = new Set(items.filter((item) => item.kind === "EXERCISE").map((item) => Number(item.number)));
+    expect(Array.from({ length: 568 }, (_, i) => i + 1).filter((n) => !numeros.has(n)), "exercícios faltando").toEqual([]);
+    // 1 a 361, sem buraco: 254 e 255 dividem o enunciado com a 253 e não repetem a banca.
+    expect(count("QUESTION"), "questões de vestibular").toBe(361);
+    const temaDe = new Set(temas.map((tema) => tema.key));
+    expect(items.filter((item) => item.kind === "QUESTION" && !temaDe.has(item.parentKey ?? "")), "questão fora de tema").toEqual([]);
+    expect(fme.proposal!.metrics.lowConfidence, "itens de baixa confiança").toBe(0);
+
+    // Toda questão de vestibular nasce com o tipo da zona; nenhum exercício do corpo nasce com ele.
+    const vestibular = items.filter((item) => item.kind === "QUESTION");
+    expect(vestibular.every((item) => item.metadata["questionType"] === "MULTIPLE_CHOICE")).toBe(true);
+    expect(items.filter((item) => item.kind === "EXERCISE").some((item) => item.metadata["questionType"] !== undefined)).toBe(false);
+
+    /*
+      Os dois gabaritos não entram: 300 das 453 falsas seções do `book-v1` vinham dali.
+
+      A asserção é pelo **número da página**, e não por um carimbo que o próprio motor pôs: se a
+      zona fosse calculada errado, um carimbo errado concordaria com ela e o teste passaria.
+    */
+    const ordenadas = [...fme.zones].sort((a, b) => a.from - b.from);
+    const gabaritos = ordenadas.filter((zone) => zone.skip === true);
+    expect(gabaritos.length, "as duas zonas de gabarito").toBe(2);
+    for (const zone of gabaritos) {
+      const fim = ordenadas.find((outra) => outra.from > zone.from)?.from ?? Number.POSITIVE_INFINITY;
+      const dentro = items.filter((item) => item.pageNumber >= zone.from && item.pageNumber < fim);
+      expect(dentro.map((item) => `${item.kind} p.${item.pageNumber}`), `zona ${zone.label}`).toEqual([]);
+    }
+    expect(fme.proposal!.warnings.some((warning) => warning.includes("não foi varrida"))).toBe(true);
+  });
+
   it("grava o relatório quando pedido", () => {
     if (!process.env["SCAN_REPORT"]) return;
-    const exams = results.filter((r) => r.entry.profile !== "book-v1");
-    const books = results.filter((r) => r.entry.profile === "book-v1");
+    // Livro ou prova sai do **perfil**, não de um id escrito à mão: com `book-fme-v1` no corpus, o
+    // teste de igualdade mandava o Fundamentos para a tabela de provas, com "359 / ?" questões.
+    const ehLivro = (r: Measured) => captureProfile(r.entry.profile)?.documentKind === "BOOK";
+    const exams = results.filter((r) => !ehLivro(r));
+    const books = results.filter(ehLivro);
     const report = [
       "# Validação do scan estrutural",
       "",

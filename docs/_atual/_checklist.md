@@ -1681,8 +1681,20 @@ script `backfill-legacy-assets.ts`. Nenhuma tela escreve.)*
 - ✅ Ordem página → coluna → altura; atravessar coluna ou página não é caso especial
 
 **Perfis de captura** *(D41, D46 — #209, #210, #211)*
-- ✅ Contrato com os oito campos da D41 e ganchos opcionais; registro explícito em
-  `profiles/index.ts`
+- ✅ Contrato e registro explícito em `profiles/index.ts` — **revisto**: dos oito campos da D41,
+  sete nunca foram lidos e saíram ([ADR 0007](../adr/0007-o-perfil-de-captura-e-codigo.md)); ficou
+  `defaultQuestionType`, mais os ganchos. `isBoundary`, declarado **e chamado** sem nenhum perfil
+  o implementar, saiu com o ramo morto
+- ✅ `score`: cada perfil pontua uma amostra, e da mesma nota saem a sugestão de perfil e o aviso
+  de perfil errado *(conferido contra o corpus real: 8 cadernos, o ENA e o Elon)*
+- ✅ Sugestão lendo o PDF — amostra **espalhada** pelo documento, porque as oito primeiras
+  páginas do Elon davam nota zero ao `book-v1` (capa, créditos, prefácio, sumário)
+- ✅ A tela mostra de que tipo é o perfil (`documentKind`) e o que ele sabe achar (`kinds`)
+- ✅ Trocar de perfil sem perder a revisão: execução nova, chave honesta, e o que a pessoa
+  decidiu herdado pela posição no livro (`domain/inherit-review.ts`)
+- ✅ Perfil que sai do registro **congela** a proposta em vez de destruí-la
+  ([ADR 0008](../adr/0008-perfil-que-sai-do-registro.md)): `AWAITING_PROFILE` no lugar de `FAILED`,
+  aprovação pelo retrato do perfil, a IA avisa em vez de calar, e a tela diz antes do 409
 - ✅ `Publication.captureProfileId` — o livro lembra o perfil
 - ✅ Presets no código, **sem tela de edição**
 - ✅ `exam-v1`: a segmentação da captura, chamada sem mudança *(as mesmas caixas nas páginas do
@@ -1811,9 +1823,173 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
   *(#221)*
 - [ ] Desempate por IA medido com o modelo local sobre um livro real
 
+### Fase 22 — O exemplo como galho *(D56, [ADR 0004](../adr/0004-o-exemplo-vira-no.md))*
+
+- ✅ `EXAMPLE` no `NodeKind`, no validador e no comentário do schema *(#227)*
+- ✅ As telas que conhecem tipo: ícone na árvore, menu de criar, lixeira, nome na lixeira, lista de
+  tipos com corpo *(#227 — conferido no navegador: o editor abre sem erro e *Adicionar* oferece
+  Exemplo)*
+- ✅ `book-v1` captura o exemplo até a próxima fronteira, pelo **branco entre as caixas** *(#228 —
+  o alcance `block` é novo; fração e fórmula em destaque não fecham o bloco, e isso está medido no
+  comentário da regra)*
+- ✅ A aprovação cria o nó de exemplo em vez de anexar ao corpo da seção *(#229)*
+- ✅ A árvore mostra rótulo e começo do texto *(#230 — "Exemplo 3 — Sejam A e B…", com o título
+  derivado do próprio texto na aprovação)*
+- ◐ **Aceite:** o *Curso de Análise* propõe os 107 exemplos como nós — medido, com mediana de 477
+  caracteres, 2 curtos e nenhum gigante; a teoria caiu de 174 para 161 trechos, que são as
+  resoluções voltando para os seus exemplos. **Aprovar no acervo real ainda não foi feito** — o
+  que está provado é a fixture, onde o exemplo leva a resolução e o corpo da seção não fica com
+  texto de exemplo
+
+### Fase 23 — Reimportar *(D57, [ADR 0006](../adr/0006-a-importacao-e-apagavel.md))*
+
+- ✅ Coluna de proveniência no `DocumentNode`, com índice e migração aditiva *(sem relação formal:
+  a execução some junto com a importação, e a proveniência continua valendo)*
+- ✅ Apagar a importação manda para a **lixeira** o que a execução criou
+- ✅ O editado à mão depois da aprovação é preservado, contado e listado *(três sinais: revisão de
+  origem humana, questão conferida, e `updatedAt` depois da janela da aprovação)*
+- ✅ A execução antiga sai junto — páginas e proposta *(cascata do schema)*
+- ✅ Apagar só a proposta é **recusado** depois de aprovada: sem a execução, ninguém mais acharia
+  o que ela criou, e a importação ficaria para sempre
+- ✅ Varredura andando não pode ser apagada — cancele antes
+- ⛔ **A teoria que a aprovação anexou a nós de fora da importação fica**: `appendBody` escreve no
+  corpo de um nó que a execução não criou, e apagar a importação não desfaz isso
+- ✅ Confirmação com os números antes de apagar *(diálogo com os tipos, a contagem e a lista de
+  preservados com o motivo de cada um)*
+- ✅ As duas opções na tela: só a proposta, ou proposta e acervo
+- ◐ **Aceite:** o ciclo inteiro está provado contra o banco em `scan-reimport.test.ts` — importar,
+  conferir uma questão, reescrever outra, apagar a importação e importar de novo devolve o mesmo
+  número de nós, com os dois editados de pé. **No FME ainda não foi feito**: falta o acervo real
+
+### Fase 24 — Figuras *(D58, [ADR 0005](../adr/0005-figura-vetorial-quando-o-pdf-a-tem.md))*
+
+- ✅ Agrupar traços e imagens numa figura, absorvendo o texto de dentro da caixa *(e três regras
+  que o livro real ensinou: fio decorativo não é figura, moldura em volta de texto não é figura, e
+  rótulo é curto — frase dentro da caixa fica no texto)*
+- ✅ Recorte vetorial em PDF (`pdf-lib`) e PNG na resolução nativa para bitmap; PNG de tela sempre
+- ✅ A figura vira asset `CROP` com nome LaTeX estável *(dedup pelo hash: duas varreduras do mesmo
+  livro não duplicam arquivo)*
+- ✅ `figure[H]` com `\includegraphics[width=…]` e `\caption`, na posição do livro *(`float` entrou
+  no preâmbulo: sem ele a figura flutuaria para longe do parágrafo que a explica)*
+- ✅ Legenda do livro reconhecida e tirada do corpo
+- ◐ Destino por perfil: **feito no `book-v1`** (corpo da seção) e **no `exam-enem-v1`**, que
+  passou a conhecer `FIGURE` — o gráfico da questão do ENEM agora vira figura. Falta o `exam-v1`,
+  e por um motivo estrutural: ele desvia o motor inteiro pelo `buildItems` e retorna antes da
+  passada de figuras, então listar `FIGURE` nos `kinds` dele não faria nada
+- ✅ A figura não engole a linha que o perfil protege *(sem isto, aceitar `FIGURE` no ENEM era
+  regressão: a absorção pega linha de até 16 caracteres, e "QUESTÃO 45" tem dez — três questões
+  desapareciam e dez perdiam as alternativas, de 735. Motor a `@2`)*
+- ✅ Falha do `pdf-lib` cai no PNG, e não só em página girada *(o ADR 0005 promete "nenhuma figura
+  fica de fora por causa do formato"; antes disto, qualquer outra falha deixava a figura na
+  proposta **sem arquivo nenhum**)*
+- ✅ Redesenhar a caixa da figura arrastando, na revisão *(o botão "Recortar de novo" refaz o
+  arquivo depois que a caixa muda)*
+- ✅ A figura chega ao compilador: âncora com `cropAssetId`, e o render do corpo do nó leva no
+  bundle o que o LaTeX cita *(sem isto o `\includegraphics` do corpo dava `File not found`)*
+- ⛔ **Recorte antigo fica no storage** quando a figura é rejeitada ou recortada de novo: esvaziar
+  a lixeira apaga nós e questões, não assets de recorte. Coletar o que ficou sem referência é
+  trabalho que ainda não existe
+- ⛔ **Bitmap sai a 300 DPI fixos**, e não na resolução em que a imagem está na página: para isso
+  falta o tamanho em pixels do objeto embutido, que o leitor não entrega
+- ⛔ **Página girada não tem recorte vetorial**: o pdf.js entrega a página já girada e desfazer a
+  rotação é conta que não está escrita. Nesses casos sai PNG, com o vetor perdido
+- ◐ **Aceite:** medido nos dois livros — Elon 57 figuras em 447 páginas, FME **703** em 420, com
+  os rótulos saindo do corpo e o recorte saindo vetorial (provado relendo o PDF recortado: os
+  traços e o rótulo continuam lá). **Falta olhar as figuras na tela, uma a uma**, e o FME expôs
+  outra coisa: o `book-v1` não reconhece a estrutura dele (0 exemplos, 0 exercícios, 453 falsas
+  seções) — o livro precisa de perfil próprio, que é trabalho de outra fase
+
+### Fase 25 — o perfil da coleção *Fundamentos* · **feito**
+
+O `book-v1` não lia o livro: 0 exemplos, 0 exercícios e 453 falsas seções em 420 páginas. Três
+causas, e só uma era do livro.
+
+**O defeito geral do motor** *(vale para qualquer livro com gabarito)*
+- ✅ O aprendizado de estilo recusa assinatura em corpo **menor** que o do texto. O gabarito do
+  fim do volume é cheio de "2. d" e "137. a)" — negrito, curtos, e lidos como título numerado.
+  Aprendidas essas assinaturas, qualquer linha negrito curta de 8–9 pt do livro virava seção,
+  inclusive rótulo de eixo de gráfico *(medido isolado: 453 → 176 falsas seções, e a baixa
+  confiança de 321 → 44; Elon e ENEM inalterados)*
+
+**A zona do documento** *([ADR 0009](../adr/0009-a-zona-do-documento.md))*
+- ✅ O perfil devolve as faixas do documento; cada uma diz o que ignorar e que tipo de questão
+  nasce ali. A zona chega também ao classificador, sem o que ele não sabe quando está nos
+  vestibulares
+- ✅ As páginas de zona pulada saem da varredura **inteira**, não só da caminhada — um gabarito de
+  43 páginas em duas colunas tem traço de sobra para virar figura que ninguém quer
+- ✅ `defaultQuestionType` vira o **padrão** do perfil; o tipo carimbado pela zona viaja em
+  `metadata` e a aprovação o respeita
+- ✅ Um aviso por zona pulada, com a página: livro varrido pela metade não pode parecer livro curto
+
+**`book-fme-v1`** *(os onze volumes da coleção)*
+- ✅ Banner `E X E R C Í C I O S` com as letras separadas — 62 no volume, e **zero** ocorrências da
+  palavra contígua: era o que mantinha os 568 exercícios invisíveis
+- ✅ Seções em algarismo romano (`IV. Conjunto universo`), 83 no volume
+- ✅ Exercício e item de teoria separados pelo corpo do **primeiro span** (1,0× contra 1,3×): a
+  p. 84 tem `134.` de exercício e `68.` de teoria, e a linha inteira mede 1,0× nos dois
+- ✅ Título de capítulo com o nome inteiro, que vem quebrado em duas linhas
+- ✅ Questão de vestibular pela banca entre parênteses, só dentro da zona que as abriga
+- ✅ O título do capítulo protegido da ilustração de abertura *(mesmo padrão do "QUESTÃO 45" do
+  ENEM: dez caracteres, e a figura o engolia como rótulo)*
+- ✅ **Aceite, medido no PDF real** *(`scan-corpus.test.ts`)*: 10 capítulos · 83 seções · 159 itens
+  de teoria · 562 exercícios (1→568) · 359 questões de vestibular (1→361), todas com múltipla
+  escolha carimbada · **0** itens vindos dos gabaritos · **0** de baixa confiança
+- ✅ O FME deixa de ser a exceção excluída da asserção de sugestão
+
+**O que a medição pediu, e que vale para todos**
+- ✅ A amostra da sugestão sobe de 8 para 16 páginas. O número é medido, não escolhido: os marcos
+  desta coleção são **raros, não densos** (62 banners em 269 páginas de corpo), e com oito o livro
+  era lido como prova de concurso. Com dezesseis, os onze PDFs do corpus acertam o perfil
+- ✅ A aprovação grava `solutionLatex` — o campo existe no acervo desde sempre e o scan nunca o
+  preenchia. São 82 exercícios resolvidos no volume, com a resolução anunciada por `Solução`
+- ✅ O extrator de alternativas aceita minúsculas (`a) 60`), seguro porque só roda quando o tipo
+  da questão pede alternativas
+- ✅ Os filhos `ITEM` de uma questão de múltipla escolha **são** as alternativas, e a ordem é a da
+  letra, não a da leitura *(a revisão de código pegou: as 359 questões nasciam `MULTIPLE_CHOICE`
+  com zero alternativas, e as opções viravam `enumerate` dentro do enunciado; e o livro imprime
+  em duas colunas, então a ordem de leitura chega A,C,E,B,D. Medido: 291 das 359 com alternativas,
+  199 com as cinco — as demais têm captura incompleta das letras)*
+- ✅ A resolução sai também do texto **reconhecido**, e não só do texto cru: neste livro quase todo
+  enunciado passa pela visão, e sem isso a resolução ficaria no enunciado justo onde mais importa
+
+**O que a aprovação de ensaio mostrou** *(a aprovação inteira rodada numa cópia do banco, antes de
+tocar no acervo)*
+- ✅ A seção de vestibulares vira um capítulo próprio, "Questões de vestibulares", com os **dez
+  temas** que o livro imprime ("Lógica", "Função quadrática"…) como grupos de questões. Antes, as
+  359 questões caíam soltas na raiz do livro, depois do capítulo X
+- ✅ Na zona de vestibulares, número em negrito é questão **com ou sem banca**: 254 e 255 dividem
+  o enunciado com a 253 e não repetem "(Enem)". Eram engolidas por ela, que ficava com três jogos
+  de alternativas. Agora são **361 questões, de 1 a 361, sem buraco**
+- ✅ Alternativas impressas **numa linha só** ("a) Ari; água b) Bruna; água…") são separadas pelas
+  letras; e quando as letras recomeçam, fica o primeiro jogo
+- ✅ **Múltipla escolha tem quatro ou cinco alternativas**, e o que tem menos é outra coisa. Medido:
+  com 2 ou 3, todas eram discursivas com subitens ("a) Esboce o gráfico… b) Determine…"); com 4 ou
+  5, todas eram múltipla escolha ("50 | 51 | 60 | 61"); com 0 ou 1, eram de soma — "(16)", "(32)"
+  — ou abertas. Rebaixadas a discursiva, com os subitens de volta no enunciado. **Só o tipo que veio
+  da zona é rebaixado**: o ENEM é todo de múltipla escolha, e a questão dele com alternativas em
+  imagem não pode perder o tipo
+- ✅ Um dos 62 banners chega como "E X E R C **ê** C I O S" — a fonte da p. 117 entrega o "Í"
+  como "ê". O bloco não abria, e os exercícios 188 a 193 ficavam invisíveis. A letra acentuada
+  aceita qualquer caractere: **568 exercícios, de 1 a 568, sem buraco**
+- ✅ **Aprovação de ensaio, numa cópia do banco**: 4,5 s · 1254 nós · 929 questões (679
+  discursivas, 250 de múltipla escolha — todas com 4 ou 5 alternativas) · 80 com resolução · 0
+  itens pulados. As 470 figuras ficam para a revisão, como toda figura sem legenda
+
+**Fica de fora, por decisão**
+- ⛔ Ligar a resposta do gabarito à questão. A zona já sabe onde o gabarito está; casar "137. a)"
+  com o exercício 137 é texto matemático em duas colunas, e é outra fase
+- ⛔ Os onze volumes "- Resolução", que trazem a resolução completa de cada exercício
+- ⛔ O reconhecimento matemático dos enunciados. **A camada de texto deste PDF perde os símbolos**:
+  "x ∈ A ⇔ x ∈ B" sai como "x  A x  B". Nenhum perfil conserta isso — perfil acha estrutura, não
+  recupera glifo —, e é por isso que a varredura deste livro faz centenas de chamadas de visão
+
+---
+
 > **Fora desta wave, por decisão:** parear resposta com questão automaticamente · tela para
 > editar perfis · a tela de diff entre dois scans (§61 — o retrato congelado já guarda o que é
-> preciso para ela).
+> preciso para ela) · reconstruir SVG a partir dos operadores do PDF (ADR 0005) · migrar exemplos
+> já aprovados como texto (ADR 0004 — reimportar resolve) · alias de id de perfil no registro
+> (ADR 0008 — o congelamento já resolve o caso que doía).
 
 ---
 
@@ -2062,7 +2238,15 @@ escritas de verdade no banco de desenvolvimento.*
 - ✅ Tempo de compilação limitado *(no contrato e no `execFile`; o timeout mata o processo e vira
   diagnóstico)*
 - ✅ Shell escape bloqueado no LaTeX *(duas camadas: `-no-shell-escape` explícito e `\write18`
-  recusado antes de tocar o disco)*
+  recusado antes de tocar o disco — a segunda é heurística e nunca fecha; desde a #244 pega também
+  as formas conhecidas: `\csname` (inteiro ou partido pelo `\endcsname`), `^^5c`,
+  `\write\number18` e a entrada por pipe em `\input`, `\@@input` e `\openin`)*
+- ✅ Documento não lê arquivo fora do job *(#244: `-no-shell-escape` não impedia **ler** — com o
+  `openin_any=a` padrão, `\openin` de `/proc/1/environ` punha o `RENDERER_SECRET` no log, provado
+  na imagem do worker. O `pdflatex` roda com `openin_any=p`/`openout_any=p`, e
+  `services/renderer/tests/compile.test.ts` afirma que `/etc/passwd`, `/proc/self/environ` e `../`
+  não chegam ao log. O segredo continua no ambiente do PID 1 do worker — fechado pelo
+  `openin_any=p`, e não por estar ausente)*
 - ✅ Filesystem efêmero nunca usado como storage persistente *(auditoria §23 — o worker é
   `read_only` + `tmpfs`, e quem persiste é a aplicação, pelo `StorageProvider`)*
 - ✅ Container do worker sem rede de saída *(rede `internal: true`; `fetch` de dentro falha, e o
@@ -2138,8 +2322,8 @@ Verificar em toda revisão de fase:
   com controle positivo; e o recorte reconhecido vira LaTeX revisado por gente, não imagem)*
 - ✅ Letra de alternativa nunca tratada como identidade *(schema + teste de projeção)*
 - ✅ LaTeX nunca executado de forma insegura *(vetor de argumentos, sem shell; `-no-shell-escape`
-  explícito, `\write18` recusado no contrato, diretório temporário por job, timeout, contêiner sem
-  rede e sem privilégio)*
+  explícito, `\write18` recusado no contrato, leitura de arquivo presa ao job com `openin_any=p`
+  (#244), diretório temporário por job, timeout, contêiner sem rede e sem privilégio)*
 - ✅ Batch agent não implementado antes de aprovação e revisão funcionarem *(não existe batch
   agent; aprovação seletiva e reversão estão de pé desde a Fase 9)*
 - ✅ Erro de compilação nunca escondido *(diagnóstico com linha, log cru inteiro na aba, e o corte
@@ -2160,7 +2344,7 @@ Verificar em toda revisão de fase:
 Revisão fase a fase do plano contra este checklist, procurando **o que o plano pede e o checklist
 não registra**. Foi o inverso da auditoria anterior, que procurava trabalho feito e não marcado.
 
-**Nada do plano está ausente daqui.** As 21 fases têm bloco correspondente, e os aceites de cada
+**Nada do plano está ausente daqui.** As 26 fases têm bloco correspondente, e os aceites de cada
 uma aparecem como item marcável. O que a revisão achou foram quatro **divergências**, que agora
 estão escritas onde alguém vai procurá-las:
 

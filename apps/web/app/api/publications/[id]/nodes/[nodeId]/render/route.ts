@@ -6,6 +6,7 @@ import { PrismaNodeBodyRepository } from "@modules/document-tree/infrastructure/
 import { executeRender } from "@modules/rendering/application/execute-render";
 import { buildRenderBundle, buildSourceMap } from "@modules/rendering/domain/build-render-bundle";
 import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
+import { loadPublicationAssets } from "@modules/rendering/infrastructure/prisma-question-assets";
 import { PrismaRenderJobRepository } from "@modules/rendering/infrastructure/prisma-render-job-repository";
 import { RenderWorkerExecutor } from "@modules/rendering/infrastructure/render-worker-executor";
 import { RendererUnavailableError } from "@/shared/ports";
@@ -59,6 +60,11 @@ export async function POST(
       return NextResponse.json({ error: "not_found", message: "Livro não encontrado." }, { status: 404 });
     }
 
+    const storage = new LocalFileStorageProvider({ rootDir: env.storageRoot });
+    // As figuras que o corpo cita viajam junto (D58): sem elas, o `pdflatex` para em
+    // "File not found" e a mensagem manda procurar defeito no texto.
+    const assets = await loadPublicationAssets(id, node.bodyLatex, storage);
+
     const bundleInput = {
       jobId: crypto.randomUUID(),
       question: {
@@ -71,16 +77,16 @@ export async function POST(
       },
       profile,
     };
-    const bundle = buildRenderBundle(bundleInput);
+    const bundle = buildRenderBundle({ ...bundleInput, assets: assets.manifest });
 
     const executor = new RenderWorkerExecutor({ baseUrl: env.rendererBaseUrl, secret: env.rendererSecret });
     request.signal.addEventListener("abort", () => void executor.cancel(bundle.jobId), { once: true });
 
     const { job, cacheHit } = await executeRender(
-      { workspaceId, questionId: null, bundle, assets: new Map() },
+      { workspaceId, questionId: null, bundle, assets: assets.bytes },
       {
         executor,
-        storage: new LocalFileStorageProvider({ rootDir: env.storageRoot }),
+        storage,
         jobs: new PrismaRenderJobRepository(),
         rendererVersion: process.env["RENDERER_VERSION"] ?? "0.0.0-dev",
       },

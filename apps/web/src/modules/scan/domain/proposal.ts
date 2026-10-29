@@ -129,6 +129,8 @@ export interface ProposalMetrics {
   readonly multiRegion: number;
   readonly multiPage: number;
   readonly byDiagnostic: Readonly<Partial<Record<DiagnosticStatus, number>>>;
+  /** Figuras com arquivo gravado (D58). Ausente quando a varredura correu sem recortar. */
+  readonly figures?: number;
 }
 
 export interface Proposal {

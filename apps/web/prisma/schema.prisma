@@ -149,7 +149,7 @@ model DocumentNode {
   children DocumentNode[] @relation("NodeChildren")
 
   /// `NodeKind`: BOOK · PART · CHAPTER · SECTION · SUBSECTION · CONTENT · QUESTION_GROUP ·
-  /// QUESTION · FIGURE · NOTE
+  /// QUESTION · FIGURE · NOTE · EXAMPLE
   kind  String
   title String?
   slug  String?
@@ -190,6 +190,14 @@ model DocumentNode {
   /// Os itens de proposta que a aprovação transformou neste nó (D53).
   scanItems ScanItem[]
 
+  /// A execução do scan que **criou** este nó (D57, ADR 0006). É o que permite apagar uma
+  /// importação inteira — e distingue o nó criado do nó que a aprovação apenas reaproveitou,
+  /// distinção que o `metadataJson` da âncora não faz.
+  ///
+  /// Sem relação formal, de propósito: a execução é apagada junto com a importação, e a
+  /// proveniência continua valendo depois disso. Um id órfão aqui é história, não lixo.
+  createdByScanRunId String?
+
   /// Exclusão lógica. `collapsed` NÃO está aqui: estado de UI vive em localStorage, porque
   /// `IsExpanded`/`IsSelected` no banco foi antipadrão do legado.
   deletedAt DateTime?
@@ -201,6 +209,7 @@ model DocumentNode {
 
   @@unique([publicationId, legacyId])
   @@index([publicationId, parentId, sortKey])
+  @@index([createdByScanRunId])
   @@index([parentId])
   @@map("document_nodes")
 }
@@ -438,11 +447,18 @@ model ScanRun {
 
   profileId      String
   profileVersion Int
+  /// O retrato do perfil no dia da varredura (ADR 0008): rótulo, tipos e tipo padrão de questão.
+  /// É o que deixa a proposta aprovável e legível depois que o perfil sai do registro. Execuções
+  /// anteriores a esta coluna ficam com NULL, e aí o perfil vivo responde, como sempre respondeu.
+  profileSnapshotJson String?
   engineVersion  String
   /// Intervalo, destino e opções, em JSON normalizado — é o que entra na chave.
   settingsJson   String
   /// sha256 de (asset, perfil@versão, motor, configuração). A mesma chave reabre a execução (D53).
   runKey         String
+  /// A execução de onde esta herdou a revisão, ao trocar de perfil. A varredura nova
+  /// é outra execução, com chave própria; o que atravessa é o que uma pessoa decidiu.
+  inheritedFromRunId String?
 
   /// `ScanRunState`: QUEUED · EXTRACTING · ANALYZING_LAYOUT · STRUCTURING · SEMANTIC_REVIEW ·
   /// RECOGNIZING_MATH · READY_FOR_REVIEW · APPROVED · FAILED · CANCELLED

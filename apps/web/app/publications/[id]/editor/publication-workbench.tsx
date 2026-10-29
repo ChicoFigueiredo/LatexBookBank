@@ -91,6 +91,9 @@ const KIND_ICONS: Readonly<Record<string, IconName>> = {
   QUESTION: "circle-help",
   FIGURE: "image",
   NOTE: "file-text",
+  // O exemplo tem ícone próprio: dentro de uma seção ele fica ao lado de conteúdo e de grupos de
+  // exercícios, e é a diferença que a pessoa procura ao passar os olhos.
+  EXAMPLE: "clipboard-list",
 };
 
 /**

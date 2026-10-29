@@ -1,12 +1,21 @@
-import { escapeLatexText } from "@modules/recognition/domain/latex-escape";
+import { escapeLatexText, hasUnreadableSymbol } from "@modules/recognition/domain/latex-escape";
 
-import type { AnchorMatch, CaptureProfile, DraftItem, Extent, OpenElement, WalkContext } from "./capture-profile";
+import {
+  zoneOfPage,
+  type AnchorMatch,
+  type CaptureProfile,
+  type DocumentZone,
+  type DraftItem,
+  type Extent,
+  type OpenElement,
+  type WalkContext,
+} from "./capture-profile";
 import { assembleDocument, positionOf, type DocLine, type ScanDocument } from "./document";
+import { findFigures, type Figure } from "./figures";
 import { toNormalizedBox } from "./geometry";
 import type { PageModel } from "./page";
 import {
   combineConfidence,
-  HEADING_KINDS,
   measure,
   type ProposedItem,
   type ProposedRegion,
@@ -43,8 +52,16 @@ interface OpenRecord {
 }
 
 export function buildProposal(pages: readonly PageModel[], profile: CaptureProfile): Proposal {
-  const scannedPages = pages.filter((page) => page.scanned).length;
-  const scanWarnings = pages
+  const zones = profile.zones?.(pages) ?? [];
+  const walked = zones.length === 0 ? pages : pages.filter((page) => zoneOfPage(zones, page.pageNumber)?.skip !== true);
+  const zoneWarnings = zones
+    .filter((zone) => zone.skip === true)
+    .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida: é gabarito, não estrutura.`);
+
+  // Só as páginas que a varredura de fato olha: avisar que falta texto numa página pulada seria
+  // pedir reconhecimento para um gabarito que ninguém vai ler.
+  const scannedPages = walked.filter((page) => page.scanned).length;
+  const scanWarnings = walked
     .filter((page) => page.scanned)
     .map((page) => `Página ${page.pageNumber} sem camada de texto: precisa de reconhecimento de texto.`);
 
@@ -53,32 +70,186 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     const items = drafts.map((draft) => finalize(draft, profile, null));
     return {
       items,
-      warnings: scanWarnings,
+      warnings: [...scanWarnings, ...zoneWarnings],
       metrics: measure(items, pages.length, scannedPages),
       pageOffset: null,
     };
   }
 
-  const doc = assembleDocument(pages, {
+  const full = assembleDocument(walked, {
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
   });
 
-  const records = walk(doc, profile);
+  /*
+    As figuras saem do fluxo antes da caminhada (D58, ADR 0005).
+
+    As letras de dentro de um diagrama são texto de verdade no PDF. Se elas continuassem na lista
+    de linhas, o corpo do capítulo receberia "A B U P" entre dois parágrafos, e a legenda viraria
+    um parágrafo órfão logo abaixo da figura. Tirá-las aqui é o que faz o resto do motor —
+    parágrafos, extents, regiões — continuar valendo sem saber que figura existe.
+  */
+  /*
+    O que o perfil protege, a figura não engole.
+
+    É o mesmo `isProtected` da mobília, e pela mesma razão: a linha que o perfil marca é estrutura
+    do documento, e estrutura não é rótulo de desenho. Calculado uma vez, por id, porque a
+    absorção consulta cada linha várias vezes enquanto a caixa cresce.
+  */
+  const protectedIds = profile.isProtected
+    ? new Set(full.lines.filter((line) => profile.isProtected!(line, full.style)).map((line) => line.id))
+    : null;
+
+  const figures = profile.kinds.includes("FIGURE")
+    ? findFigures({
+        graphics: full.graphics,
+        lines: full.lines,
+        bodySize: full.style.bodySize,
+        lineSpacing: full.style.lineSpacing,
+        ...(protectedIds === null ? {} : { protect: (line: { readonly id: string }) => protectedIds.has(line.id) }),
+      })
+    : [];
+  const hidden = new Set(figures.flatMap((figure) => [...figure.absorbedLineIds, ...figure.captionLineIds]));
+  const doc: ScanDocument = hidden.size === 0 ? full : { ...full, lines: full.lines.filter((line) => !hidden.has(line.id)) };
+
+  const records = walk(doc, profile, zones);
   const linesBySlot = indexBySlot(doc.lines);
-  const drafts = records.map((record) => draftOf(record, doc, linesBySlot));
+  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
   const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
-  const items = checked.map((draft) => finalize(draft, profile, doc, offset));
+  const items = checked.map((draft) => withZoneType(finalize(draft, profile, doc, offset), zones));
 
   return {
     items,
-    warnings: [...scanWarnings, ...tocWarnings],
+    warnings: [...scanWarnings, ...tocWarnings, ...zoneWarnings],
     metrics: measure(items, pages.length, scannedPages),
     pageOffset: offset,
   };
 }
 
-function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {
+/**
+ * Intercala as figuras entre os itens, na ordem de leitura, sob quem as contém.
+ *
+ * A figura não tem âncora de texto — ninguém escreve "Figura" para abri-la —, então ela não passa
+ * pela caminhada. O pai dela é o elemento que estava aberto no ponto da página em que ela
+ * aparece: a seção, o exemplo, o exercício. Se nenhum aceita figura, ela fica sem pai, e a
+ * aprovação decide o que fazer com isso.
+ */
+/**
+ * Carimba no item o tipo de questão que a zona pede (ADR 0009).
+ *
+ * Vai em `metadata` de propósito: é informação do perfil sobre aquele item, e `metadata` é onde o
+ * perfil já fala com a aprovação — `figureKind`, `widthFraction`. Uma coluna nova no banco para
+ * guardar um enum que só a aprovação lê seria migração sem dono.
+ *
+ * E carimba **só** isso. O rótulo da zona também caberia aqui e não entra: pelo critério do
+ * ADR 0007, campo sem consumidor não fica. Se um dia a revisão quiser mostrar de que parte do
+ * livro veio o item, ele volta junto com a tela que o mostra.
+ */
+function withZoneType(item: ProposedItem, zones: readonly DocumentZone[]): ProposedItem {
+  const questionType = zones.length === 0 ? undefined : zoneOfPage(zones, item.pageNumber)?.questionType;
+  return questionType === undefined ? item : { ...item, metadata: { ...item.metadata, questionType } };
+}
+
+function withFigures(
+  drafts: readonly DraftItem[],
+  figures: readonly Figure[],
+  records: readonly OpenRecord[],
+  doc: ScanDocument,
+  profile: CaptureProfile,
+): DraftItem[] {
+  if (figures.length === 0) return [...drafts];
+
+  const pageSize = new Map(doc.pages.map((page) => [page.pageNumber, page]));
+  const positions = new Map(drafts.map((draft, index) => [draft.key, records[index]?.startIndex ?? index]));
+  const byKey = new Map(records.map((record) => [record.key, record]));
+  const entries = drafts.map((draft) => ({ at: positions.get(draft.key) ?? 0, draft }));
+  const keys = new Set(drafts.map((draft) => draft.key));
+
+  figures.forEach((figure, index) => {
+    const page = pageSize.get(figure.pageNumber);
+    if (!page) return;
+
+    // Onde a figura está, em linhas: a última linha que vem antes dela na ordem de leitura.
+    let at = 0;
+    for (let i = 0; i < doc.lines.length; i++) {
+      const line = doc.lines[i]!;
+      if (line.slot < figure.slot || (line.slot === figure.slot && line.y0 <= figure.box.y0)) at = i + 1;
+      else break;
+    }
+
+    /*
+      De quem a figura é.
+
+      Não dá para procurar quem "cobre" a posição: um título fecha logo depois do próprio texto —
+      `SECTION[2,3]` —, e o que ele contém vem da árvore, não do intervalo. Então pega-se o último
+      elemento que começou antes da figura e sobe-se por `parentKey` até alguém que aceite figura.
+      É o mesmo caminho que a pessoa faz com o olho: "esta figura é daquela seção ali em cima".
+    */
+    const previous = [...records]
+      .filter((record) => record.startIndex <= at)
+      .sort((a, b) => a.startIndex - b.startIndex)
+      .at(-1);
+    let parent: OpenRecord | undefined = previous;
+    while (parent && !profile.canContain(parent.kind, "FIGURE")) {
+      parent = parent.parentKey ? byKey.get(parent.parentKey) : undefined;
+    }
+
+    let key = `FIGURE:p${figure.pageNumber}:${Math.round(figure.box.y0)}`;
+    for (let n = 2; keys.has(key); n++) key = `FIGURE:p${figure.pageNumber}:${Math.round(figure.box.y0)}#${n}`;
+    keys.add(key);
+
+    const column = doc.slots[figure.slot]?.column;
+    const columnWidth = column ? column.x1 - column.x0 : page.width;
+    const fraction = Math.min(1, Math.max(0.15, (figure.box.x1 - figure.box.x0) / columnWidth));
+
+    entries.push({
+      // A fração precisa caber entre duas linhas: com um milésimo fixo, a 500ª figura de um livro
+      // passaria da linha seguinte e sairia do lugar.
+      at: at + ((index + 1) / (figures.length + 1)) * 0.9,
+      draft: {
+        key,
+        parentKey: parent?.key ?? null,
+        kind: "FIGURE",
+        originalLabel: figure.label,
+        number: null,
+        title: figure.caption,
+        pageNumber: figure.pageNumber,
+        printedPage: null,
+        regions: [
+          {
+            pageNumber: figure.pageNumber,
+            box: toNormalizedBox(figure.crop, page),
+            role: "ILLUSTRATION",
+          },
+        ],
+        text: figure.caption ?? "",
+        latex: null,
+        needsMath: false,
+        confidence: 0,
+        confidenceParts: {
+          layout: 0.9,
+          // A legenda é a prova de que aquilo é uma figura para o livro, e não um traço solto.
+          pattern: figure.caption === null ? 0.72 : 0.95,
+        },
+        evidence: [
+          figure.kind === "raster" ? "imagem embutida na página" : "traços agrupados numa figura",
+          ...(figure.caption === null ? [] : ["legenda logo abaixo"]),
+          ...(figure.absorbedLineIds.length > 0 ? [`${figure.absorbedLineIds.length} rótulos dentro do desenho`] : []),
+        ],
+        metadata: {
+          figureKind: figure.kind,
+          widthFraction: Math.round(fraction * 100) / 100,
+          absorbedLines: figure.absorbedLineIds.length,
+        },
+        lines: [],
+      },
+    });
+  });
+
+  return entries.sort((a, b) => a.at - b.at).map((entry) => entry.draft);
+}
+
+function walk(doc: ScanDocument, profile: CaptureProfile, zones: readonly DocumentZone[]): OpenRecord[] {
   const { lines, style } = doc;
   const learned = profile.learnStyle?.(lines, style) ?? new Map<string, ScanKind>();
   const records: OpenRecord[] = [];
@@ -151,14 +322,9 @@ function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {
       },
       columnLeft: doc.slots[line.slot]?.column.x0 ?? line.x0,
       learned,
+      zone: zones.length === 0 ? null : zoneOfPage(zones, line.pageNumber),
     };
 
-    if (profile.isBoundary?.(context)) {
-      flushContent(i);
-      popUntil((top) => top === null || HEADING_KINDS.has(top.kind), i);
-      skipUntil = i + 1;
-      continue;
-    }
 
     const match = profile.classifyLine(context);
     const placeable =
@@ -211,6 +377,11 @@ function walk(doc: ScanDocument, profile: CaptureProfile): OpenRecord[] {
       stack.pop();
       top = stack[stack.length - 1];
     }
+    if (top?.extent === "block" && isBlockBreak(lines[i - 1], line, doc)) {
+      close(top, i);
+      stack.pop();
+      top = stack[stack.length - 1];
+    }
 
     if (top && top.extent !== "heading") continue;
     if (profile.settings.emitContent && top) content ??= { start: i };
@@ -249,6 +420,48 @@ function isParagraphBreak(previous: DocLine | undefined, line: DocLine, doc: Sca
   // também começa "recuado", e na mesma altura.
   const below = line.y0 >= previous.y1 - 1 && gap >= style.lineSpacing * 0.8;
   return gap > style.lineSpacing * 1.35 || (below && indented && previous.x0 <= left + style.bodySize * 0.5);
+}
+
+/**
+ * O fim de um bloco: o vão grande, não o recuo.
+ *
+ * Parágrafo comum de livro se separa por **recuo**, sem espaço extra; um bloco — exemplo,
+ * observação — se separa por **espaço**. Só o espaço fecha aqui, e é por isso que a resolução do
+ * exemplo, que é parágrafo novo, continua dentro dele.
+ *
+ * A régua é a entrelinha do corpo, e não a `lineSpacing` sozinha: num trecho esparso — uma
+ * página com meia dúzia de linhas — a moda dos vãos é o vão *entre parágrafos*, e usá-la deixaria
+ * o bloco engolir o livro inteiro. O tamanho da fonte dá o piso que a moda não dá.
+ *
+ * Trocar de coluna ou de página não fecha: o exemplo que vira a página continua sendo um.
+ */
+function isBlockBreak(previous: DocLine | undefined, line: DocLine, doc: ScanDocument): boolean {
+  if (!previous || previous.slot !== line.slot) return false;
+  // O branco **entre as caixas**, e não a distância entre as bases.
+  //
+  // Medido no *Curso de Análise*: uma fração no meio da frase afasta as bases em 26 pt, quase o
+  // dobro da entrelinha — pela distância entre bases, todo exemplo terminaria na primeira fração.
+  // Só que a caixa da linha cresceu junto: o branco continua o mesmo. É ele que o olho lê como
+  // "aqui acabou", e é ele que o espaço extra do ambiente de exemplo aumenta.
+  const { style } = doc;
+  const white = line.y0 - previous.y1;
+
+  /*
+    Fórmula em destaque abre branco dos dois lados, e os dois brancos querem dizer coisas
+    diferentes.
+
+    **Antes** dela o branco não fecha nada: é a conta do exemplo, e sem esta guarda três exemplos
+    do *Curso de Análise* terminavam em "Seja X = {1, 2, 3}. Então", logo antes da fórmula que os
+    explica.
+
+    **Depois** dela o branco pode, sim, ser o fim: o exemplo acaba na fórmula e a teoria recomeça.
+    Aí a régua é outra, mais larga — o espaço que a fórmula deixa embaixo é maior que o de um
+    parágrafo, e só um vão claramente maior que esse conta como fim.
+  */
+  if (line.mathRatio >= 0.5) return false;
+  if (previous.mathRatio >= 0.5) return white > style.bodySize * 1.6;
+
+  return white > style.bodySize * 0.55;
 }
 
 function draftOf(
@@ -290,7 +503,11 @@ function draftOf(
   const text = bodyLines.map((line) => line.text).join("\n");
   const chars = bodyLines.reduce((sum, line) => sum + line.text.length, 0) || 1;
   const mathChars = bodyLines.reduce((sum, line) => sum + line.text.length * line.mathRatio, 0);
-  const needsMath = mathChars / chars >= 0.05 || bodyLines.some((line) => line.mathRatio >= 0.5);
+  // A fonte diz se a linha é matemática; o símbolo da área privada diz o mesmo por outro caminho —
+  // a fonte de símbolos do livro não parece matemática, e a camada de texto não a lê (importação do
+  // Fundamentos, 2026-09-30).
+  const needsMath =
+    mathChars / chars >= 0.05 || bodyLines.some((line) => line.mathRatio >= 0.5) || hasUnreadableSymbol(text);
   const match = record.match;
 
   return {

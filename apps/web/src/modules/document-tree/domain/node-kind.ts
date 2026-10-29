@@ -17,6 +17,9 @@ export const NODE_KINDS = [
   "QUESTION",
   "FIGURE",
   "NOTE",
+  // O exemplo resolvido do livro (D56, ADR 0004). Entrou depois dos outros dez, quando o uso
+  // mostrou que "Exemplo 12" é coisa que se procura, e texto dissolvido no corpo não tem endereço.
+  "EXAMPLE",
 ] as const;
 
 export type NodeKind = (typeof NODE_KINDS)[number];

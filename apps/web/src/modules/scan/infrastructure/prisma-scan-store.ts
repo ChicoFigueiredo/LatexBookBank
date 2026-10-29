@@ -14,6 +14,7 @@ import type {
   ScanSourceReader,
   ScanStore,
 } from "@modules/scan/application/scan-store";
+import type { CaptureProfileSnapshot } from "@modules/scan/domain/capture-profile";
 import type { RawPage } from "@modules/scan/domain/page";
 import {
   isReviewState,
@@ -67,6 +68,7 @@ function toRun(row: RunRow): ScanRun {
     sourceAssetId: row.sourceAssetId,
     profileId: row.profileId,
     profileVersion: row.profileVersion,
+    profileSnapshot: row.profileSnapshotJson === null ? null : parse<CaptureProfileSnapshot | null>(row.profileSnapshotJson, null),
     engineVersion: row.engineVersion,
     settings: parse<ScanSettings>(row.settingsJson, {
       pageFrom: row.pageFrom,
@@ -75,6 +77,7 @@ function toRun(row: RunRow): ScanRun {
       recognizeMath: "auto",
     }),
     runKey: row.runKey,
+    inheritedFromRunId: row.inheritedFromRunId,
     state: isScanRunState(row.state) ? row.state : "FAILED",
     cancelRequested: row.cancelRequested,
     pageFrom: row.pageFrom,
@@ -182,9 +185,11 @@ export class PrismaScanStore implements ScanStore {
         sourceAssetId: run.sourceAssetId,
         profileId: run.profileId,
         profileVersion: run.profileVersion,
+        profileSnapshotJson: run.profileSnapshot === null ? null : JSON.stringify(run.profileSnapshot),
         engineVersion: run.engineVersion,
         settingsJson: JSON.stringify(run.settings),
         runKey: run.runKey,
+        inheritedFromRunId: run.inheritedFromRunId,
         pageFrom: run.pageFrom,
         pageTo: run.pageTo,
       },
@@ -224,6 +229,11 @@ export class PrismaScanStore implements ScanStore {
         ...(warnings !== undefined ? { warningsJson: JSON.stringify(warnings) } : {}),
       },
     });
+  }
+
+  async deleteRun(id: string): Promise<void> {
+    // Páginas e itens descem por cascata (schema): a execução é dona deles.
+    await prisma.scanRun.delete({ where: { id } });
   }
 
   async savePage(runId: string, page: RawPage): Promise<void> {

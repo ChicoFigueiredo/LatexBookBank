@@ -41,12 +41,43 @@ export function verticalCoverage(inner: Rect, outer: Rect): number {
 
 /** Área da interseção dividida pela área do menor — 1 quando um contém o outro. */
 export function overlapRatio(a: Rect, b: Rect): number {
-  const w = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
-  const h = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
-  if (w <= 0 || h <= 0) return 0;
+  const intersection = intersectionArea(a, b);
+  if (intersection === 0) return 0;
 
   const smaller = Math.min(width(a) * height(a), width(b) * height(b));
-  return smaller > 0 ? (w * h) / smaller : 0;
+  return smaller > 0 ? intersection / smaller : 0;
+}
+
+/** A área que os dois retângulos têm em comum; 0 quando não se tocam. */
+function intersectionArea(a: Rect, b: Rect): number {
+  const w = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+  const h = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+/**
+ * Área da interseção dividida pela área da união — 1 só quando as duas caixas coincidem.
+ *
+ * É a pergunta "é o mesmo lugar?", e não "um contém o outro?". A diferença morde na aprovação em
+ * rodadas (#247): pela `overlapRatio`, o exercício pequeno dentro da âncora do grupo — que cobre a
+ * página inteira — dava 1, e virava "já no acervo" apontando para o grupo.
+ */
+export function intersectionOverUnion(a: Rect, b: Rect): number {
+  const intersection = intersectionArea(a, b);
+  if (intersection === 0) return 0;
+
+  const union = width(a) * height(a) + width(b) * height(b) - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * A caixa normalizada como retângulo, para comparar duas âncoras.
+ *
+ * Mora aqui porque tem dois donos: a aprovação, que pergunta "esta âncora já está no acervo?", e
+ * a herança de revisão, que pergunta "isto é o mesmo lugar do livro?". Duas perguntas, uma conta.
+ */
+export function boxRect(box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }): Rect {
+  return { x0: box.x, y0: box.y, x1: box.x + box.width, y1: box.y + box.height };
 }
 
 const PRECISION = 1e6;

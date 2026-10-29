@@ -6,6 +6,7 @@ import { letterIndex, romanToNumber, stripAccents } from "../text";
 import { normalizeNumber } from "../toc";
 import {
   looksLikeHeading,
+  measureStyle,
   relativeSize,
   typographicSignature,
   type PublicationStyle,
@@ -70,13 +71,13 @@ const ALIGNMENT = 4;
 const CONTAINS: Readonly<Record<string, readonly ScanKind[]>> = {
   ROOT: ["PART", "CHAPTER", "SECTION", "EXERCISE_GROUP"],
   PART: ["CHAPTER"],
-  CHAPTER: ["SECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE"],
-  SECTION: ["SUBSECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE"],
-  SUBSECTION: ["CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE"],
+  CHAPTER: ["SECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE", "FIGURE"],
+  SECTION: ["SUBSECTION", "CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE", "FIGURE"],
+  SUBSECTION: ["CONTENT", "EXAMPLE", "EXERCISE_GROUP", "EXERCISE", "NOTE", "FIGURE"],
   EXERCISE_GROUP: ["EXERCISE"],
-  EXERCISE: ["ITEM"],
-  QUESTION: ["ITEM"],
-  EXAMPLE: [],
+  EXERCISE: ["ITEM", "FIGURE"],
+  QUESTION: ["ITEM", "FIGURE"],
+  EXAMPLE: ["FIGURE"],
   ITEM: ["SUBITEM"],
 };
 
@@ -201,7 +202,11 @@ function classify(context: WalkContext): AnchorMatch | null {
       label: `${line.text.slice(0, (example[1] ?? "").length)} ${example[2] ?? ""}`.trim(),
       number: example[2] ?? null,
       title: null,
-      extent: "paragraph",
+      // Um bloco, e não um parágrafo (D56). Como negrito no corpo da seção, um parágrafo bastava:
+      // a resolução vinha logo abaixo e ninguém notava a emenda. Como nó, o exemplo que deixa a
+      // resolução para trás promete na árvore o que não entrega ao abrir. E `until-boundary` seria
+      // ganancioso demais — engoliria a teoria que volta depois, que não tem título nenhum.
+      extent: "block",
       lines: 1,
       confidence: { pattern: 0.92, typography: 0.9 },
       evidence: ["rótulo de exemplo em destaque"],
@@ -348,20 +353,48 @@ export const bookV1: CaptureProfile = {
     "ITEM",
     "SUBITEM",
     "NOTE",
+    "FIGURE",
   ],
   settings: {
-    answersLocation: "END_OF_BOOK",
-    columns: "auto",
     defaultQuestionType: "DISCURSIVE",
-    visionModel: null,
     emitContent: true,
     autoAcceptThreshold: 0.85,
   },
-  markers: {
-    questionStart: [NUMBERED_ITEM, EXERCISE],
-    solution: [/^(solu[çc][ãa]o|resolu[çc][ãa]o|solution)[.:]?/i],
-    headings: [PART, CHAPTER, NUMBERED_HEADING],
-    exerciseBlock: [EXERCISE_GROUP],
+
+  /*
+    O que faz um PDF parecer livro-texto: título de capítulo, título numerado (`2.3 Limites`),
+    exemplo resolvido e bloco de exercícios. Nenhum deles sozinho decide — "1. Alguma coisa"
+    aparece em qualquer lista —, e por isso a nota é densidade de vários sinais por página, não
+    a presença de um.
+  */
+  score(sample) {
+    const paginas = Math.max(1, sample.length);
+    const todas = sample.flatMap((page) => page.lines);
+    const style = measureStyle(todas);
+
+    let titulos = 0;
+    let exemplos = 0;
+    let blocos = 0;
+    for (const line of todas) {
+      const text = fold(line);
+      /*
+        A mesma segunda evidência que a classificação exige (§15).
+
+        Contar só a forma do texto reproduzia aqui o defeito do PR #201: "1. Considere a função"
+        casa com título numerado, e a prova de concurso do corpus real virava livro-texto com
+        0,95 de nota. Título de livro é título **e** tem corpo de título.
+      */
+      const destacada = line.bold || relativeSize(line, style) >= 1.1 || looksLikeHeading(line, style);
+      if (destacada && (CHAPTER.test(text) || PART.test(text) || NUMBERED_HEADING.test(text))) titulos++;
+      else if (EXAMPLE.test(text)) exemplos++;
+      else if (EXERCISE_GROUP.test(text)) blocos++;
+    }
+
+    const sinais = titulos + exemplos * 2 + blocos * 3;
+    return {
+      score: Math.min(1, sinais / (paginas * 2.5)),
+      evidence: `${titulos} títulos, ${exemplos} exemplos e ${blocos} blocos de exercícios em ${paginas} páginas`,
+    };
   },
 
   classifyLine: classify,
@@ -380,12 +413,27 @@ export const bookV1: CaptureProfile = {
 
   learnStyle(lines: readonly DocLine[], style: PublicationStyle): LearnedStyle {
     const learned = new Map<string, ScanKind>();
+
+    /*
+      Título nunca é menor que o corpo do texto — e o gabarito do fim do volume é.
+
+      O aprendizado varre o livro **inteiro**, e o gabarito é cheio de linhas que parecem título
+      numerado: "2. d", "137. a)", "311. c", negrito e curtas, em 8 ou 9 pt contra os 10 pt do
+      texto. Aprendidas essas assinaturas, o ramo tipográfico promovia a seção qualquer linha
+      negrito curta desse corpo no livro todo — inclusive rótulo de eixo de gráfico, "y",
+      "Distância (m)". Medido no *Fundamentos*: 300 das 453 falsas seções vinham dos dois
+      gabaritos, e mais 65 de legendas de tabela.
+
+      A guarda é uma verdade tipográfica, não um ajuste para este livro: nenhuma editora imprime
+      título em corpo menor que o do texto corrido.
+    */
+    const candidate = (line: DocLine): boolean => relativeSize(line, style) >= 1 && looksLikeHeading(line, style);
     // "Capítulo I" por extenso **e** títulos de um número só: as seções são numeradas dentro do
     // capítulo. Com "Capítulo 1" e seções "1.1" (o `book` do LaTeX), a numeração é a de sempre.
-    const hasWordChapters = lines.some((line) => CHAPTER.test(fold(line)) && looksLikeHeading(line, style));
+    const hasWordChapters = lines.some((line) => CHAPTER.test(fold(line)) && candidate(line));
     const hasSingleNumberHeadings = lines.some((line) => {
       const numbered = NUMBERED_HEADING.exec(line.text.trim());
-      return numbered !== null && !(numbered[1] ?? "").includes(".") && line.bold && looksLikeHeading(line, style);
+      return numbered !== null && !(numbered[1] ?? "").includes(".") && line.bold && candidate(line);
     });
     const wordChapters = hasWordChapters && hasSingleNumberHeadings;
     if (wordChapters) learned.set(SECTIONS_BY_SINGLE_NUMBER, "SECTION");
@@ -393,7 +441,7 @@ export const bookV1: CaptureProfile = {
 
     for (const line of lines) {
       const numbered = NUMBERED_HEADING.exec(line.text.trim());
-      if (!numbered || !looksLikeHeading(line, style)) continue;
+      if (!numbered || !candidate(line)) continue;
       const depth = (numbered[1] ?? "").split(".").length;
       const kind = levels[Math.min(depth, levels.length) - 1] ?? "SUBSECTION";
       const signature = typographicSignature(line, style);

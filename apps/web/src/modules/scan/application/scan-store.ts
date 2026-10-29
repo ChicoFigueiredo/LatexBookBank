@@ -1,3 +1,4 @@
+import type { CaptureProfileSnapshot } from "@modules/scan/domain/capture-profile";
 import type { RawPage } from "@modules/scan/domain/page";
 import type { ProposalMetrics, ProposedItem } from "@modules/scan/domain/proposal";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
@@ -15,9 +16,13 @@ export interface ScanRun {
   readonly sourceAssetId: string;
   readonly profileId: string;
   readonly profileVersion: number;
+  /** O retrato do perfil no dia da varredura (ADR 0008); `null` nas execuções anteriores a ele. */
+  readonly profileSnapshot: CaptureProfileSnapshot | null;
   readonly engineVersion: string;
   readonly settings: ScanSettings;
   readonly runKey: string;
+  /** De qual execução esta herdou a revisão ao trocar de perfil (ver `domain/inherit-review.ts`). */
+  readonly inheritedFromRunId: string | null;
   readonly state: ScanRunState;
   readonly cancelRequested: boolean;
   readonly pageFrom: number;
@@ -49,9 +54,11 @@ export type NewScanRun = Pick<
   | "sourceAssetId"
   | "profileId"
   | "profileVersion"
+  | "profileSnapshot"
   | "engineVersion"
   | "settings"
   | "runKey"
+  | "inheritedFromRunId"
   | "pageFrom"
   | "pageTo"
 >;
@@ -96,6 +103,8 @@ export interface ScanStore {
   findLatestByKey(publicationId: string, runKey: string): Promise<ScanRun | null>;
   listRuns(publicationId: string): Promise<readonly ScanRun[]>;
   updateRun(id: string, patch: ScanRunPatch): Promise<void>;
+  /** Apaga a execução e o que é dela — páginas lidas e proposta. O acervo não é tocado aqui. */
+  deleteRun(id: string): Promise<void>;
 
   savePage(runId: string, page: RawPage): Promise<void>;
   loadPages(runId: string, from: number, to: number): Promise<readonly RawPage[]>;

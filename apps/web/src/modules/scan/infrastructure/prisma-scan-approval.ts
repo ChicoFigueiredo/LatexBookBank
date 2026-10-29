@@ -7,10 +7,11 @@ import { generateKeyBetween } from "@modules/document-tree/domain/fractional-ind
 import { appendToBody } from "@modules/document-tree/domain/node-body";
 import { isNodeKind } from "@modules/document-tree/domain/node-kind";
 import { planQuestion } from "@modules/questions/domain/question-blueprint";
-import type {
-  ApprovalContext,
-  ApprovalSummary,
-  ScanApprovalWriter,
+import {
+  ApprovalConflictError,
+  type ApprovalContext,
+  type ApprovalSummary,
+  type ScanApprovalWriter,
 } from "@modules/scan/application/approve-scan";
 import type { NodeRef } from "@modules/scan/domain/approval-plan";
 import type { ProposedRegion } from "@modules/scan/domain/proposal";
@@ -36,6 +37,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
         },
         select: {
           documentNodeId: true,
+          role: true,
           sourceAnchor: {
             select: {
               pageNumber: true,
@@ -43,6 +45,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
               yNormalized: true,
               widthNormalized: true,
               heightNormalized: true,
+              cropAssetId: true,
             },
           },
         },
@@ -53,6 +56,8 @@ export class PrismaScanApproval implements ScanApprovalWriter {
       nodes: nodes.map((node) => ({ ...node, kind: isNodeKind(node.kind) ? node.kind : "CONTENT" })),
       anchors: links.map((link) => ({
         nodeId: link.documentNodeId,
+        role: link.role,
+        cropped: link.sourceAnchor.cropAssetId !== null,
         pageNumber: link.sourceAnchor.pageNumber,
         box: {
           x: link.sourceAnchor.xNormalized,
@@ -76,6 +81,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           createdQuestions: 0,
           reusedNodes: 0,
           bodyAppends: 0,
+          statementAppends: 0,
           anchors: 0,
           alreadyInCollection: 0,
           materializedItems: 0,
@@ -103,7 +109,12 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           return key;
         };
 
-        const createAnchors = async (regions: readonly ProposedRegion[], sourceText: string, itemKey: string) => {
+        const createAnchors = async (
+          regions: readonly ProposedRegion[],
+          sourceText: string,
+          itemKey: string,
+          cropAssetId: string | null = null,
+        ) => {
           const links: NodeAnchorLink[] = [];
           for (const region of regions) {
             const anchor = await tx.sourceAnchor.create({
@@ -119,6 +130,8 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 extractionMethod,
                 extractionModel: run.mathModel,
                 metadataJson: JSON.stringify({ scanRunId: run.id, itemKey, role: region.role }),
+                // A figura tem arquivo: a âncora guarda qual, que é para o que este campo existe.
+                ...(cropAssetId ? { cropAssetId } : {}),
               },
               select: { id: true },
             });
@@ -128,15 +141,35 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           return links;
         };
 
+        // Só marca item que ainda não tem nó: se algum já tem, outra aprovação da mesma proposta
+        // gravou depois da leitura que deu este plano, e a transação inteira volta (#247).
         const mark = async (itemIds: readonly string[], nodeId: string) => {
-          await tx.scanItem.updateMany({
-            where: { runId: run.id, id: { in: [...itemIds] } },
+          const marked = await tx.scanItem.updateMany({
+            where: { runId: run.id, id: { in: [...itemIds] }, documentNodeId: null },
             data: { documentNodeId: nodeId, approvedAt: now, reviewState: "APPROVED" },
           });
+          if (marked.count !== new Set(itemIds).size) throw new ApprovalConflictError();
           summary.materializedItems += itemIds.length;
         };
 
         const itemKeyOf = (id: string) => items.find((item) => item.id === id)?.key ?? id;
+
+        /** As âncoras do trecho somadas às que o nó já tem, na ordem — a principal continua a dele. */
+        const appendAnchors = async (
+          targetId: string,
+          step: { readonly anchors: readonly ProposedRegion[]; readonly sourceText: string; readonly itemIds: readonly string[]; readonly cropAssetId: string | null },
+        ) => {
+          const existing = await tx.documentNodeAnchor.findMany({
+            where: { documentNodeId: targetId },
+            orderBy: { sortOrder: "asc" },
+            select: { sourceAnchorId: true, role: true },
+          });
+          const added = await createAnchors(step.anchors, step.sourceText, itemKeyOf(step.itemIds[0] ?? ""), step.cropAssetId);
+          const current = existing
+            .filter((link) => isAnchorRole(link.role))
+            .map((link) => ({ sourceAnchorId: link.sourceAnchorId, role: link.role as NodeAnchorLink["role"] }));
+          await writeNodeAnchors(tx, targetId, planNodeAnchors([...current, ...added]));
+        };
 
         for (const step of plan.steps) {
           switch (step.type) {
@@ -164,6 +197,8 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                     type: blueprint.type,
                     difficulty: blueprint.difficulty,
                     statementLatex: step.question.statementLatex,
+                    // A resolução impressa, quando o livro a traz junto do enunciado.
+                    solutionLatex: step.question.solutionLatex,
                     originalLatex: step.question.originalLatex,
                     // `DRAFT` com âncora de LaTeX não conferido: é o *a revisar* da D40.
                     status: "DRAFT",
@@ -188,6 +223,11 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                   kind: step.kind,
                   title: step.title,
                   originalLabel: step.originalLabel,
+                  // O exemplo nasce com o texto dentro (D56); os outros nós nascem vazios.
+                  ...(step.body !== null ? { bodyLatex: step.body } : {}),
+                  // Quem criou este nó (D57): é por aqui que a importação inteira é encontrada
+                  // quando alguém quiser reimportar o livro.
+                  createdByScanRunId: run.id,
                   sortKey: await nextKey(parentId),
                   ...(questionId ? { questionId } : {}),
                 },
@@ -208,11 +248,6 @@ export class PrismaScanApproval implements ScanApprovalWriter {
               const target = await tx.documentNode.findUniqueOrThrow({
                 where: { id: targetId },
                 select: { bodyLatex: true, title: true },
-              });
-              const existing = await tx.documentNodeAnchor.findMany({
-                where: { documentNodeId: targetId },
-                orderBy: { sortOrder: "asc" },
-                select: { sourceAnchorId: true, role: true },
               });
 
               const last = await tx.revision.findFirst({
@@ -235,12 +270,36 @@ export class PrismaScanApproval implements ScanApprovalWriter {
                 data: { bodyLatex: appendToBody(target.bodyLatex, step.latex) },
               });
 
-              const added = await createAnchors(step.anchors, step.sourceText, itemKeyOf(step.itemIds[0] ?? ""));
-              const current = existing
-                .filter((link) => isAnchorRole(link.role))
-                .map((link) => ({ sourceAnchorId: link.sourceAnchorId, role: link.role as NodeAnchorLink["role"] }));
-              await writeNodeAnchors(tx, targetId, planNodeAnchors([...current, ...added]));
+              await appendAnchors(targetId, step);
               summary.bodyAppends++;
+              await mark(step.itemIds, targetId);
+              break;
+            }
+
+            case "appendStatement": {
+              // A figura do exercício ou da questão (#246): vai ao enunciado, e o arquivo passa a ser
+              // da questão — é por `questionId` que o render dela acha os assets.
+              const targetId = resolve(step.target);
+              if (!targetId) break;
+              const node = await tx.documentNode.findUniqueOrThrow({
+                where: { id: targetId },
+                select: { question: { select: { id: true, statementLatex: true } } },
+              });
+              if (!node.question) throw new Error(`O nó ${targetId} não tem questão para receber o enunciado.`);
+
+              await tx.question.update({
+                where: { id: node.question.id },
+                data: { statementLatex: appendToBody(node.question.statementLatex, step.latex) },
+              });
+              if (step.cropAssetId) {
+                // Só o recorte ainda sem dono: uma linha que já é de outra questão continua dela.
+                await tx.asset.updateMany({
+                  where: { id: step.cropAssetId, questionId: null },
+                  data: { questionId: node.question.id },
+                });
+              }
+              await appendAnchors(targetId, step);
+              summary.statementAppends++;
               await mark(step.itemIds, targetId);
               break;
             }

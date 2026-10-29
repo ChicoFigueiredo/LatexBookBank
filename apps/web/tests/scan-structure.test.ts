@@ -44,8 +44,9 @@ function outline(proposal: Proposal): string[] {
 }
 
 describe("registro de perfis", () => {
-  it("os três perfis estão registrados, com id e versão", () => {
+  it("os quatro perfis estão registrados, com id e versão", () => {
     expect(registeredCaptureProfiles().map((p) => `${p.id}@${p.version}`).sort()).toEqual([
+      "book-fme-v1@1",
       "book-v1@1",
       "exam-enem-v1@1",
       "exam-v1@1",
@@ -64,6 +65,7 @@ describe("Livro A — capítulo, seção, texto, exemplo e exercício", () => {
       "CHAPTER 1",
       "  SECTION 1.1",
       "    EXAMPLE 1",
+      "    FIGURE",
       "    SUBSECTION 1.1.1",
       "      EXAMPLE 2",
       "      EXERCISE_GROUP",
@@ -84,7 +86,11 @@ describe("Livro A — capítulo, seção, texto, exemplo e exercício", () => {
     const texts = ofKind(proposal, "CONTENT").map((item) => item.text.split("\n")[0]);
     expect(texts).toContain("Toda função linear satisfaz f(x+y) = f(x) +f(y), o que se verifica diretamente da definição.");
     const example = ofKind(proposal, "EXAMPLE")[0];
-    expect(example?.text).toBe("Exemplo 1. A função f(x) = 3x é linear, e f(2) = 6.");
+    // O exemplo leva a resolução junto (D56): o segundo parágrafo é dele, e o parágrafo de teoria
+    // que vem depois — separado pelo espaço que o ambiente abre — não é.
+    expect(example?.text).toContain("A função f(x) = 3x é linear, e f(2) = 6.");
+    expect(example?.text).toContain("Este segundo parágrafo é a resolução do exemplo");
+    expect(example?.text).not.toContain("Toda função linear satisfaz");
   });
 
   it("todo elemento tem confiança e pelo menos uma âncora", () => {
@@ -179,6 +185,23 @@ describe("fórmulas", () => {
     const prose = ofKind(book, "CONTENT").find((item) => item.text.startsWith("Dois triângulos"));
     expect(prose?.needsMath).toBe(false);
     expect(prose?.latex).toContain("Dois triângulos são semelhantes");
+  });
+
+  it("símbolo da área privada também pede reconhecimento — a camada de texto não o lê", async () => {
+    // O Fundamentos escreve =, ∈, ∪ e ⇔ numa fonte própria, e a camada de texto entrega códigos
+    // da área privada (U+E000–U+F8FF). Pela fonte, a linha não parece matemática; na importação de
+    // 2026-09-30, 169 itens assim escaparam do reconhecimento, e o LaTeX deles não compilava.
+    const profile = captureProfile("book-v1")!;
+    const pages = (await fixturePages("book-b.pdf")).map((page) => ({
+      ...page,
+      lines: page.lines.map((line) =>
+        line.text.startsWith("Dois triângulos") ? { ...line, text: line.text.replace(" são ", " \ue032 ") } : line,
+      ),
+    }));
+
+    const prose = ofKind(buildProposal(pages, profile), "CONTENT").find((item) => item.text.startsWith("Dois triângulos"));
+    expect(prose?.needsMath).toBe(true);
+    expect(prose?.latex).toBeNull();
   });
 });
 
@@ -301,5 +324,45 @@ describe("exam-v1 — a segmentação da captura, sem mudança", () => {
         expect(q.box.height).toBeCloseTo(e.box.height, 4);
       });
     }
+  });
+});
+
+/**
+ * As figuras do livro (D58, ADR 0005): o desenho vira item, o rótulo de dentro sai do fluxo e a
+ * legenda do livro é reconhecida. A fixture tem um gráfico com o ponto `P` marcado e a linha
+ * "Figura 1.1 — O gráfico de uma função linear." logo abaixo.
+ */
+describe("Livro A — figuras", () => {
+  let proposal: Proposal;
+  beforeAll(async () => {
+    proposal = await propose("book-a.pdf", "book-v1");
+  });
+
+  it("o desenho vira um item de figura, com legenda e rótulo", () => {
+    const figuras = ofKind(proposal, "FIGURE");
+    expect(figuras).toHaveLength(1);
+    expect(figuras[0]?.originalLabel).toBe("Figura 1.1");
+    expect(figuras[0]?.title).toBe("O gráfico de uma função linear.");
+  });
+
+  it("a figura fica sob a seção em que aparece, e não na raiz", () => {
+    const secao = proposal.items.find((item) => item.kind === "SECTION" && item.number === "1.1");
+    expect(ofKind(proposal, "FIGURE")[0]?.parentKey).toBe(secao?.key);
+  });
+
+  it("o rótulo de dentro do desenho e a legenda saem do texto corrido", () => {
+    const corpo = ofKind(proposal, "CONTENT").map((item) => item.text).join("\n");
+    expect(corpo).not.toContain("Figura 1.1");
+    // O `P` do gráfico não vira um parágrafo de uma letra no corpo do capítulo.
+    expect(corpo.split("\n").some((linha) => linha.trim() === "P")).toBe(false);
+  });
+
+  it("a figura tem região e largura proporcional à coluna", () => {
+    const figura = ofKind(proposal, "FIGURE")[0];
+    expect(figura?.regions).toHaveLength(1);
+    expect(figura?.regions[0]?.role).toBe("ILLUSTRATION");
+    const fraction = Number(figura?.metadata["widthFraction"]);
+    expect(fraction).toBeGreaterThan(0.15);
+    expect(fraction).toBeLessThanOrEqual(1);
   });
 });

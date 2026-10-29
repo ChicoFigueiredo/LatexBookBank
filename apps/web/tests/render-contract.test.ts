@@ -191,4 +191,27 @@ describe("requestsShellEscape", () => {
     expect(requestsShellEscape("\\write\\myfile{texto}")).toBe(false);
     expect(requestsShellEscape("Em 2018 escrevi isso")).toBe(false);
   });
+
+  /*
+    As formas que contornavam a checagem (#244, SEC-08 da revisão de 2026-09-23). A defesa de
+    verdade continua sendo `-no-shell-escape` mais `openin_any=p` no worker; isto é a segunda camada,
+    e uma camada que qualquer `\csname` atravessa não é camada.
+  */
+  it("reconhece o pedido disfarçado: csname, \\number, ^^5c e a entrada por pipe", () => {
+    expect(requestsShellEscape("\\csname write18\\endcsname{ls}")).toBe(true);
+    expect(requestsShellEscape("\\expandafter\\write\\number18{ls}")).toBe(true);
+    expect(requestsShellEscape("^^5cwrite18{ls}")).toBe(true);
+    expect(requestsShellEscape('\\input|"ls /"')).toBe(true);
+    expect(requestsShellEscape('\\input{|"ls /"}')).toBe(true);
+    expect(requestsShellEscape("\\openin\\arquivo=|ls")).toBe(true);
+    // O nome partido pelo `\\endcsname` e o `\\input` primitivo do LaTeX — os dois passavam (revisão das P0).
+    expect(requestsShellEscape("\\csname write\\endcsname18{ls}")).toBe(true);
+    expect(requestsShellEscape('\\@@input|"ls"')).toBe(true);
+  });
+
+  it("não confunde a barra vertical da matemática com pipe", () => {
+    expect(requestsShellEscape("Seja $|x| < 1$ e \\input{capitulo}")).toBe(false);
+    expect(requestsShellEscape("$\\left| f(x) \\right|$")).toBe(false);
+    expect(requestsShellEscape("Rewrite 18 as a sum of two primes.")).toBe(false);
+  });
 });

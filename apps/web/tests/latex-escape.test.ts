@@ -73,3 +73,20 @@ describe("só o modo `text` escapa", () => {
     expect(escapeIfProse("2% ao mês", "text")).toBe("2\\% ao mês");
   });
 });
+
+describe("símbolo que a camada de texto não leu", () => {
+  it("o caractere da área privada vira uma caixa com interrogação, que compila e aparece", () => {
+    // O `pdflatex` recusava o documento inteiro por um "Unicode character U+E060". Apagar o símbolo
+    // deixaria "x  2" calado; a caixa mostra no PDF que ali faltou alguma coisa.
+    expect(escapeLatexText("Seja x  2 e A  B.")).toBe("Seja x \\fbox{?} 2 e A \\fbox{?} B.");
+    expect(escapeLatexText("100% de A")).toBe("100\\% de A");
+  });
+});
+
+describe("símbolo matemático em Unicode", () => {
+  it("vira o comando do LaTeX, em modo matemático — o pdflatex não conhece ≤, ∈ nem o sinal de menos", () => {
+    // A importação do Fundamentos parava em "Unicode character − (U+2212)" vindo da camada de texto.
+    expect(escapeLatexText("x ≤ 2, A ∈ B e 5 − 3")).toBe("x $\\leq$ 2, A $\\in$ B e 5 $-$ 3");
+    expect(escapeLatexText("ℝ ⊆ ℂ")).toBe("$\\mathbb{R}$ $\\subseteq$ $\\mathbb{C}$");
+  });
+});

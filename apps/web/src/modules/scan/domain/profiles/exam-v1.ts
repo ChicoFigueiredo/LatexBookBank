@@ -118,6 +118,26 @@ function buildItems(pages: readonly PageModel[]): DraftItem[] {
   return drafts;
 }
 
+/**
+ * A partir de que fração da página uma linha de texto é "larga", isto é, de uma coluna só.
+ *
+ * Em duas colunas nenhuma linha de corpo passa de perto da metade; numa coluna, a maioria passa
+ * de 55%. É a medida mais barata que separa os dois, e não exige medir coluna de verdade.
+ */
+const COLUMN_WIDTH = 0.55;
+
+/**
+ * A partir de que proporção de linhas largas o documento já conta como de uma coluna só.
+ *
+ * Medido: a prova do ENA tem 44% — o resto são alternativas curtas, fórmulas e caixas de
+ * solução — e o caderno do ENEM tem perto de zero. O patamar reconhece a primeira sem exigir
+ * dela uma página de prosa corrida, que prova nenhuma tem.
+ */
+const ONE_COLUMN_SHARE = 0.35;
+
+/** Os dois marcadores de margem que a prova de concurso usa — só para a nota; quem segmenta é a captura. */
+const MARGIN_QUESTION = /^(?:(\d{1,3})\.(?!\d)|quest[\u00e3a]o\s*(?:n[\u00ba\u00b0]?\.?\s*)?(\d{1,3})(?!\d))/i;
+
 export const examV1: CaptureProfile = {
   id: "exam-v1",
   version: 1,
@@ -127,18 +147,65 @@ export const examV1: CaptureProfile = {
     "Provas com questões numeradas na margem (1., Questão 12), uma coluna, solução logo abaixo. É a estimativa da captura, em lote.",
   kinds: ["QUESTION"],
   settings: {
-    answersLocation: "BELOW",
-    columns: 1,
     defaultQuestionType: "MULTIPLE_CHOICE",
-    visionModel: null,
     emitContent: false,
     autoAcceptThreshold: 0.85,
   },
-  markers: {
-    questionStart: [/^(\d{1,3})\.(?!\d)/, /^quest[ãa]o\s*(?:n[ºo°]?\.?\s*)?(\d{1,3})(?!\d)/i],
-    solution: [/^solu[çc][ãa]o\s+d[ae]\s+quest[ãa]o\s*(\d{1,3})(?!\d)/i],
-    headings: [],
-    exerciseBlock: [],
+
+  /*
+    A prova de concurso é a mais difícil de reconhecer de longe: "1." e "Questão 12" na margem
+    são o mesmo marcador que um livro usa numa lista de exercícios. O que a separa é a
+    **sequência** — 1, 2, 3 crescendo página afora — e a ausência de título de capítulo no meio.
+    Por isso a nota olha o passo da numeração, e não só quantos marcadores existem.
+  */
+  score(sample) {
+    const paginas = Math.max(1, sample.length);
+    const numeros: number[] = [];
+    let largas = 0;
+    let total = 0;
+    for (const page of sample) {
+      for (const line of page.lines) {
+        const match = MARGIN_QUESTION.exec(line.text.trim());
+        const n = match ? Number.parseInt(match[1] ?? match[2] ?? "", 10) : Number.NaN;
+        if (Number.isFinite(n)) numeros.push(n);
+        if (line.text.trim().length > 20) {
+          total++;
+          if (line.x1 - line.x0 > page.width * COLUMN_WIDTH) largas++;
+        }
+      }
+    }
+
+    // Quantos marcadores continuam de onde o anterior parou: é o que separa prova de lista solta.
+    let emSequencia = 0;
+    let reinicios = 0;
+    for (let i = 1; i < numeros.length; i++) {
+      if (numeros[i]! === numeros[i - 1]! + 1) emSequencia++;
+      else if (numeros[i]! <= numeros[i - 1]!) reinicios++;
+    }
+
+    /*
+      Numeração que reinicia não é prova — é lista de exercícios.
+
+      Medido no *Fundamentos*: os blocos de exercícios recomeçam do 1 a cada seção, e sem esta
+      conta o livro pontuava 0,82 como prova de concurso. Uma prova numera de 1 a N uma vez só,
+      e por isso nem a amostra espalhada a faz voltar atrás: entre duas páginas distantes o
+      número pula para a frente, nunca para trás.
+    */
+    const continua = emSequencia + reinicios === 0 ? 0 : emSequencia / (emSequencia + reinicios);
+
+    /*
+      Uma coluna é metade da identidade deste perfil, e sem ela o corpus real acusou empate.
+
+      "QUESTÃO 45" também casa com o marcador daqui, e num caderno do ENEM a numeração também
+      cresce — os dois perfis chegavam a 1,00 e quem ganhava era a ordem de registro. O que o ENEM
+      não tem é linha larga: em duas colunas, texto nenhum atravessa a página.
+    */
+    const umaColuna = total === 0 ? 0 : Math.min(1, largas / total / ONE_COLUMN_SHARE);
+
+    return {
+      score: Math.min(1, (emSequencia / (paginas * 3)) * 0.9 * umaColuna * continua),
+      evidence: `${numeros.length} marcadores na margem, ${emSequencia} em sequência e ${reinicios} recomeços, ${Math.round(umaColuna * 100)}% do texto em linha larga`,
+    };
   },
 
   classifyLine: () => null,

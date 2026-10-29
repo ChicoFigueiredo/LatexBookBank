@@ -39,12 +39,42 @@ export interface ScanRunView {
   readonly createdAt: string;
 }
 
+/** O palpite de perfil, lido das primeiras páginas do PDF (ADR 0007). */
+export interface ProfileSuggestionView {
+  readonly ranking: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly documentKind: "BOOK" | "EXAM";
+    readonly score: number;
+    readonly evidence: string;
+  }[];
+  readonly sampledPages: number;
+}
+
+/** A conferência antes de apagar uma importação (D57): os números e quem fica, com o motivo. */
+export interface ImportPreview {
+  readonly runId: string;
+  readonly created: number;
+  readonly trash: readonly string[];
+  readonly counts: Readonly<Record<string, number>>;
+  readonly keptCount: number;
+  readonly keptRows: readonly { readonly id: string; readonly label: string; readonly reason: string }[];
+}
+
+export interface RemovalResult {
+  readonly scope: "proposal" | "import";
+  readonly trashed: number;
+  readonly kept: number;
+  readonly counts: Readonly<Record<string, number>>;
+}
+
 export interface ApprovalResult {
   readonly summary: {
     readonly createdNodes: number;
     readonly createdQuestions: number;
     readonly reusedNodes: number;
     readonly bodyAppends: number;
+    readonly statementAppends: number;
     readonly anchors: number;
     readonly alreadyInCollection: number;
     readonly materializedItems: number;
@@ -81,7 +111,7 @@ export const scanApi = {
       method: "PATCH",
       body: JSON.stringify(operation),
     }),
-  reprocess: (runId: string, itemId: string, what: "ai" | "math") =>
+  reprocess: (runId: string, itemId: string, what: "ai" | "math" | "figure") =>
     send<{ item: ScanItem }>(`/api/scans/${runId}/items/${itemId}/reprocess`, {
       method: "POST",
       body: JSON.stringify({ what }),
@@ -91,11 +121,21 @@ export const scanApi = {
       method: "POST",
       body: JSON.stringify({ destinationId, includeSuggested }),
     }),
+  importPreview: (runId: string) => send<ImportPreview>(`/api/scans/${runId}/import`),
+  removeImport: (runId: string, scope: "proposal" | "import") =>
+    send<RemovalResult>(`/api/scans/${runId}/import?scope=${scope}`, { method: "DELETE" }),
   start: (publicationId: string, body: Record<string, unknown>) =>
     send<{ run: ScanRunView; reused: boolean }>(`/api/publications/${publicationId}/scans`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  switchProfile: (runId: string, profileId: string) =>
+    send<{ run: ScanRunView }>(`/api/scans/${runId}/switch-profile`, {
+      method: "POST",
+      body: JSON.stringify({ profileId }),
+    }),
+  suggestProfile: (publicationId: string) =>
+    send<ProfileSuggestionView>(`/api/publications/${publicationId}/capture-profile-suggestion`),
 };
 
 /** Aplica a resposta de uma operação sobre a lista que a tela tem. */

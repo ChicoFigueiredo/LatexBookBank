@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { ScanRunner } from "@modules/scan/application/scan-store";
 import { questionLatex } from "@modules/scan/domain/approval-latex";
+import { planApproval, type ApprovalInput } from "@modules/scan/domain/approval-plan";
 import { captureProfile } from "@modules/scan/domain/profiles";
 import { applyReview, InvalidReviewError } from "@modules/scan/domain/review";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
@@ -163,7 +164,8 @@ describe("LaTeX da aprovação", () => {
     const b = item({ id: "b", key: "B", kind: "ITEM", parentKey: "E", originalLabel: "b)", text: "b) f(−3) para f(x) = 7x." });
     const latex = questionLatex(exercise, [a, b], false);
     expect(latex.statementLatex).toBe(
-      "Calcule:\n\\begin{enumerate}\n  \\item[a)] f(1) para f(x) = 2x;\n  \\item[b)] f(−3) para f(x) = 7x.\n\\end{enumerate}",
+      // O sinal de menos Unicode (U+2212) vira "$-$": cru, o pdflatex recusava o documento.
+      "Calcule:\n\\begin{enumerate}\n  \\item[a)] f(1) para f(x) = 2x;\n  \\item[b)] f($-$3) para f(x) = 7x.\n\\end{enumerate}",
     );
   });
 
@@ -189,6 +191,339 @@ describe("LaTeX da aprovação", () => {
     });
     expect(questionLatex(recognized, [], false).statementLatex).toBe("Calcule $x^2$");
     expect(questionLatex({ ...recognized, reviewedLatex: "Revisado" }, [], false).statementLatex).toBe("Revisado");
+  });
+
+  /*
+    #245 (CAP-03/SPG-01 da revisão de 2026-09-23): o LaTeX reconhecido vencia o texto e **parava
+    ali** — sem olhar os ITEMs, com `options: []`. No Fundamentos com modelo de visão, a questão de
+    vestibular nascia discursiva (rebaixada pela zona) com as alternativas coladas no enunciado; no
+    ENEM, nascia de múltipla escolha com cinco alternativas vazias.
+  */
+  const recognized = (latex: string) => ({
+    latex,
+    confidence: 0.9,
+    alternatives: [],
+    providerId: "v",
+    model: "m",
+    durationMs: 1,
+    recognizedAt: "",
+  });
+
+  // Os ITEMs vêm da camada de texto do PDF, que perde justamente a matemática — o motivo de a
+  // questão ter passado pelo modelo de visão. Medido no Fundamentos: o ITEM da questão 40 dizia
+  // "a) 28  9." onde o LaTeX reconhecido dizia "$2^8 - 9$".
+  const itensDegradados = (values: readonly string[]) =>
+    values.map((value, index) => {
+      const letter = String.fromCharCode(97 + index);
+      return item({
+        id: letter,
+        key: letter.toUpperCase(),
+        kind: "ITEM",
+        parentKey: "Q",
+        originalLabel: `${letter})`,
+        text: `${letter}) ${value}`,
+      });
+    });
+
+  it("o LaTeX reconhecido manda nas alternativas, e não os ITEMs da camada de texto", () => {
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      text: "Quanto vale 28 menos 9?\na) 28  9\nb) 28  1\nc) 214  28\nd) 28",
+      mathResult: recognized("Quanto vale $2^8$ menos $9$?\na) $2^8 - 9$\nb) $2^8 - 1$\nc) $2^{14} - 2^8$\nd) $2^8$"),
+    });
+
+    const latex = questionLatex(question, itensDegradados(["28  9", "28  1", "214  28", "28"]), true);
+
+    expect(latex.statementLatex).toBe("Quanto vale $2^8$ menos $9$?");
+    expect(latex.options).toEqual(["$2^8 - 9$", "$2^8 - 1$", "$2^{14} - 2^8$", "$2^8$"]);
+  });
+
+  it("letra com parêntese dentro da matemática não é alternativa", () => {
+    // A questão 43 do Fundamentos: "$(B^c \\cup A)^c$" e "$n(A \\cap B)$" formavam um falso jogo
+    // A, B, e as alternativas de verdade ficavam coladas no enunciado.
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      mathResult: recognized("Sabendo que $(B^c \\cup A)^c = \\{f\\}$, $n(A \\cap B)$ é igual a\na) 0. b) 1. c) 2. d) 4. e) 8."),
+    });
+
+    const latex = questionLatex(question, [], true);
+
+    expect(latex.statementLatex).toBe("Sabendo que $(B^c \\cup A)^c = \\{f\\}$, $n(A \\cap B)$ é igual a");
+    expect(latex.options).toEqual(["0.", "1.", "2.", "4.", "8."]);
+  });
+
+  it("os ITEMs entram quando o LaTeX reconhecido não trouxe as alternativas", () => {
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      text: "Quanto vale x2 para x = 2?\na) 1\nb) 2\nc) 4\nd) 8\ne) 16",
+      mathResult: recognized("Quanto vale $x^2$ para $x = 2$?"),
+    });
+
+    const latex = questionLatex(question, itensDegradados(["1", "2", "4", "8", "16"]), true);
+
+    expect(latex.statementLatex).toBe("Quanto vale $x^2$ para $x = 2$?");
+    expect(latex.options).toEqual(["1", "2", "4", "8", "16"]);
+  });
+
+  it("o número da questão sai do começo do LaTeX reconhecido — ele já é o rótulo do nó", () => {
+    // O modelo de visão transcreve a linha inteira, "15. (FEI-SP) …"; o texto cru já perdia o "15.".
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      number: "15",
+      mathResult: recognized("15. (FEI-SP) Uma pesquisa com $800$ adolescentes."),
+    });
+
+    expect(questionLatex(question, [], false).statementLatex).toBe("(FEI-SP) Uma pesquisa com $800$ adolescentes.");
+    // Só o número dela: "150 alunos" não é rótulo.
+    expect(questionLatex({ ...question, mathResult: recognized("150 alunos responderam.") }, [], false).statementLatex).toBe(
+      "150 alunos responderam.",
+    );
+  });
+
+  it("sem ITEMs, as alternativas saem do próprio LaTeX — uma por linha ou todas numa linha", () => {
+    const porLinha = item({
+      id: "l",
+      key: "L",
+      kind: "QUESTION",
+      mathResult: recognized(
+        "Calcule $\\int_0^1 x\\,dx$.\na) $0$\nb) $\\frac{1}{2}$\nc) $1$\nd) $2$",
+      ),
+    });
+    const numaLinha = item({
+      id: "n",
+      key: "N",
+      kind: "QUESTION",
+      reviewedLatex: "Calcule $\\int_0^1 x\\,dx$. a) $0$ b) $\\frac{1}{2}$ c) $1$ d) $2$",
+    });
+
+    for (const question of [porLinha, numaLinha]) {
+      const latex = questionLatex(question, [], true);
+      expect(latex.statementLatex, question.id).toBe("Calcule $\\int_0^1 x\\,dx$.");
+      expect(latex.options, question.id).toEqual(["$0$", "$\\frac{1}{2}$", "$1$", "$2$"]);
+    }
+  });
+
+  it("no plano, a questão da zona com LaTeX reconhecido sai de múltipla escolha, e não rebaixada", () => {
+    // O cenário do CAP-03: a zona carimba MULTIPLE_CHOICE, o modelo de visão reconheceu a questão,
+    // e antes o plano a rebaixava a discursiva por não achar alternativa nenhuma.
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      reviewState: "APPROVED",
+      metadata: { questionType: "MULTIPLE_CHOICE" },
+      mathResult: recognized("Quanto vale $2^3$?\na) $6$\nb) $8$\nc) $9$\nd) $12$"),
+    });
+    const { steps } = planApproval({
+      items: [question],
+      profile: { id: "book-fme-v1", version: 1, defaultQuestionType: "DISCURSIVE" },
+      destinationId: null,
+      includeSuggested: false,
+      existingNodes: [],
+      existingAnchors: [],
+    });
+
+    expect(steps[0]).toMatchObject({
+      type: "createNode",
+      question: { type: "MULTIPLE_CHOICE", statementLatex: "Quanto vale $2^3$?", options: ["$6$", "$8$", "$9$", "$12$"] },
+    });
+  });
+
+  it("símbolo Unicode no LaTeX reconhecido vira comando — dentro da matemática ou fora dela", () => {
+    // O modelo de visão às vezes devolve "≠" em vez de "\\neq"; o pdflatex recusa o documento.
+    const question = item({
+      id: "q",
+      key: "Q",
+      kind: "QUESTION",
+      mathResult: recognized("Se $x ≠ 0$ e $a≤b$, então A ⊆ B."),
+    });
+
+    expect(questionLatex(question, [], false).statementLatex).toBe("Se $x \\neq 0$ e $a\\leq b$, então A $\\subseteq$ B.");
+  });
+
+  it("o LaTeX pronto chega intacto: o % não comenta o resto e o - de fim de linha não some", () => {
+    // `joinLines` é do texto cru do PDF: aplicado ao LaTeX, juntava tudo numa linha — o `%`
+    // passava a comentar a equação — e tomava o `-` de fim de linha por hifenização (CAP-10).
+    const revisado =
+      "Resolva a equação % dica: Bhaskara\n$$x^2 - 5x + 6 = 0$$\n\n\\begin{align}\nf(x) &= 2x -\nx^2\n\\end{align}";
+    const exercise = item({
+      id: "x",
+      key: "X",
+      kind: "EXERCISE",
+      text: "1. Resolva",
+      reviewedLatex: revisado,
+    });
+
+    expect(questionLatex(exercise, [], false).statementLatex).toBe(revisado);
+  });
+});
+
+/*
+  Aprovar em rodadas (#247, CAP-01/CAP-12/SPG-04 da revisão de 2026-09-23).
+
+  A aprovação parcial é o fluxo pedido — aceitar os sugeridos, revisar o resto e aprovar de novo —,
+  e a segunda rodada roda contra o que a primeira já gravou. É ali que o plano errava.
+*/
+describe("plano da aprovação em rodadas", () => {
+  const profile = { id: "book-v1", version: 1, defaultQuestionType: "DISCURSIVE" as const };
+  const plan = (over: Partial<ApprovalInput>) =>
+    planApproval({ items: [], profile, destinationId: null, includeSuggested: false, existingNodes: [], existingAnchors: [], ...over });
+
+  // O banner "E X E R C Í C I O S" tem extensão até a próxima fronteira: a âncora dele cobre a página.
+  const pagina = { x: 0.05, y: 0.1, width: 0.9, height: 0.85 };
+  const grupo = item({ id: "g", key: "G", kind: "EXERCISE_GROUP", reviewState: "APPROVED", documentNodeId: "no-grupo", regions: [{ pageNumber: 1, role: "PRIMARY", box: pagina }] });
+  const exercicio = item({
+    id: "e",
+    key: "E",
+    kind: "EXERCISE",
+    parentKey: "G",
+    reviewState: "APPROVED",
+    sortOrder: 1,
+    text: "2. Calcule x.",
+    number: "2",
+    regions: [{ pageNumber: 1, role: "PRIMARY", box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 } }],
+  });
+  const noGrupo = { id: "no-grupo", parentId: null, kind: "QUESTION_GROUP" as const, title: "Exercícios", originalLabel: null };
+
+  it("o exercício dentro da âncora do grupo vira questão, e não 'já no acervo'", () => {
+    const { steps } = plan({
+      items: [grupo, exercicio],
+      existingNodes: [noGrupo],
+      existingAnchors: [{ nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY", cropped: false }],
+    });
+
+    expect(steps.map((step) => step.type)).toEqual(["createNode"]);
+    expect(steps[0]).toMatchObject({ kind: "QUESTION", parent: { type: "existing", id: "no-grupo" } });
+  });
+
+  it("o exercício que coincide com uma questão do acervo continua 'já no acervo'", () => {
+    const { steps } = plan({
+      items: [grupo, exercicio],
+      existingNodes: [noGrupo, { id: "q2", parentId: "no-grupo", kind: "QUESTION", title: null, originalLabel: "2" }],
+      existingAnchors: [
+        { nodeId: "no-grupo", pageNumber: 1, box: pagina, role: "PRIMARY", cropped: false },
+        { nodeId: "q2", pageNumber: 1, box: { x: 0.1, y: 0.3, width: 0.8, height: 0.1 }, role: "PRIMARY", cropped: false },
+      ],
+    });
+
+    expect(steps).toEqual([{ type: "alreadyInCollection", itemIds: ["e"], nodeId: "q2" }]);
+  });
+
+  it("o pai que foi para a lixeira no editor não recebe filho: o item é pulado, com o motivo", () => {
+    // O item do grupo continua marcado com o nó, mas o nó saiu do acervo (a exclusão lógica não mexe
+    // no item). Antes o exercício nascia dentro do nó da lixeira — invisível, e contado como criado.
+    const { steps, skipped } = plan({ items: [grupo, exercicio], existingNodes: [], existingAnchors: [] });
+
+    expect(steps).toEqual([]);
+    expect(skipped).toEqual([{ itemId: "e", reason: "o item acima dele foi excluído no editor" }]);
+  });
+
+  it("reaproveita o capítulo com rótulo E título, como a D53 pede — não com um dos dois", () => {
+    const existente = { id: "c2", parentId: null, kind: "CHAPTER" as const, title: "Outro título", originalLabel: "2" };
+    const capitulo = (title: string) =>
+      item({ id: "c", key: "C", kind: "CHAPTER", reviewState: "APPROVED", number: "2", originalLabel: "Capítulo 2", title });
+
+    expect(plan({ items: [capitulo("Funções")], existingNodes: [existente] }).steps[0]?.type).toBe("createNode");
+    expect(plan({ items: [capitulo("Outro título")], existingNodes: [existente] }).steps[0]).toEqual({
+      type: "reuseNode",
+      itemIds: ["c"],
+      nodeId: "c2",
+    });
+  });
+
+  it("com destino escolhido, o que não tem pai no livro entra dentro do destino", () => {
+    const capitulo = item({ id: "c", key: "C", kind: "CHAPTER", reviewState: "APPROVED", number: "1", title: "Funções" });
+    const { steps } = plan({ items: [capitulo], destinationId: "no-destino" });
+
+    expect(steps[0]).toMatchObject({ type: "createNode", kind: "CHAPTER", parent: { type: "existing", id: "no-destino" } });
+  });
+
+  /*
+    #246 (CAP-02/SPG-02): a figura filha de exercício ou questão ia para o corpo do nó QUESTION —
+    um campo que nada mostra —, e a questão ficava sem a figura. No Fundamentos vol. 1 eram 316
+    das 470 figuras. A D58 manda: nos perfis de prova (e no exercício), a figura vai ao enunciado.
+  */
+  const figura = (parentKey: string) =>
+    item({
+      id: "f",
+      key: "F",
+      kind: "FIGURE",
+      parentKey,
+      reviewState: "APPROVED",
+      sortOrder: 2,
+      metadata: { figureLatexName: "figura-p3-ab12cd34.pdf", figureAsset: "asset-figura", widthFraction: 0.5 },
+      regions: [{ pageNumber: 1, role: "PRIMARY", box: { x: 0.2, y: 0.45, width: 0.4, height: 0.2 } }],
+    });
+
+  it("a figura de um exercício entra no enunciado da questão, e não no corpo do nó", () => {
+    const { steps } = plan({ items: [grupo, exercicio, figura("E")], existingNodes: [noGrupo] });
+
+    expect(steps.map((step) => step.type)).toEqual(["createNode", "appendStatement"]);
+    expect(steps[1]).toMatchObject({
+      target: { type: "planned", ref: "e" },
+      cropAssetId: "asset-figura",
+      anchors: [{ role: "ILLUSTRATION" }],
+    });
+    expect(steps[1]).toHaveProperty("latex", expect.stringContaining("\\includegraphics[width=0.50\\textwidth]{figura-p3-ab12cd34.pdf}"));
+  });
+
+  it("a figura aprovada depois entra no enunciado da questão que já está no acervo", () => {
+    const noQuestao = { id: "q2", parentId: "no-grupo", kind: "QUESTION" as const, title: null, originalLabel: "2" };
+    const jaAprovado = { ...exercicio, documentNodeId: "q2" };
+
+    const { steps } = plan({ items: [grupo, jaAprovado, figura("E")], existingNodes: [noGrupo, noQuestao] });
+
+    expect(steps).toEqual([expect.objectContaining({ type: "appendStatement", target: { type: "existing", id: "q2" } })]);
+  });
+
+  it("a figura que ocupa a página de continuação do exercício não é 'já no acervo' (406 do Fundamentos)", () => {
+    // A página 2 do exercício só tem o desenho: a âncora de continuação do nó e a da figura
+    // coincidem. Coincidir com âncora **estrutural** não diz nada — figura repetida coincide com
+    // a âncora de ilustração que a figura aprovada deixou.
+    const desenho = { x: 0.2, y: 0.45, width: 0.4, height: 0.2 };
+    const noQuestao = { id: "q2", parentId: "no-grupo", kind: "QUESTION" as const, title: null, originalLabel: "2" };
+    const jaAprovado = { ...exercicio, documentNodeId: "q2" };
+    const continua = { nodeId: "q2", pageNumber: 1, box: desenho, role: "CONTINUATION", cropped: false };
+
+    const nova = plan({ items: [grupo, jaAprovado, figura("E")], existingNodes: [noGrupo, noQuestao], existingAnchors: [continua] });
+    expect(nova.steps.map((step) => step.type)).toEqual(["appendStatement"]);
+
+    // O pedaço sem texto da extensão de um item também tem papel de ilustração (o grupo de
+    // exercícios que avança sobre a faixa que abre o capítulo seguinte), mas sem arquivo: não é
+    // figura que entrou.
+    const semArquivo = plan({
+      items: [grupo, jaAprovado, figura("E")],
+      existingNodes: [noGrupo, noQuestao],
+      existingAnchors: [continua, { ...continua, role: "ILLUSTRATION" }],
+    });
+    expect(semArquivo.steps.map((step) => step.type)).toEqual(["appendStatement"]);
+
+    const repetida = plan({
+      items: [grupo, jaAprovado, figura("E")],
+      existingNodes: [noGrupo, noQuestao],
+      existingAnchors: [continua, { ...continua, role: "ILLUSTRATION", cropped: true }],
+    });
+    expect(repetida.steps).toEqual([{ type: "alreadyInCollection", itemIds: ["f"], nodeId: "q2" }]);
+  });
+
+  it("o segundo bloco 'Exercícios' do capítulo não se funde no primeiro só pelo título", () => {
+    // Bloco sem número: o título se repete em todo capítulo. Quem diz se é o mesmo é a âncora.
+    const caixa = { x: 0.1, y: 0.1, width: 0.8, height: 0.3 };
+    const existente = { id: "g1", parentId: null, kind: "QUESTION_GROUP" as const, title: "Exercícios", originalLabel: null };
+    const bloco = (pageNumber: number) =>
+      item({ id: `b${pageNumber}`, key: `B${pageNumber}`, kind: "EXERCISE_GROUP", reviewState: "APPROVED", title: "Exercícios", regions: [{ pageNumber, role: "PRIMARY", box: caixa }] });
+    const acervo = { existingNodes: [existente], existingAnchors: [{ nodeId: "g1", pageNumber: 3, box: caixa, role: "PRIMARY", cropped: false }] };
+
+    expect(plan({ items: [bloco(7)], ...acervo }).steps[0]?.type).toBe("createNode");
+    expect(plan({ items: [bloco(3)], ...acervo }).steps[0]).toMatchObject({ type: "reuseNode", nodeId: "g1" });
   });
 });
 
@@ -231,7 +566,8 @@ describe("aprovação contra o banco", () => {
     const { summary, skipped } = await approveScan({ store, writer }, { runId, destinationId: null, includeSuggested: false });
 
     expect(skipped).toEqual([]);
-    expect(summary).toMatchObject({ createdNodes: 11, createdQuestions: 5, reusedNodes: 0, alreadyInCollection: 0 });
+    // 13 e não 11: os dois exemplos passaram a ser nós, em vez de negrito no corpo da seção (D56).
+    expect(summary).toMatchObject({ createdNodes: 13, createdQuestions: 5, reusedNodes: 0, alreadyInCollection: 0 });
 
     const nodes = await prisma.documentNode.findMany({
       where: { publicationId: publication.id },
@@ -241,10 +577,19 @@ describe("aprovação contra o banco", () => {
     expect([chapter?.title, chapter?.originalLabel, chapter?.parentId]).toEqual(["Funções", "1", null]);
     const section = nodes.find((n) => n.originalLabel === "1.1");
     expect(section?.parentId).toBe(chapter?.id);
-    // Teoria e exemplo no corpo da seção, na ordem do livro.
+    // A teoria vai para o corpo da seção; o exemplo, não — ele virou galho (D56).
     expect(section?.bodyLatex).toContain("Uma função");
-    expect(section?.bodyLatex).toContain("\\textbf{Exemplo 1.}");
-    expect(section!.bodyLatex.indexOf("Exemplo 1")).toBeLessThan(section!.bodyLatex.indexOf("Toda função linear"));
+    expect(section?.bodyLatex).toContain("Toda função linear");
+    expect(section?.bodyLatex).not.toContain("Exemplo 1");
+
+    // O exemplo é nó da seção, com rótulo, título vindo do texto e a resolução no corpo.
+    const example = nodes.find((n) => n.kind === "EXAMPLE");
+    expect(example?.parentId).toBe(section?.id);
+    expect(example?.originalLabel).toBe("1");
+    expect(example?.title).toContain("A função f(x) = 3x é linear");
+    expect(example?.bodyLatex).toContain("Este segundo parágrafo é a resolução do exemplo");
+    // O rótulo mora no nó: repeti-lo no corpo diria a mesma coisa duas vezes.
+    expect(example?.bodyLatex.startsWith("A função")).toBe(true);
 
     const groups = nodes.filter((n) => n.kind === "QUESTION_GROUP");
     expect(groups).toHaveLength(2);
@@ -296,6 +641,59 @@ describe("aprovação contra o banco", () => {
     ]);
     // Os seis itens foram dobrados no enunciado, não viraram nós.
     expect(await prisma.documentNode.count({ where: { publicationId: publication.id, kind: "QUESTION" } })).toBe(3);
+  });
+
+  it("duas aprovações ao mesmo tempo não duplicam o livro (#247, CAP-11)", async () => {
+    // Aprovar em duas abas, ou reenviar a requisição que parecia travada: o plano de cada uma sai
+    // de uma leitura feita antes de a outra gravar.
+    const { approveScan } = await import("@modules/scan/application/approve-scan");
+    const { prisma, publication, store, writer, scan } = await scanned("book-a.pdf", "approve-concurrent", "book-v1");
+
+    const runId = await scan();
+    const request = { runId, destinationId: null, includeSuggested: true };
+    await Promise.allSettled([approveScan({ store, writer }, request), approveScan({ store, writer }, request)]);
+
+    // Os mesmos 13 nós de uma aprovação só, e nenhuma questão em dobro.
+    expect(await prisma.documentNode.count({ where: { publicationId: publication.id } })).toBe(13);
+    expect(await prisma.question.count({ where: { node: { publicationId: publication.id } } })).toBe(5);
+  });
+
+  it("aprovar sob um destino: a proposta entra dentro dele, e reaprovar não cria de novo (TST-06)", async () => {
+    // Todos os testes passavam `destinationId: null`, e a tela manda o destino escolhido.
+    const { approveScan, DestinationNotInPublicationError } = await import("@modules/scan/application/approve-scan");
+    const { prisma, publication, store, writer, scan } = await scanned("book-a.pdf", "approve-destination", "book-v1");
+    const destino = await prisma.documentNode.create({
+      data: { publicationId: publication.id, kind: "CHAPTER", title: "Capítulo que já existia", sortKey: "a0" },
+      select: { id: true },
+    });
+
+    const runId = await scan();
+    const request = { runId, destinationId: destino.id, includeSuggested: true };
+    const { summary } = await approveScan({ store, writer }, request);
+
+    expect(summary.createdNodes).toBeGreaterThan(0);
+    const raiz = await prisma.documentNode.findMany({ where: { publicationId: publication.id, parentId: null }, select: { id: true } });
+    expect(raiz).toEqual([destino]);
+    const capitulo = await prisma.documentNode.findFirstOrThrow({
+      where: { publicationId: publication.id, kind: "CHAPTER", id: { not: destino.id } },
+      select: { parentId: true },
+    });
+    expect(capitulo.parentId).toBe(destino.id);
+
+    const nodes = await prisma.documentNode.count({ where: { publicationId: publication.id } });
+    const second = await scan(true);
+    const repeat = await approveScan({ store, writer }, { ...request, runId: second });
+    expect(repeat.summary.createdNodes).toBe(0);
+    expect(await prisma.documentNode.count({ where: { publicationId: publication.id } })).toBe(nodes);
+
+    const outro = await seedBookWithSource("book-c.pdf", "approve-destination-outro");
+    const alheio = await prisma.documentNode.create({
+      data: { publicationId: outro.publication.id, kind: "PART", title: "De outro livro", sortKey: "a0" },
+      select: { id: true },
+    });
+    await expect(approveScan({ store, writer }, { ...request, runId: second, destinationId: alheio.id })).rejects.toBeInstanceOf(
+      DestinationNotInPublicationError,
+    );
   });
 
   it("filho de pai pendente fica de fora, com o motivo; e a prova chega com alternativas", async () => {

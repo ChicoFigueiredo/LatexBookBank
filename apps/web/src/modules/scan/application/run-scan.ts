@@ -1,12 +1,15 @@
 import { asStorageKey, type StorageProvider } from "@shared/ports/storage-provider";
 
 import { buildLines } from "@modules/scan/domain/page";
-import { captureProfile } from "@modules/scan/domain/profiles";
+import { captureProfile, rankProfiles, PROFILE_MISMATCH_MARGIN } from "@modules/scan/domain/profiles";
+import { samplePageNumbers } from "./suggest-profile";
+import { inheritReview } from "@modules/scan/domain/inherit-review";
 import { buildProposal } from "@modules/scan/domain/structure";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
 import type { MathRecognitionPolicy } from "@modules/scan/domain/scan-run";
 
 import type { OpenedPdf, PdfDocumentOpener } from "./pdf-document";
+import type { FigurePass } from "./figure-pass";
 import type { ScanItemChanges, ScanRun, ScanStore } from "./scan-store";
 
 /**
@@ -33,7 +36,8 @@ export interface SemanticPass {
     readonly items: readonly ScanItem[];
     readonly cancelled: () => Promise<boolean>;
     readonly progress?: StepProgress;
-  }): Promise<{ readonly changed: readonly ScanItem[]; readonly calls: number }>;
+    /** Avisos que a passada devolve sem falhar — o silêncio era o pior desfecho (ADR 0008). */
+  }): Promise<{ readonly changed: readonly ScanItem[]; readonly calls: number; readonly warnings?: readonly string[] }>;
 }
 
 /** O reconhecimento matemático sob medida (D52, §22). */
@@ -57,6 +61,8 @@ export interface RunScanDeps {
   readonly opener: PdfDocumentOpener;
   readonly sourceKey: (assetId: string) => Promise<string | null>;
   readonly semantic?: SemanticPass | null;
+  /** O recorte das figuras (D58). Ausente, a proposta traz as figuras sem arquivo. */
+  readonly figures?: FigurePass | null;
   readonly math?: MathPass | null;
   readonly now?: () => Date;
 }
@@ -78,7 +84,22 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
   let pdf: OpenedPdf | null = null;
 
   try {
-    if (!profile) throw new Error(`O perfil ${initial.profileId} não está mais registrado.`);
+    /*
+      Perfil que saiu do registro não é falha da varredura (ADR 0008).
+
+      `FAILED` seria o pior desfecho possível: `startScan` recusa reabrir execução que falhou,
+      então pedir de novo criaria outra do zero e as páginas já lidas iriam embora — e o perfil
+      costuma voltar, porque o caso comum é renomear, não remover. À espera, a chave continua
+      valendo e retomar recomeça na página seguinte à última lida.
+    */
+    if (!profile) {
+      await store.updateRun(runId, {
+        state: "AWAITING_PROFILE",
+        error: `O perfil ${initial.profileId} não está mais registrado: a varredura fica à espera dele.`,
+        heartbeatAt: now(),
+      });
+      return;
+    }
 
     await store.updateRun(runId, {
       state: "EXTRACTING",
@@ -117,7 +138,94 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
     };
 
     const warnings = [...proposal.warnings];
+
+    /*
+      Trocar de perfil não joga fora a revisão (`domain/inherit-review.ts`).
+
+      Acontece aqui, logo depois de os itens existirem, porque casar âncoras exige os dois lados
+      gravados. O que atravessa é só decisão de gente — aceitar, rejeitar, corrigir texto —, e
+      nunca o estado que a máquina produziu, que a varredura nova acabou de produzir de novo.
+    */
+    if (initial.inheritedFromRunId !== null) {
+      const anteriores = await store.listItems(initial.inheritedFromRunId);
+      const novos = await store.listItems(runId);
+      const herdados = inheritReview(anteriores, novos);
+      if (herdados.length > 0) {
+        const porId = new Map(novos.map((item) => [item.id, item]));
+        await store.saveItemChanges(runId, {
+          upserts: herdados.flatMap((decisao) => {
+            const item = porId.get(decisao.id);
+            return item
+              ? [
+                  {
+                    ...item,
+                    reviewState: decisao.reviewState,
+                    reviewedText: decisao.reviewedText,
+                    reviewedLatex: decisao.reviewedLatex,
+                  },
+                ]
+              : [];
+          }),
+          deletedIds: [],
+        });
+      }
+      warnings.push(
+        `Trocou de perfil: ${herdados.length} de ${anteriores.length} itens revisados foram reaproveitados pela posição no livro. Confira antes de aprovar.`,
+      );
+    }
+
+    /*
+      O perfil escolhido foi o errado? (ADR 0007)
+
+      As páginas já estão lidas e os perfis já sabem se pontuar — a mesma nota que sugere antes
+      da varredura acusa depois dela. O sintoma que motivou isto é mudo por natureza: varrer um
+      livro com o perfil errado não dá erro nenhum, dá 453 seções onde deviam existir vinte.
+
+      **A mesma amostra**, e não o livro inteiro. A nota é densidade de sinais por página, e um
+      perfil cujos marcos são raros — 61 banners em 420 páginas — afunda quando o denominador é o
+      volume todo. Medido: com o livro inteiro, o `book-fme-v1` acusava a si mesmo de ter lido
+      errado o livro para o qual foi escrito. Com a amostra, ele ganha de longe, que é o mesmo
+      resultado que a sugestão dá antes de a varredura começar.
+    */
+    const ranking = rankProfiles(samplePageNumbers(pages.length).flatMap((n) => {
+      const page = pages[n - 1];
+      return page ? [page] : [];
+    }));
+    const melhor = ranking[0];
+    const escolhido = ranking.find((entry) => entry.id === profile.id);
+    if (melhor && escolhido && melhor.id !== profile.id && melhor.score - escolhido.score > PROFILE_MISMATCH_MARGIN) {
+      /*
+        O aviso lidera pelo que é certo — este perfil reconheceu pouco — e só depois nomeia o
+        candidato. A ordem importa: o alarme acerta sempre que dispara, e o palpite de qual seria
+        o perfil certo pode errar num livro para o qual ainda não existe perfil nenhum.
+      */
+      warnings.push(
+        `O perfil "${profile.label}" reconheceu pouco deste PDF (${escolhido.evidence}). O que mais se parece com ele é "${melhor.label}" (${melhor.evidence}) — confira a proposta antes de aprovar.`,
+      );
+    }
+    let figures = 0;
     let aiCalls = 0;
+
+    if (deps.figures) {
+      if (await cancelled()) return await stop();
+      await store.updateRun(runId, { state: "CROPPING_FIGURES", stepDone: 0, stepTotal: 0, heartbeatAt: now() });
+      const run = (await store.findRun(runId)) ?? initial;
+      const result = await deps.figures.run({
+        run,
+        items: await store.listItems(runId),
+        pdf,
+        // Os mesmos bytes que o leitor abriu: o recorte vetorial copia a página de lá.
+        bytes: stored.content,
+        save: async (changes) => {
+          await store.saveItemChanges(runId, changes);
+          await store.updateRun(runId, { heartbeatAt: now() });
+        },
+        cancelled,
+        progress,
+      });
+      warnings.push(...result.warnings);
+      if (result.saved > 0) figures = result.saved;
+    }
     let mathCalls = 0;
 
     if (deps.semantic && initial.settings.useAi) {
@@ -133,6 +241,7 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
       const run = (await store.findRun(runId)) ?? initial;
       const result = await deps.semantic.run({ run, items: await store.listItems(runId), cancelled, progress });
       aiCalls = result.calls;
+      warnings.push(...(result.warnings ?? []));
       if (result.changed.length > 0) {
         await store.saveItemChanges(runId, { upserts: result.changed, deletedIds: [] });
       }
@@ -176,7 +285,7 @@ export async function runScan(deps: RunScanDeps, runId: string): Promise<void> {
 
     await store.updateRun(runId, {
       state: "READY_FOR_REVIEW",
-      metrics: proposal.metrics,
+      metrics: { ...proposal.metrics, figures },
       warnings,
       pageOffset: proposal.pageOffset,
       aiCalls,

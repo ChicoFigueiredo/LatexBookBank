@@ -56,7 +56,7 @@ export interface ScanPropertiesPanelProps {
   readonly mathAvailable: boolean;
   readonly onRegion: (index: number) => void;
   readonly onOperation: (operation: ReviewOperation) => void;
-  readonly onReprocess: (what: "ai" | "math") => void;
+  readonly onReprocess: (what: "ai" | "math" | "figure") => void;
   readonly onToggleDraw: () => void;
 }
 
@@ -287,6 +287,7 @@ function PanelBody({
             {item.mathResult.durationMs} ms
           </span>
         )}
+        {item.kind === "FIGURE" && <FigurePanel item={item} locked={locked} busy={busy} onReprocess={onReprocess} />}
         {item.needsMath && !item.mathResult && item.reviewedLatex === null && (
           <span style={{ color: "var(--warn-text)" }}>Tem matemática que o texto do PDF não representa: reconheça ou escreva.</span>
         )}
@@ -334,6 +335,65 @@ function PanelBody({
         <Button size="sm" variant="secondary" icon="sparkles" disabled={locked || busy || !aiAvailable} title={aiAvailable ? undefined : "Defina AI_BASE_URL e AI_MODEL"} onClick={() => onReprocess("ai")}>
           Perguntar à IA
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A figura na revisão (D58): o recorte como ele ficou, e o caminho de volta quando ficou errado.
+ *
+ * Mostrar é metade do trabalho. A outra metade é **refazer**: o agrupamento de traços erra — come
+ * uma linha de texto, ou deixa meia figura de fora —, e sem o conserto o único remédio seria
+ * rejeitar a figura e montá-la à mão. Redesenhar a caixa no PDF e pedir "recortar de novo" é o
+ * gesto que fecha esse buraco.
+ */
+function FigurePanel({
+  item,
+  locked,
+  busy,
+  onReprocess,
+}: {
+  readonly item: ScanItem;
+  readonly locked: boolean;
+  readonly busy: boolean;
+  readonly onReprocess: (what: "ai" | "math" | "figure") => void;
+}) {
+  const screen = item.metadata["figureScreenAsset"];
+  const kind = item.metadata["figureKind"];
+  const fraction = Number(item.metadata["widthFraction"]);
+
+  return (
+    <div className="lbb-scan-props-field">
+      <span className="lbb-scan-props-label">Figura</span>
+      {typeof screen === "string" && screen !== "" ? (
+        // eslint-disable-next-line @next/next/no-img-element -- o asset é servido pela rota de conteúdo, sem loader de imagem
+        <img
+          src={`/api/assets/${screen}/content`}
+          alt={item.title ?? "Figura recortada do PDF"}
+          style={{
+            maxWidth: "100%",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--surface)",
+          }}
+        />
+      ) : (
+        <span style={{ color: "var(--warn-text)" }}>
+          Sem arquivo ainda: a varredura correu sem recortar, ou o recorte falhou.
+        </span>
+      )}
+      <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>
+        {kind === "raster" ? "bitmap, em PNG" : kind === "mixed" ? "traço e bitmap, em PDF" : "vetorial, em PDF"}
+        {Number.isFinite(fraction) ? ` · ${Math.round(fraction * 100)}% da coluna` : ""}
+      </span>
+      <div className="lbb-scan-props-row">
+        <Button size="sm" variant="secondary" icon="image" disabled={locked || busy} onClick={() => onReprocess("figure")}>
+          Recortar de novo
+        </Button>
+        <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>
+          depois de arrastar a caixa no PDF
+        </span>
       </div>
     </div>
   );

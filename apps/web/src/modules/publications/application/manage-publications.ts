@@ -9,7 +9,7 @@ import type {
   PublicationDetail,
   PublicationRepository,
 } from "@modules/publications/domain/publication-repository";
-import { asStorageKey, type StorageProvider } from "@/shared/ports";
+import type { StorageProvider } from "@/shared/ports";
 import { LibraryNotFoundError } from "@modules/workspaces/domain/library";
 import type { LibraryRepository } from "@modules/workspaces/domain/library-repository";
 
@@ -95,14 +95,13 @@ export async function deletePublication(
     assetCount: 0,
     anchorCount: 0,
   };
-  const keys = await repository.listAssetKeys(id);
-
-  if (!(await repository.delete(id))) throw new PublicationNotFoundError(id);
+  const orphaned = await repository.delete(id);
+  if (orphaned === null) throw new PublicationNotFoundError(id);
 
   // Best-effort, como na biblioteca: o banco já não referencia nenhum destes arquivos, e derrubar
   // a resposta por um arquivo preso faria a tela dizer "não deu para excluir" sobre um livro que
   // já não existe.
-  await Promise.all(keys.map((key) => storage.delete(asStorageKey(key)).catch(() => undefined)));
+  await Promise.all(orphaned.map((key) => storage.delete(key).catch(() => undefined)));
 
   return { ...contents, title: publication.title };
 }

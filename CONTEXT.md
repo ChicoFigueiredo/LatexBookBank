@@ -39,9 +39,17 @@ profundidade arbitrária. A árvore é dos nós; o conteúdo da questão não é
 _Avoid_: item, pasta, capítulo (quando o tipo não importa)
 
 **Corpo do nó**:
-A teoria, as definições e os exemplos que uma seção do livro carrega, vindos do PDF. É leitura,
-não exercício: não tem tipo, alternativas nem gabarito. Decidido em 2026-09-10; ainda não existe.
+A teoria e as definições que uma seção do livro carrega, vindas do PDF. É leitura, não exercício:
+não tem tipo, alternativas nem gabarito. Todo nó que não é questão pode ter corpo, com histórico
+de revisões. Os **exemplos** saíram dele: viraram nós próprios.
 _Avoid_: texto (ambíguo com o texto da questão), conteúdo do capítulo, prosa
+
+**Exemplo**:
+O exemplo resolvido de um livro — "Exemplo 3", com o enunciado e a resolução juntos. É um nó da
+árvore, dentro da seção a que pertence, com corpo próprio e sem filhos. Vai **até a próxima
+fronteira**: o próximo exemplo, o próximo título ou o bloco de exercícios. Não é questão: não tem
+alternativas, não se responde e não entra numa avaliação.
+_Avoid_: exercício (é o que se responde), questão, problema resolvido
 
 **Questão** (`Question`):
 O conteúdo que um nó de tipo questão carrega: enunciado, resolução, complemento, metadados e,
@@ -103,6 +111,15 @@ Saída reconstruível: PDF, PNG ou SVG de render. Descartável; apagar e recompi
 resultado.
 _Avoid_: cache (é o mecanismo, não o asset)
 
+**Figura**:
+Uma ilustração do livro extraída do PDF fonte: o diagrama, o gráfico, o esquema. Sai com a
+melhor qualidade que o arquivo tem — **vetorial** quando é traço, no formato do próprio PDF, e o
+**bitmap original** quando é foto —, e leva junto o que estiver dentro da sua caixa, inclusive as
+letras desenhadas sobre o diagrama. Entra no LaTeX na posição em que aparece no livro, com a
+legenda do livro, e guarda a âncora de onde veio.
+_Avoid_: imagem (é o arquivo, não o papel), ilustração, gráfico, recorte (que é de uma âncora
+qualquer, não da figura)
+
 **Fonte de figura**:
 O arquivo editável de onde uma figura sai: gnuplot, pgf, Asymptote, GeoGebra, tpx, tex, tabela
 de dados, svg ou eps. Guardada para que a figura possa ser reeditada na origem.
@@ -152,13 +169,43 @@ do acervo; revisá-la não mexe em livro nenhum, e aprová-la cria os nós e as 
 Guarda o que o scan propôs ao lado do que a pessoa corrigiu.
 _Avoid_: sugestão, rascunho, importação, resultado do OCR
 
+**Diagnóstico do item**:
+O veredito do scan sobre um elemento da proposta, com o motivo junto: **completo**, **suspeito**,
+**incompleto** ou **sem evidência**. Diz o estado *e* por quê — "falta a alternativa D", "tem a
+questão 07 dentro" —, e é por ele que a revisão se ordena. Diferente da **confiança**, que é um
+número para ordenar; o diagnóstico é uma frase para decidir.
+_Avoid_: diagnóstico (sem qualificar; confunde com a tela), erro, validação (é da questão)
+
+**Confiança**:
+De 0 a 1, quanto o scan acredita no que propôs, em partes: padrão, tipografia, layout,
+continuidade e semântica. Serve para **ordenar** a revisão e para o portão do aceite automático,
+não para fingir precisão. Baixa confiança nunca é escondida.
+_Avoid_: certeza, probabilidade, score
+
 **Perfil de captura**:
 As regras que dizem ao scan como um livro é organizado: como uma questão começa, como se
-reconhece um capítulo, onde a teoria acaba e os exercícios começam, onde ficam as respostas.
-Uma prova de concurso, uma prova do ENEM e um livro-texto têm perfis diferentes. Os perfis
-vivem no código, com nome e versão; o livro lembra qual usa.
+reconhece um capítulo, onde a teoria acaba e os exercícios começam. Uma prova de concurso, uma
+prova do ENEM e um livro-texto têm perfis diferentes. Os perfis vivem no **código**, com nome e
+versão — são comportamento, não configuração ([ADR 0007](docs/adr/0007-o-perfil-de-captura-e-codigo.md))
+—, e o livro lembra qual usa. Cada perfil sabe se **pontuar** num documento, e é dessa nota que
+saem a sugestão de qual usar e o aviso de que se usou o errado.
 _Avoid_: perfil (sem qualificar; confunde com Perfil LaTeX), template de scan, preset, plugin
 (é o mecanismo, não o conceito)
+
+**Zona** (de um documento):
+Um trecho de páginas com regra própria dentro do mesmo livro. Um volume do *Fundamentos* tem
+quatro: o corpo, o gabarito dos exercícios, as questões de vestibulares e o gabarito delas. A
+zona diz duas coisas ao scan — **o que ignorar** (gabarito não tem estrutura, tem respostas) e
+**que tipo de questão nasce ali** ([ADR 0009](docs/adr/0009-a-zona-do-documento.md)). Quem não
+declara zona vê o livro como uma zona só.
+_Avoid_: região (é a âncora de um item), seção (é um tipo de nó), parte (idem)
+
+**Retrato do perfil**:
+O punhado de dados que a execução guarda do perfil no dia da varredura: rótulo, tipos e tipo
+padrão de questão. É o que mantém a proposta legível e **aprovável** depois que o perfil sai do
+código ([ADR 0008](docs/adr/0008-perfil-que-sai-do-registro.md)). Não guarda comportamento, e por
+isso **editar** a proposta continua exigindo o perfil registrado.
+_Avoid_: snapshot, cópia do perfil, cache
 
 **Mobília**:
 O que se repete nas páginas sem ser conteúdo: cabeçalho corrido, número de página, nome do
@@ -174,6 +221,18 @@ _Avoid_: aprovar (é o passo seguinte), confirmar
 Levar para o acervo os itens aceitos da proposta de scan — e, em lote, os sugeridos —, sob um nó
 de destino. É o único caminho da proposta para o acervo, e não cria nada duas vezes.
 _Avoid_: importar, publicar, aplicar
+
+**Importação**:
+Tudo que uma execução do scan criou no acervo: os nós, as questões, os corpos, as figuras e as
+âncoras. É o que se pode apagar de uma vez para começar de novo. O que a execução apenas
+**reaproveitou** — um capítulo que já existia e só recebeu corpo — não faz parte dela.
+_Avoid_: ingestão (é o upload), aprovação (é o gesto que a cria), scan (é a varredura)
+
+**Reimportar**:
+Apagar uma importação e varrer o livro de novo. O que foi criado vai para a lixeira, o que você
+editou à mão depois é preservado, e a execução antiga sai com ela. É o gesto de quem está
+afinando o perfil de captura e quer o livro inteiro outra vez.
+_Avoid_: reprocessar (é de um item só), novo scan (que só refaz a proposta), sincronizar
 
 **A revisar**:
 Uma questão que uma máquina escreveu — o scan ou o reconhecimento — e ninguém leu ainda. Carrega
@@ -192,7 +251,14 @@ Reconhecimento que devolve, além do enunciado, o tipo da questão e as alternat
 
 **Origem** (aba):
 A tela que mostra de onde uma questão veio: asset fonte, página, âncora e recorte.
-_Avoid_: proveniência (só em documentação)
+_Avoid_: proveniência (que é outra coisa — ver abaixo), fonte (é o arquivo)
+
+**Proveniência**:
+De que execução do scan um nó do acervo nasceu. É dado, não tela: a coluna que responde "o que
+neste livro veio de máquina?" e que permite apagar uma importação inteira sem tocar no que já
+existia antes dela ([ADR 0006](docs/adr/0006-a-importacao-e-apagavel.md)). Nó sem proveniência é
+nó que nenhum scan criou.
+_Avoid_: origem (é a aba), histórico (é o das revisões)
 
 ## Edição e render
 
@@ -290,7 +356,8 @@ Dali se **importa**, criando um livro novo com capa e PDF, ou se **anexa**, dand
 livro que já existe. Nunca escreve de volta no Calibre, e o livro importado não fica preso a ele:
 o Calibre é uma origem, não um dono.
 
-**Diagnóstico**:
+**Diagnóstico do app**:
 A tela que diz se o app está inteiro: banco, storage, worker de render, modelo de IA, TeX do
-host, último backup.
-_Avoid_: health check (em texto de tela), status
+host, último backup. Qualificar é obrigatório: sem "do app" ou "do item", **diagnóstico** é
+ambíguo, e as duas acepções aparecem no mesmo dia de trabalho.
+_Avoid_: health check (em texto de tela), status, diagnóstico (sem qualificar)

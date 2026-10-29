@@ -43,8 +43,78 @@ const ESCAPES: Readonly<Record<string, string>> = {
   "^": "\\textasciicircum{}",
 };
 
+/**
+ * Caractere da área de uso privado (U+E000–U+F8FF): um símbolo que a camada de texto do PDF não
+ * soube ler.
+ *
+ * O *Fundamentos* escreve =, ∈, ∪ e ⇔ numa fonte própria, e o pdf.js entrega o código privado do
+ * glifo, sem significado fora daquela fonte. Na importação de 2026-09-30, 746 das 929 questões do
+ * volume 1 tinham algum, e o `pdflatex` recusava todas ("Unicode character U+E060").
+ */
+const UNREADABLE = /[\uE000-\uF8FF]/g;
+
+/** O texto tem símbolo que a camada de texto não leu — e que só o reconhecimento de visão recupera. */
+export const hasUnreadableSymbol = (text: string): boolean => /[\uE000-\uF8FF]/.test(text);
+
+/**
+ * O que entra no lugar do símbolo ilegível: uma caixa com interrogação, que compila e aparece no
+ * PDF. Apagar o símbolo deixaria "x  2" sem aviso; mantê-lo derrubaria a compilação inteira.
+ */
+const UNREADABLE_MARK = "\\fbox{?}";
+
+/**
+ * Os símbolos matemáticos em Unicode e o comando que os escreve em modo matemático.
+ *
+ * O `pdflatex` com `inputenc` só conhece o latin-1 e alguns sinais de texto: "≤", "∈" ou o sinal
+ * de menos (U+2212) derrubam a compilação inteira. Eles chegam pela camada de texto do PDF e, mais
+ * vezes, pelo modelo de visão, que às vezes escreve "≠" em vez de `\neq` — na importação do
+ * Fundamentos vol. 1, dez questões e corpos não compilavam por isso.
+ */
+export const UNICODE_MATH: Readonly<Record<string, string>> = {
+  "−": "-",
+  "≤": "\\leq",
+  "≥": "\\geq",
+  "≠": "\\neq",
+  "≈": "\\approx",
+  "≡": "\\equiv",
+  "∈": "\\in",
+  "∉": "\\notin",
+  "∋": "\\ni",
+  "⊂": "\\subset",
+  "⊃": "\\supset",
+  "⊆": "\\subseteq",
+  "⊇": "\\supseteq",
+  "∪": "\\cup",
+  "∩": "\\cap",
+  "∅": "\\emptyset",
+  "∀": "\\forall",
+  "∃": "\\exists",
+  "∧": "\\wedge",
+  "∨": "\\vee",
+  "¬": "\\neg",
+  "→": "\\rightarrow",
+  "←": "\\leftarrow",
+  "↔": "\\leftrightarrow",
+  "⇒": "\\Rightarrow",
+  "⇐": "\\Leftarrow",
+  "⇔": "\\Leftrightarrow",
+  "∞": "\\infty",
+  "∘": "\\circ",
+  "±": "\\pm",
+  "ℕ": "\\mathbb{N}",
+  "ℤ": "\\mathbb{Z}",
+  "ℚ": "\\mathbb{Q}",
+  "ℝ": "\\mathbb{R}",
+  "ℂ": "\\mathbb{C}",
+};
+
+export const UNICODE_MATH_CHARS = new RegExp(`[${Object.keys(UNICODE_MATH).join("")}]`, "g");
+
 export const escapeLatexText = (text: string): string =>
-  text.replace(/[\\%$&#_{}~^]/g, (char) => ESCAPES[char] ?? char);
+  text
+    .replace(/[\\%$&#_{}~^]/g, (char) => ESCAPES[char] ?? char)
+    .replace(UNREADABLE, UNREADABLE_MARK)
+    .replace(UNICODE_MATH_CHARS, (char) => `$${UNICODE_MATH[char]}$`);
 
 /**
  * O modo `text` é o único que escapa.
