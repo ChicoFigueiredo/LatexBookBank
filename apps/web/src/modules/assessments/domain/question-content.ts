@@ -2,7 +2,7 @@
 // os importou, `pluginFor` devolveria `null` para todo tipo e a prova inteira seria recusada.
 import "@modules/questions/domain/plugins";
 import { isQuestionType } from "@modules/questions/domain/question-type";
-import { pluginFor } from "@modules/questions/domain/question-type-plugin";
+import { pluginFor, visibleOptions } from "@modules/questions/domain/question-type-plugin";
 
 import type { AssessmentQuestionContent } from "./assessment-template";
 
@@ -39,16 +39,16 @@ export function assessmentContentOf(
   question: StoredQuestion,
   flags: { readonly inTrash: boolean },
 ): AssessmentQuestionContent {
-  const plugin = isQuestionType(question.type) ? pluginFor(question.type) : null;
-  const hasOptions = plugin?.options != null;
-  const options = hasOptions ? question.options : [];
+  const type = isQuestionType(question.type) ? question.type : null;
+  const plugin = type === null ? null : pluginFor(type);
+  const options = type === null ? [] : visibleOptions(type, question.options);
 
   return {
     questionId: question.id,
     statementLatex: question.statementLatex,
     solutionLatex: question.solutionLatex,
     supported: plugin !== null,
-    hasOptions,
+    hasOptions: plugin?.options != null,
     options: Object.fromEntries(options.map((option) => [option.id, option.statementLatex])),
     correctOptionIds: options.filter((option) => option.isCorrect).map((option) => option.id),
     points: null,

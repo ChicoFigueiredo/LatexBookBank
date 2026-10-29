@@ -7,8 +7,9 @@ import { Banner, Button, Callout, Field, Input, PageHeader, Select } from "@/des
 import { isContainerKind } from "@modules/document-tree/domain/add-placement";
 import { AppShell } from "../../../app-shell";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
-import { CREATABLE_TYPES } from "@modules/questions/domain/question-blueprint";
+import "@modules/questions/domain/plugins";
 import type { QuestionType } from "@modules/questions/domain/question-type";
+import { registeredPlugins } from "@modules/questions/domain/question-type-plugin";
 import {
   CaptureQueuePanel,
   type QueueItem,
@@ -52,19 +53,6 @@ export interface IngestionScreenProps {
   readonly title: string;
   readonly nodes: readonly IngestionNode[];
 }
-
-/**
- * O vocabulário do design, para os tipos que o Beta oferece.
- *
- * `Partial` e não `Record` completo: os quatro tipos legados sem plugin não aparecem em
- * `CREATABLE_TYPES`, e declará-los aqui só para satisfazer o tipo criaria rótulos para opções que
- * a tela nunca mostra — a primeira coisa a divergir quando um deles entrar de verdade.
- */
-const TYPE_LABELS: Partial<Record<QuestionType, string>> = {
-  MULTIPLE_CHOICE: "Escolha simples",
-  MULTIPLE_CORRECT: "Múltipla escolha",
-  DISCURSIVE: "Discursiva",
-};
 
 interface CreatedInfo {
   readonly href: string;
@@ -378,9 +366,11 @@ export function IngestionScreen({
                 value={type}
                 onChange={(event) => setType(event.target.value as QuestionType)}
               >
-                {CREATABLE_TYPES.map((entry) => (
-                  <option key={entry} value={entry}>
-                    {TYPE_LABELS[entry] ?? entry}
+                {/* Os tipos e os nomes vêm do registry: um tipo novo aparece aqui sem que esta
+                    tela precise saber dele. */}
+                {registeredPlugins().map((entry) => (
+                  <option key={entry.type} value={entry.type}>
+                    {entry.label}
                   </option>
                 ))}
               </Select>

@@ -2311,7 +2311,9 @@ Verificar em toda revisão de fase:
 - ✅ Todo novo tipo de questão entra pelo registry *(guard varre `src/` e `app/` atrás de `switch`
   sobre tipo de questão — e, desde a #165, **também para compilar**: um teste registra um tipo de
   mentira com corpo inconfundível e afirma que ele chega ao bundle. Até então a regra valia para
-  validar e para o preview, e não valia para o PDF)*
+  validar e para o preview, e não valia para o PDF. Desde a E4 da revisão de 2026-09-23, o guard
+  também pega comparação com o nome de um tipo e tabela por tipo, e o plugin declara rótulo, dica e
+  alternativas, que o editor, o menu, a criação, o scan e a avaliação leem dele)*
 - ✅ Toda randomização é reproduzível *(dois processos `bun` separados, mesma seed, 1695 bytes
   idênticos)*
 - ✅ Toda modificação agêntica é reversível *(revisão anterior gravada antes, na mesma transação)*

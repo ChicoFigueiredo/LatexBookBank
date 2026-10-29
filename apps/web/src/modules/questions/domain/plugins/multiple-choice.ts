@@ -1,11 +1,8 @@
-import { parseLatexPreview } from "@modules/preview/domain/parse-latex-preview";
-import type { PreviewBlock, PreviewItem } from "@modules/preview/domain/preview-model";
-
 import { block, type QuestionLatexBlock } from "../question-latex";
 import { optionLabelAt } from "../question-type";
 import type { QuestionForPlugin, QuestionTypePlugin } from "../question-type-plugin";
 
-import { validateCommon } from "./shared";
+import { DEFAULT_OPTION_COUNT, validateCommon } from "./shared";
 
 /**
  * Escolha simples: alternativas em quantidade **arbitrária**, exatamente uma correta.
@@ -23,7 +20,8 @@ import { validateCommon } from "./shared";
 export const multipleChoicePlugin: QuestionTypePlugin = {
   type: "MULTIPLE_CHOICE",
   label: "Escolha simples",
-  options: { initial: 5, exclusiveCorrect: true },
+  hint: "uma correta",
+  options: { initial: DEFAULT_OPTION_COUNT, exclusiveCorrect: true },
 
   validate(question) {
     const issues = [...validateCommon(question)];
@@ -136,17 +134,6 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
         });
       }
     }
-
-    return blocks;
-  },
-
-  buildFastPreview(question) {
-    const items: PreviewItem[] = question.options.map((option) => ({
-      blocks: parseLatexPreview(option.statementLatex),
-    }));
-
-    const blocks: PreviewBlock[] = [...parseLatexPreview(question.statementLatex)];
-    if (items.length > 0) blocks.push({ kind: "list", ordered: true, items });
 
     return blocks;
   },

@@ -50,6 +50,7 @@ const question = (over: Partial<QuestionForRender> = {}): QuestionForRender => (
 const plugin: QuestionTypePlugin = {
   type: FAKE_TYPE,
   label: "Verdadeiro ou falso (teste)",
+  hint: "um item, certo ou errado",
   options: { initial: 2, exclusiveCorrect: true },
   validate: () => [],
   buildLatexBlocks: (q) => [
@@ -64,7 +65,6 @@ const plugin: QuestionTypePlugin = {
       prefixLines: 1,
     },
   ],
-  buildFastPreview: () => [],
 };
 
 const bundleFor = (over: Partial<QuestionForRender> = {}) =>
