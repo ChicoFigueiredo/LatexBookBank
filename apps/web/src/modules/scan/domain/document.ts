@@ -62,6 +62,8 @@ export interface AssembleOptions {
   readonly protect?: (line: TextLine, style: PublicationStyle) => boolean;
   /** Divisores de coluna sugeridos pelo perfil, a partir das linhas do documento. */
   readonly columnHints?: (lines: readonly TextLine[]) => readonly number[];
+  /** O perfil sabe que o documento é de uma coluna: nenhuma página é dividida. */
+  readonly singleColumn?: boolean;
 }
 
 export function assembleDocument(pages: readonly PageModel[], options: AssembleOptions = {}): ScanDocument {
@@ -93,7 +95,7 @@ export function assembleDocument(pages: readonly PageModel[], options: AssembleO
     const extent: Rect[] = [...pageLines, ...pageGraphics];
     if (extent.length === 0) continue;
 
-    const columns = detectColumns(pageLines, { hints });
+    const columns = options.singleColumn ? [] : detectColumns(pageLines, { hints });
     const effective = columns.length > 0 ? columns : [bounds(extent)];
     const box = bounds(extent);
     const first = slots.length;
