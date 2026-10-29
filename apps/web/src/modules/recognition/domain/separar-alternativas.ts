@@ -185,6 +185,35 @@ export function detectarBlocoUnido(
   return unidos;
 }
 
+/**
+ * Aplica as divisões aceitas — e **até estabilizar**.
+ *
+ * As divisões são guardadas por texto do bloco, não por índice: o índice muda quando uma divisão
+ * acontece antes dele na lista. Uma passada só não basta, e o e2e pegou: cortar `b)` em `b` + `c`
+ * deixa o `d)` dentro do novo `c`, e a divisão seguinte é sobre um texto que **não existia** na
+ * lista original.
+ *
+ * O teto existe porque o mapa é dado de entrada da própria função: uma divisão cujo resultado
+ * contivesse a chave dela mesma laçaria para sempre. Cinco é folgado — uma questão tem cinco
+ * alternativas, e cada corte resolve uma.
+ *
+ * Morava no `IngestionPanel`; veio para o domínio para ter teste sem montar a tela (STM-17).
+ */
+export function aplicarDivisoes(
+  options: readonly AlternativaLida[],
+  divididos: ReadonlyMap<string, readonly AlternativaLida[]>,
+): readonly AlternativaLida[] {
+  let atual = options;
+
+  for (let passada = 0; passada < 5; passada += 1) {
+    const proxima = atual.flatMap((opcao) => divididos.get(opcao.statementLatex) ?? [opcao]);
+    if (proxima.length === atual.length) return proxima;
+    atual = proxima;
+  }
+
+  return atual;
+}
+
 /** `b` → `c`; `ii` → `iii`. `null` quando não há próximo previsível. */
 function proximoRotulo(label: string): string | null {
   const atual = label.toLowerCase();

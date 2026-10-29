@@ -148,6 +148,11 @@ export interface CompileDeps {
   readonly now?: () => number;
   /** Interrompe a compilação. Vem do `JobStore`, que é quem sabe que o job foi cancelado. */
   readonly signal?: AbortSignal;
+  /**
+   * Onde nasce o diretório do job; o padrão é o `tmpdir()`. Injetável para o teste da limpeza
+   * olhar só a sua raiz, e não o `tmpdir()` que outras compilações da máquina dividem.
+   */
+  readonly tmpRoot?: string;
 }
 
 export async function compile(
@@ -181,7 +186,7 @@ export async function compile(
     };
   }
 
-  const dir = await mkdtemp(join(tmpdir(), "lbb-render-"));
+  const dir = await mkdtemp(join(deps.tmpRoot ?? tmpdir(), "lbb-render-"));
 
   try {
     for (const asset of bundle.assets) {

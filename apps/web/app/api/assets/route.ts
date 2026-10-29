@@ -11,6 +11,7 @@ import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-fi
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
 import { env as appEnv } from "@/shared/config/env";
 import { StorageKeyEscapeError } from "@/shared/ports";
+import type { UploadAssetResponse } from "@modules/assets/application/asset-contract";
 
 import { BadRequestError, toErrorResponse } from "../tree-http";
 
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
         // A tela precisa saber que o livro deixou de estar sem fonte: é o que dispara a
         // revalidação, para o resumo não continuar mostrando a pendência já resolvida.
         becameBookSource: asset.becameBookSource,
-      },
+      } satisfies UploadAssetResponse,
       { status: 201 },
     );
   } catch (error) {

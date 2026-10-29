@@ -8,6 +8,7 @@ import { NothingApprovedError } from "@modules/agents/domain/apply-patch";
 import { parseQuestionPatch, PatchRejectedError } from "@modules/agents/domain/question-patch";
 import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
+import type { ApplyPatchResponse } from "@modules/agents/application/agent-contract";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
 
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       new PrismaValidationWriter(),
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json(result satisfies ApplyPatchResponse);
   } catch (error) {
     if (error instanceof NothingApprovedError) {
       return NextResponse.json(

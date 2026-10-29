@@ -183,21 +183,83 @@ describe("aplicar o patch aprovado", () => {
 
   it("um id de alternativa de outra questão não grava nada fora desta", async () => {
     // O plano já descarta o id que não está no estado da questão; isto é a segunda barreira, no
-    // adaptador: o `questionId` vai no `where`, e o id veio de um patch.
+    // adaptador: o id veio de um patch, e a lista é recusada antes de qualquer escrita.
     const { question } = await questaoNoLivro();
     const outra = await questaoNoLivro();
+    const { AlternativaDeOutraQuestaoError } =
+      await import("@modules/agents/application/apply-question-patch");
 
-    await applier.transact((tx) =>
-      tx.applyOptions(question.id, [
-        { id: outra.dois, statementLatex: "invadido", isCorrect: true },
-      ]),
-    );
+    await expect(
+      applier.transact((tx) =>
+        tx.applyOptions(question.id, [
+          { id: outra.dois, statementLatex: "invadido", isCorrect: true },
+        ]),
+      ),
+    ).rejects.toThrow(AlternativaDeOutraQuestaoError);
 
     expect((await estado(outra.question.id)).options).toEqual([
       ["1\\%", true],
       ["2\\%", false],
       ["3\\%", false],
     ]);
+  });
+
+  it("um gabarito que aponta para alternativa de outra questão é recusado, e a questão fica com a correta", async () => {
+    // O gabarito de uma múltipla escolha chega inteiro: a nova correta e a antiga desmarcada. Se
+    // a nova é de outra questão, ignorá-la e gravar o resto deixava esta sem correta nenhuma —
+    // por isso o adaptador recusa a lista toda, e a transação leva a revisão junto.
+    const { question, um } = await questaoNoLivro();
+    const outra = await questaoNoLivro();
+    const { AlternativaDeOutraQuestaoError } =
+      await import("@modules/agents/application/apply-question-patch");
+
+    await expect(
+      applier.transact(async (tx) => {
+        await tx.writeRevision({
+          questionId: question.id,
+          origin: "AGENT",
+          agentRunId: null,
+          summary: "antes",
+          snapshotJson: "{}",
+        });
+        await tx.applyOptions(question.id, [
+          { id: outra.dois, isCorrect: true },
+          { id: um, isCorrect: false },
+        ]);
+      }),
+    ).rejects.toThrow(AlternativaDeOutraQuestaoError);
+
+    expect((await estado(question.id)).options).toEqual([
+      ["1\\%", true],
+      ["2\\%", false],
+      ["3\\%", false],
+    ]);
+    expect((await estado(outra.question.id)).options[1]).toEqual(["2\\%", false]);
+    expect(
+      await prisma.revision.count({ where: { entityType: "QUESTION", entityId: question.id } }),
+    ).toBe(0);
+  });
+
+  it("reordenar com um id de outra questão é recusado, e a ordem fica como estava", async () => {
+    const { question, um, dois, tres } = await questaoNoLivro();
+    const outra = await questaoNoLivro();
+    const { AlternativaDeOutraQuestaoError } =
+      await import("@modules/agents/application/apply-question-patch");
+    const chaves = async () =>
+      (
+        await prisma.questionOption.findMany({
+          where: { questionId: question.id },
+          orderBy: { id: "asc" },
+          select: { id: true, sortKey: true },
+        })
+      ).map((option) => [option.id, option.sortKey]);
+    const antes = await chaves();
+
+    await expect(
+      applier.transact((tx) => tx.applyReorder(question.id, [tres, outra.um, dois, um])),
+    ).rejects.toThrow(AlternativaDeOutraQuestaoError);
+
+    expect(await chaves()).toEqual(antes);
   });
 });
 

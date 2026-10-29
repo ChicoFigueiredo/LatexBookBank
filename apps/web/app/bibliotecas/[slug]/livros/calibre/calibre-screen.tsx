@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 
+import type { CatalogEntryDto } from "@modules/publications/application/catalog-contract";
 import {
   camposAPreencher,
   type CampoDoCatalogo,
   type PublicationMetadata,
 } from "@modules/publications/domain/catalog-attach";
+import { catalogApi } from "@modules/publications/ui/catalog-client";
+import type { CatalogSummary } from "@/shared/ports/library-catalog";
 
 import {
   Badge,
@@ -48,26 +51,10 @@ import { AppShell } from "../../../../app-shell";
  * botão promete e o que acontece depois. Um diálogo novo de busca teria que reaprender tudo isso.
  */
 
-interface CatalogEntry {
-  readonly externalId: string;
-  readonly title: string;
-  readonly authors: readonly string[];
-  readonly publisher: string | null;
-  readonly year: number | null;
-  readonly isbn: string | null;
-  /** Veio sempre na resposta da rota; passou a ser lido quando anexar precisou preencher idioma. */
-  readonly language: string | null;
-  readonly series: string | null;
-  readonly seriesIndex: string | null;
-  readonly files: readonly { readonly format: string; readonly sizeBytes: number }[];
-  readonly hasCover: boolean;
-  readonly duplicate: "external-id" | "isbn" | "title-and-author" | null;
-}
+/** O livro do catálogo como a rota o manda — o tipo é o do contrato, não uma cópia (ARQ-10). */
+type CatalogEntry = CatalogEntryDto;
 
-interface Summary {
-  readonly bookCount: number;
-  readonly formats: Readonly<Record<string, number>>;
-}
+type Summary = CatalogSummary;
 
 const DUPLICATE_LABEL: Readonly<Record<string, string>> = {
   "external-id": "já importado",
@@ -299,34 +286,25 @@ export function CalibreScreen({
     setTrocar(null);
 
     try {
-      const response = await fetch("/api/catalog/attach", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          path: root,
-          publicationId,
-          externalId: selected.externalId,
-          replace,
-          fillMetadata: preencherCampos,
-          ...(formatsParaEnviar ? { formats: formatsParaEnviar } : {}),
-        }),
+      const {
+        ok,
+        status,
+        body: payload,
+      } = await catalogApi.attach({
+        path: root,
+        publicationId,
+        externalId: selected.externalId,
+        replace,
+        fillMetadata: preencherCampos,
+        formats: formatsParaEnviar,
       });
-      const payload = (await response.json()) as {
-        href?: string;
-        filename?: string;
-        replaced?: string | null;
-        filled?: CampoDoCatalogo[];
-        warnings?: string[];
-        message?: string;
-        error?: string;
-      };
 
-      if (response.status === 409 && payload.error === "publication_has_source") {
+      if (status === 409 && payload.error === "publication_has_source") {
         setTrocar(payload.message ?? "Este livro já tem um PDF fonte.");
         return;
       }
 
-      if (!response.ok || !payload.href) {
+      if (!ok || !payload.href) {
         setError(payload.message ?? "Não deu para anexar.");
         return;
       }
@@ -352,18 +330,13 @@ export function CalibreScreen({
     setBatchDone(null);
 
     try {
-      const response = await fetch("/api/catalog", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ path: root, libraryId: library.id, query: texto }),
+      const { ok, body: payload } = await catalogApi.browse({
+        path: root,
+        libraryId: library.id,
+        query: texto,
       });
-      const payload = (await response.json()) as {
-        summary?: Summary;
-        entries?: CatalogEntry[];
-        message?: string;
-      };
 
-      if (!response.ok) {
+      if (!ok) {
         setError(payload.message ?? "Não deu para abrir o catálogo.");
         setEntries(null);
         return;
@@ -383,28 +356,15 @@ export function CalibreScreen({
     setError(null);
 
     try {
-      const response = await fetch("/api/catalog/import-batch", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          path: root,
-          libraryId: library.id,
-          externalIds: selecionados.map((entry) => entry.externalId),
-          // Ausente quando ninguém tocou no controle — o padrão (só PDF) é do backend.
-          ...(formatsParaEnviar ? { formats: formatsParaEnviar } : {}),
-        }),
+      const { ok, body: payload } = await catalogApi.importBatch({
+        path: root,
+        libraryId: library.id,
+        externalIds: selecionados.map((entry) => entry.externalId),
+        // Ausente quando ninguém tocou no controle — o padrão (só PDF) é do backend.
+        formats: formatsParaEnviar,
       });
-      const payload = (await response.json()) as {
-        results?: {
-          externalId: string;
-          outcome:
-            | { kind: "imported"; result: { href: string; warnings: string[] } }
-            | { kind: "failed"; message: string };
-        }[];
-        message?: string;
-      };
 
-      if (!response.ok || !payload.results) {
+      if (!ok || !payload.results) {
         setError(payload.message ?? "Não deu para importar o lote.");
         return;
       }
@@ -443,26 +403,20 @@ export function CalibreScreen({
     setDuplicate(null);
 
     try {
-      const response = await fetch("/api/catalog/import", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          path: root,
-          libraryId: library.id,
-          externalId: selected.externalId,
-          force,
-          // Ausente quando ninguém tocou no controle — o padrão (só PDF) é do backend.
-          ...(formatsParaEnviar ? { formats: formatsParaEnviar } : {}),
-        }),
+      const {
+        ok,
+        status,
+        body: payload,
+      } = await catalogApi.importOne({
+        path: root,
+        libraryId: library.id,
+        externalId: selected.externalId,
+        force,
+        // Ausente quando ninguém tocou no controle — o padrão (só PDF) é do backend.
+        formats: formatsParaEnviar,
       });
-      const payload = (await response.json()) as {
-        href?: string;
-        warnings?: string[];
-        message?: string;
-        publicationId?: string;
-      };
 
-      if (response.status === 409 && payload.publicationId) {
+      if (status === 409 && payload.publicationId) {
         // Duplicata bloqueante vira **escolha**, não parede: o usuário pode abrir o que já existe
         // ou importar assim mesmo, e os dois são legítimos.
         setDuplicate({
@@ -472,7 +426,7 @@ export function CalibreScreen({
         return;
       }
 
-      if (!response.ok || !payload.href) {
+      if (!ok || !payload.href) {
         setError(payload.message ?? "Não deu para importar.");
         return;
       }

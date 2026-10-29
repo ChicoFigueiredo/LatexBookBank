@@ -16,6 +16,11 @@ import {
 } from "@modules/questions/domain/question-type";
 import { PrismaQuestionRepository } from "@modules/questions/infrastructure/prisma-question-repository";
 import { ConcurrencyConflictError } from "@/shared/ports/repository";
+import type {
+  QuestionDetailResponse,
+  SaveQuestionConflict,
+  SaveQuestionResponse,
+} from "@modules/questions/application/question-contract";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../../tree-http";
 
@@ -109,7 +114,7 @@ export async function GET(
         publisher: snapshot.publisher,
         videoUrl: snapshot.videoUrl,
       },
-    });
+    } satisfies QuestionDetailResponse);
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -211,7 +216,7 @@ export async function PATCH(
       // O cliente precisa saber se houve escrita: sem isto, o indicador de "salvo" piscaria a
       // cada autosave mesmo sem nada ter mudado, e viraria ruído que ninguém mais lê.
       written: result.written,
-    });
+    } satisfies SaveQuestionResponse);
   } catch (error) {
     if (error instanceof MetadataError) {
       // Recusa em vez de correção silenciosa: ano `20244` é erro de digitação, e gravar `2024`
@@ -232,7 +237,7 @@ export async function PATCH(
             "Esta questão mudou desde que você abriu. Recarregue para ver a versão atual antes de salvar.",
           expectedVersion: String(error.expectedVersion),
           actualVersion: String(error.actualVersion),
-        },
+        } satisfies SaveQuestionConflict,
         { status: 409 },
       );
     }
