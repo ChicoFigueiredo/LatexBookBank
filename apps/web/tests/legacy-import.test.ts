@@ -101,6 +101,17 @@ describe("as três gerações de schema", () => {
     expect(DELIBERATELY_IGNORED_COLUMNS["Ordem"]).toMatch(/IdQuestao/);
   });
 
+  it("`Deleted` tem decisão registrada, com a medição que a sustenta (ACV-13)", () => {
+    // A coluna existe em `Questao` de todas as bibliotecas reais e não era lida nem declarada: um
+    // nó excluído no KnowChico voltaria vivo sem aviso. Medido: zero linhas marcadas no acervo.
+    expect(DELIBERATELY_IGNORED_COLUMNS["Deleted"]).toMatch(/0 linhas marcadas/);
+    expect(
+      questionColumnsFor(
+        detectCapabilities({ migrations: null, tables: [], questionColumns: ["Deleted"] }),
+      ),
+    ).not.toContain("Deleted");
+  });
+
   describe("os nomes reais (levantamento de 2026-08-31 contra as 11 bibliotecas)", () => {
     // Nenhuma biblioteca real tem `Titulo`, `LatexEnunciado`, `Instituicao` ou `NivelCargo` — um
     // `SELECT` com esses nomes falharia na primeira execução contra o acervo de verdade. O rótulo

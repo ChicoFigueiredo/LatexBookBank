@@ -1,9 +1,11 @@
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 import { PrismaClient } from "../src/generated/prisma/client.ts";
 import { resolveLegacyFigures } from "../src/modules/legacy-import/application/import-legacy-figures.ts";
+import { buildLegacyImportReport } from "../src/modules/legacy-import/application/legacy-import-report.ts";
 import { mapLegacyLibrary } from "../src/modules/legacy-import/application/map-legacy-library.ts";
 import { NodeLegacyFsProbe } from "../src/modules/legacy-import/infrastructure/node-legacy-fs-probe.ts";
 import { SqliteLegacyLibraryReader } from "../src/modules/legacy-import/infrastructure/sqlite-legacy-library-reader.ts";
@@ -20,6 +22,9 @@ import {
  *     LEGACY_LIBRARY_PATH=/mnt/t/KnowChico/Cesgranrio.CAIXA/metadata.knowchico \
  *     WORKSPACE_NAME="Cesgranrio CAIXA" WORKSPACE_SLUG=cesgranrio-caixa \
  *       bun run scripts/dry-run-legacy-import.ts
+ *
+ * Com `REPORT_PATH`, grava também o `ImportReport` estruturado (`legacy-import-report.ts`) em JSON
+ * — o mesmo que `write-legacy-import.ts` grava —, para comparar duas rodadas com um `diff`.
  *
  * O índice do destino é consultado direto pelo Prisma aqui dentro, sem passar por
  * `readExistingIndex` — aquele arquivo é `server-only`, e um script não é um Server Component.
@@ -152,6 +157,18 @@ async function main(): Promise<void> {
       for (const collision of plan.collisions) {
         console.log(`  - ${collision.kind} por ${collision.by}=${collision.value} → id existente ${collision.existingId}`);
       }
+    }
+
+    const reportPath = process.env["REPORT_PATH"];
+    if (reportPath) {
+      const report = buildLegacyImportReport({
+        mapping,
+        skippedFigures: figures.skipped,
+        attachedFigures: figures.figures.length - mapping.unattachedFigures.length,
+        written: null,
+      });
+      await writeFile(reportPath, JSON.stringify(report, null, 2));
+      console.log(`\nRelatório em ${reportPath}`);
     }
   } finally {
     await prisma.$disconnect();

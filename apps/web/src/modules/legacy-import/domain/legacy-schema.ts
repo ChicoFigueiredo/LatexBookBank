@@ -150,4 +150,11 @@ export const DELIBERATELY_IGNORED_COLUMNS: Readonly<Record<string, string>> = {
   IdQuestao_Original: "zero linhas em todas as bibliotecas",
   imgOriginal: "zero BLOBs; as imagens estão no sistema de arquivos",
   imgGerada: "zero BLOBs; as imagens estão no sistema de arquivos",
+  // ACV-13: a coluna existe em `Questao` de todas as bibliotecas reais (`PRAGMA table_info`), e não
+  // era lida nem declarada — um nó excluído no KnowChico voltaria vivo. Medido na revisão de
+  // 2026-09-23: `SELECT Deleted, count(*)` dá 0 linhas marcadas em todas as bibliotecas legíveis.
+  // Se uma biblioteca nova tiver linhas marcadas, a decisão precisa ser revista: o caminho é ler a
+  // coluna como `hasBanca` e levar o nó para a lixeira, não descartar.
+  Deleted:
+    "0 linhas marcadas em todas as bibliotecas legíveis (revisão de 2026-09-23) — nada a levar para a lixeira",
 };

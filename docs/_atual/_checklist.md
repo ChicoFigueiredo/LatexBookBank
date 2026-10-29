@@ -110,7 +110,7 @@ enquadramento, e a segmentação automática saiu do adiamento com 30 de 30 ques
 | — prova arquitetural | **◐6.5** | schema PostgreSQL provado; falta a suíte de integração contra PostgreSQL; o par de storage foi adiado explicitamente em 2026-09-09 |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
-| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; os ◐ são o `ImportReport` e o §33 "Legado"; a 13 só não mostra progresso |
+| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; o ◐ é o §33 "Legado" (o `ImportReport` estruturado saiu na revisão de 2026-09-23); a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
 | G — captura em volume | **◐18** · **19** | decidida e começada em 2026-09-10: o bloco "A fonte do livro" fechou, e a captura abre no PDF. Falta o scan de intervalo, os perfis, o livro ao lado do **editor** e o corpo do nó |
@@ -1087,7 +1087,11 @@ e eles escondiam o que falta de verdade)*
   excluída pela invariante das alternativas (5 opções, nenhuma correta). **Decisão do Chico em
   2026-09-09:** ratificar que ProfMat 9 fica fora, e registrar as 5 de Fundamentos como limitação
   conhecida — nó estrutural com resposta é o legado usando a tabela errada, e importar isso criaria
-  um conceito novo por causa de duas linhas. Nada se perde: o `originalLatex` guarda a citação)*
+  um conceito novo por causa de duas linhas. ~~Nada se perde: o `originalLatex` guarda a citação~~
+  — **corrigido na revisão de 2026-09-23 (SPA-08)**: perde-se, sim. Do nó estrutural o import leva
+  só o título; o `latexQuestao`, a resposta, o complemento e as alternativas dele não vão para coluna
+  nenhuma, e só existem no `.knowchico`. Da ProfMat 9 não entra nada. O caminho sem conceito novo,
+  se a decisão for revista, é levar o LaTeX do nó estrutural para o corpo do nó (ADR 0001))*
 
 **Mapeamento**
 - ✅ Biblioteca → `Workspace` (D11) *(2026-08-31 — `map-legacy-library.ts` + `MapLegacyLibraryOptions`)*
@@ -1156,10 +1160,11 @@ e eles escondiam o que falta de verdade)*
   confere `Workspace.legacyId` **antes** de qualquer leitura; workspace novo não tem com o que
   colidir por dentro. Provado rodando a Cesgranrio CAIXA duas vezes: a segunda diz "já importada,
   nada feito")*
-- ◐ `ImportReport`: importados, atualizados, ignorados, inconsistentes, órfãos, assets ausentes
-  *(o relatório do script cobre importados e inconsistentes — as questões excluídas por invariante,
-  com o motivo. Faltam "atualizados" (não há caso de uso ainda — o import de hoje só cria) e
-  "assets ausentes" (Fase 11 ainda não importa asset nenhum))*
+- ✅ `ImportReport`: importados, atualizados, ignorados, inconsistentes, órfãos, assets ausentes
+  *(revisão de 2026-09-23, SPA-09: `legacy-import-report.ts` monta as seis categorias como dado —
+  "atualizados" é 0 declarado, porque o import só cria — e os scripts de dry-run e de gravação o
+  gravam em JSON com `REPORT_PATH`. A coluna `Deleted` do legado tem decisão registrada em
+  `DELIBERATELY_IGNORED_COLUMNS`: 0 linhas marcadas no acervo, ACV-13)*
 - ✅ `legacyId` preservado após o import *(`Workspace.legacyId`, `Publication.legacyId/legacyUuid`,
   `DocumentNode.legacyId`, `Question.legacyId`, `QuestionOption.legacyId/legacyMarcacao` — todos
   gravados e conferidos direto no banco depois da escrita real)*
@@ -2150,7 +2155,7 @@ escritas de verdade no banco de desenvolvimento.*
 - ✅ Import snippets LaTeX *(enunciado, resposta, complemento e origem — `latexQuestao`,
   `latexResposta`, `latexComplemento`, `latexOrigin`)*
 - ✅ Relatório *(console do script: publicações, exclusões por invariante com motivo e legacyId,
-  contagem final — falta só o formato `ImportReport` estruturado, hoje é texto)*
+  contagem final; desde a revisão de 2026-09-23 também o `ImportReport` estruturado, em JSON)*
 
 ### Portabilidade *(novo, D18/D32)*
 - ✅ Exporta workspace em `.lbb`
