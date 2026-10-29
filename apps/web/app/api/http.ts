@@ -126,6 +126,27 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   }
 }
 
+/**
+ * Um identificador obrigatório: texto não vazio, de até 200 caracteres.
+ *
+ * Estava copiado em duas rotas do agente, e o texto obrigatório em outras duas — a validação é
+ * escrita à mão (ADR 0011), e a que aparece duas vezes mora aqui.
+ */
+export function requireId(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "" || value.length > 200) {
+    throw new BadRequestError(`\`${field}\` é obrigatório e precisa ser um identificador.`);
+  }
+  return value;
+}
+
+/** Um texto obrigatório, de um campo do JSON ou do formulário. */
+export function requireText(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new BadRequestError(`O campo \`${field}\` é obrigatório.`);
+  }
+  return value;
+}
+
 /** O corpo de erro: o código semântico, a mensagem, e o que a tela precisa além dela. */
 type ErrorBody = { readonly error: string; readonly message?: string } & Record<string, unknown>;
 

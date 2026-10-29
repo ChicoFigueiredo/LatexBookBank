@@ -7,7 +7,7 @@ import { createQuestionFromRecognition } from "@modules/recognition/application/
 import { approveCandidate } from "@modules/recognition/domain/recognition-candidate";
 import { PrismaRecognitionProvenance } from "@modules/recognition/infrastructure/prisma-recognition-provenance";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../../http";
+import { readJson, requireText, toErrorResponse } from "../../../../http";
 import { parsePlacement } from "../../../../tree-parsers";
 
 /**
@@ -64,13 +64,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } catch (error) {
     return toErrorResponse(error);
   }
-}
-
-function requireText(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new BadRequestError(`O campo \`${field}\` é obrigatório.`);
-  }
-  return value;
 }
 
 /**

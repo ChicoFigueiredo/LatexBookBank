@@ -5,7 +5,7 @@ import { saveCrop } from "@modules/assets/application/save-crop";
 import { PrismaCropWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
 import { storage } from "@infrastructure/composition";
 
-import { BadRequestError, toErrorResponse } from "../../http";
+import { BadRequestError, requireText, toErrorResponse } from "../../http";
 
 /**
  * Salva um recorte: cria a âncora e o `Asset(CROP)`, **sem tocar na fonte**.
@@ -57,13 +57,6 @@ export async function POST(request: Request) {
   } catch (error) {
     return toErrorResponse(error);
   }
-}
-
-function requireText(value: FormDataEntryValue | null, field: string): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new BadRequestError(`O campo \`${field}\` é obrigatório.`);
-  }
-  return value;
 }
 
 const asOptionalText = (value: FormDataEntryValue | null): string | null =>
