@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { listPublicationCatalog } from "@modules/publications/infrastructure/prisma-publication-catalog";
 
+import { withErrors } from "../http";
+
 /**
  * O catálogo de publicações do acervo.
  *
@@ -14,6 +16,6 @@ import { listPublicationCatalog } from "@modules/publications/infrastructure/pri
  */
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withErrors(async function GET() {
   return NextResponse.json({ publications: await listPublicationCatalog() });
-}
+});

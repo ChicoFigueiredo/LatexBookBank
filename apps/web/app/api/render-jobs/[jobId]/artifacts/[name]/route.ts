@@ -6,6 +6,9 @@ import { env as appEnv } from "@/shared/config/env";
 import { servedContentHeaders } from "@/shared/http/served-content";
 import { asStorageKey, AssetNotFoundError } from "@/shared/ports";
 
+import { withErrors } from "../../../../http";
+import { ArtifactEvictedError } from "@modules/rendering/domain/artifact-evicted";
+
 /**
  * Baixa um artefato de render.
  *
@@ -18,7 +21,7 @@ import { asStorageKey, AssetNotFoundError } from "@/shared/ports";
  */
 export const dynamic = "force-dynamic";
 
-export async function GET(
+export const GET = withErrors(async function GET(
   _request: Request,
   { params }: { params: Promise<{ jobId: string; name: string }> },
 ) {
@@ -33,34 +36,23 @@ export async function GET(
     );
   }
 
-  try {
-    const stored = await new LocalFileStorageProvider({
-      rootDir: appEnv().storageRoot,
-    }).get(asStorageKey(asset.storageKey));
-
-    // Imutável: o conteúdo de um artefato nunca muda — mudar a entrada cria outro job. `inline` e
-    // não `attachment`: o PDF é para ser visto na aba, não baixado. E o SVG da página vai em
-    // sandbox, com `nosniff` em tudo: ele sai do LaTeX de quem escreveu, e aberto numa aba não
-    // pode rodar como o app (#257).
-    return new Response(new Uint8Array(stored.content), {
-      headers: servedContentHeaders({
-        mimeType: stored.mimeType,
-        sizeBytes: stored.sizeBytes,
-        filename: name,
-      }),
+  const stored = await new LocalFileStorageProvider({
+    rootDir: appEnv().storageRoot,
+  })
+    .get(asStorageKey(asset.storageKey))
+    .catch((error: unknown) => {
+      throw error instanceof AssetNotFoundError ? new ArtifactEvictedError() : error;
     });
-  } catch (error) {
-    if (error instanceof AssetNotFoundError) {
-      // Linha no banco sem arquivo no storage: derivado pode ser descartado (D29), então isto é
-      // um estado legítimo — e a resposta certa é 404 com a razão, não 500.
-      return NextResponse.json(
-        {
-          error: "artifact_evicted",
-          message: "O artefato foi descartado do storage. Recompile para gerá-lo de novo.",
-        },
-        { status: 404 },
-      );
-    }
-    throw error;
-  }
-}
+
+  // Imutável: o conteúdo de um artefato nunca muda — mudar a entrada cria outro job. `inline` e
+  // não `attachment`: o PDF é para ser visto na aba, não baixado. E o SVG da página vai em
+  // sandbox, com `nosniff` em tudo: ele sai do LaTeX de quem escreveu, e aberto numa aba não
+  // pode rodar como o app (#257).
+  return new Response(new Uint8Array(stored.content), {
+    headers: servedContentHeaders({
+      mimeType: stored.mimeType,
+      sizeBytes: stored.sizeBytes,
+      filename: name,
+    }),
+  });
+});

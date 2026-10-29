@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { storeAsset } from "@modules/assets/application/store-asset";
-import { InvalidAnchorError, normalizeAnchor } from "@modules/assets/domain/source-anchor";
+import { normalizeAnchor } from "@modules/assets/domain/source-anchor";
 import {
   attachAnchorToQuestion,
   createAnchor,
@@ -12,7 +12,7 @@ import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-fi
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
 import { env as appEnv } from "@/shared/config/env";
 
-import { BadRequestError, toErrorResponse } from "../../tree-http";
+import { BadRequestError, toErrorResponse } from "../../http";
 
 /**
  * Salva um recorte: cria a âncora e o `Asset(CROP)`, **sem tocar na fonte**.
@@ -111,12 +111,6 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof InvalidAnchorError) {
-      return NextResponse.json(
-        { error: "invalid_anchor", message: error.message },
-        { status: 400 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

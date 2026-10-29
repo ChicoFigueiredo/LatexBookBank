@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { switchProfile } from "@modules/scan/application/switch-profile";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { toScanErrorResponse } from "../../scan-http";
-import { readJson } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
+import { readJson } from "../../../http";
 import { scanRunDto } from "../../scan-dto";
 
 /**
@@ -25,6 +25,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ run
 
     return NextResponse.json({ run: scanRunDto(run, deps.runner.isRunning(run.id)) }, { status: 201 });
   } catch (error) {
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

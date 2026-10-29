@@ -5,13 +5,9 @@ import { renderDocument } from "@modules/rendering/application/render-document";
 import { nodeRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
 import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
 
-import {
-  parseRenderProfile,
-  renderErrorResponse,
-  renderJobResponse,
-  rendererNotConfigured,
-} from "../../../../../render-http";
-import { readJson } from "../../../../../tree-http";
+import { parseRenderProfile, rendererNotConfigured, renderJobResponse } from "../../../../../render-http";
+import { toErrorResponse } from "../../../../../http";
+import { readJson } from "../../../../../http";
 
 /**
  * Compila o corpo de um nó (ADR 0001: "um capítulo com corpo é compilável").
@@ -53,6 +49,6 @@ export async function POST(
 
     return renderJobResponse(rendered);
   } catch (error) {
-    return renderErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

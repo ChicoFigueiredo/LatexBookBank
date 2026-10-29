@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+import { requireQuestionScope } from "@/shared/authorization/question-scope";
 
 import { addOption } from "@modules/questions/application/mutate-options";
 import { PrismaOptionWriter } from "@modules/questions/infrastructure/prisma-option-writer";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 
-import { readJson, toErrorResponse } from "../../../../../tree-http";
+import { readJson, toErrorResponse } from "../../../../../http";
 
 /**
  * Cria uma alternativa.
@@ -30,18 +30,7 @@ export async function GET(
   const { id, questionId } = await params;
 
   try {
-    const escopo = await resolveQuestionScope(id, questionId);
-    if (escopo === null) {
-      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
-      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
-      return NextResponse.json(
-        {
-          error: "not_found",
-          message: `Questão ${questionId} não existe nesta publicação.`,
-        },
-        { status: 404 },
-      );
-    }
+    await requireQuestionScope(id, questionId);
 
     const options = await new PrismaOptionWriter().listOptions(questionId);
     return NextResponse.json({ options });
@@ -57,18 +46,7 @@ export async function POST(
   const { id, questionId } = await params;
 
   try {
-    const escopo = await resolveQuestionScope(id, questionId);
-    if (escopo === null) {
-      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
-      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
-      return NextResponse.json(
-        {
-          error: "not_found",
-          message: `Questão ${questionId} não existe nesta publicação.`,
-        },
-        { status: 404 },
-      );
-    }
+    await requireQuestionScope(id, questionId);
 
     const body = await readJson(request).catch(() => ({}) as Record<string, unknown>);
     const statementLatex = typeof body["statementLatex"] === "string" ? body["statementLatex"] : "";

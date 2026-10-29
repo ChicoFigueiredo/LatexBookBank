@@ -5,7 +5,7 @@ import {
   listAssessments,
 } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../http";
 
 /**
  * As avaliações de um workspace.

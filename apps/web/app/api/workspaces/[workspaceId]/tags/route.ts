@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { rankSuggestions } from "@modules/questions/domain/tag";
 import { PrismaTagRepository } from "@modules/questions/infrastructure/prisma-tag-repository";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * As tags do workspace, para o autocomplete.

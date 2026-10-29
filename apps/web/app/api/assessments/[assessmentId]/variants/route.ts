@@ -3,10 +3,6 @@ import { NextResponse } from "next/server";
 import {
   composeVariant,
   composeVersions,
-  EmptyAssessmentError,
-  MissingQuestionError,
-  QuestionsInTrashError,
-  UnsupportedQuestionTypeError,
 } from "@modules/assessments/application/compose-assessment";
 import {
   contentFor,
@@ -14,7 +10,7 @@ import {
   saveVariant,
 } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * Sorteia uma variante e guarda **o mapa de letras**.
@@ -93,28 +89,6 @@ export async function POST(
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof UnsupportedQuestionTypeError) {
-      return NextResponse.json(
-        {
-          error: "unsupported_question_type",
-          message: error.message,
-          questionIds: error.questionIds,
-        },
-        { status: 409 },
-      );
-    }
-    if (error instanceof QuestionsInTrashError) {
-      return NextResponse.json(
-        { error: "questions_in_trash", message: error.message, questionIds: error.questionIds },
-        { status: 409 },
-      );
-    }
-    if (error instanceof EmptyAssessmentError || error instanceof MissingQuestionError) {
-      return NextResponse.json(
-        { error: "cannot_compose", message: error.message },
-        { status: 409 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

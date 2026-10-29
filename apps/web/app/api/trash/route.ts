@@ -5,7 +5,7 @@ import { PrismaTrashPurge, readGlobalTrash } from "@modules/document-tree/infras
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
 import { env as appEnv } from "@/shared/config/env";
 
-import { toErrorResponse } from "../tree-http";
+import { toErrorResponse } from "../http";
 
 /**
  * A lixeira do acervo inteiro — ler e esvaziar.

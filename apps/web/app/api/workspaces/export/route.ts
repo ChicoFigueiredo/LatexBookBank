@@ -5,7 +5,7 @@ import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-fi
 import { env as appEnv } from "@/shared/config/env";
 import { NextResponse } from "next/server";
 
-import { toErrorResponse } from "../../tree-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * Exporta um workspace como `.lbb`.

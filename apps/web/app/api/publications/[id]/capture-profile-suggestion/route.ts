@@ -4,7 +4,7 @@ import { suggestCaptureProfile } from "@modules/scan/application/suggest-profile
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 import { storageKeyOfAsset } from "@modules/scan/infrastructure/prisma-scan-store";
 
-import { toScanErrorResponse } from "../../../scans/scan-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * O palpite de perfil para o PDF deste livro (ADR 0007).
@@ -21,6 +21,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const suggestion = await suggestCaptureProfile({ sources, storage, opener, sourceKey: storageKeyOfAsset }, id);
     return NextResponse.json(suggestion ?? { ranking: [], sampledPages: 0 });
   } catch (error) {
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

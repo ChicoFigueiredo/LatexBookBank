@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { discardCapture } from "@modules/recognition/infrastructure/prisma-capture-queue";
 
-import { toErrorResponse } from "../../../../tree-http";
+import { toErrorResponse } from "../../../../http";
 
 /**
  * Descarta um recorte da fila.

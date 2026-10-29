@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 
-import {
-  applyQuestionPatch,
-  QuestionGoneError,
-} from "@modules/agents/application/apply-question-patch";
-import { NothingApprovedError } from "@modules/agents/domain/apply-patch";
-import { parseQuestionPatch, PatchRejectedError } from "@modules/agents/domain/question-patch";
+import { applyQuestionPatch } from "@modules/agents/application/apply-question-patch";
+import { parseQuestionPatch } from "@modules/agents/domain/question-patch";
 import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * Aplica um patch — **só o que o usuário aprovou**.
@@ -46,21 +42,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof NothingApprovedError) {
-      return NextResponse.json(
-        { error: "nothing_approved", message: error.message },
-        { status: 400 },
-      );
-    }
-    if (error instanceof PatchRejectedError) {
-      return NextResponse.json(
-        { error: "patch_rejected", message: error.message, issues: error.issues },
-        { status: 400 },
-      );
-    }
-    if (error instanceof QuestionGoneError) {
-      return NextResponse.json({ error: "question_gone", message: error.message }, { status: 409 });
-    }
     return toErrorResponse(error);
   }
 }

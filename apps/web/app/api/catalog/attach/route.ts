@@ -8,8 +8,9 @@ import {
 } from "@modules/publications/infrastructure/prisma-catalog-import";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 
-import { BadRequestError, readJson } from "../../tree-http";
-import { resolveCatalogRoot, toCatalogErrorResponse } from "../catalog-http";
+import { BadRequestError, readJson } from "../../http";
+import { resolveCatalogRoot } from "../catalog-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * **Anexar** o PDF de um livro do catálogo a uma publicação que já existe (D44).
@@ -54,6 +55,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    return toCatalogErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

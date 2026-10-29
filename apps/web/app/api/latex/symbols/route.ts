@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { PrismaLatexSymbolReader } from "@modules/latex-knowledge/infrastructure/prisma-latex-knowledge-reader";
 
+import { withErrors } from "../../http";
+
 /**
  * O índice da palette: 2.740 símbolos **sem** miniatura, mais os nomes dos 13 grupos.
  *
@@ -14,7 +16,7 @@ import { PrismaLatexSymbolReader } from "@modules/latex-knowledge/infrastructure
  */
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withErrors(async function GET() {
   const reader = new PrismaLatexSymbolReader();
   const [groups, symbols] = await Promise.all([
     reader.listSymbolGroupNames(),
@@ -22,4 +24,4 @@ export async function GET() {
   ]);
 
   return NextResponse.json({ groups, symbols });
-}
+});

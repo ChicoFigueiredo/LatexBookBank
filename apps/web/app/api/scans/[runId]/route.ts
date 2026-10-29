@@ -4,7 +4,7 @@ import { getScan } from "@modules/scan/application/control-scan";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
 import { scanRunDto } from "../scan-dto";
-import { toScanErrorResponse } from "../scan-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * Uma execução e a sua proposta. `?items=0` devolve só o estado — é o que a tela consulta
@@ -24,6 +24,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ runI
       items: view.items,
     });
   } catch (error) {
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

@@ -24,9 +24,8 @@ import { OpenAiCompatibleProvider } from "@modules/agents/infrastructure/openai-
 import { PrismaAgentReadPort } from "@infrastructure/agent/prisma-agent-read-port";
 import { recordAgentRun, workspaceOfQuestion } from "@infrastructure/agent/prisma-agent-run-writer";
 import { env as appEnv } from "@/shared/config/env";
-import { AiCredentialMissingError } from "@/shared/ports";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../http";
 
 /**
  * Um turno do agente, modo `ASK`.
@@ -175,12 +174,6 @@ export async function POST(request: Request) {
       runId,
     });
   } catch (error) {
-    if (error instanceof AiCredentialMissingError) {
-      return NextResponse.json(
-        { error: "ai_credential_missing", message: error.message },
-        { status: 503 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

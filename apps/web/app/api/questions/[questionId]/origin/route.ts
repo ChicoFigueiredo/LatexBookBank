@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { originActions } from "@modules/assets/domain/provenance";
 import { PrismaProvenanceReader } from "@modules/assets/infrastructure/prisma-provenance-reader";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * De onde esta questão veio: fonte → página → recorte.

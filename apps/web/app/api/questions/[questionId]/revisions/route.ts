@@ -4,7 +4,7 @@ import { parseSnapshot } from "@modules/questions/domain/revision-diff";
 import { readQuestionState } from "@infrastructure/agent/prisma-question-state";
 import { findRevision, listRevisions } from "@infrastructure/agent/prisma-revision-reader";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * O histórico de uma questão.

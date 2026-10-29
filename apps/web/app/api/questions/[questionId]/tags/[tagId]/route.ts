@@ -1,7 +1,7 @@
 import { untagQuestion } from "@modules/questions/application/tag-question";
 import { PrismaTagRepository } from "@modules/questions/infrastructure/prisma-tag-repository";
 
-import { toErrorResponse } from "../../../../tree-http";
+import { toErrorResponse } from "../../../../http";
 
 /**
  * Desmarca uma tag da questão.

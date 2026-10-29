@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { PrismaLatexSymbolReader } from "@modules/latex-knowledge/infrastructure/prisma-latex-knowledge-reader";
 
-import { BadRequestError, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, toErrorResponse } from "../../../http";
 
 /**
  * As miniaturas de um grupo, por comando.

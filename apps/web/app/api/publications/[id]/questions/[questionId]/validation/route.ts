@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+import { requireQuestionScope } from "@/shared/authorization/question-scope";
 import { validateAndPersist } from "@modules/questions/application/validate-question";
 import { buildChecklist, isUsable } from "@modules/questions/domain/validation-checklist";
 import {
@@ -9,7 +9,7 @@ import {
 } from "@modules/questions/infrastructure/prisma-validation-writer";
 import { lastRenderStateOf } from "@modules/rendering/infrastructure/prisma-render-state";
 
-import { toErrorResponse } from "../../../../../tree-http";
+import { toErrorResponse } from "../../../../../http";
 
 /**
  * "Validar questão" — o botão do design §25, e a resposta que faltava.
@@ -32,13 +32,7 @@ export async function POST(
   try {
     // O escopo confere que a questão é **desta** publicação — sem isso a rota validaria questão de
     // outro livro por um id adivinhado na URL.
-    const scope = await resolveQuestionScope(id, questionId);
-    if (scope === null) {
-      return NextResponse.json(
-        { error: "question_not_found", message: "Esta questão não é desta publicação." },
-        { status: 404 },
-      );
-    }
+    await requireQuestionScope(id, questionId);
 
     const question = await questionForValidation(questionId);
     if (question === null) {

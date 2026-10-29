@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * A lixeira de uma publicação.

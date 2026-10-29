@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { restoreNode } from "@modules/document-tree/application/mutate-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 
-import { toErrorResponse } from "../../../../../tree-http";
+import { toErrorResponse } from "../../../../../http";
 
 /**
  * Restaura um nó da lixeira.

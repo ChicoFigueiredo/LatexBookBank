@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { duplicateNode } from "@modules/document-tree/application/mutate-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 
-import { parsePlacement, readJson, toErrorResponse } from "../../../../../tree-http";
+import { readJson, toErrorResponse } from "../../../../../http";
+import { parsePlacement } from "../../../../../tree-parsers";
 
 /**
  * Duplica um nó e tudo abaixo dele.

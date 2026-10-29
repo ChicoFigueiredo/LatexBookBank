@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { listWorkspaces } from "@modules/workspaces/infrastructure/prisma-workspace-list";
 
-import { toErrorResponse } from "../tree-http";
+import { toErrorResponse } from "../http";
 
 /**
  * Os workspaces existentes.

@@ -10,8 +10,9 @@ import {
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
-import { readJson } from "../../tree-http";
-import { resolveCatalogRoot, toCatalogErrorResponse } from "../catalog-http";
+import { readJson } from "../../http";
+import { resolveCatalogRoot } from "../catalog-http";
+import { toErrorResponse } from "../../http";
 
 /** Importa um livro do catálogo para uma biblioteca do acervo. */
 export const dynamic = "force-dynamic";
@@ -44,6 +45,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    return toCatalogErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

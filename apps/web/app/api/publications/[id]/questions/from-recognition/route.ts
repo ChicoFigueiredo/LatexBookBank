@@ -2,21 +2,13 @@ import { NextResponse } from "next/server";
 
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
-import { DestinationNotFoundError } from "@modules/questions/application/create-question";
-import { InvalidQuestionTypeError } from "@modules/questions/domain/question-blueprint";
 import { PrismaQuestionCreator } from "@modules/questions/infrastructure/prisma-question-creator";
-import {
-  RecognitionProvenanceError,
-  createQuestionFromRecognition,
-} from "@modules/recognition/application/create-question-from-recognition";
-import {
-  CandidateNotReviewedError,
-  EmptyCandidateError,
-  approveCandidate,
-} from "@modules/recognition/domain/recognition-candidate";
+import { createQuestionFromRecognition } from "@modules/recognition/application/create-question-from-recognition";
+import { approveCandidate } from "@modules/recognition/domain/recognition-candidate";
 import { PrismaRecognitionProvenance } from "@modules/recognition/infrastructure/prisma-recognition-provenance";
 
-import { BadRequestError, parsePlacement, readJson, toErrorResponse } from "../../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../../http";
+import { parsePlacement } from "../../../../tree-parsers";
 
 /**
  * "Aceitar e criar questão" — o fim do copia-e-cola entre telas.
@@ -70,30 +62,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
-    if (error instanceof CandidateNotReviewedError) {
-      return NextResponse.json(
-        { error: "not_reviewed", message: error.message },
-        { status: 422 },
-      );
-    }
-    if (error instanceof EmptyCandidateError) {
-      return NextResponse.json({ error: "empty_candidate", message: error.message }, { status: 422 });
-    }
-    if (error instanceof RecognitionProvenanceError) {
-      return NextResponse.json({ error: "source_missing", message: error.message }, { status: 404 });
-    }
-    if (error instanceof InvalidQuestionTypeError) {
-      return NextResponse.json(
-        { error: "invalid_question_type", message: error.message },
-        { status: 400 },
-      );
-    }
-    if (error instanceof DestinationNotFoundError) {
-      return NextResponse.json(
-        { error: "destination_not_found", message: error.message },
-        { status: 404 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

@@ -2,6 +2,8 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 
+import { QuestionOutOfScopeError } from "./question-out-of-scope";
+
 /**
  * O guarda central: **a URL precisa ser verdade**.
  *
@@ -65,4 +67,14 @@ export async function resolveQuestionScope(
     publicationId: row.node.publicationId,
     workspaceId: row.node.publication.workspaceId,
   };
+}
+
+/** `resolveQuestionScope`, para quem não tem o que fazer com o `null` além de recusar. */
+export async function requireQuestionScope(
+  publicationId: string,
+  questionId: string,
+): Promise<QuestionScope> {
+  const scope = await resolveQuestionScope(publicationId, questionId);
+  if (scope === null) throw new QuestionOutOfScopeError(questionId);
+  return scope;
 }

@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { resolveQuestionScope } from "@/shared/authorization/question-scope";
+import { requireQuestionScope } from "@/shared/authorization/question-scope";
 
-import {
-  editOption,
-  QuestionNotFoundError,
-  removeOption,
-} from "@modules/questions/application/mutate-options";
-import {
-  InvalidOptionEditError,
-  OptionNotFoundError,
-} from "@modules/questions/domain/option-mutations";
+import { editOption, removeOption } from "@modules/questions/application/mutate-options";
 import { PrismaOptionWriter } from "@modules/questions/infrastructure/prisma-option-writer";
 import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 
-import { readJson, toErrorResponse } from "../../../../../../tree-http";
+import { readJson, toErrorResponse } from "../../../../../../http";
 
 /**
  * Muda uma alternativa: posição, gabarito ou texto.
@@ -32,18 +24,7 @@ export async function PATCH(
   const { id, questionId, optionId } = await params;
 
   try {
-    const escopo = await resolveQuestionScope(id, questionId);
-    if (escopo === null) {
-      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
-      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
-      return NextResponse.json(
-        {
-          error: "not_found",
-          message: `Questão ${questionId} não existe nesta publicação.`,
-        },
-        { status: 404 },
-      );
-    }
+    await requireQuestionScope(id, questionId);
 
     const body = await readJson(request);
 
@@ -65,12 +46,6 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof OptionNotFoundError || error instanceof QuestionNotFoundError) {
-      return NextResponse.json({ error: "not_found", message: error.message }, { status: 404 });
-    }
-    if (error instanceof InvalidOptionEditError) {
-      return NextResponse.json({ error: "bad_request", message: error.message }, { status: 400 });
-    }
     return toErrorResponse(error);
   }
 }
@@ -82,18 +57,7 @@ export async function DELETE(
   const { id, questionId, optionId } = await params;
 
   try {
-    const escopo = await resolveQuestionScope(id, questionId);
-    if (escopo === null) {
-      // 404 e não 403: distinguir "existe, mas não é desta publicação" de "não existe" confirmaria
-      // a quem perguntou que o id acertou — que é a informação que um enumerador procura.
-      return NextResponse.json(
-        {
-          error: "not_found",
-          message: `Questão ${questionId} não existe nesta publicação.`,
-        },
-        { status: 404 },
-      );
-    }
+    await requireQuestionScope(id, questionId);
 
     await removeOption(
       new PrismaOptionWriter(),
@@ -103,9 +67,6 @@ export async function DELETE(
     );
     return new Response(null, { status: 204 });
   } catch (error) {
-    if (error instanceof OptionNotFoundError) {
-      return NextResponse.json({ error: "not_found", message: error.message }, { status: 404 });
-    }
     return toErrorResponse(error);
   }
 }

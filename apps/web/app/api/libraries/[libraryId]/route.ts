@@ -6,8 +6,8 @@ import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/pris
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
 import { env as appEnv } from "@/shared/config/env";
 
-import { readJson } from "../../tree-http";
-import { toLibraryErrorResponse } from "../library-http";
+import { readJson } from "../../http";
+import { toErrorResponse } from "../../http";
 
 /** Uma biblioteca — o que ela tem dentro, renomear e excluir. */
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ lib
     const contents = await repository.contentsOf(libraryId);
     return NextResponse.json({ library, contents });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }
 
@@ -46,7 +46,7 @@ export async function PATCH(
 
     return NextResponse.json({ library });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }
 
@@ -74,6 +74,6 @@ export async function DELETE(
 
     return NextResponse.json({ deleted });
   } catch (error) {
-    return toLibraryErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

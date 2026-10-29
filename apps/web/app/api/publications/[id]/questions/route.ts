@@ -2,14 +2,11 @@ import { NextResponse } from "next/server";
 
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
-import {
-  DestinationNotFoundError,
-  createQuestion,
-} from "@modules/questions/application/create-question";
-import { InvalidQuestionTypeError } from "@modules/questions/domain/question-blueprint";
+import { createQuestion } from "@modules/questions/application/create-question";
 import { PrismaQuestionCreator } from "@modules/questions/infrastructure/prisma-question-creator";
 
-import { parsePlacement, parseTitle, readJson, toErrorResponse } from "../../../tree-http";
+import { readJson, toErrorResponse } from "../../../http";
+import { parsePlacement, parseTitle } from "../../../tree-parsers";
 
 /**
  * Cria uma questão — **e o nó dela** — em uma operação.
@@ -52,18 +49,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
-    if (error instanceof InvalidQuestionTypeError) {
-      return NextResponse.json(
-        { error: "invalid_question_type", message: error.message },
-        { status: 400 },
-      );
-    }
-    if (error instanceof DestinationNotFoundError) {
-      return NextResponse.json(
-        { error: "destination_not_found", message: error.message },
-        { status: 404 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

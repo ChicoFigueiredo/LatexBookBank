@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { collectDiagnostics } from "@modules/diagnostics/application/collect-diagnostics";
 import { env } from "@/shared/config/env";
 
-import { toErrorResponse } from "../tree-http";
+import { toErrorResponse } from "../http";
 
 /**
  * A infraestrutura viva, para a barra de status (protótipo: `local-first · worker de render:

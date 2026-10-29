@@ -9,7 +9,7 @@ import { VisionMathRecognizer } from "@modules/recognition/infrastructure/vision
 import { env as appEnv } from "@/shared/config/env";
 import { MathRecognitionError } from "@/shared/ports";
 
-import { BadRequestError, toErrorResponse } from "../tree-http";
+import { BadRequestError, toErrorResponse } from "../http";
 
 /**
  * Reconhece a matemática de um recorte.

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 
-import { toErrorResponse } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * O que a exclusão de um livro levaria junto.

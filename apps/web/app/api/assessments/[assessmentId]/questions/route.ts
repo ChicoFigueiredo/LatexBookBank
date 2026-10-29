@@ -5,7 +5,7 @@ import {
   removeQuestion,
 } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * Acrescenta ou tira uma questão da prova.

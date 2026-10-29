@@ -368,10 +368,11 @@ describe("toda rota de questão confere a publicação da URL", () => {
     expect(rotas.length).toBeGreaterThanOrEqual(4);
   });
 
+  // `requireQuestionScope` é o mesmo guarda, com o 404 no tradutor de erros (STE-10).
+  const GUARDA = /(resolve|require)QuestionScope\(/g;
+
   it("nenhuma resolve a questão sem passar pelo guarda", () => {
-    const semGuarda = rotas.filter(
-      (file) => !readFileSync(file, "utf8").includes("resolveQuestionScope("),
-    );
+    const semGuarda = rotas.filter((file) => !readFileSync(file, "utf8").match(GUARDA));
 
     expect(semGuarda.map((f) => f.replace(root, ""))).toEqual([]);
   });
@@ -381,8 +382,9 @@ describe("toda rota de questão confere a publicação da URL", () => {
     // aberta, que é exatamente o caminho que mais importa.
     for (const file of rotas) {
       const code = readFileSync(file, "utf8");
-      const handlers = code.match(/export async function (GET|POST|PATCH|PUT|DELETE)\b/g) ?? [];
-      const guardas = code.match(/resolveQuestionScope\(/g) ?? [];
+      const handlers =
+        code.match(/export (?:async function|const) (GET|POST|PATCH|PUT|DELETE)\b/g) ?? [];
+      const guardas = code.match(GUARDA) ?? [];
 
       expect(guardas.length, `${file.replace(root, "")}`).toBeGreaterThanOrEqual(handlers.length);
     }

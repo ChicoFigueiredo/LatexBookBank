@@ -10,8 +10,9 @@ import {
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
 
-import { BadRequestError, readJson } from "../../tree-http";
-import { resolveCatalogRoot, toCatalogErrorResponse } from "../catalog-http";
+import { BadRequestError, readJson } from "../../http";
+import { resolveCatalogRoot } from "../catalog-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * Importa vários livros do catálogo de uma vez (beta-editorial.md, "o que o Calibre ainda não
@@ -55,6 +56,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(report, { status: 201 });
   } catch (error) {
-    return toCatalogErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

@@ -4,7 +4,7 @@ import { previewImportRemoval, removeImport, type RemovalScope } from "@modules/
 import { PrismaScanImport } from "@modules/scan/infrastructure/prisma-scan-import";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { toScanErrorResponse } from "../../scan-http";
+import { toErrorResponse } from "../../../http";
 
 /**
  * A importação de uma execução: o que ela criou no acervo (D57, ADR 0006).
@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     const { store } = scanDeps();
     return NextResponse.json(await previewImportRemoval({ store, imports: new PrismaScanImport() }, runId));
   } catch (error) {
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }
 
@@ -34,6 +34,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ r
     const result = await removeImport({ store, imports: new PrismaScanImport() }, { runId, scope: scopeOf(request) });
     return NextResponse.json(result);
   } catch (error) {
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

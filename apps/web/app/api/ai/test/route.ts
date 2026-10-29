@@ -4,7 +4,7 @@ import { OpenAiCompatibleProvider } from "@modules/agents/infrastructure/openai-
 import { env as appEnv } from "@/shared/config/env";
 import { AiCredentialMissingError, AiProviderError } from "@/shared/ports";
 
-import { toErrorResponse } from "../../tree-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * "Testar conexão" — a única coisa que faltava da Fase 8.

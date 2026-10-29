@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { tagQuestionMany } from "@modules/questions/application/tag-question";
-import { InvalidTagError, parseTagInput } from "@modules/questions/domain/tag";
+import { parseTagInput } from "@modules/questions/domain/tag";
 import {
   PrismaTagRepository,
   workspaceOfQuestion,
 } from "@modules/questions/infrastructure/prisma-tag-repository";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
+import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
 /**
  * As tags de uma questão.
@@ -79,9 +79,6 @@ export async function POST(
       },
     );
   } catch (error) {
-    if (error instanceof InvalidTagError) {
-      return NextResponse.json({ error: "invalid_tag", message: error.message }, { status: 400 });
-    }
     return toErrorResponse(error);
   }
 }

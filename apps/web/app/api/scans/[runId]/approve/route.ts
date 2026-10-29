@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { approveScan, DestinationNotInPublicationError } from "@modules/scan/application/approve-scan";
+import { approveScan } from "@modules/scan/application/approve-scan";
 import { PrismaScanApproval } from "@modules/scan/infrastructure/prisma-scan-approval";
 import { scanDeps } from "@modules/scan/infrastructure/scan-deps";
 
-import { toScanErrorResponse } from "../../scan-http";
-import { readJson } from "../../../tree-http";
+import { toErrorResponse } from "../../../http";
+import { readJson } from "../../../http";
 
 /**
  * Aprovar a proposta (D45, D53): o que foi aceito — e, em lote, o sugerido — entra no acervo sob o
@@ -28,9 +28,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ run
     );
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof DestinationNotInPublicationError) {
-      return NextResponse.json({ error: "bad_request", message: error.message }, { status: 400 });
-    }
-    return toScanErrorResponse(error);
+    return toErrorResponse(error);
   }
 }

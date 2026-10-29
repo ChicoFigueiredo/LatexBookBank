@@ -7,7 +7,7 @@ import {
   variantLabelsOf,
 } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
-import { toErrorResponse } from "../../tree-http";
+import { toErrorResponse } from "../../http";
 
 /**
  * A avaliação com suas questões.
