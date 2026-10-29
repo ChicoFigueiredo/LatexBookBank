@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
 
-import {
-  composeVariant,
-  composeVersions,
-} from "@modules/assessments/application/compose-assessment";
-import {
-  contentFor,
-  findAssessment,
-  saveVariant,
-} from "@modules/assessments/infrastructure/prisma-assessment-repository";
+import { drawVariant } from "@modules/assessments/application/manage-assessments";
+import { PrismaAssessmentStore } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../http";
 
@@ -56,14 +49,6 @@ export async function POST(
     }
     const seed = rawSeed ?? Date.now() % MAX_SEED;
 
-    const assessment = await findAssessment(assessmentId);
-    if (assessment === null) {
-      return NextResponse.json(
-        { error: "not_found", message: "Esta avaliação não existe." },
-        { status: 404 },
-      );
-    }
-
     const spec = {
       label,
       seed,
@@ -71,11 +56,11 @@ export async function POST(
       shuffleOptions: body["shuffleOptions"] !== false,
     };
 
-    const content = await contentFor(assessment.items.map((item) => item.questionId));
-    const variant = composeVariant(assessment, spec, content);
-    const versions = composeVersions(assessment, variant, content);
-
-    await saveVariant(assessmentId, variant, spec);
+    const { variant, versions } = await drawVariant(
+      new PrismaAssessmentStore(),
+      assessmentId,
+      spec,
+    );
 
     return NextResponse.json(
       {

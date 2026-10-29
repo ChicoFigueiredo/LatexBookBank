@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { deleteAssessment } from "@modules/assessments/application/manage-assessments";
 import {
   contentFor,
-  deleteAssessment,
   findAssessment,
-  variantLabelsOf,
+  PrismaAssessmentStore,
 } from "@modules/assessments/infrastructure/prisma-assessment-repository";
 
 import { toErrorResponse } from "../../http";
@@ -79,7 +79,8 @@ export async function GET(
  * permutação apenas enquanto a questão tiver exatamente as mesmas alternativas (§17).
  *
  * Por isso a recusa vem com **409 e a lista das variantes**, não com um 400 genérico: o pedido é
- * válido, é o estado que exige alguém dizer sim sabendo o que perde.
+ * válido, é o estado que exige alguém dizer sim sabendo o que perde. A trava é do caso de uso
+ * (`deleteAssessment`), e o 409 é do tradutor de erros.
  */
 export async function DELETE(
   request: Request,
@@ -88,33 +89,12 @@ export async function DELETE(
   const { assessmentId } = await params;
 
   try {
-    const confirmed = new URL(request.url).searchParams.get("confirmVariants") === "1";
-    const labels = await variantLabelsOf(assessmentId);
+    const confirmVariants = new URL(request.url).searchParams.get("confirmVariants") === "1";
+    const result = await deleteAssessment(new PrismaAssessmentStore(), assessmentId, {
+      confirmVariants,
+    });
 
-    if (labels === null) {
-      return NextResponse.json(
-        { error: "not_found", message: "Esta avaliação não existe." },
-        { status: 404 },
-      );
-    }
-
-    if (labels.length > 0 && !confirmed) {
-      return NextResponse.json(
-        {
-          error: "variants_would_be_lost",
-          message:
-            `Esta avaliação tem ${labels.length} variante(s) sorteada(s) (${labels.join(", ")}). ` +
-            "O mapa de letras delas é o gabarito, e apagá-lo não tem volta — a seed sozinha não " +
-            "reconstrói a prova se as alternativas mudarem.",
-          variantLabels: labels,
-        },
-        { status: 409 },
-      );
-    }
-
-    const { variantLabels } = await deleteAssessment(assessmentId);
-
-    return NextResponse.json({ deleted: true, variantLabels });
+    return NextResponse.json(result);
   } catch (error) {
     return toErrorResponse(error);
   }

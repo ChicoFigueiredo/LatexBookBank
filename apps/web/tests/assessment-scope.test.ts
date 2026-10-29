@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AddQuestionResult } from "@modules/assessments/infrastructure/prisma-assessment-repository";
+import type { AddQuestionResult } from "@modules/assessments/application/manage-assessments";
 
 /**
  * Uma prova só monta com o acervo da própria biblioteca (#177).

@@ -4,6 +4,10 @@ import { QuestionGoneError } from "@modules/agents/application/apply-question-pa
 import { NothingApprovedError } from "@modules/agents/domain/apply-patch";
 import { PatchRejectedError } from "@modules/agents/domain/question-patch";
 import {
+  AssessmentNotFoundError,
+  VariantsWouldBeLostError,
+} from "@modules/assessments/application/manage-assessments";
+import {
   EmptyAssessmentError,
   MissingQuestionError,
   QuestionsInTrashError,
@@ -236,6 +240,12 @@ const rules = (): readonly ErrorRule[] =>
     on(RendererUnavailableError, 503, "renderer_unavailable"),
 
     // Avaliações.
+    on(AssessmentNotFoundError, 404, "not_found"),
+    // O mapa de letras de uma variante é o gabarito de uma prova que pode já ter ido para a sala:
+    // 409 com as letras, para a tela dizer o que se perde antes de alguém confirmar.
+    on(VariantsWouldBeLostError, 409, "variants_would_be_lost", (error) => ({
+      variantLabels: error.variantLabels,
+    })),
     on(UnsupportedQuestionTypeError, 409, "unsupported_question_type", (error) => ({
       questionIds: error.questionIds,
     })),
