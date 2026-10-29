@@ -3,15 +3,18 @@ import { NextResponse } from "next/server";
 import { resolveQuestionScope } from "@/shared/authorization/question-scope";
 
 import {
-  moveOption,
+  editOption,
   QuestionNotFoundError,
   removeOption,
-  setCorrectOption,
 } from "@modules/questions/application/mutate-options";
-import { OptionNotFoundError } from "@modules/questions/domain/option-mutations";
+import {
+  InvalidOptionEditError,
+  OptionNotFoundError,
+} from "@modules/questions/domain/option-mutations";
 import { PrismaOptionWriter } from "@modules/questions/infrastructure/prisma-option-writer";
+import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../../../../tree-http";
+import { readJson, toErrorResponse } from "../../../../../../tree-http";
 
 /**
  * Muda uma alternativa: posição, gabarito ou texto.
@@ -43,34 +46,30 @@ export async function PATCH(
     }
 
     const body = await readJson(request);
-    const writer = new PrismaOptionWriter();
-
-    if (body["targetIndex"] !== undefined) {
-      const index = body["targetIndex"];
-      if (typeof index !== "number" || !Number.isInteger(index)) {
-        throw new BadRequestError("`targetIndex` precisa ser inteiro.");
-      }
-      await moveOption(writer, questionId, optionId, index);
-    }
 
     // `isCorrect: true` marca; o domínio decide se isso desmarca as outras, conforme o tipo.
     // Não há "desmarcar" na API de propósito: deixar a questão sem gabarito é resultado de
     // remover ou de marcar outra, nunca um pedido explícito que a interface precise oferecer.
-    if (body["isCorrect"] === true) {
-      await setCorrectOption(writer, questionId, optionId);
-    }
-
-    if (body["statementLatex"] !== undefined) {
-      const text = body["statementLatex"];
-      if (typeof text !== "string")
-        throw new BadRequestError("`statementLatex` precisa ser texto.");
-      await writer.updateText(questionId, optionId, text);
-    }
+    // O caso de uso confere o pedido inteiro antes de gravar, grava numa transação e revalida.
+    await editOption(
+      new PrismaOptionWriter(),
+      questionId,
+      optionId,
+      {
+        targetIndex: body["targetIndex"],
+        isCorrect: body["isCorrect"],
+        statementLatex: body["statementLatex"],
+      },
+      new PrismaValidationWriter(),
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof OptionNotFoundError || error instanceof QuestionNotFoundError) {
       return NextResponse.json({ error: "not_found", message: error.message }, { status: 404 });
+    }
+    if (error instanceof InvalidOptionEditError) {
+      return NextResponse.json({ error: "bad_request", message: error.message }, { status: 400 });
     }
     return toErrorResponse(error);
   }
@@ -96,7 +95,12 @@ export async function DELETE(
       );
     }
 
-    await removeOption(new PrismaOptionWriter(), questionId, optionId);
+    await removeOption(
+      new PrismaOptionWriter(),
+      questionId,
+      optionId,
+      new PrismaValidationWriter(),
+    );
     return new Response(null, { status: 204 });
   } catch (error) {
     if (error instanceof OptionNotFoundError) {

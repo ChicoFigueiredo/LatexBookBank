@@ -64,7 +64,8 @@ export async function PUT(request: Request, { params }: Params) {
       return NextResponse.json(
         {
           error: "conflict",
-          message: "Este nó mudou desde que você abriu. Recarregue para ver a versão atual antes de salvar.",
+          // Renomear e mover já não chegam aqui (#259): o que sobra é o corpo salvo em outra aba.
+          message: "Este corpo foi salvo em outro lugar desde que você abriu.",
           expectedVersion: String(error.expectedVersion),
           actualVersion: String(error.actualVersion),
         },

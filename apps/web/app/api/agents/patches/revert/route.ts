@@ -5,6 +5,7 @@ import {
   revertQuestion,
 } from "@modules/agents/application/apply-question-patch";
 import { PrismaPatchApplier } from "@infrastructure/agent/prisma-patch-applier";
+import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 import { findRevision } from "@infrastructure/agent/prisma-revision-reader";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../../tree-http";
@@ -44,11 +45,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const created = await revertQuestion(new PrismaPatchApplier(), {
-      questionId,
-      snapshotJson: revision.snapshotJson,
-      summary: `Reverte para a revisão ${revisionNumber} (${revision.summary}).`,
-    });
+    const created = await revertQuestion(
+      new PrismaPatchApplier(),
+      {
+        questionId,
+        snapshotJson: revision.snapshotJson,
+        summary: `Reverte para a revisão ${revisionNumber} (${revision.summary}).`,
+      },
+      new PrismaValidationWriter(),
+    );
 
     return NextResponse.json({ revisionNumber: created, revertedTo: revisionNumber });
   } catch (error) {

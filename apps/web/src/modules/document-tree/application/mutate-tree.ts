@@ -3,6 +3,7 @@ import type {
   DocumentTreeRepository,
   DocumentTreeWriter,
 } from "@modules/document-tree/domain/document-tree-repository";
+import { generateKeyBetween } from "@modules/document-tree/domain/fractional-index";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 import {
   NodeNotFoundError,
@@ -118,16 +119,23 @@ export async function deleteNode(
 }
 
 /**
- * Restaura um nó excluído, com a descendência que foi excluída junto.
+ * Restaura um nó excluído, com a descendência que foi excluída **junto** com ele.
  *
  * Se o pai continuar excluído, **recusa** em vez de restaurar: o nó voltaria apontando para um
  * pai invisível, sumiria da árvore de novo e o usuário concluiria que a restauração falhou sem
  * dizer nada. A mensagem nomeia o ancestral que precisa vir antes.
+ *
+ * "Junto" é o mesmo `deletedAt` (#260): a exclusão grava um instante só para a subárvore inteira.
+ * Um filho que já estava na lixeira quando o pai foi excluído é **outro ato** — alguém o excluiu de
+ * propósito, antes — e não volta de carona: continua na lixeira, e é restaurado à parte depois do
+ * pai. É a mesma regra que a lixeira usa para agrupar os atos (`agruparLixeira`).
+ *
+ * A sortKey de antes volta, para o nó voltar ao lugar de origem — menos quando um irmão criado
+ * enquanto ele estava na lixeira recebeu a mesma chave. Dois irmãos com a mesma chave deixam a
+ * ordem por conta do banco, e qualquer inserção entre eles cai em `generateKeyBetween(k, k)`.
  */
 export async function restoreNode(
-  // Só o writer: a lixeira não aparece na leitura da árvore, que filtra `deletedAt`. Pedir o
-  // reader aqui seria dependência declarada e não usada.
-  { writer }: Deps,
+  { reader, writer }: Deps,
   publicationId: string,
   nodeId: string,
 ): Promise<readonly string[]> {
@@ -141,10 +149,10 @@ export async function restoreNode(
     throw new DeletedAncestorError(nodeId, node.parentId);
   }
 
-  // A descendência a restaurar é a que está na lixeira, não a que existia quando a exclusão
-  // aconteceu: um filho excluído depois, à parte, não deve voltar de carona.
+  const instante = node.deletedAt.getTime();
   const childrenOf = new Map<string | null, string[]>();
   for (const record of deleted) {
+    if (record.deletedAt.getTime() !== instante) continue;
     const list = childrenOf.get(record.parentId);
     if (list) list.push(record.id);
     else childrenOf.set(record.parentId, [record.id]);
@@ -161,7 +169,22 @@ export async function restoreNode(
     for (const child of childrenOf.get(id) ?? []) pending.push(child);
   }
 
-  await writer.restoreMany(restoring);
+  const siblings = (await reader.listByPublication(publicationId))
+    .filter((record) => record.parentId === node.parentId)
+    .map((record) => record.sortKey)
+    .sort();
+
+  if (siblings.includes(node.sortKey)) {
+    // Logo depois do irmão que tomou a chave: é o lugar mais perto do de origem que está livre.
+    const next = siblings.find((key) => key > node.sortKey) ?? null;
+    await writer.restoreMany(restoring, {
+      nodeId,
+      sortKey: generateKeyBetween(node.sortKey, next),
+    });
+  } else {
+    await writer.restoreMany(restoring);
+  }
+
   return restoring;
 }
 

@@ -95,12 +95,20 @@ export class PrismaNodeBodyRepository implements NodeBodyRepository {
     });
   }
 
-  async save(input: Parameters<NodeBodyRepository["save"]>[0]): Promise<NodeBodyRecord> {
+  async save(input: Parameters<NodeBodyRepository["save"]>[0]): Promise<NodeBodyRecord | null> {
     return prisma.$transaction(async (tx) => {
-      await writeUserRevision(tx, input.nodeId, input.summary, input.previous);
-      const row = await tx.documentNode.update({
-        where: { id: input.nodeId },
+      // A versão vai **no `where`** (#259): ler, comparar e depois gravar deixa duas abas passarem
+      // pela comparação juntas, e a segunda sobrescreve a primeira. Aqui o SQLite aplica a condição
+      // na hora da escrita, e quem perde volta com `count: 0` — sem revisão gravada.
+      const updated = await tx.documentNode.updateMany({
+        where: { id: input.nodeId, updatedAt: input.expectedUpdatedAt },
         data: { bodyLatex: input.bodyLatex },
+      });
+      if (updated.count === 0) return null;
+
+      await writeUserRevision(tx, input.nodeId, input.summary, input.previous);
+      const row = await tx.documentNode.findUniqueOrThrow({
+        where: { id: input.nodeId },
         select: SELECT,
       });
       return toRecord(row);

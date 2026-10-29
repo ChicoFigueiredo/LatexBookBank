@@ -69,3 +69,37 @@ export async function validateAndPersist(
   await writer.setValidationStatus(questionId, outcome.status, keepVersion);
   return outcome;
 }
+
+/** O que revalidar precisa: ler o que o plugin avalia, e gravar o veredito. */
+export interface QuestionValidation extends ValidationWriter {
+  /** `null` quando a questão sumiu ou tem tipo desconhecido. */
+  questionForValidation(questionId: string): Promise<QuestionForPlugin | null>;
+}
+
+/**
+ * Revalida depois de **qualquer** escrita da questão (tarefa D4 da revisão de 2026-09-23).
+ *
+ * O selo da árvore lê o `validationStatus` gravado, e só o salvamento do enunciado o recalculava —
+ * de dentro da rota. Marcar a correta pela aba de alternativas ou aplicar o patch do agente que
+ * corrige o gabarito deixava a questão vermelha até alguém editar o enunciado. Agora a sequência
+ * escrever → revalidar mora na aplicação, e cada caso de uso que escreve a chama.
+ *
+ * Silenciosa de propósito: a escrita já aconteceu e deu certo. Um selo desatualizado é menos
+ * grave que um 500 depois de gravar — e o próximo salvamento, ou o botão "Validar", o corrige.
+ *
+ * `keepVersion` é a versão que o salvamento acabou de devolver: o veredito só grava se ela ainda
+ * for a da questão (#166).
+ */
+export async function afterQuestionChanged(
+  validation: QuestionValidation,
+  questionId: string,
+  keepVersion?: Date,
+): Promise<void> {
+  try {
+    const question = await validation.questionForValidation(questionId);
+    if (question === null) return;
+    await validateAndPersist(validation, questionId, question, keepVersion);
+  } catch {
+    return;
+  }
+}

@@ -2,13 +2,16 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
+import type { TrashPurge, TrashPurgeResult } from "@modules/document-tree/application/empty-trash";
 import {
   type AtoDeExclusao,
   type NoExcluido,
   agruparLixeira,
   contagemDoRodape,
   frasedoQueLevou,
+  rotular,
 } from "@modules/document-tree/domain/trash-grouping";
+import { asStorageKey } from "@/shared/ports";
 
 /**
  * A lixeira de **todo** o acervo (protótipo, 1889–1921).
@@ -34,6 +37,11 @@ export interface ItemDaLixeira {
   readonly restoresCount: number;
   /** "levou 6 questões com ele" — `null` quando não levou nada. */
   readonly took: string | null;
+  /**
+   * "Capítulo 2" — o pai que também está na lixeira, excluído depois deste item (#260). Enquanto
+   * ele não voltar, este não volta; `null` quando o item pode ser restaurado já.
+   */
+  readonly waitsFor: string | null;
 }
 
 export interface LixeiraGlobal {
@@ -77,9 +85,10 @@ export async function readGlobalTrash(): Promise<LixeiraGlobal> {
 
   const resumo = agruparLixeira(nos);
   const porId = new Map(rows.map((row) => [row.id, row]));
+  const noPorId = new Map(nos.map((no) => [no.id, no]));
 
-  // O caminho ("cap. 2") vem do ancestral **vivo** mais próximo: o pai do que foi excluído não
-  // está na lixeira — é essa a definição de ato —, então ele existe e serve de endereço.
+  // O caminho ("cap. 2") vem do pai, que existe no banco mesmo quando está na lixeira — o caso do
+  // filho excluído antes dele, que é ato próprio (#260). A linha existe, e serve de endereço.
   const ancestrais = await carregarAncestrais(
     resumo.atos.map((ato) => porId.get(ato.id)?.parentId).filter((id): id is string => !!id),
   );
@@ -89,6 +98,7 @@ export async function readGlobalTrash(): Promise<LixeiraGlobal> {
       const row = porId.get(ato.id);
       const livro = row?.publication;
       const paiTitulo = row?.parentId ? ancestrais.get(row.parentId) : null;
+      const paiNaLixeira = ato.paiNaLixeira ? noPorId.get(ato.paiNaLixeira) : undefined;
 
       return {
         id: ato.id,
@@ -100,6 +110,7 @@ export async function readGlobalTrash(): Promise<LixeiraGlobal> {
         deletedAt: ato.deletedAt,
         restoresCount: ato.restoresCount,
         took: frasedoQueLevou(ato satisfies AtoDeExclusao),
+        waitsFor: paiNaLixeira ? rotular(paiNaLixeira) : null,
       };
     }),
     footer: contagemDoRodape(resumo),
@@ -149,46 +160,162 @@ async function carregarAncestrais(ids: readonly string[]): Promise<Map<string, s
  * qualquer tela e contando nos totais para sempre — um vazamento que cresce a cada esvaziada e que
  * ninguém veria, porque o sintoma é um número que não fecha.
  *
- * Numa transação, e nesta ordem: primeiro os nós (que referenciam a questão), depois as questões.
- * `QuestionOption`, `QuestionTag` e os assets da questão saem por cascade declarado no schema.
+ * **Menos a questão que está numa avaliação** (#258). `AssessmentItem → Question` é `ON DELETE
+ * RESTRICT`, e apagá-la abortava a transação inteira — a lixeira toda deixava de esvaziar por causa
+ * de um item. Ela fica na lixeira, com os ancestrais que também estão lá: sem eles, o `SetNull` de
+ * `parentId` a soltaria na raiz, e restaurar já não a devolveria ao lugar. Tudo é lido **dentro**
+ * da transação, para uma prova montada entre a leitura e a escrita não trazer a FK de volta.
  *
- * O `SourceAnchor` **fica**. Não é conteúdo da questão: é a marca de onde no PDF ela foi recortada,
- * e D29 trata a fonte como imutável e compartilhável — dois nós podem apontar para o mesmo
- * recorte. Apagá-lo aqui destruiria a proveniência de uma questão que continua viva.
+ * Numa transação, e nesta ordem: primeiro os nós (que referenciam a questão), depois as questões.
+ * `QuestionOption` e `QuestionTag` saem por cascade declarado no schema, e o `RenderJob` também,
+ * levando as linhas dos artefatos dele.
+ *
+ * O que fica de cada asset:
+ * - **Artefato de render** é derivado (D29): a linha sai em cascata com o job, e o arquivo sai do
+ *   disco quando nenhuma outra linha cita a mesma chave.
+ * - **Asset fonte da questão** (figura, imagem) **fica**, com `questionId` nulo. É patrimônio
+ *   (D29), e o `createAsset` deduplica pela chave: a linha que nasceu com esta questão pode ser a
+ *   mesma figura que outra questão usa.
+ * - O `SourceAnchor` **fica**. Não é conteúdo da questão: é a marca de onde no PDF ela foi
+ *   recortada, e D29 trata a fonte como imutável e compartilhável — dois nós podem apontar para o
+ *   mesmo recorte. Apagá-lo aqui destruiria a proveniência de uma questão que continua viva.
  */
-export async function emptyGlobalTrash(): Promise<{ nodes: number; questions: number }> {
-  const alvos = await prisma.documentNode.findMany({
-    where: { deletedAt: { not: null } },
-    select: { id: true, questionId: true },
-  });
-
-  if (alvos.length === 0) return { nodes: 0, questions: 0 };
-
-  const nodeIds = alvos.map((alvo) => alvo.id);
-  const questionIds = alvos
-    .map((alvo) => alvo.questionId)
-    .filter((id): id is string => id !== null);
-
-  return prisma.$transaction(async (tx) => {
-    // Um filho **vivo** de um nó excluído não deveria existir — a exclusão desce a subárvore —,
-    // mas se existisse, apagar o pai deixaria a FK `parentId` apontando para o nada. Soltá-lo na
-    // raiz é a escolha que preserva o dado; apagá-lo junto seria apagar o que ninguém mandou.
-    // Em pedaços (`in-chunks.ts`): a lixeira depois de apagar a importação de um livro passa de
-    // mil nós, e o SQLite recusa a lista inteira.
-    for (const ids of inChunks(nodeIds)) {
-      await tx.documentNode.updateMany({
-        where: { parentId: { in: ids }, deletedAt: null },
-        data: { parentId: null },
+export class PrismaTrashPurge implements TrashPurge {
+  async purge(): Promise<TrashPurgeResult> {
+    return prisma.$transaction(async (tx) => {
+      const alvos = await tx.documentNode.findMany({
+        where: { deletedAt: { not: null } },
+        select: {
+          id: true,
+          parentId: true,
+          kind: true,
+          title: true,
+          originalLabel: true,
+          deletedAt: true,
+          questionId: true,
+          question: { select: { nickname: true } },
+        },
       });
+
+      if (alvos.length === 0) return { nodes: 0, questions: 0, held: [], orphanedKeys: [] };
+
+      const provas = await provasQueUsam(
+        tx,
+        alvos.map((alvo) => alvo.questionId).filter((id): id is string => id !== null),
+      );
+
+      // O que fica: o nó da questão presa, e a cadeia de ancestrais dele que está na lixeira.
+      const porId = new Map(alvos.map((alvo) => [alvo.id, alvo]));
+      const presos = alvos.filter(
+        (alvo) => alvo.questionId !== null && provas.has(alvo.questionId),
+      );
+      const ficam = new Set<string>();
+      for (const preso of presos) {
+        let atual: (typeof alvos)[number] | undefined = preso;
+        while (atual && !ficam.has(atual.id)) {
+          ficam.add(atual.id);
+          atual = atual.parentId ? porId.get(atual.parentId) : undefined;
+        }
+      }
+
+      const saem = alvos.filter((alvo) => !ficam.has(alvo.id));
+      const nodeIds = saem.map((alvo) => alvo.id);
+      const questionIds = saem
+        .map((alvo) => alvo.questionId)
+        .filter((id): id is string => id !== null);
+
+      // As chaves dos artefatos de render que saem em cascata com as questões — lidas antes,
+      // porque depois da exclusão as linhas já não existem para dizer qual era o arquivo.
+      const chavesDeRender = new Set<string>();
+      for (const ids of inChunks(questionIds)) {
+        const artefatos = await tx.asset.findMany({
+          where: { renderJob: { questionId: { in: ids } } },
+          select: { storageKey: true },
+        });
+        for (const artefato of artefatos) chavesDeRender.add(artefato.storageKey);
+      }
+
+      const { nodes, questions } = await apagar(tx, nodeIds, questionIds);
+
+      const aindaCitadas = new Set<string>();
+      for (const chunk of inChunks([...chavesDeRender])) {
+        const citadas = await tx.asset.findMany({
+          where: { storageKey: { in: chunk } },
+          select: { storageKey: true },
+        });
+        for (const asset of citadas) aindaCitadas.add(asset.storageKey);
+      }
+
+      return {
+        nodes,
+        questions,
+        held: presos.map((preso) => ({
+          nodeId: preso.id,
+          title: rotular({
+            ...preso,
+            deletedAt: preso.deletedAt ?? new Date(0),
+            hasQuestion: true,
+            nickname: preso.question?.nickname ?? null,
+          }),
+          assessments: [...(provas.get(preso.questionId ?? "") ?? [])].sort(),
+        })),
+        orphanedKeys: [...chavesDeRender].filter((key) => !aindaCitadas.has(key)).map(asStorageKey),
+      };
+    });
+  }
+}
+
+/** O cliente dentro da transação. `prisma.$transaction` entrega um cliente restrito. */
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/** Questão → títulos das avaliações que a usam. Só entram as questões que alguma prova usa. */
+async function provasQueUsam(
+  tx: Tx,
+  questionIds: readonly string[],
+): Promise<Map<string, Set<string>>> {
+  const provas = new Map<string, Set<string>>();
+
+  for (const ids of inChunks(questionIds)) {
+    const itens = await tx.assessmentItem.findMany({
+      where: { questionId: { in: ids } },
+      select: {
+        questionId: true,
+        section: { select: { assessment: { select: { title: true } } } },
+      },
+    });
+    for (const item of itens) {
+      const titulos = provas.get(item.questionId) ?? new Set<string>();
+      titulos.add(item.section.assessment.title);
+      provas.set(item.questionId, titulos);
     }
+  }
 
-    let nodes = 0;
-    for (const ids of inChunks(nodeIds))
-      nodes += (await tx.documentNode.deleteMany({ where: { id: { in: ids } } })).count;
-    let questions = 0;
-    for (const ids of inChunks(questionIds))
-      questions += (await tx.question.deleteMany({ where: { id: { in: ids } } })).count;
+  return provas;
+}
 
-    return { nodes, questions };
-  });
+async function apagar(
+  tx: Tx,
+  nodeIds: readonly string[],
+  questionIds: readonly string[],
+): Promise<{ nodes: number; questions: number }> {
+  // Um filho **vivo** de um nó excluído não deveria existir — a exclusão desce a subárvore —, mas
+  // se existisse, apagar o pai deixaria a FK `parentId` apontando para o nada. Soltá-lo na raiz é
+  // a escolha que preserva o dado; apagá-lo junto seria apagar o que ninguém mandou.
+  // Em pedaços (`in-chunks.ts`): a lixeira depois de apagar a importação de um livro passa de mil
+  // nós, e o SQLite recusa a lista inteira.
+  for (const ids of inChunks(nodeIds)) {
+    await tx.documentNode.updateMany({
+      where: { parentId: { in: ids }, deletedAt: null },
+      data: { parentId: null },
+    });
+  }
+
+  let nodes = 0;
+  for (const ids of inChunks(nodeIds))
+    nodes += (await tx.documentNode.deleteMany({ where: { id: { in: ids } } })).count;
+  let questions = 0;
+  for (const ids of inChunks(questionIds))
+    questions += (await tx.question.deleteMany({ where: { id: { in: ids } } })).count;
+
+  return { nodes, questions };
 }

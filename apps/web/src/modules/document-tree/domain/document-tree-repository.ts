@@ -92,7 +92,14 @@ export interface DocumentTreeWriter {
    */
   softDeleteMany(nodeIds: readonly string[]): Promise<void>;
 
-  restoreMany(nodeIds: readonly string[]): Promise<void>;
+  /**
+   * Tira os nós da lixeira, em uma transação. `reposition` dá à raiz restaurada uma sortKey nova,
+   * na mesma transação — o domínio já decidiu qual (a de antes colidia com a de um irmão).
+   */
+  restoreMany(
+    nodeIds: readonly string[],
+    reposition?: { readonly nodeId: string; readonly sortKey: string },
+  ): Promise<void>;
 
   /** Nós excluídos de uma publicação — a lixeira, e o que `restore` precisa consultar. */
   listDeleted(publicationId: string): Promise<readonly DeletedNodeRecord[]>;
@@ -119,5 +126,7 @@ export interface DeletedNodeRecord {
   readonly parentId: string | null;
   readonly title: string | null;
   readonly kind: NodeKind;
+  /** A chave de antes da exclusão — é com ela que o nó volta, se nenhum irmão a tomou. */
+  readonly sortKey: string;
   readonly deletedAt: Date;
 }

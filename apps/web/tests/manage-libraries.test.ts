@@ -383,4 +383,33 @@ describe("as arestas que a exclusão precisa desviar", () => {
       "source_anchors_sourceAssetId_fkey",
     ]);
   });
+
+  /**
+   * A aresta da avaliação não é só da biblioteca (#258, TST-03): todo caminho que apaga questão de
+   * verdade a encontra. A lixeira e o livro a ignoravam, e a FK abortava a transação com 500.
+   *
+   * O teste lista **os caminhos**, não a ordem de um deles: um quarto `question.deleteMany` que
+   * aparecer sem tratar a avaliação quebra aqui, antes de quebrar no banco de alguém.
+   */
+  it("todo caminho que apaga questão de verdade trata a avaliação que a usa", () => {
+    const srcDir = fileURLToPath(new URL("../src", import.meta.url));
+    const arquivos = (readdirSync(srcDir, { recursive: true }) as string[])
+      .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
+      .filter((file) => !file.startsWith(`generated${path.sep}`))
+      .map((file) => ({
+        file: file.split(path.sep).join("/"),
+        sql: readFileSync(path.join(srcDir, file), "utf8"),
+      }))
+      .filter(({ sql }) => /\.question\.delete(Many)?\(/.test(sql));
+
+    expect(arquivos.map(({ file }) => file).sort()).toEqual([
+      // Esvaziar a lixeira: a questão que uma prova usa fica na lixeira.
+      "modules/document-tree/infrastructure/prisma-global-trash.ts",
+      // Excluir o livro: recusa, nomeando as provas.
+      "modules/publications/infrastructure/prisma-publication-repository.ts",
+      // Excluir a biblioteca: as avaliações são dela, e saem antes.
+      "modules/workspaces/infrastructure/prisma-library-repository.ts",
+    ]);
+    for (const { sql } of arquivos) expect(sql).toMatch(/assessment/i);
+  });
 });

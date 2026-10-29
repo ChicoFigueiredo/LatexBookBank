@@ -37,6 +37,11 @@ export interface PublicationContents {
   readonly assetCount: number;
   /** Recortes de origem. Contam separado porque são a **evidência**, e D29 os trata como tal. */
   readonly anchorCount: number;
+  /**
+   * As avaliações que usam alguma questão do livro (#258). Com qualquer uma, a exclusão é
+   * recusada — e o diálogo diz isso antes do clique, não depois.
+   */
+  readonly assessments: readonly string[];
 }
 
 export interface PublicationDetail extends PublicationSummary {
