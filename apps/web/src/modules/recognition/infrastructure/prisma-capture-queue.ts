@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import type { CaptureDiscarder } from "@modules/recognition/application/discard-capture";
 import { FAILED_METHOD, type CaptureFacts } from "@modules/recognition/domain/capture-queue";
 
 /**
@@ -115,39 +116,40 @@ export async function recordRecognitionFailure(
 }
 
 /**
- * Descarta um recorte da fila.
+ * O `CaptureDiscarder` do caso de uso `discardCapture`, em Prisma.
  *
- * Apaga a âncora **e** o crop: um recorte que o usuário rejeitou não é patrimônio — é uma seleção
- * errada na página. A regra da D29 protege a **fonte** (o PDF, a imagem), que continua intacta:
- * recortar de novo é sempre possível.
- *
- * Recusa quando a âncora já virou questão. Ali o recorte é a origem de um dado do acervo, e apagá-
- * lo deixaria a questão sem poder responder de onde veio.
+ * Aqui só os fatos e a exclusão: decidir que um recorte que virou questão não sai é regra, e mora
+ * no caso de uso.
  */
-export async function discardCapture(anchorId: string): Promise<"discarded" | "in-use" | "absent"> {
-  const anchor = await prisma.sourceAnchor.findUnique({
-    where: { id: anchorId },
-    select: { cropAssetId: true, questions: { select: { id: true }, take: 1 }, nodes: { select: { id: true }, take: 1 } },
-  });
+export class PrismaCaptureDiscarder implements CaptureDiscarder {
+  async usageOf(anchorId: string): Promise<{ inUse: boolean } | null> {
+    const anchor = await prisma.sourceAnchor.findUnique({
+      where: { id: anchorId },
+      select: { questions: { select: { id: true }, take: 1 }, nodes: { select: { id: true }, take: 1 } },
+    });
+    if (anchor === null) return null;
+    // Questão **ou** nó: uma captura aprovada liga a âncora aos dois.
+    return { inUse: anchor.questions.length > 0 || anchor.nodes.length > 0 };
+  }
 
-  if (anchor === null) return "absent";
-  if (anchor.questions.length > 0 || anchor.nodes.length > 0) return "in-use";
-
-  await prisma.$transaction(async (tx) => {
-    await tx.sourceAnchor.delete({ where: { id: anchorId } });
-
-    // O `Asset` do crop sai junto, e só ele. O `sourceAssetId` — o PDF ou a imagem de origem —
-    // fica: ele é a fonte, e outras âncoras apontam para ela.
-    //
-    // E o crop só sai quando nenhuma outra âncora o usa (#254, CAP-14): o mesmo recorte salvo duas
-    // vezes é **uma** linha, e descartar a cópia apagava a imagem do que ficou. A condição está na
-    // própria exclusão, depois de a âncora descartada já ter saído.
-    if (anchor.cropAssetId !== null) {
-      await tx.asset.deleteMany({
-        where: { id: anchor.cropAssetId, kind: "CROP", anchorsAsCrop: { none: {} } },
+  async discard(anchorId: string): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      const anchor = await tx.sourceAnchor.delete({
+        where: { id: anchorId },
+        select: { cropAssetId: true },
       });
-    }
-  });
 
-  return "discarded";
+      // O `Asset` do crop sai junto, e só ele. O `sourceAssetId` — o PDF ou a imagem de origem —
+      // fica: ele é a fonte, e outras âncoras apontam para ela.
+      //
+      // E o crop só sai quando nenhuma outra âncora o usa (#254, CAP-14): o mesmo recorte salvo duas
+      // vezes é **uma** linha, e descartar a cópia apagava a imagem do que ficou. A condição está na
+      // própria exclusão, depois de a âncora descartada já ter saído.
+      if (anchor.cropAssetId !== null) {
+        await tx.asset.deleteMany({
+          where: { id: anchor.cropAssetId, kind: "CROP", anchorsAsCrop: { none: {} } },
+        });
+      }
+    });
+  }
 }

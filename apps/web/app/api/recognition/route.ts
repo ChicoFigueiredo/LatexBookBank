@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { candidateFrom } from "@modules/recognition/domain/recognition-review";
+import {
+  recognizeCrop,
+  type RecognitionMode,
+} from "@modules/recognition/application/recognize-crop";
 import {
   recordRecognition,
   recordRecognitionFailure,
 } from "@modules/recognition/infrastructure/prisma-capture-queue";
 import { visionRecognizer } from "@infrastructure/composition";
-import { MathRecognitionError } from "@/shared/ports";
 
 import { BadRequestError, toErrorResponse } from "../http";
 
@@ -27,9 +29,6 @@ export const dynamic = "force-dynamic";
 const MODES = new Set(["display", "inline", "mixed", "text"]);
 
 export async function POST(request: Request) {
-  // Fora do `try` porque o `catch` precisa dela para registrar a falha na âncora.
-  let anchorId: string | null = null;
-
   try {
     const vision = visionRecognizer();
     if (vision === null) {
@@ -69,51 +68,27 @@ export async function POST(request: Request) {
      * gravação aqui **não aprova nada**: a questão só nasce pelo caminho que exige revisão.
      */
     const rawAnchor = form.get("anchorId");
-    anchorId = typeof rawAnchor === "string" && rawAnchor !== "" ? rawAnchor : null;
+    const anchorId = typeof rawAnchor === "string" && rawAnchor !== "" ? rawAnchor : null;
 
-    const result = await vision.recognizer.recognize({
-      image: new Uint8Array(await image.arrayBuffer()),
-      mimeType: image.type || "image/png",
-      mode: mode as "display" | "inline" | "mixed" | "text",
-    });
+    // Falha do provider **não perde trabalho**: o recorte segue guardado, a falha fica na âncora,
+    // e o 502 `recognition_failed` diz o que houve para a pessoa decidir entre tentar de novo e
+    // transcrever à mão.
+    const candidate = await recognizeCrop(
+      {
+        recognizer: vision.recognizer,
+        log: { recordRecognition, recordRecognitionFailure },
+      },
+      {
+        cropAssetId,
+        anchorId,
+        image: new Uint8Array(await image.arrayBuffer()),
+        mimeType: image.type || "image/png",
+        mode: mode as RecognitionMode,
+      },
+    );
 
-    if (anchorId !== null) {
-      await recordRecognition(anchorId, {
-        latex: result.latex,
-        method: `recognition:${result.providerId}`,
-        model: result.model,
-        metadataJson: JSON.stringify({
-          mode,
-          durationMs: result.durationMs,
-          confidence: result.confidence,
-          recognizedAt: new Date().toISOString(),
-        }),
-      });
-    }
-
-    return NextResponse.json(candidateFrom(cropAssetId, result));
+    return NextResponse.json(candidate);
   } catch (error) {
-    if (error instanceof MathRecognitionError) {
-      // Falha do provider **não perde trabalho**: o recorte segue guardado, e a mensagem diz o
-      // que houve para a pessoa decidir entre tentar de novo e transcrever à mão.
-      //
-      // A falha fica **registrada na âncora**, e é o que faz a fila mostrar "erro" em vez de
-      // "aguardando" depois de um recarregamento — a diferença entre "ainda não tentei" e
-      // "tentei e não deu".
-      if (anchorId !== null) {
-        //
-        // A transcrição que a âncora já tinha **fica** (#253): reconhecer de novo e dar timeout
-        // não pode apagar o que a tentativa anterior trouxe.
-        await recordRecognitionFailure(anchorId, { error: error.message, at: new Date() }).catch(
-          () => undefined,
-        );
-      }
-
-      return NextResponse.json(
-        { error: "recognition_failed", message: error.message },
-        { status: 502 },
-      );
-    }
     return toErrorResponse(error);
   }
 }

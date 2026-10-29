@@ -9,7 +9,9 @@ import {
   type NodeAnchorLink,
 } from "@modules/assets/domain/node-anchors";
 import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { CropWriter, PersistCrop } from "@modules/assets/application/save-crop";
 import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
+import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
 
 /**
  * Escrita de assets e de âncoras.
@@ -130,7 +132,11 @@ export interface CreateAnchorInput {
 }
 
 export async function createAnchor(input: CreateAnchorInput): Promise<{ id: string }> {
-  return prisma.sourceAnchor.create({
+  return createAnchorWith(prisma, input);
+}
+
+async function createAnchorWith(client: Tx, input: CreateAnchorInput): Promise<{ id: string }> {
+  return client.sourceAnchor.create({
     data: {
       publicationId: input.publicationId,
       sourceAssetId: input.sourceAssetId,
@@ -155,36 +161,38 @@ export async function attachAnchorToQuestion(
   questionId: string,
   sourceAnchorId: string,
 ): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await tx.question.update({ where: { id: questionId }, data: { sourceAnchorId } });
+  await prisma.$transaction((tx) => attachAnchorWith(tx, questionId, sourceAnchorId));
+}
 
-    // O nó da questão ganha a âncora como principal (D50). As que ele já tinha continuam, depois
-    // dela: religar a origem não apaga a continuação que alguém marcou.
-    const node = await tx.documentNode.findUnique({ where: { questionId }, select: { id: true } });
-    if (!node) return;
+async function attachAnchorWith(tx: Tx, questionId: string, sourceAnchorId: string): Promise<void> {
+  await tx.question.update({ where: { id: questionId }, data: { sourceAnchorId } });
 
-    const current = await tx.documentNodeAnchor.findMany({
-      where: { documentNodeId: node.id },
-      orderBy: { sortOrder: "asc" },
-      select: { sourceAnchorId: true, role: true },
-    });
-    const rest = current
-      .filter((link) => link.sourceAnchorId !== sourceAnchorId)
-      .map((link) => ({
-        sourceAnchorId: link.sourceAnchorId,
-        role: link.role === "PRIMARY" ? ("CONTINUATION" as const) : link.role,
-      }));
+  // O nó da questão ganha a âncora como principal (D50). As que ele já tinha continuam, depois
+  // dela: religar a origem não apaga a continuação que alguém marcou.
+  const node = await tx.documentNode.findUnique({ where: { questionId }, select: { id: true } });
+  if (!node) return;
 
-    await writeNodeAnchors(
-      tx,
-      node.id,
-      planNodeAnchors(
-        [{ sourceAnchorId, role: "PRIMARY" as const }, ...rest].filter(
-          (link): link is NodeAnchorLink => isAnchorRole(link.role),
-        ),
-      ),
-    );
+  const current = await tx.documentNodeAnchor.findMany({
+    where: { documentNodeId: node.id },
+    orderBy: { sortOrder: "asc" },
+    select: { sourceAnchorId: true, role: true },
   });
+  const rest = current
+    .filter((link) => link.sourceAnchorId !== sourceAnchorId)
+    .map((link) => ({
+      sourceAnchorId: link.sourceAnchorId,
+      role: link.role === "PRIMARY" ? ("CONTINUATION" as const) : link.role,
+    }));
+
+  await writeNodeAnchors(
+    tx,
+    node.id,
+    planNodeAnchors(
+      [{ sourceAnchorId, role: "PRIMARY" as const }, ...rest].filter(
+        (link): link is NodeAnchorLink => isAnchorRole(link.role),
+      ),
+    ),
+  );
 }
 
 export interface SourceAssetRef {
@@ -199,4 +207,27 @@ export async function findAsset(assetId: string): Promise<SourceAssetRef | null>
     where: { id: assetId },
     select: { id: true, kind: true, originalFilename: true, workspaceId: true },
   });
+}
+
+/**
+ * O `CropWriter` do recorte, em Prisma: o asset do crop, a âncora e a ligação com a questão numa
+ * transação só. Em passos soltos, uma falha na âncora deixava um `Asset(CROP)` órfão (STE-03).
+ */
+export class PrismaCropWriter implements CropWriter {
+  findSource(assetId: string) {
+    return findAsset(assetId);
+  }
+
+  resolveOwner(claim: Parameters<CropWriter["resolveOwner"]>[0]) {
+    return resolveAssetOwner(claim);
+  }
+
+  persist(input: PersistCrop): Promise<{ anchorId: string; cropAssetId: string }> {
+    return prisma.$transaction(async (tx) => {
+      const crop = await createAssetWith(tx, input.crop);
+      const anchor = await createAnchorWith(tx, { ...input.anchor, cropAssetId: crop.id });
+      if (input.questionId !== null) await attachAnchorWith(tx, input.questionId, anchor.id);
+      return { anchorId: anchor.id, cropAssetId: crop.id };
+    });
+  }
 }

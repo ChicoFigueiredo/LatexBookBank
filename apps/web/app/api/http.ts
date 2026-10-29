@@ -14,6 +14,10 @@ import {
   UnsupportedQuestionTypeError,
 } from "@modules/assessments/application/compose-assessment";
 import { AnchorEditError } from "@modules/assets/application/edit-node-anchors";
+import {
+  CropOwnerNotFoundError,
+  CropSourceNotFoundError,
+} from "@modules/assets/application/save-crop";
 import { UploadRejectedError } from "@modules/assets/domain/asset-ingestion";
 import { InvalidAnchorError } from "@modules/assets/domain/source-anchor";
 import { DeletedAncestorError } from "@modules/document-tree/application/mutate-tree";
@@ -51,6 +55,10 @@ import { InvalidQuestionTypeError } from "@modules/questions/domain/question-blu
 import { MetadataError } from "@modules/questions/domain/question-metadata";
 import { InvalidTagError } from "@modules/questions/domain/tag";
 import { RecognitionProvenanceError } from "@modules/recognition/application/create-question-from-recognition";
+import {
+  CaptureInUseError,
+  CaptureNotFoundError,
+} from "@modules/recognition/application/discard-capture";
 import {
   CandidateNotReviewedError,
   EmptyCandidateError,
@@ -209,6 +217,9 @@ const rules = (): readonly ErrorRule[] =>
     // Recorte, âncora e arquivo.
     on(InvalidAnchorError, 400, "invalid_anchor"),
     on(AnchorEditError, 400, "bad_request"),
+    on(CropSourceNotFoundError, 404, "source_not_found"),
+    // O livro ou a questão não existem, ou não são da biblioteca do PDF (#256): a mesma resposta.
+    on(CropOwnerNotFoundError, 404, "owner_not_found"),
     on(UploadRejectedError, 415, (error) => `upload_${error.reason}`),
     // Barrada pelo provider — mas um 500 esconderia uma recusa de isolamento num erro genérico,
     // e quem chamou não saberia que o `workspaceId` é que estava errado.
@@ -224,6 +235,9 @@ const rules = (): readonly ErrorRule[] =>
     })),
 
     // Captura e reconhecimento.
+    on(CaptureNotFoundError, 404, "not_found"),
+    // O recorte é a origem de uma questão: apagá-lo a deixaria sem poder dizer de onde veio.
+    on(CaptureInUseError, 409, "capture_in_use"),
     on(CandidateNotReviewedError, 422, "not_reviewed"),
     on(EmptyCandidateError, 422, "empty_candidate"),
     on(RecognitionProvenanceError, 404, "source_missing"),

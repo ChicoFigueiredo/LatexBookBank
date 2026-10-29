@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { discardCapture } from "@modules/recognition/infrastructure/prisma-capture-queue";
+import { discardCapture } from "@modules/recognition/application/discard-capture";
+import { PrismaCaptureDiscarder } from "@modules/recognition/infrastructure/prisma-capture-queue";
 
 import { toErrorResponse } from "../../../../http";
 
@@ -22,24 +23,9 @@ export async function DELETE(
   const { anchorId } = await params;
 
   try {
-    const outcome = await discardCapture(anchorId);
-
-    if (outcome === "absent") {
-      return NextResponse.json(
-        { error: "not_found", message: "Este recorte não está mais na fila." },
-        { status: 404 },
-      );
-    }
-    if (outcome === "in-use") {
-      return NextResponse.json(
-        {
-          error: "capture_in_use",
-          message:
-            "Este recorte é a origem de uma questão. Exclua a questão se quiser descartá-lo.",
-        },
-        { status: 409 },
-      );
-    }
+    // Ausente é 404, e recorte que já virou questão é 409 `capture_in_use`: as duas recusas vêm do
+    // caso de uso, e o status do tradutor de erros.
+    await discardCapture(new PrismaCaptureDiscarder(), anchorId);
 
     return NextResponse.json({ discarded: anchorId });
   } catch (error) {

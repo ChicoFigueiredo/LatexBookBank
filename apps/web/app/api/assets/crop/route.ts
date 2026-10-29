@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { storeAsset } from "@modules/assets/application/store-asset";
-import { normalizeAnchor } from "@modules/assets/domain/source-anchor";
-import {
-  attachAnchorToQuestion,
-  createAnchor,
-  createAsset,
-  findAsset,
-} from "@modules/assets/infrastructure/prisma-asset-writer";
+import { saveCrop } from "@modules/assets/application/save-crop";
+import { PrismaCropWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
 import { storage } from "@infrastructure/composition";
-import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
 
 import { BadRequestError, toErrorResponse } from "../../http";
 
@@ -25,7 +18,8 @@ import { BadRequestError, toErrorResponse } from "../../http";
  * é conveniência; a âncora é o dado.
  *
  * O `SOURCE_PDF` nunca é substituído (D29): o crop é um asset **novo**, e a âncora aponta para os
- * dois. Voltar à origem continua possível porque a origem continua lá.
+ * dois. Voltar à origem continua possível porque a origem continua lá. A orquestração — dono,
+ * caixa, arquivo e as três linhas numa transação — é do caso de uso `saveCrop`.
  *
  * Ver spec §18 · D28 · D29 · issue #123.
  */
@@ -39,76 +33,26 @@ export async function POST(request: Request) {
     const image = form.get("image");
     if (!(image instanceof File)) throw new BadRequestError("O campo `image` é obrigatório.");
 
-    const sourceAssetId = requireText(form.get("sourceAssetId"), "sourceAssetId");
-    const publicationId = requireText(form.get("publicationId"), "publicationId");
-
-    const source = await findAsset(sourceAssetId);
-    if (source === null) {
-      return NextResponse.json(
-        { error: "source_not_found", message: "O asset de origem não existe." },
-        { status: 404 },
-      );
-    }
-
-    // O livro e a questão precisam ser da biblioteca do PDF recortado (#256): a âncora é do livro,
-    // e um recorte de um PDF de outra biblioteca levaria para ele um arquivo que não é dele.
-    const owner = await resolveAssetOwner({
-      workspaceId: source.workspaceId,
-      publicationId,
-      questionId: asOptionalText(form.get("questionId")),
-    });
-    if (owner === null) {
-      return NextResponse.json(
-        {
-          error: "owner_not_found",
-          message: "O livro ou a questão não existem, ou não são da biblioteca deste PDF.",
-        },
-        { status: 404 },
-      );
-    }
-
-    const anchor = normalizeAnchor({
-      pageNumber: Number(form.get("pageNumber")),
-      box: {
-        x: Number(form.get("x")),
-        y: Number(form.get("y")),
-        width: Number(form.get("width")),
-        height: Number(form.get("height")),
-      },
-      rotation: form.get("rotation") === null ? null : Number(form.get("rotation")),
-    });
-
-    const stored = await storeAsset(
+    const saved = await saveCrop(
+      { writer: new PrismaCropWriter(), storage: storage() },
       {
-        workspaceId: source.workspaceId,
-        filename: `crop-p${anchor.pageNumber}.png`,
-        mimeType: "image/png",
-        content: new Uint8Array(await image.arrayBuffer()),
-        kind: "CROP",
+        sourceAssetId: requireText(form.get("sourceAssetId"), "sourceAssetId"),
+        publicationId: requireText(form.get("publicationId"), "publicationId"),
+        questionId: asOptionalText(form.get("questionId")),
+        pageNumber: Number(form.get("pageNumber")),
+        box: {
+          x: Number(form.get("x")),
+          y: Number(form.get("y")),
+          width: Number(form.get("width")),
+          height: Number(form.get("height")),
+        },
+        rotation: form.get("rotation") === null ? null : Number(form.get("rotation")),
+        sourceText: asOptionalText(form.get("sourceText")),
+        image: new Uint8Array(await image.arrayBuffer()),
       },
-      storage(),
     );
 
-    const cropAsset = await createAsset({ ...stored, workspaceId: source.workspaceId });
-
-    const created = await createAnchor({
-      publicationId,
-      sourceAssetId: source.id,
-      pageNumber: anchor.pageNumber,
-      box: anchor.box,
-      rotation: anchor.rotation,
-      cropAssetId: cropAsset.id,
-      sourceText: asOptionalText(form.get("sourceText")),
-    });
-
-    if (owner.questionId !== null) {
-      await attachAnchorToQuestion(owner.questionId, created.id);
-    }
-
-    return NextResponse.json(
-      { anchorId: created.id, cropAssetId: cropAsset.id, sourceAssetId: source.id },
-      { status: 201 },
-    );
+    return NextResponse.json(saved, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);
   }
