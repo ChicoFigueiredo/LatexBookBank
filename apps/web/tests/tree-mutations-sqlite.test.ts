@@ -9,6 +9,8 @@ import {
   restoreNode,
 } from "@modules/document-tree/application/mutate-tree";
 
+import type { PrismaClient } from "@/generated/prisma/client";
+
 import { createTempDatabase } from "./support/temp-database";
 
 // Monta um SQLite com as migrações: sozinho leva um ou dois segundos, e com a suíte inteira em
@@ -25,7 +27,7 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
  * mudança de schema que quebrasse duplicar ou restaurar deixava a suíte verde. Aqui, não.
  */
 
-type Prisma = (typeof import("@infrastructure/database/sqlite/client"))["prisma"];
+type Prisma = PrismaClient;
 
 let dispose: () => Promise<void>;
 let prisma: Prisma;

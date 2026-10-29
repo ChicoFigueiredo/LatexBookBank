@@ -10,6 +10,13 @@ import {
 } from "@modules/questions/application/mutate-options";
 import { saveQuestion } from "@modules/questions/application/save-question";
 
+// Só tipos: o valor vem por `import()` depois do banco, porque o cliente Prisma lê `DATABASE_URL`
+// ao ser importado.
+import type { PrismaClient } from "@/generated/prisma/client";
+import type { PrismaNodeBodyRepository } from "@modules/document-tree/infrastructure/prisma-node-body";
+import type { PrismaOptionWriter } from "@modules/questions/infrastructure/prisma-option-writer";
+import type { PrismaQuestionRepository } from "@modules/questions/infrastructure/prisma-question-repository";
+
 import { createTempDatabase } from "./support/temp-database";
 
 // Monta um SQLite com as migrações: sozinho leva um ou dois segundos, e com a suíte inteira em
@@ -26,11 +33,11 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
  * a cláusula deixaria de pegar a corrida e a gravação passaria por cima sem conflito.
  */
 
-type Prisma = (typeof import("@infrastructure/database/sqlite/client"))["prisma"];
+type Prisma = PrismaClient;
 type Adapters = {
-  questions: import("@modules/questions/infrastructure/prisma-question-repository").PrismaQuestionRepository;
-  options: import("@modules/questions/infrastructure/prisma-option-writer").PrismaOptionWriter;
-  bodies: import("@modules/document-tree/infrastructure/prisma-node-body").PrismaNodeBodyRepository;
+  questions: PrismaQuestionRepository;
+  options: PrismaOptionWriter;
+  bodies: PrismaNodeBodyRepository;
 };
 
 let dispose: () => Promise<void>;
