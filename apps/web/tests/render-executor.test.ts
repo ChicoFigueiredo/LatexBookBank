@@ -255,6 +255,57 @@ describe("RenderWorkerExecutor", () => {
     ).rejects.toThrow(/veio com 2 bytes/);
   });
 
+  it("o 422 do worker é falha do worker, mesmo de um worker que não diz isso", async () => {
+    // O 422 é "bundle inválido, asset corrompido, disco cheio" — nada que o mesmo LaTeX repita.
+    // Um worker anterior ao `failureKind` manda só `success: false`, e sem esta marca a
+    // aplicação guardava a falha no cache como se fosse do documento.
+    const failed = {
+      jobId: "job-1",
+      state: "failed",
+      result: {
+        ...doneStatus.result,
+        success: false,
+        pdf: null,
+        diagnostics: [{ severity: "error", message: "ENOSPC", line: null, file: null }],
+      },
+    };
+
+    const outcome = await withFetch(
+      async () => new Response(JSON.stringify(failed), { status: 422 }),
+      () => new RenderWorkerExecutor(config).render(bundle()),
+    );
+
+    expect(outcome.result.success).toBe(false);
+    expect(outcome.result.failureKind).toBe("worker");
+  });
+
+  it("`rendererVersion()` lê a versão que o worker reporta, e a guarda por um tempo", async () => {
+    // É a imagem que compila quem sabe se mudou; a do ambiente da aplicação só mudava quando
+    // alguém lembrava. Guardada por pouco tempo: `/health` a cada compilação seria uma ida a mais
+    // por nada, e guardar para sempre não veria a imagem reconstruída.
+    let reported = "0.0.0-dev+aaaa";
+    let calls = 0;
+    let clock = 0;
+
+    await withFetch(
+      async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ status: "ok", rendererVersion: reported }));
+      },
+      async () => {
+        const executor = new RenderWorkerExecutor({ ...config, now: () => clock });
+
+        expect(await executor.rendererVersion()).toBe("0.0.0-dev+aaaa");
+        reported = "0.0.0-dev+bbbb";
+        expect(await executor.rendererVersion()).toBe("0.0.0-dev+aaaa");
+        expect(calls).toBe(1);
+
+        clock += 60_000;
+        expect(await executor.rendererVersion()).toBe("0.0.0-dev+bbbb");
+      },
+    );
+  });
+
   it("valida o bundle antes de subir os assets pela rede", async () => {
     let called = false;
     await expect(

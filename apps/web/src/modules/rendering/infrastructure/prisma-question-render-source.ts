@@ -2,6 +2,56 @@ import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
 import type { QuestionForRender } from "@modules/rendering/domain/build-render-bundle";
+import type { RenderSource } from "@modules/rendering/domain/render-source";
+import type { StorageProvider } from "@/shared/ports";
+
+import { loadPublicationAssets, loadQuestionAssets } from "./prisma-question-assets";
+
+/**
+ * A questão como fonte de compilação: o texto do banco e as figuras **da questão**.
+ *
+ * `null` quando a questão não existe ou está fora de árvore — não há workspace onde gravar.
+ */
+export async function questionRenderSource(
+  questionId: string,
+  storage: StorageProvider,
+): Promise<RenderSource | null> {
+  const loaded = await loadQuestionForRender(questionId);
+  if (loaded === null) return null;
+
+  return {
+    workspaceId: loaded.workspaceId,
+    questionId,
+    document: loaded.question,
+    loadAssets: (sourceLatex) => loadQuestionAssets(questionId, sourceLatex, storage),
+  };
+}
+
+/**
+ * O corpo de um nó como fonte (ADR 0001: "um capítulo com corpo é compilável").
+ *
+ * O corpo entra no lugar do enunciado de uma discursiva, sem alternativas nem resolução. As
+ * figuras são **do livro** (D58): entram no acervo antes de existir questão nenhuma.
+ */
+export function nodeRenderSource(
+  node: { readonly nodeId: string; readonly bodyLatex: string },
+  publication: { readonly id: string; readonly workspaceId: string },
+  storage: StorageProvider,
+): RenderSource {
+  return {
+    workspaceId: publication.workspaceId,
+    questionId: null,
+    document: {
+      id: node.nodeId,
+      type: "DISCURSIVE",
+      statementLatex: node.bodyLatex,
+      solutionLatex: "",
+      complementLatex: "",
+      options: [],
+    },
+    loadAssets: (sourceLatex) => loadPublicationAssets(publication.id, sourceLatex, storage),
+  };
+}
 
 /**
  * A questão e o workspace a que ela pertence.

@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import type { RenderBundle, RenderHealth } from "@latexbookbank/render-contract";
 
 import { AUTH_HEADER, isAuthorized, requireSecret } from "./auth.ts";
+import { rendererVersionFrom } from "./build-id.ts";
 import { compile } from "./compile.ts";
 import { JobStore } from "./jobs.ts";
 
@@ -169,7 +170,14 @@ async function postRender(request: Request, store: JobStore, deps: ServerDeps): 
     assets.set(asset.name, Buffer.from(await part.arrayBuffer()));
   }
 
-  store.enqueue(bundle.jobId);
+  if (!store.enqueue(bundle.jobId)) {
+    // O id é de quem o abriu primeiro. Responder com o job de outro seria entregar a quem pediu os
+    // artefatos de outra compilação — de outra questão, ou de outro usuário.
+    return problem(
+      409,
+      `Já há um job \`${bundle.jobId}\` em andamento; cada compilação usa um id próprio.`,
+    );
+  }
   if (!store.start(bundle.jobId)) {
     return problem(409, "O job foi cancelado antes de começar.");
   }
@@ -200,6 +208,8 @@ async function postRender(request: Request, store: JobStore, deps: ServerDeps): 
       {
         jobId: bundle.jobId,
         success: false,
+        // Do worker, não do documento: a aplicação não guarda no cache, e a próxima tenta de novo.
+        failureKind: "worker",
         pdf: null,
         png: [],
         diagnostics: [
@@ -233,7 +243,9 @@ export function startServer(): void {
     hostname: process.env["RENDERER_HOST"] ?? "127.0.0.1",
     fetch: createHandler({
       secret,
-      rendererVersion: process.env["RENDERER_VERSION"] ?? "0.0.0-dev",
+      // A versão declarada **mais** o carimbo da imagem: é o que a aplicação põe no hash de cache,
+      // e uma imagem reconstruída não pode reaproveitar o cache da anterior.
+      rendererVersion: rendererVersionFrom(process.env),
     }),
   });
 

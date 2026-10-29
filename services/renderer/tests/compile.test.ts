@@ -207,6 +207,31 @@ describeComTex("compile", () => {
     expect(result.durationMs).toBe(3_500);
   });
 
+  it("de quem é a falha: erro de LaTeX é do documento, PDF que saiu não tem falha", async () => {
+    // Só a falha do documento a aplicação pode guardar no cache: o mesmo LaTeX dá o mesmo erro.
+    const quebrado = await compile(bundle({ sourceLatex: "\\naoExiste" }), new Map(), deps);
+    const certo = await compile(bundle(), new Map(), deps);
+
+    expect(quebrado.result.failureKind).toBe("document");
+    expect(certo.result.failureKind).toBeUndefined();
+  });
+
+  it("o prazo estourado é falha de tempo, não do documento", async () => {
+    // O mesmo LaTeX pode passar quando a máquina não estiver montando o formato ao mesmo tempo;
+    // guardado no cache, "passou de N ms" virava a resposta permanente daquele documento.
+    const { result } = await compile(
+      bundle({
+        sourceLatex: "\\loop\\iftrue\\repeat",
+        options: { ...DEFAULT_RENDER_OPTIONS, timeoutMs: 1_500 },
+      }),
+      new Map(),
+      deps,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.failureKind).toBe("timeout");
+  });
+
   it("carimba a versão do renderer — é ela que invalida o cache da aplicação", async () => {
     const { result } = await compile(bundle(), new Map(), deps);
     expect(result.rendererVersion).toBe("teste-1");

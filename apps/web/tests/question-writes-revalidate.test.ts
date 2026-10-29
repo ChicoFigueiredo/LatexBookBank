@@ -188,16 +188,24 @@ describe("as outras escritas da questão revalidam", () => {
     const { validation } = await adapters();
     const { question, b, status } = await seed("patch");
 
+    const { readQuestionState } = await import("@infrastructure/agent/prisma-question-state");
+    const { diffPatch } = await import("@modules/agents/domain/patch-diff");
+    const proposta = parseQuestionPatch({
+      schemaVersion: PATCH_SCHEMA_VERSION,
+      summary: "Marca o gabarito.",
+      options: [{ optionId: b.id, isCorrect: true }],
+    });
+    const state = await readQuestionState(question.id);
+    if (state === null) throw new Error("questão sumiu");
+    // O id leva a impressão do gabarito atual (F3, #266): aprova-se o que a tela mostraria.
+    const linhas = diffPatch(state, proposta).map((change) => change.id);
+
     await applyQuestionPatch(
       new PrismaPatchApplier(),
       {
         questionId: question.id,
-        patch: parseQuestionPatch({
-          schemaVersion: PATCH_SCHEMA_VERSION,
-          summary: "Marca o gabarito.",
-          options: [{ optionId: b.id, isCorrect: true }],
-        }),
-        approvedChangeIds: [`option:${b.id}:correct`],
+        patch: proposta,
+        approvedChangeIds: linhas.filter((id) => id.startsWith(`option:${b.id}:correct`)),
       },
       validation,
     );

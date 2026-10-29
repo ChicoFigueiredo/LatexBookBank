@@ -6,6 +6,7 @@ import {
 } from "../domain/question-patch";
 import { affectedFields } from "../domain/question-patch";
 import type { AgentTool } from "../domain/tool-contract";
+import { checkAnswerKeyForType } from "../domain/apply-patch";
 
 /**
  * As tools de proposta — que **não escrevem**.
@@ -93,10 +94,18 @@ const asTool = (
   execute: (input: unknown) => Promise<string>,
 ): AgentTool => ({ name, description, inputSchema, execute });
 
-export function buildProposeTools(collector: PatchCollector): readonly AgentTool[] {
+export function buildProposeTools(
+  collector: PatchCollector,
+  /**
+   * O tipo da questão aberta. Com ele, duas corretas numa múltipla escolha são recusadas na hora,
+   * e a mensagem volta para o modelo corrigir — em vez de chegar à tela e falhar ao aplicar.
+   */
+  scope: { readonly questionType?: string | null } = {},
+): readonly AgentTool[] {
   /** Valida, guarda e responde curto. */
   const offer = (patch: unknown): string => {
     const parsed = parseQuestionPatch(patch);
+    if (scope.questionType) checkAnswerKeyForType(parsed, scope.questionType);
 
     if (!collector.offer(parsed)) {
       // Dizer que já está lá é melhor que aceitar em silêncio: o modelo repete quando acha que a

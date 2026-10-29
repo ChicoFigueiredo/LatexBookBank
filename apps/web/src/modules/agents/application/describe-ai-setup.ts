@@ -1,6 +1,6 @@
 import "server-only";
 
-import { profileForBaseUrl } from "../domain/ai-profile";
+import { capabilitiesFor, profileForBaseUrl } from "../domain/ai-profile";
 import type { AiSetupDescription } from "../domain/ai-setup";
 import { env } from "@/shared/config/env";
 
@@ -21,7 +21,7 @@ import { env } from "@/shared/config/env";
 
 /** `null` quando não há IA configurada — o painel diz o que falta em vez de sumir. */
 export function describeAiSetup(): AiSetupDescription | null {
-  const { aiBaseUrl, aiModel } = env();
+  const { aiBaseUrl, aiModel, aiToolCalling } = env();
   if (!aiBaseUrl) return null;
 
   const profile = profileForBaseUrl(aiBaseUrl);
@@ -29,6 +29,6 @@ export function describeAiSetup(): AiSetupDescription | null {
   return {
     providerLabel: profile.label,
     model: aiModel,
-    toolCalling: profile.assumedCapabilities.toolCalling,
+    toolCalling: capabilitiesFor(aiBaseUrl, { toolCalling: aiToolCalling }).toolCalling,
   };
 }

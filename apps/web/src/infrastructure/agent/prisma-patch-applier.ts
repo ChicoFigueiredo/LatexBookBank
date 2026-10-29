@@ -45,6 +45,7 @@ function makeTransaction(client: Tx): PatchTransaction {
       const row = await client.question.findUnique({
         where: { id: questionId },
         select: {
+          type: true,
           statementLatex: true,
           solutionLatex: true,
           complementLatex: true,
@@ -59,17 +60,26 @@ function makeTransaction(client: Tx): PatchTransaction {
           videoUrl: true,
           options: {
             orderBy: { sortKey: "asc" },
-            select: { id: true, statementLatex: true, isCorrect: true },
+            select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },
           },
           tags: { select: { tag: { select: { name: true } } } },
         },
       });
       if (!row) return null;
 
-      const { options, tags, statementLatex, solutionLatex, complementLatex, nickname, ...meta } =
-        row;
+      const {
+        type,
+        options,
+        tags,
+        statementLatex,
+        solutionLatex,
+        complementLatex,
+        nickname,
+        ...meta
+      } = row;
 
       const state: QuestionState = {
+        type,
         statementLatex,
         solutionLatex,
         complementLatex,
@@ -126,16 +136,9 @@ function makeTransaction(client: Tx): PatchTransaction {
         });
       }
 
-      // Marcar uma correta desmarca as outras. A regra é do tipo da questão, mas o custo de
-      // deixá-la só para a validação é um gabarito com duas corretas gravado no banco — e o
-      // schema do patch já recusa mais de uma, então aqui é a outra metade da mesma garantia.
-      const marked = options.find((option) => option.isCorrect === true);
-      if (marked) {
-        await client.questionOption.updateMany({
-          where: { questionId, id: { not: marked.id } },
-          data: { isCorrect: false },
-        });
-      }
+      // Nenhuma regra de tipo aqui: o plano já traz o gabarito inteiro que muda — num tipo
+      // exclusivo, a correta antiga vem desmarcada; numa MULTIPLE_CORRECT, as outras ficam. Decidir
+      // "desmarcar as outras" neste arquivo apagava o gabarito de quem tem várias corretas.
     },
 
     async applyReorder(questionId, optionIds) {
@@ -149,6 +152,37 @@ function makeTransaction(client: Tx): PatchTransaction {
           where: { id, questionId },
           data: { sortKey: keys[index] as string },
         });
+      }
+    },
+
+    async restoreOptions(questionId, options) {
+      const keep = options.map((option) => option.id);
+
+      // As criadas depois da revisão saem — elas nunca existiram naquele estado.
+      await client.questionOption.deleteMany({ where: { questionId, id: { notIn: keep } } });
+
+      const existing = new Set(
+        (
+          await client.questionOption.findMany({
+            where: { questionId, id: { in: keep } },
+            select: { id: true },
+          })
+        ).map((row) => row.id),
+      );
+
+      for (const option of options) {
+        const data = {
+          sortKey: option.sortKey,
+          statementLatex: option.statementLatex,
+          isCorrect: option.isCorrect,
+        };
+        if (existing.has(option.id)) {
+          await client.questionOption.updateMany({ where: { id: option.id, questionId }, data });
+        } else {
+          // A apagada depois volta com o **mesmo** id: o gabarito aponta para a alternativa pelo
+          // id (D9), e outro id seria outra alternativa.
+          await client.questionOption.create({ data: { id: option.id, questionId, ...data } });
+        }
       }
     },
 

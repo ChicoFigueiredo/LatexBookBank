@@ -79,6 +79,15 @@ RUN bun install --frozen-lockfile --production --filter @latexbookbank/renderer
 COPY packages/render-contract/src ./packages/render-contract/src
 COPY services/renderer/src ./services/renderer/src
 
+# O carimbo da imagem: um hash dos pacotes instalados e do código do worker e do contrato. O worker
+# o soma à `RENDERER_VERSION` no `/health`, e a aplicação usa essa versão no hash de cache — então
+# um pacote TeX a mais, um TeX Live novo ou uma mudança no `compile.ts` invalidam o cache sozinhos,
+# sem depender de alguém lembrar de subir a versão à mão. Ver `src/build-id.ts`.
+RUN { dpkg-query -W -f '${Package} ${Version}\n'; \
+      find packages/render-contract/src services/renderer/src -type f -print0 \
+        | sort -z | xargs -0 sha256sum; } \
+    | sha256sum | cut -c1-12 > /etc/lbb-renderer-build-id
+
 RUN chown -R renderer:renderer /app
 USER renderer
 ENV RENDERER_HOST=0.0.0.0 \

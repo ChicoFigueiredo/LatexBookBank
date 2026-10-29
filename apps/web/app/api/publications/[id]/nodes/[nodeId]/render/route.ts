@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
 
-import { env as appEnv } from "@/shared/config/env";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
 import { PrismaNodeBodyRepository } from "@modules/document-tree/infrastructure/prisma-node-body";
-import { executeRender } from "@modules/rendering/application/execute-render";
-import { buildRenderBundle, buildSourceMap } from "@modules/rendering/domain/build-render-bundle";
-import { profileById, QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
-import { loadPublicationAssets } from "@modules/rendering/infrastructure/prisma-question-assets";
-import { PrismaRenderJobRepository } from "@modules/rendering/infrastructure/prisma-render-job-repository";
-import { RenderWorkerExecutor } from "@modules/rendering/infrastructure/render-worker-executor";
-import { RendererUnavailableError } from "@/shared/ports";
+import { renderDocument } from "@modules/rendering/application/render-document";
+import { nodeRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
+import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
 
-import { BadRequestError, readJson, toErrorResponse } from "../../../../../tree-http";
+import {
+  parseRenderProfile,
+  renderErrorResponse,
+  renderJobResponse,
+  rendererNotConfigured,
+} from "../../../../../render-http";
+import { readJson } from "../../../../../tree-http";
 
 /**
  * Compila o corpo de um nó (ADR 0001: "um capítulo com corpo é compilável").
  *
- * O mesmo worker e o mesmo cache por hash da questão: o corpo entra no documento no lugar do
- * enunciado, sem alternativas nem resolução. É o primeiro `RenderJob` sem questão — a coluna já
- * era anulável.
+ * O mesmo caso de uso e o mesmo cache por hash da questão: o corpo entra no documento no lugar do
+ * enunciado, sem alternativas nem resolução, e as figuras que ele cita são as do livro (D58). É o
+ * `RenderJob` sem questão — a coluna já era anulável.
  */
 export const dynamic = "force-dynamic";
 
@@ -34,87 +34,25 @@ export async function POST(
       return NextResponse.json({ error: "not_found", message: "Nó não encontrado." }, { status: 404 });
     }
 
-    const env = appEnv();
-    if (env.rendererBaseUrl === null || env.rendererSecret === null) {
-      return NextResponse.json(
-        {
-          error: "renderer_not_configured",
-          message:
-            "`RENDERER_BASE_URL` e `RENDERER_SECRET` não estão definidos. " +
-            "Suba o worker com `docker compose up -d` e preencha o `.env.local`.",
-        },
-        { status: 503 },
-      );
-    }
+    const wiring = renderWiringFromEnv();
+    if (wiring === null) return rendererNotConfigured();
 
     const body = await readJson(request).catch(() => ({}) as Record<string, unknown>);
-    const profileId = body["profileId"];
-    if (profileId !== undefined && typeof profileId !== "string") {
-      throw new BadRequestError("`profileId` precisa ser texto.");
-    }
-    const profile = profileId === undefined ? QUESTION_PREVIEW_PROFILE : profileById(profileId);
-    if (profile === null) throw new BadRequestError(`Perfil \`${String(profileId)}\` não existe.`);
+    const profile = parseRenderProfile(body);
 
     const workspaceId = await repository.workspaceOf(id);
     if (!workspaceId) {
       return NextResponse.json({ error: "not_found", message: "Livro não encontrado." }, { status: 404 });
     }
 
-    const storage = new LocalFileStorageProvider({ rootDir: env.storageRoot });
-    // As figuras que o corpo cita viajam junto (D58): sem elas, o `pdflatex` para em
-    // "File not found" e a mensagem manda procurar defeito no texto.
-    const assets = await loadPublicationAssets(id, node.bodyLatex, storage);
-
-    const bundleInput = {
-      jobId: crypto.randomUUID(),
-      question: {
-        id: node.nodeId,
-        type: "DISCURSIVE",
-        statementLatex: node.bodyLatex,
-        solutionLatex: "",
-        complementLatex: "",
-        options: [],
-      },
-      profile,
-    };
-    const bundle = buildRenderBundle({ ...bundleInput, assets: assets.manifest });
-
-    const executor = new RenderWorkerExecutor({ baseUrl: env.rendererBaseUrl, secret: env.rendererSecret });
-    request.signal.addEventListener("abort", () => void executor.cancel(bundle.jobId), { once: true });
-
-    const { job, cacheHit } = await executeRender(
-      { workspaceId, questionId: null, bundle, assets: assets.bytes },
-      {
-        executor,
-        storage,
-        jobs: new PrismaRenderJobRepository(),
-        rendererVersion: process.env["RENDERER_VERSION"] ?? "0.0.0-dev",
-      },
+    const rendered = await renderDocument(
+      wiring,
+      nodeRenderSource(node, { id, workspaceId }, wiring.storage),
+      { profile, signal: request.signal, ...(body["force"] === true ? { force: true } : {}) },
     );
 
-    return NextResponse.json({
-      jobId: job.id,
-      state: job.state,
-      success: job.success,
-      cacheHit,
-      durationMs: job.durationMs,
-      diagnostics: job.diagnostics,
-      stdout: job.stdout,
-      sourceLatex: bundle.sourceLatex,
-      sourceMap: buildSourceMap(bundleInput),
-      artifacts: job.artifacts.map((artifact) => ({
-        name: artifact.name,
-        kind: artifact.kind,
-        mimeType: artifact.mimeType,
-        sizeBytes: artifact.sizeBytes,
-        width: artifact.width,
-        height: artifact.height,
-      })),
-    });
+    return renderJobResponse(rendered);
   } catch (error) {
-    if (error instanceof RendererUnavailableError) {
-      return NextResponse.json({ error: "renderer_unavailable", message: error.message }, { status: 503 });
-    }
-    return toErrorResponse(error);
+    return renderErrorResponse(error);
   }
 }

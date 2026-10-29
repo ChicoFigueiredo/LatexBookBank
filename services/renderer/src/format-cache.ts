@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -99,15 +99,31 @@ export async function ensureFormat(
 ): Promise<string | null> {
   const key = formatKey(profile);
 
-  if (await exists(join(FORMATS_DIR, `${key}.fmt`))) return key;
-
+  // A construção em andamento vem **antes** do arquivo: quem chega durante o build espera por ele,
+  // em vez de achar um arquivo e compilar sobre um formato que ainda está sendo escrito.
   const pending = building.get(key);
   if (pending !== undefined) return pending;
+
+  if (await exists(join(FORMATS_DIR, `${key}.fmt`))) return key;
 
   const build = buildFormat(profile, key, timeoutMs).finally(() => building.delete(key));
   building.set(key, build);
   return build;
 }
+
+/**
+ * Tira um formato que não serve — o `pdflatex` o recusou ao carregar.
+ *
+ * Sem isto, um `.fmt` estragado ficava em `/tmp/lbb-formats` e todo render daquele perfil falhava
+ * até reiniciar o contêiner. A próxima compilação do perfil o constrói de novo.
+ */
+export async function discardFormat(key: string): Promise<void> {
+  await rm(join(FORMATS_DIR, `${key}.fmt`), { force: true });
+}
+
+/** O `pdflatex` não conseguiu usar o formato — e o erro é do arquivo, não do documento. */
+export const isFormatFailure = (log: string): boolean =>
+  /Fatal format file error|I can't find the format file|---! .*\.fmt was written by/i.test(log);
 
 async function buildFormat(
   profile: RenderProfile,
@@ -120,16 +136,19 @@ async function buildFormat(
   try {
     await writeFile(join(work, "src.tex"), formatSource(profile), "utf8");
 
-    await new Promise<void>((resolve) => {
+    // No diretório do próprio build, e não direto em `FORMATS_DIR`: o `\dump` leva tempo, e um job
+    // do mesmo perfil que olhasse a pasta nesse meio-tempo leria um formato pela metade.
+    const exitCode = await new Promise<number | null>((resolve) => {
       execFile(
         "pdflatex",
         [
           "-ini",
           "-interaction=nonstopmode",
+          "-halt-on-error",
           "-no-shell-escape",
           `-jobname=${key}`,
           "-output-directory",
-          FORMATS_DIR,
+          work,
           // O `&pdflatex` carrega o formato base antes de o `mylatexformat` assumir; sem ele, o
           // `-ini` começa do TeX puro e nem `\documentclass` existe.
           "&pdflatex",
@@ -149,13 +168,21 @@ async function buildFormat(
             ...PARANOID_FILE_ACCESS,
           },
         },
-        () => resolve(),
+        (error) => resolve(error === null ? 0 : typeof error.code === "number" ? error.code : null),
       );
     });
 
-    // Só o arquivo conta. O `pdflatex -ini` sai com sucesso mesmo sem gravar formato nenhum, e
-    // confiar no código de saída aqui foi exatamente o erro que produziu uma medição inválida.
-    return (await exists(join(FORMATS_DIR, `${key}.fmt`))) ? key : null;
+    const built = join(work, `${key}.fmt`);
+    // Três condições, e não só a existência do arquivo: o `-ini` sai com sucesso mesmo sem gravar
+    // formato nenhum (foi o que produziu uma medição inválida), e com `nonstopmode` ele seguia
+    // depois de um erro no preâmbulo e gravava um formato que envenenava o perfil.
+    const log = await readFile(join(work, `${key}.log`), "utf8").catch(() => "");
+    if (exitCode !== 0 || /^! /m.test(log) || !(await exists(built))) return null;
+
+    // `rename` é atômico no mesmo sistema de arquivos (os dois estão sob `tmpdir()`): quem olhar
+    // `FORMATS_DIR` vê o formato inteiro, ou não vê nenhum.
+    await rename(built, join(FORMATS_DIR, `${key}.fmt`));
+    return key;
   } catch {
     return null;
   } finally {

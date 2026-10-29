@@ -16,6 +16,7 @@ export async function readQuestionState(questionId: string): Promise<QuestionSta
   const row = await prisma.question.findUnique({
     where: { id: questionId },
     select: {
+      type: true,
       statementLatex: true,
       solutionLatex: true,
       complementLatex: true,
@@ -30,17 +31,26 @@ export async function readQuestionState(questionId: string): Promise<QuestionSta
       videoUrl: true,
       options: {
         orderBy: { sortKey: "asc" },
-        select: { id: true, statementLatex: true, isCorrect: true },
+        select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },
       },
       tags: { select: { tag: { select: { name: true } } } },
     },
   });
   if (!row) return null;
 
-  const { options, tags, statementLatex, solutionLatex, complementLatex, nickname, ...metadata } =
-    row;
+  const {
+    type,
+    options,
+    tags,
+    statementLatex,
+    solutionLatex,
+    complementLatex,
+    nickname,
+    ...metadata
+  } = row;
 
   return {
+    type,
     statementLatex,
     solutionLatex,
     complementLatex,

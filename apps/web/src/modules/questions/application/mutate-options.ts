@@ -1,4 +1,5 @@
 import {
+  isExclusiveCorrect,
   keyForMove,
   keyForNewOption,
   parseOptionEdit,
@@ -7,10 +8,7 @@ import {
   type OptionPatch,
   type OptionRecord,
 } from "../domain/option-mutations";
-// Os plugins se registram ao serem importados; sem esta linha, nenhum tipo seria exclusivo.
-import "../domain/plugins";
 import type { QuestionType } from "../domain/question-type";
-import { optionsOf } from "../domain/question-type-plugin";
 import { afterQuestionChanged, type QuestionValidation } from "./validate-question";
 
 /**
@@ -22,13 +20,11 @@ import { afterQuestionChanged, type QuestionValidation } from "./validate-questi
  */
 
 /**
- * Só **uma** alternativa pode ser correta neste tipo?
- *
- * O plugin declara. Tipo sem alternativas ou sem plugin responde "não": marcar uma correta não
- * desmarca as outras, e nada se perde em silêncio num tipo que o produto ainda não sabe tratar.
+ * Só **uma** alternativa pode ser correta neste tipo? Quem responde é o plugin, pelo domínio — o
+ * patch do agente e a restauração de revisão usam a mesma regra; aqui ela segue exportada para quem
+ * já a usava.
  */
-export const isExclusiveCorrect = (type: QuestionType): boolean =>
-  optionsOf(type)?.exclusiveCorrect ?? false;
+export { isExclusiveCorrect };
 
 export interface OptionWriter {
   listOptions(questionId: string): Promise<readonly OptionRecord[]>;

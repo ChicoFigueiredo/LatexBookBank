@@ -127,6 +127,27 @@ export class PrismaRenderJobRepository implements RenderJobRepository {
   }
 
   async create(job: NewRenderJob): Promise<RenderJobRecord> {
+    try {
+      return await this.insert(job);
+    } catch (error) {
+      // Outra compilação do mesmo conteúdo gravou primeiro (duas abas, Ctrl+Enter duas vezes): o
+      // resultado dela é o mesmo, e é ele que vale. Os arquivos que esta gravou no storage ficam
+      // órfãos — derivados, que a limpeza leva (D29).
+      if (!isUniqueViolation(error)) throw error;
+
+      const winner = await this.findByContentHash(job.workspaceId, job.contentHash);
+      if (winner === null) throw error;
+      return winner;
+    }
+  }
+
+  async remove(jobId: string): Promise<void> {
+    // Os registros dos artefatos saem junto (`onDelete: Cascade`); os arquivos ficam no storage
+    // como derivados órfãos (D29).
+    await prisma.renderJob.deleteMany({ where: { id: jobId } });
+  }
+
+  private async insert(job: NewRenderJob): Promise<RenderJobRecord> {
     const row = await prisma.renderJob.create({
       data: {
         workspaceId: job.workspaceId,
@@ -163,6 +184,10 @@ export class PrismaRenderJobRepository implements RenderJobRepository {
     return toRecord(row);
   }
 }
+
+/** Violação de unicidade do Prisma — aqui, só pode ser `(workspaceId, contentHash)`. */
+const isUniqueViolation = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";
 
 /**
  * Um artefato de render, pela chave que o cliente conhece.

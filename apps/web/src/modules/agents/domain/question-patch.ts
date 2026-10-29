@@ -133,14 +133,9 @@ export const questionPatchSchema = z
       patch.reorder === undefined ||
       new Set(patch.reorder.optionIds).size === patch.reorder.optionIds.length,
     "A nova ordem repete uma alternativa.",
-  )
-  .refine(
-    // Duas corretas num patch de múltipla escolha é o erro que a spec §8.5 mais teme, e o agente
-    // o comete com frequência ao "corrigir" o gabarito. A validação final é do plugin, mas
-    // recusar aqui poupa uma tela de revisão inteira.
-    (patch) => patch.options.filter((entry) => entry.isCorrect === true).length <= 1,
-    "O patch marca mais de uma alternativa como correta.",
   );
+// Duas corretas **não** são recusadas aqui: o schema não sabe o tipo, e numa MULTIPLE_CORRECT
+// marcar duas é o gabarito certo. A regra é do tipo, e quem a aplica é `checkAnswerKeyForType`.
 
 export type QuestionPatch = z.infer<typeof questionPatchSchema>;
 

@@ -12,12 +12,16 @@ import { optionLabelAt } from "./question-type";
  */
 
 export interface RevisionSnapshot {
+  /** Desde o snapshot versão 2. Revisão antiga não sabe o tipo que a questão tinha. */
+  readonly type?: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
   readonly complementLatex: string;
   readonly nickname: string | null;
   readonly options: readonly {
     readonly id: string;
+    /** Desde o snapshot versão 2. */
+    readonly sortKey?: string;
     readonly statementLatex: string;
     readonly isCorrect: boolean;
   }[];
@@ -169,6 +173,7 @@ export function parseSnapshot(json: string): RevisionSnapshot {
   const raw = JSON.parse(json) as Partial<RevisionSnapshot>;
 
   return {
+    ...(raw.type === undefined ? {} : { type: raw.type }),
     statementLatex: raw.statementLatex ?? "",
     solutionLatex: raw.solutionLatex ?? "",
     complementLatex: raw.complementLatex ?? "",

@@ -41,13 +41,25 @@ export class JobStore {
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
-  enqueue(jobId: string): void {
+  /**
+   * Abre o job, ou recusa um id que já está em andamento.
+   *
+   * Sobrescrever a entrada era o que deixava dois jobs com o mesmo id — o "antes" e o "depois" da
+   * revisão — trocarem os artefatos um do outro: o segundo `complete` substituía os bytes que o
+   * primeiro ainda ia baixar, e um cancelamento de um mataria o outro. Um id em andamento é de um
+   * job só; depois de terminado, a entrada pode ser substituída.
+   */
+  enqueue(jobId: string): boolean {
+    const current = this.jobs.get(jobId)?.status.state;
+    if (current === "queued" || current === "running") return false;
+
     this.jobs.set(jobId, {
       status: { jobId, state: "queued", result: null },
       artifacts: new Map(),
       finishedAt: null,
       abort: null,
     });
+    return true;
   }
 
   /** Guarda por onde interromper este job. Chamado logo antes de a compilação começar. */

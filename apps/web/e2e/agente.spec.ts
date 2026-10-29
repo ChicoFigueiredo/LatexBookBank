@@ -58,13 +58,15 @@ const propostaFake = (texto: string) => ({
         fields: [{ field: "complementLatex", value: texto }],
         options: [],
       },
-      // O `id` é `field:<campo>`, como `patch-diff.ts` produz. O servidor **recalcula** as
-      // mudanças a partir do patch e cruza com os ids aprovados: um id inventado aqui faria a
-      // tela mostrar "1 de 1 aprovada" e a rota responder "nenhuma mudança foi aprovada" — que
-      // foi exatamente o que aconteceu na primeira tentativa.
+      // O `id` é `field:<campo>:<impressão do antes>`, como `patch-diff.ts` produz. O servidor
+      // **recalcula** as mudanças a partir do patch e cruza com os ids aprovados: um id inventado
+      // aqui faria a tela mostrar "1 de 1 aprovada" e a rota responder "nenhuma mudança foi
+      // aprovada" — que foi exatamente o que aconteceu na primeira tentativa. O complemento da
+      // questão de demonstração é vazio (o fim do teste o devolve assim), e `811c9dc5` é a
+      // impressão (FNV-1a) do texto vazio.
       changes: [
         {
-          id: "field:complementLatex",
+          id: "field:complementLatex:811c9dc5",
           kind: "field",
           label: "Complemento",
           before: "",
