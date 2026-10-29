@@ -350,9 +350,9 @@ model Asset {
   /// Com `@unique` aqui, o segundo render devolvia 500 e a tela dizia "falha ao compilar" — sobre
   /// uma compilação que tinha dado certo.
   ///
-  /// A deduplicação de **fonte** não se perde junto: ela já mora no `createAsset`, que procura
-  /// pela chave antes de criar. A constraint era rede de segurança ali, não o mecanismo — e uma
-  /// rede que também derruba o caso legítimo não é rede, é armadilha.
+  /// O que se deduplica é o **arquivo**, e o storage já faz isso pela chave. A linha é de um
+  /// dono (#254): o `createAsset` só devolve a que já existe quando ela é da mesma questão, do
+  /// mesmo livro e com o mesmo nome — que é o reenvio, e não o reuso em outro lugar.
   storageKey       String
   mimeType         String
   originalFilename String?
@@ -380,7 +380,7 @@ model Asset {
   @@index([workspaceId, kind])
   @@index([sha256])
   /// Substitui o índice que o `@unique` dava de graça: `createAsset` procura por esta coluna
-  /// antes de toda criação, e sem índice a dedup de fonte passaria a varrer a tabela inteira.
+  /// antes de toda criação, e a exclusão do livro conta as linhas por ela (#243).
   @@index([storageKey])
   @@map("assets")
 }

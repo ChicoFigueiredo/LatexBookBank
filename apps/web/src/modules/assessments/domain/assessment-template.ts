@@ -1,3 +1,4 @@
+import { escapeLatexText } from "@modules/latex/domain/latex-escape";
 import { optionLabelAt } from "@modules/questions/domain/question-type";
 
 import type { Variant } from "./variant";
@@ -22,10 +23,28 @@ export interface AssessmentQuestionContent {
   readonly questionId: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  /**
+   * As alternativas **que o tipo mostra**, por id.
+   *
+   * Vazio para tipo sem alternativas, mesmo que o banco guarde algumas: a discursiva que já foi
+   * escolha simples não imprime a)…e) (#262).
+   */
   readonly options: Readonly<Record<string, string>>;
-  /** `optionId` da correta, quando há uma. */
-  readonly correctOptionId: string | null;
+  /** As corretas, por `optionId` — **todas**: a múltipla escolha tem várias (#262). */
+  readonly correctOptionIds: readonly string[];
+  /** O tipo tem alternativas — e portanto um gabarito por letra. */
+  readonly hasOptions: boolean;
+  /** O tipo tem plugin. Sem plugin, a avaliação não sabe imprimir nem corrigir a questão. */
+  readonly supported: boolean;
   readonly points: number | null;
+  /**
+   * O nó da questão está na lixeira (#263).
+   *
+   * A prova referencia a questão, e excluí-la da árvore não a tira da prova. Sem este campo, a
+   * variante seguinte a imprimia — no gabarito e na versão do professor — enquanto a pessoa a
+   * achava excluída.
+   */
+  readonly inTrash: boolean;
 }
 
 export interface AssessmentHeader {
@@ -92,6 +111,11 @@ export function renderAssessment(input: {
   ].join("\n");
 }
 
+/**
+ * O cabeçalho, **escapado**: título, subtítulo e instruções são texto do usuário, e um `&` ou uma
+ * barra invertida num título quebraria a compilação. O enunciado não passa por aqui — ele já é
+ * LaTeX, e escapá-lo transformaria `\frac{1}{2}` em texto literal.
+ */
 function headerLines(header: AssessmentHeader, audience: TemplateAudience): string[] {
   const suffix =
     audience === "TEACHER"
@@ -102,12 +126,14 @@ function headerLines(header: AssessmentHeader, audience: TemplateAudience): stri
 
   return [
     "\\begin{center}",
-    `  {\\Large \\textbf{${escapeText(header.title)}}}${suffix}\\\\[2pt]`,
-    ...(header.subtitle ? [`  {\\large ${escapeText(header.subtitle)}}\\\\[2pt]`] : []),
-    `  {\\small Versão ${escapeText(header.variantLabel)}}`,
+    `  {\\Large \\textbf{${escapeLatexText(header.title)}}}${suffix}\\\\[2pt]`,
+    ...(header.subtitle ? [`  {\\large ${escapeLatexText(header.subtitle)}}\\\\[2pt]`] : []),
+    // "Variante", e não "Versão": é o termo do glossário, e "versão" aqui já quer dizer outra
+    // coisa — as três saídas (aluno, professor, gabarito) da mesma variante.
+    `  {\\small Variante ${escapeLatexText(header.variantLabel)}}`,
     "\\end{center}",
     ...(header.notes && audience !== "ANSWER_KEY"
-      ? ["", "\\noindent", escapeText(header.notes), ""]
+      ? ["", "\\noindent", escapeLatexText(header.notes), ""]
       : []),
     // Linha para nome e turma só na versão do aluno: é ele quem preenche.
     ...(audience === "STUDENT"
@@ -146,8 +172,11 @@ function questionsBody(
         const text = item.options[optionId] ?? "";
         // Na versão do professor a correta vem marcada **no lugar dela**, não numa lista à parte:
         // corrigir olhando a prova é o gesto real, e uma lista no fim obrigaria a ir e voltar.
+        // **Todas** as corretas: marcar só a primeira penaliza quem acertou a segunda (#262).
         const mark =
-          audience === "TEACHER" && optionId === item.correctOptionId ? "\\textbf{[X]} " : "";
+          audience === "TEACHER" && item.correctOptionIds.includes(optionId)
+            ? "\\textbf{[X]} "
+            : "";
         parts.push(`    \\item ${mark}${text}`);
       }
 
@@ -185,12 +214,13 @@ function answerKeyBody(
       throw new Error(`Sem conteúdo para a questão \`${question.questionId}\`.`);
     }
 
-    const label =
-      item.correctOptionId === null
-        ? "---"
-        : (question.labelByOptionId[item.correctOptionId] ?? "?");
+    // As letras na ordem em que foram impressas; uma correta fora da variante é dado incoerente,
+    // e sai como `?` para aparecer na conferência em vez de sumir.
+    const letters = [...item.correctOptionIds]
+      .sort((a, b) => positionIn(question.optionIds, a) - positionIn(question.optionIds, b))
+      .map((optionId) => question.labelByOptionId[optionId] ?? "?");
 
-    rows.push(`${index + 1} & ${label} \\\\`);
+    rows.push(`${index + 1} & ${letters.length === 0 ? "---" : letters.join(", ")} \\\\`);
   }
 
   return [
@@ -206,19 +236,14 @@ function answerKeyBody(
   ].join("\n");
 }
 
+/** Posição da alternativa na variante; a que não está nela vai para o fim. */
+const positionIn = (optionIds: readonly string[], optionId: string): number => {
+  const index = optionIds.indexOf(optionId);
+  return index < 0 ? optionIds.length : index;
+};
+
 const formatPoints = (points: number): string =>
   Number.isInteger(points) ? String(points) : points.toFixed(1).replace(".", ",");
-
-/**
- * Escapa texto que vai para o LaTeX.
- *
- * Só o cabeçalho passa por aqui — título, subtítulo e instruções são texto do usuário, e um `&`
- * num título quebraria a compilação. O enunciado **não** é escapado: ele já é LaTeX, e escapá-lo
- * transformaria `\frac{1}{2}` em texto literal.
- */
-export function escapeText(text: string): string {
-  return text.replace(/([&%$#_{}])/g, "\\$1").replace(/([~^])/g, "\\$1{}");
-}
 
 /** A letra que uma posição recebe. Reexportado para a tela não recalcular por conta própria. */
 export { optionLabelAt };

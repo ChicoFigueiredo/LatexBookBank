@@ -142,9 +142,11 @@ export class PrismaPublicationRepository implements PublicationRepository {
    *
    * Ordem: nós primeiro (eles referenciam a questão), questões depois.
    *
-   * Os assets (#243): o `createAsset` deduplica pela chave, então a linha de Asset deste livro pode
-   * ser a que outro livro usa como PDF fonte, capa ou fonte de âncora. A linha só sai quando
-   * ninguém mais a cita; o arquivo só sai quando nenhuma linha resta com a chave dele.
+   * Os assets (#243): o storage deduplica o arquivo pela chave, então outro livro pode ter uma
+   * linha com a mesma chave — e, nas linhas gravadas antes da #254, que deduplicava a linha, a
+   * linha deste livro pode ser a que outro livro usa como PDF fonte, capa ou fonte de âncora. A
+   * linha só sai quando ninguém mais a cita; o arquivo só sai quando nenhuma linha resta com a
+   * chave dele.
    */
   async delete(id: string): Promise<readonly StorageKey[] | null> {
     const questionIds = (

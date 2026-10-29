@@ -57,9 +57,13 @@ test.describe("o layout cabe na janela", () => {
     await abrirQuestao(page);
 
     await page.setViewportSize(MINIMA);
-    await page.waitForTimeout(600);
 
-    expect(await transborda(page)).toBe(false);
+    // O estado observável, e não um tempo fixo: a janela já está na largura nova e o editor
+    // continua na tela. Só então a medida — e por `poll`, porque as larguras guardadas são
+    // reajustadas depois do resize, e um transbordo que não some é o defeito.
+    await page.waitForFunction((largura) => window.innerWidth === largura, MINIMA.width);
+    await expect(page.getByRole("group", { name: /Editor LaTeX/ })).toBeVisible();
+    await expect.poll(() => transborda(page)).toBe(false);
   });
 
   test("com o painel do agente aberto, ainda cabe em 1366", async ({ page }) => {
@@ -70,9 +74,11 @@ test.describe("o layout cabe na janela", () => {
     await abrirQuestao(page);
 
     await page.keyboard.press("Control+Shift+A");
-    await page.waitForTimeout(800);
 
-    expect(await transborda(page)).toBe(false);
+    // O painel aberto de fato, e não 800 ms de espera: sem ele, "cabe" seria verdade sobre a tela
+    // sem o agente, que é o caso fácil.
+    await expect(page.getByLabel("Conversa")).toBeVisible();
+    await expect.poll(() => transborda(page)).toBe(false);
     // E o editor continua na tela: encolher até sumir seria quebrar, não apertar.
     const editor = await page.getByRole("group", { name: /Editor LaTeX/ }).boundingBox();
     expect(editor?.width ?? 0).toBeGreaterThan(150);

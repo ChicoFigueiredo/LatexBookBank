@@ -58,11 +58,54 @@ jobs:
 
       # As regras de fronteira arquitetural rodam aqui: `tests/architecture-boundaries.test.ts`
       # dirige o ESLint contra violações propositais, uma por regra.
+      #
+      # Este runner não tem TeX, e os testes do renderer que compilam de verdade são pulados com o
+      # motivo no nome (`services/renderer/tests/tex.ts`). Eles rodam no job `renderer-tex`. Antes
+      # da separação, `spawn pdflatex ENOENT` deixava todo run vermelho e o Build nunca rodava.
       - name: Test
         run: bun run test
 
       - name: Build
         run: bun run build
+
+  # A compilação de verdade: `pdflatex` e `pdftocairo` contra o worker, inclusive o teste de que o
+  # documento não lê `/etc/passwd` nem o ambiente do processo (#244). Em job próprio para o
+  # `verify` não pagar a instalação do TeX, e para a falha de um não esconder a do outro.
+  renderer-tex:
+    name: renderer · compilação com pdflatex
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Sem TeX, os testes de compilação seriam pulados e o job passaria verde sem compilar nada.
+      # Aqui a ausência é erro.
+      RENDERER_REQUIRE_TEX: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      # O subconjunto do Dockerfile que os testes usam: a classe `article`, `graphicx`, o
+      # `mylatexformat` do formato pré-compilado (latex-extra) e o `pdftocairo` (poppler-utils).
+      # A imagem inteira, com o TeX Live completo do acervo, é o job `renderer-image`.
+      - name: Install TeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            poppler-utils
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Test renderer
+        run: bun run test
+        working-directory: services/renderer
 
   # A imagem ficou inbuildável da Fase 13 até a #148 sem ninguém perceber, porque nada a
   # construía fora do terminal de quem estava mexendo. O teste rápido em
