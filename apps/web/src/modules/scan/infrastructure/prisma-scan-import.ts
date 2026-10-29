@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import { isAnchorRole, planNodeAnchors, type NodeAnchorLink } from "@modules/assets/domain/node-anchors";
-import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchors";
+import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
 import { removeFromBody } from "@modules/document-tree/domain/node-body";
 import type { AppendedPieces, DetachedPieces, ScanImportStore } from "@modules/scan/application/remove-import";
 import type { ImportedNode } from "@modules/scan/domain/import-removal";
