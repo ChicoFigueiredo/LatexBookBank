@@ -1338,7 +1338,8 @@ e eles escondiam o que falta de verdade)*
   **nada o chamava**: o `OriginPanel` subia a ação `insert-figure` e o editor não a escutava. Sexta
   vez do mesmo padrão. O nome do arquivo vem do servidor (`cropLatexName`) e é o mesmo que a rota de
   render grava no diretório do job — inventá-lo no cliente daria um `\includegraphics` apontando
-  para arquivo que nunca chega)*
+  para arquivo que nunca chega. Desde a #255 o recorte das âncoras da questão vai no bundle, e desde
+  a #254 a mesma figura em duas questões tem uma linha de Asset em cada)*
 - ✅ Snippet `figure/includegraphics` gerado *(o `label` vem do nome — nunca fica vazio)*
 
 **PDF e crop**
@@ -2228,9 +2229,14 @@ escritas de verdade no banco de desenvolvimento.*
   URL; outro exige que o `.env.example` não tenha valor de verdade)*
 - ✅ API key nunca exposta ao browser *(grafo de imports de cada `"use client"`)*
 - ✅ Paths sanitizados *(4 formatos de escape testados)*
-- ✅ Nenhum path de usuário escapa do workspace *(e a recusa devolve 400 com o motivo, não 500 opaco)*
-- ✅ Chaves de storage prefixadas por `workspaceId`, sem escape
-- ✅ MIME e extensão validados *(a discordância entre os dois é recusada)*
+- ✅ Nenhum path de usuário escapa do workspace *(e a recusa devolve 400 com o motivo, não 500 opaco.
+  Desde a #256, a pasta do Calibre também: ela precisa estar sob `CALIBRE_LIBRARY_ROOT`, conferida
+  pelo caminho real, e o arquivo lido não sai dela por symlink)*
+- ✅ Chaves de storage prefixadas por `workspaceId`, sem escape *(desde a #256 o `workspaceId` sai do
+  livro, no servidor: upload e recorte com livro, biblioteca ou questão de outro dono dão 404 antes
+  de gravar um byte)*
+- ✅ MIME e extensão validados *(a discordância entre os dois é recusada; e o conteúdo servido leva
+  `nosniff`, com o SVG em CSP `sandbox` — #257)*
 - ✅ Upload limitado
 - ✅ Hash de conteúdo usado *(sha256 é a identidade — D29)*
 - ✅ Nenhum shell montado por concatenação de string *(`execFile` com vetor de argumentos; sem

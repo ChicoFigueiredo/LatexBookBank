@@ -10,8 +10,9 @@ import type { StorageProvider } from "@/shared/ports";
  * Guarda um arquivo: valida, sobe para o `StorageProvider`, devolve o que o banco precisa.
  *
  * **A identidade é o `sha256` do conteúdo** (D29). O nome original é guardado só para leitura
- * humana — dois arquivos com o mesmo conteúdo e nomes diferentes são o mesmo asset, e o mesmo
- * nome com conteúdos diferentes são dois. Qualquer outra escolha faria "atualizar a figura"
+ * humana — dois arquivos com o mesmo conteúdo e nomes diferentes são o mesmo arquivo no storage,
+ * e o mesmo nome com conteúdos diferentes são dois. (A linha de `Asset` é outra coisa: ela é de um
+ * dono, e cada questão ou livro que usa o arquivo tem a sua — #254.) Qualquer outra escolha faria "atualizar a figura"
  * silenciosamente reescrever o que outra questão referenciava.
  *
  * Daí também a imutabilidade: **arquivo alterado gera asset novo**. Não há caminho para

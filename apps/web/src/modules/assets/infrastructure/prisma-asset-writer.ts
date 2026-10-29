@@ -36,20 +36,32 @@ export async function createAsset(input: CreateAssetInput): Promise<{ id: string
 }
 
 async function createAssetWith(client: Tx, input: CreateAssetInput): Promise<{ id: string }> {
-  // O mesmo conteúdo já subido devolve o asset existente: a `storageKey` contém o hash, então
-  // chave igual é conteúdo igual, e a mesma figura em duas questões é o caso comum.
+  // **O arquivo é deduplicado; a linha, não** (#254). O storage já guarda um arquivo só por
+  // conteúdo — a `storageKey` contém o hash —, e esta tabela guarda quem o usa. A mesma figura em
+  // duas questões é o caso comum, e cada questão precisa da **sua** linha: o render procura os
+  // assets pelo `questionId` (ou pelo `publicationId`, no corpo do livro) e cita o nome que sai
+  // do `originalFilename` gravado. Devolver a linha de quem subiu primeiro deixava a segunda
+  // questão sem a figura, ou com um nome que o `\includegraphics` dela não cita.
   //
-  // `findFirst` e não `findUnique` desde a #156: a coluna deixou de ser `@unique`, porque a mesma
-  // chave pode ser referenciada por dois renders. **A dedup de fonte é esta linha** — antes ela
-  // tinha a constraint atrás como rede, e agora é o único guarda. Por isso ela vem antes de
-  // qualquer criação, e não como tratamento de erro.
+  // Só a mesma linha volta: mesma chave, mesmo dono, mesmo nome, mesmo tipo. É o reenvio do mesmo
+  // arquivo para o mesmo lugar — um duplo clique, uma varredura repetida —, e ele não acumula
+  // linhas. Apagar continua seguro com várias linhas por chave: o arquivo só sai do disco quando
+  // nenhuma linha resta com ela (#243).
   //
   // `renderJobId: null` é o que impede o pior desfecho possível: reaproveitar a linha de um
   // **artefato de render** para um arquivo que a pessoa subiu. Ela é `onDelete: Cascade` do job,
   // e descartar o job — que a D29 diz ser sempre permitido — levaria junto a fonte de alguém.
   // Derivado é descartável; a fonte é patrimônio, e as duas coisas não podem dividir uma linha.
   const existing = await client.asset.findFirst({
-    where: { storageKey: input.storageKey, renderJobId: null },
+    where: {
+      storageKey: input.storageKey,
+      renderJobId: null,
+      workspaceId: input.workspaceId,
+      publicationId: input.publicationId ?? null,
+      questionId: input.questionId ?? null,
+      originalFilename: input.originalFilename,
+      kind: input.kind,
+    },
     select: { id: true },
   });
   if (existing) return existing;

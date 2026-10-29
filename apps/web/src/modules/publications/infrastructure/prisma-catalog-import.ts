@@ -68,11 +68,12 @@ export class PrismaPublicationOriginWriter implements PublicationOriginWriter {
  *
  * Três coisas numa transação só, e cada uma consertando um jeito conhecido de perder o arquivo:
  *
- * 1. **Adoção do órfão.** `createAsset` deduplica por `storageKey`, que contém o hash do conteúdo:
- *    anexar um PDF que já foi subido antes devolve a **linha que já existe**. No banco de dev há
+ * 1. **Adoção do órfão.** Até a #254, `createAsset` deduplicava só por `storageKey`, e anexar um
+ *    PDF que já tinha sido subido antes devolvia a **linha que já existia**. No banco de dev há
  *    exatamente essa linha — um `SOURCE_PDF` de "Curso de Analise Vol. 1" com `publicationId`
  *    nulo, resíduo da tentativa que a D44 cita como evidência. Sem este `updateMany`, anexar
  *    apontaria a fonte para um asset que continua sem dono, que é metade do defeito original.
+ *    Hoje a linha devolvida já é do livro; a adoção fica para o órfão que veio de antes.
  *    O filtro `publicationId: null` é o que impede o outro extremo: roubar o arquivo de outro
  *    livro que legitimamente o tem.
  * 2. **A troca condicionada ao que se leu.** `where: { sourcePdfAssetId: <o que estava lá> }` é a

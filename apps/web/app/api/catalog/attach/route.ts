@@ -9,7 +9,7 @@ import {
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 
 import { BadRequestError, readJson } from "../../tree-http";
-import { parseCatalogPath, toCatalogErrorResponse } from "../catalog-http";
+import { resolveCatalogRoot, toCatalogErrorResponse } from "../catalog-http";
 
 /**
  * **Anexar** o PDF de um livro do catálogo a uma publicação que já existe (D44).
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     const result = await attachFromCatalog(
       {
-        catalog: new CalibreCatalogProvider(parseCatalogPath(body["path"])),
+        catalog: new CalibreCatalogProvider(await resolveCatalogRoot(body["path"])),
         publications: new PrismaPublicationRepository(),
         assets: new PrismaCatalogAssetWriter(),
         source: new PrismaPublicationSourceWriter(),
