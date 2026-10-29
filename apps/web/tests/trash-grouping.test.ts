@@ -53,14 +53,47 @@ describe("agruparLixeira", () => {
     expect(frasedoQueLevou(atos[0]!)).toBeNull();
   });
 
-  it("nó com pai também na lixeira não vira linha própria", () => {
-    // Restaurá-lo sozinho o devolveria para debaixo de um pai invisível — a regra do `restoreNode`.
+  it("nó excluído junto com o pai não vira linha própria", () => {
+    // Mesmo instante, mesmo ato: restaurar o pai o traz de volta.
     const nos = [
       no({ id: "c", kind: "CHAPTER", title: "Conjuntos" }),
       no({ id: "s", parentId: "c", kind: "SECTION", title: "Exercícios" }),
     ];
 
     expect(agruparLixeira(nos).atos.map((a) => a.id)).toEqual(["c"]);
+    expect(agruparLixeira(nos).atos[0]?.paiNaLixeira).toBeNull();
+  });
+
+  it("o filho excluído antes do pai é ato próprio, e o pai não o “leva” (#260)", () => {
+    // A questão 7 foi excluída às 9h, à parte; o capítulo, às 10h. Restaurar o capítulo não a
+    // devolve — é o que o `restoreNode` faz —, então a linha do capítulo não pode prometê-la.
+    const nos = [
+      no({ id: "c", kind: "CHAPTER", title: "Capítulo 2", deletedAt: new Date("2026-08-12T10:00:00Z") }),
+      no({
+        id: "q8",
+        parentId: "c",
+        hasQuestion: true,
+        originalLabel: "8",
+        deletedAt: new Date("2026-08-12T10:00:00Z"),
+      }),
+      no({
+        id: "q7",
+        parentId: "c",
+        hasQuestion: true,
+        originalLabel: "7",
+        deletedAt: new Date("2026-08-12T09:00:00Z"),
+      }),
+    ];
+
+    const { atos, itemCount, objectCount } = agruparLixeira(nos);
+
+    expect(atos.map((a) => a.id)).toEqual(["c", "q7"]);
+    expect(atos[0]?.restoresCount).toBe(2);
+    expect(atos[0]?.questionsTaken).toBe(1);
+    // A questão 7 só volta depois do capítulo: a linha diz de quem ela depende.
+    expect(atos[1]?.paiNaLixeira).toBe("c");
+    expect(itemCount).toBe(2);
+    expect(objectCount).toBe(3);
   });
 
   it("dois atos separados continuam dois — e o mais recente vem primeiro", () => {

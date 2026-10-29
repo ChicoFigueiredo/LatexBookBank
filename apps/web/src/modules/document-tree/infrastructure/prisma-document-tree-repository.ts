@@ -129,11 +129,20 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     });
   }
 
-  async restoreMany(nodeIds: readonly string[]): Promise<void> {
+  async restoreMany(
+    nodeIds: readonly string[],
+    reposition?: { readonly nodeId: string; readonly sortKey: string },
+  ): Promise<void> {
     if (nodeIds.length === 0) return;
     await prisma.$transaction(async (tx) => {
       for (const ids of inChunks(nodeIds)) {
         await tx.documentNode.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
+      }
+      if (reposition) {
+        await tx.documentNode.update({
+          where: { id: reposition.nodeId },
+          data: { sortKey: reposition.sortKey },
+        });
       }
     });
   }
@@ -142,7 +151,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     const rows = await prisma.documentNode.findMany({
       where: { publicationId, deletedAt: { not: null } },
       orderBy: { deletedAt: "desc" },
-      select: { id: true, parentId: true, title: true, kind: true, deletedAt: true },
+      select: { id: true, parentId: true, title: true, kind: true, sortKey: true, deletedAt: true },
     });
 
     return rows.map((row) => {
@@ -154,6 +163,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         parentId: row.parentId,
         title: row.title,
         kind: row.kind,
+        sortKey: row.sortKey,
         deletedAt: row.deletedAt as Date,
       };
     });

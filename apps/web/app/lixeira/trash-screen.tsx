@@ -30,6 +30,8 @@ export interface TrashItemView {
   readonly deletedLabel: string;
   readonly restoresCount: number;
   readonly took: string | null;
+  /** O pai que também está na lixeira, excluído depois: este item só volta depois dele. */
+  readonly waitsFor: string | null;
 }
 
 /** O que o esvaziar deixou na lixeira porque uma avaliação usa (#258). */
@@ -98,7 +100,9 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
         <h1 className="lbb-greet-title">Lixeira</h1>
         <p className="lbb-book-sub" style={{ marginTop: 6, maxWidth: "48rem" }}>
           Excluir um item o manda para cá com tudo o que é dele — alternativas, tags, recorte de
-          origem. Nada é apagado de verdade até você esvaziar.
+          origem. Nada é apagado de verdade até você esvaziar. Restaurar devolve o item com o que
+          saiu junto com ele; o que você já tinha excluído antes, à parte, continua aqui e volta
+          separado.
         </p>
 
         {error && (
@@ -157,15 +161,23 @@ export function TrashScreen({ items, footer, objectCount }: TrashScreenProps) {
                   </div>
                 </div>
 
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  loading={busy === item.id}
-                  onClick={() => void restaurar(item)}
-                >
-                  {/* A promessa é numérica, e o número vem da mesma conta que a restauração usa. */}
-                  {item.restoresCount > 1 ? `Restaurar (${item.restoresCount} itens)` : "Restaurar"}
-                </Button>
+                {item.waitsFor ? (
+                  // Desabilitado **com motivo**: o pai foi excluído depois, e este item volta para
+                  // debaixo dele — restaurá-lo antes o deixaria sob um nó invisível.
+                  <span className="lbb-trash-meta">restaure “{item.waitsFor}” antes</span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={busy === item.id}
+                    onClick={() => void restaurar(item)}
+                  >
+                    {/* A promessa é numérica, e o número vem da mesma conta que a restauração usa. */}
+                    {item.restoresCount > 1
+                      ? `Restaurar (${item.restoresCount} itens)`
+                      : "Restaurar"}
+                  </Button>
+                )}
               </div>
             ))}
 

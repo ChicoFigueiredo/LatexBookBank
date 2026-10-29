@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { DeletedAncestorError } from "@modules/document-tree/application/mutate-tree";
+import { InvalidSortKeyError } from "@modules/document-tree/domain/fractional-index";
 import { NODE_KINDS, type NodeKind } from "@modules/document-tree/domain/node-kind";
 import { CyclicMoveError, NodeNotFoundError } from "@modules/document-tree/domain/tree-mutations";
 import type { Placement } from "@modules/document-tree/domain/tree-mutations";
@@ -97,6 +98,16 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof CyclicMoveError || error instanceof DeletedAncestorError) {
     return NextResponse.json({ error: "conflict", message: error.message }, { status: 409 });
+  }
+  // Dois irmãos com a mesma chave (#260): o pedido está certo, o que o recusa é a ordem gravada.
+  if (error instanceof InvalidSortKeyError) {
+    return NextResponse.json(
+      {
+        error: "conflict",
+        message: "A ordem destes itens está inconsistente. Mova um deles e tente de novo.",
+      },
+      { status: 409 },
+    );
   }
   throw error;
 }

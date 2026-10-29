@@ -37,6 +37,11 @@ export interface ItemDaLixeira {
   readonly restoresCount: number;
   /** "levou 6 questões com ele" — `null` quando não levou nada. */
   readonly took: string | null;
+  /**
+   * "Capítulo 2" — o pai que também está na lixeira, excluído depois deste item (#260). Enquanto
+   * ele não voltar, este não volta; `null` quando o item pode ser restaurado já.
+   */
+  readonly waitsFor: string | null;
 }
 
 export interface LixeiraGlobal {
@@ -80,9 +85,10 @@ export async function readGlobalTrash(): Promise<LixeiraGlobal> {
 
   const resumo = agruparLixeira(nos);
   const porId = new Map(rows.map((row) => [row.id, row]));
+  const noPorId = new Map(nos.map((no) => [no.id, no]));
 
-  // O caminho ("cap. 2") vem do ancestral **vivo** mais próximo: o pai do que foi excluído não
-  // está na lixeira — é essa a definição de ato —, então ele existe e serve de endereço.
+  // O caminho ("cap. 2") vem do pai, que existe no banco mesmo quando está na lixeira — o caso do
+  // filho excluído antes dele, que é ato próprio (#260). A linha existe, e serve de endereço.
   const ancestrais = await carregarAncestrais(
     resumo.atos.map((ato) => porId.get(ato.id)?.parentId).filter((id): id is string => !!id),
   );
@@ -92,6 +98,7 @@ export async function readGlobalTrash(): Promise<LixeiraGlobal> {
       const row = porId.get(ato.id);
       const livro = row?.publication;
       const paiTitulo = row?.parentId ? ancestrais.get(row.parentId) : null;
+      const paiNaLixeira = ato.paiNaLixeira ? noPorId.get(ato.paiNaLixeira) : undefined;
 
       return {
         id: ato.id,
@@ -103,6 +110,7 @@ export async function readGlobalTrash(): Promise<LixeiraGlobal> {
         deletedAt: ato.deletedAt,
         restoresCount: ato.restoresCount,
         took: frasedoQueLevou(ato satisfies AtoDeExclusao),
+        waitsFor: paiNaLixeira ? rotular(paiNaLixeira) : null,
       };
     }),
     footer: contagemDoRodape(resumo),
