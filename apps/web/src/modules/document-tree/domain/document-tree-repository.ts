@@ -93,13 +93,14 @@ export interface DocumentTreeWriter {
   softDeleteMany(nodeIds: readonly string[]): Promise<void>;
 
   /**
-   * Tira os nós da lixeira, em uma transação. `reposition` dá à raiz restaurada uma sortKey nova,
-   * na mesma transação — o domínio já decidiu qual (a de antes colidia com a de um irmão).
+   * Tira os nós da lixeira, em uma transação.
+   *
+   * `root` é a raiz restaurada: na mesma transação, o adaptador lê as chaves dos irmãos vivos
+   * dela e grava a chave que `sortKeyAmong` devolver. A regra é de quem chama; a leitura é aqui
+   * dentro, para que um irmão criado depois de o caso de uso ler a árvore não repita a chave
+   * (ACV-09).
    */
-  restoreMany(
-    nodeIds: readonly string[],
-    reposition?: { readonly nodeId: string; readonly sortKey: string },
-  ): Promise<void>;
+  restoreMany(nodeIds: readonly string[], root?: RestoredRoot): Promise<void>;
 
   /** Nós excluídos de uma publicação — a lixeira, e o que `restore` precisa consultar. */
   listDeleted(publicationId: string): Promise<readonly DeletedNodeRecord[]>;
@@ -119,6 +120,13 @@ export interface PlannedNode {
   readonly sourceId: string;
   readonly parentId: string | null;
   readonly sortKey: string;
+}
+
+/** A raiz de uma restauração, e a regra que lhe dá a chave entre os irmãos vivos. */
+export interface RestoredRoot {
+  readonly nodeId: string;
+  /** A chave nova, dadas as chaves dos irmãos vivos (sem a própria raiz); `null` mantém a de antes. */
+  readonly sortKeyAmong: (siblingKeys: readonly string[]) => string | null;
 }
 
 export interface DeletedNodeRecord {

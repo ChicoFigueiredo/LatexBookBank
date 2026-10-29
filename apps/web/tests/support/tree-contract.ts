@@ -262,6 +262,37 @@ export function contratoDaArvore(nome: string, bancada: () => Bancada): void {
         ).resolves.toBeTypeOf("string");
       });
 
+      it("um irmão criado entre a leitura e a restauração não repete a sortKey (ACV-09)", async () => {
+        // A escrita concorrente cai depois de tudo que o caso de uso leu, e antes da transação da
+        // restauração: só a leitura feita dentro da transação a enxerga.
+        const b = bancada();
+        const { pub, cap1, sec1, filhos } = await livro(b);
+        await deleteNode(b.deps, pub, sec1);
+        const writer = new Proxy(b.deps.writer, {
+          get(target, prop) {
+            const value: unknown = Reflect.get(target, prop, target);
+            if (prop === "restoreMany") {
+              return async (...args: Parameters<typeof target.restoreMany>) => {
+                await createNode(b.deps, {
+                  publicationId: pub,
+                  kind: "SECTION",
+                  title: "Seção concorrente",
+                  placement: { kind: "firstChild", parentId: cap1 },
+                });
+                return target.restoreMany(...args);
+              };
+            }
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
+
+        await restoreNode({ reader: b.deps.reader, writer }, pub, sec1);
+
+        const irmaos = await filhos(cap1);
+        expect(irmaos.map((row) => row.title)).toContain("Seção concorrente");
+        expect(new Set(irmaos.map((row) => row.sortKey)).size).toBe(irmaos.length);
+      });
+
       it("sem colisão, a sortKey de antes fica", async () => {
         const b = bancada();
         const { pub, sec1, no } = await livro(b);

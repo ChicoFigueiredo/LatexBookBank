@@ -3,9 +3,8 @@ import type {
   DocumentTreeRepository,
   DocumentTreeWriter,
 } from "@modules/document-tree/domain/document-tree-repository";
-import { generateKeyBetween } from "@/shared/ordering/fractional-index";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
-import { deletedAncestorOf } from "@modules/document-tree/domain/restoration";
+import { deletedAncestorOf, restoredSortKey } from "@modules/document-tree/domain/restoration";
 import {
   NodeNotFoundError,
   assertMoveIsLegal,
@@ -132,11 +131,10 @@ export async function deleteNode(
  * pai. É a mesma regra que a lixeira usa para agrupar os atos (`agruparLixeira`).
  *
  * A sortKey de antes volta, para o nó voltar ao lugar de origem — menos quando um irmão criado
- * enquanto ele estava na lixeira recebeu a mesma chave. Dois irmãos com a mesma chave deixam a
- * ordem por conta do banco, e qualquer inserção entre eles cai em `generateKeyBetween(k, k)`.
+ * enquanto ele estava na lixeira recebeu a mesma chave (`restoredSortKey`).
  */
 export async function restoreNode(
-  { reader, writer }: Deps,
+  { writer }: Deps,
   publicationId: string,
   nodeId: string,
 ): Promise<readonly string[]> {
@@ -169,21 +167,12 @@ export async function restoreNode(
     for (const child of childrenOf.get(id) ?? []) pending.push(child);
   }
 
-  const siblings = (await reader.listByPublication(publicationId))
-    .filter((record) => record.parentId === node.parentId)
-    .map((record) => record.sortKey)
-    .sort();
-
-  if (siblings.includes(node.sortKey)) {
-    // Logo depois do irmão que tomou a chave: é o lugar mais perto do de origem que está livre.
-    const next = siblings.find((key) => key > node.sortKey) ?? null;
-    await writer.restoreMany(restoring, {
-      nodeId,
-      sortKey: generateKeyBetween(node.sortKey, next),
-    });
-  } else {
-    await writer.restoreMany(restoring);
-  }
+  // A chave entre os irmãos é lida dentro da transação da restauração: lida aqui, um irmão criado
+  // entre esta leitura e a escrita repetiria a chave (ACV-09).
+  await writer.restoreMany(restoring, {
+    nodeId,
+    sortKeyAmong: (siblingKeys) => restoredSortKey(node.sortKey, siblingKeys),
+  });
 
   return restoring;
 }
