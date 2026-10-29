@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { OpenAiCompatibleProvider } from "@modules/agents/infrastructure/openai-compatible-provider";
+import { OpenAiCompatibleProvider } from "@infrastructure/ai/openai-compatible/openai-compatible-provider";
 import { env as appEnv } from "@/shared/config/env";
 import { AiCredentialMissingError, AiProviderError } from "@/shared/ports";
 

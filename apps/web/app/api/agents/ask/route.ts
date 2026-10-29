@@ -20,7 +20,7 @@ import {
   type AgentContext,
   type ContextItem,
 } from "@modules/agents/domain/agent-context";
-import { OpenAiCompatibleProvider } from "@modules/agents/infrastructure/openai-compatible-provider";
+import { OpenAiCompatibleProvider } from "@infrastructure/ai/openai-compatible/openai-compatible-provider";
 import { PrismaAgentReadPort } from "@infrastructure/agent/prisma-agent-read-port";
 import { recordAgentRun, workspaceOfQuestion } from "@infrastructure/agent/prisma-agent-run-writer";
 import { env as appEnv } from "@/shared/config/env";

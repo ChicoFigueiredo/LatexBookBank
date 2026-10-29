@@ -2,7 +2,9 @@ import "server-only";
 
 import { escapeIfProse } from "@modules/latex/domain/latex-escape";
 import {
+  AiProviderError,
   MathRecognitionError,
+  type AiProvider,
   type MathRecognitionProvider,
   type MathRecognitionRequest,
   type MathRecognitionResult,
@@ -19,18 +21,13 @@ import {
  * O **modelo é outro** de propósito: `AI_VISION_MODEL` é separado de `AI_MODEL`, porque o modelo
  * bom de código raramente é o que enxerga.
  *
+ * O **cliente é o mesmo** (ARQ-07): este arquivo fica com o prompt, a limpeza e o escape, e fala
+ * com o endpoint pelo `AiProvider` que recebe — o `OpenAiCompatibleProvider` do agente. Perfil,
+ * credencial, prazo e erro têm um dono só: um OpenRouter sem chave recusa aqui com a mesma
+ * instrução que o agente dá, e não com um 401 a cada recorte.
+ *
  * Ver spec §19 · issue #125.
  */
-
-export interface VisionRecognizerConfig {
-  readonly baseUrl: string;
-  readonly apiKey: string | null;
-  readonly model: string;
-  readonly timeoutMs?: number;
-}
-
-/** Dois minutos: um modelo local de visão frio demora, e cortar antes desperdiça a carga. */
-const DEFAULT_TIMEOUT_MS = 120_000;
 
 /**
  * O aviso sobre repetição e corte é comum aos três modos matemáticos — é onde
@@ -67,64 +64,39 @@ const PROMPTS: Readonly<Record<MathRecognitionRequest["mode"], string>> = {
 export class VisionMathRecognizer implements MathRecognitionProvider {
   readonly id = "openai-compatible-vision";
 
-  constructor(private readonly config: VisionRecognizerConfig) {}
+  constructor(
+    private readonly provider: AiProvider,
+    private readonly model: string,
+  ) {}
 
   async recognize(request: MathRecognitionRequest): Promise<MathRecognitionResult> {
     const started = Date.now();
 
-    const body = {
-      model: this.config.model,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: PROMPTS[request.mode] },
-            {
-              type: "image_url",
-              // Data URI, não URL: o recorte pode nem estar no storage ainda — ele acabou de sair
-              // do canvas —, e subir para depois mandar o endereço criaria um asset por tentativa
-              // de reconhecimento, incluindo as descartadas.
-              image_url: { url: `data:${request.mimeType};base64,${toBase64(request.image)}` },
-            },
-          ],
-        },
-      ],
-      // Temperatura zero: transcrever não é criar. Variação aqui é erro, não diversidade.
-      temperature: 0,
-      max_tokens: 1_500,
-    };
-
-    let response: Response;
+    let raw: string;
     try {
-      response = await fetch(`${this.config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(this.config.apiKey ? { authorization: `Bearer ${this.config.apiKey}` } : {}),
-        },
-        body: JSON.stringify(body),
-        signal: request.signal ?? AbortSignal.timeout(this.config.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+      const result = await this.provider.run({
+        model: this.model,
+        messages: [
+          {
+            role: "user",
+            content: PROMPTS[request.mode],
+            images: [{ mimeType: request.mimeType, data: request.image }],
+          },
+        ],
+        // Temperatura zero: transcrever não é criar. Variação aqui é erro, não diversidade.
+        temperature: 0,
+        maxTokens: 1_500,
+        ...(request.signal ? { signal: request.signal } : {}),
       });
+      raw = result.text;
     } catch (error) {
-      throw new MathRecognitionError(
-        `Não foi possível falar com ${this.config.baseUrl}.`,
-        this.id,
-        error,
-      );
+      // A falha do endpoint chega como a do reconhecimento: é ela que a rota traduz em "o
+      // recorte continua guardado, tente de novo", e a mensagem do provider já diz o que houve.
+      if (error instanceof AiProviderError) {
+        throw new MathRecognitionError(error.message, this.id, error);
+      }
+      throw error;
     }
-
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      throw new MathRecognitionError(
-        `O endpoint recusou: HTTP ${response.status}. ${detail.slice(0, 300)}`.trim(),
-        this.id,
-      );
-    }
-
-    const payload = (await response.json()) as {
-      choices?: { message?: { content?: string | null } }[];
-    };
-    const raw = payload.choices?.[0]?.message?.content ?? "";
 
     return {
       // `escapeIfProse` só age no modo `text`: os outros já vêm em LaTeX por definição, e escapar
@@ -135,7 +107,7 @@ export class VisionMathRecognizer implements MathRecognitionProvider {
       confidence: null,
       alternatives: [],
       providerId: this.id,
-      model: this.config.model,
+      model: this.model,
       durationMs: Date.now() - started,
     };
   }
@@ -174,14 +146,4 @@ export function cleanLatex(raw: string): string {
   }
 
   return text;
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  // Em blocos: `String.fromCharCode(...bytes)` estoura a pilha com imagem de alguns megabytes.
-  const CHUNK = 8_192;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(binary);
 }

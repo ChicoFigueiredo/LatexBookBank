@@ -49,8 +49,23 @@ export interface AiToolResult {
   readonly isError?: boolean;
 }
 
+/**
+ * Uma imagem que vai junto do texto, para o modelo multimodal — o recorte que o reconhecimento
+ * matemático transcreve. Os bytes, e não um endereço: o recorte pode nem estar no storage ainda.
+ */
+export interface AiImage {
+  readonly mimeType: string;
+  readonly data: Uint8Array;
+}
+
 export type AiMessage =
-  | { readonly role: "system" | "user"; readonly content: string }
+  | { readonly role: "system"; readonly content: string }
+  | {
+      readonly role: "user";
+      readonly content: string;
+      /** Depois do texto, na ordem. Só um modelo com visão as lê. */
+      readonly images?: readonly AiImage[];
+    }
   | {
       readonly role: "assistant";
       readonly content: string;

@@ -13,7 +13,11 @@ import {
 } from "@/shared/ports";
 import { env } from "@/shared/config/env";
 
-import { capabilitiesFor, profileForBaseUrl, type AiProfile } from "../domain/ai-profile";
+import {
+  capabilitiesFor,
+  profileForBaseUrl,
+  type AiProfile,
+} from "@modules/agents/domain/ai-profile";
 
 /**
  * O provider — **um só**, com `baseURL` configurável (D3).
@@ -21,6 +25,10 @@ import { capabilitiesFor, profileForBaseUrl, type AiProfile } from "../domain/ai
  * OpenRouter, OpenAI, Ollama, LM Studio e qualquer endpoint compatível falam o mesmo protocolo.
  * Escrever um adaptador por serviço seria manter quatro cópias de um cliente HTTP que só diferem
  * no endereço — e a quarta ficaria para trás.
+ *
+ * É a implementação do port primário `AiProvider`, e por isso mora em `src/infrastructure/ai`, e
+ * não dentro de `agents` (ARQ-07): o agente, a passada semântica do scan e o reconhecimento por
+ * visão falam com o endpoint por aqui, e perfil, credencial, prazo e erro têm um dono só.
  *
  * ## `server-only` não é decoração
  *
@@ -47,9 +55,11 @@ export interface ProviderConfig {
 const DEFAULT_TIMEOUT_MS = 120_000;
 
 /** Formato de mensagem que a API compatível espera. */
+type WirePart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+
 interface WireMessage {
   role: string;
-  content: string | null;
+  content: string | null | WirePart[];
   tool_call_id?: string;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[];
 }
@@ -80,7 +90,32 @@ function toWire(message: AiMessage): WireMessage {
       })),
     };
   }
+  if (message.role === "user" && message.images !== undefined && message.images.length > 0) {
+    return {
+      role: "user",
+      content: [
+        { type: "text", text: message.content },
+        ...message.images.map((image): WirePart => ({
+          type: "image_url",
+          // Data URI, não URL: o recorte pode nem estar no storage ainda — ele acabou de sair
+          // do canvas —, e subir para depois mandar o endereço criaria um asset por tentativa
+          // de reconhecimento, incluindo as descartadas.
+          image_url: { url: `data:${image.mimeType};base64,${toBase64(image.data)}` },
+        })),
+      ],
+    };
+  }
   return { role: message.role, content: message.content };
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  // Em blocos: `String.fromCharCode(...bytes)` estoura a pilha com imagem de alguns megabytes.
+  const CHUNK = 8_192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 export class OpenAiCompatibleProvider implements AiProvider {
