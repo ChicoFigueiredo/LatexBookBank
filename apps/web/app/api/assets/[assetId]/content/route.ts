@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { findAssetContentRef } from "@modules/assets/infrastructure/prisma-provenance-reader";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 import { servedContentHeaders } from "@/shared/http/served-content";
 import { asStorageKey } from "@/shared/ports";
 
@@ -44,9 +43,7 @@ export const GET = withErrors(async function GET(
 
   // Linha no banco sem arquivo no storage vira `asset_evicted` no tradutor: para um derivado é
   // legítimo (D29), e a resposta certa é 404 com a razão — não 500 opaco.
-  const stored = await new LocalFileStorageProvider({
-    rootDir: appEnv().storageRoot,
-  }).get(asStorageKey(asset.storageKey));
+  const stored = await storage().get(asStorageKey(asset.storageKey));
 
   // `nosniff` sempre, e SVG (ou qualquer tipo que não seja imagem comum ou PDF) em sandbox: o
   // arquivo é de quem subiu ou de um `.lbb`, e aberto numa aba não pode rodar como o app (#257).

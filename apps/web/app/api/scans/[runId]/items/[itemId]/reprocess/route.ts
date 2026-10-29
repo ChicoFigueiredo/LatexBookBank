@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { env as appEnv } from "@/shared/config/env";
 import { asStorageKey } from "@/shared/ports/storage-provider";
 import { reprocessItem } from "@modules/scan/application/review-scan";
 import { storageKeyOfAsset } from "@modules/scan/infrastructure/prisma-scan-store";
@@ -25,7 +24,6 @@ export async function POST(
       throw new BadRequestError("`what` precisa ser `ai`, `math` ou `figure`.");
     }
 
-    const env = appEnv();
     const { store, storage, opener, figures } = scanDeps();
     const item = await reprocessItem(
       {
@@ -35,8 +33,8 @@ export async function POST(
           const key = await storageKeyOfAsset(assetId);
           return key ? (await storage.get(asStorageKey(key))).content : null;
         },
-        semantic: semanticPassFromEnv(env),
-        math: mathPassFromEnv(env),
+        semantic: semanticPassFromEnv(),
+        math: mathPassFromEnv(),
         figures,
       },
       runId,

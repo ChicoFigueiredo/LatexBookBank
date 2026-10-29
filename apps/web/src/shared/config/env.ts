@@ -37,6 +37,14 @@ export interface AppEnv {
    */
   readonly aiToolCalling: boolean;
   /**
+   * O modelo que enxerga: reconhece a matemática de um recorte (captura e scan).
+   *
+   * Outro modelo, e não o `AI_MODEL`: o bom de código raramente lê imagem. Passava por fora daqui,
+   * lido cru em quatro lugares e sem `trim` — `AI_VISION_MODEL=" "` contava como configurado
+   * (STE-12). Quem pergunta "a visão está disponível?" usa `visionConfigured`.
+   */
+  readonly aiVisionModel: string | null;
+  /**
    * Raiz da biblioteca Calibre desta máquina — a pasta que contém `metadata.db`.
    *
    * É o valor que a tela de importação oferece quando não há nada guardado no navegador, e o que
@@ -55,7 +63,20 @@ export interface AppEnv {
    * porta, e porta é convenção.
    */
   readonly instance: AppInstance;
+  /** Onde o serviço de backup grava, e onde o diagnóstico procura o `backup-status.json`. */
+  readonly backupDestination: string | null;
+  /** De quantas em quantas horas o backup roda: passou disso, o indicador deixa de ser verde. */
+  readonly backupIntervalHours: number;
+  /** A versão do app, como o gerenciador de pacotes a expõe ao processo. */
+  readonly appVersion: string;
 }
+
+/**
+ * A visão está disponível? O mesmo critério para a tela que oferece "Reconhecer matemática" e
+ * para a rota e o laço que a executam — eram quatro cópias da expressão.
+ */
+export const visionConfigured = (env: AppEnv): boolean =>
+  env.aiBaseUrl !== null && env.aiVisionModel !== null;
 
 /** As instâncias que existem. Um valor fora daqui é erro de digitação, e não uma terceira. */
 const INSTANCES = ["local", "e2e"] as const;
@@ -127,8 +148,13 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     aiApiKey: get("AI_API_KEY"),
     aiModel: get("AI_MODEL"),
     aiToolCalling: get("AI_TOOL_CALLING") === "true",
+    aiVisionModel: get("AI_VISION_MODEL"),
     calibreLibraryRoot: get("CALIBRE_LIBRARY_ROOT"),
     instance: instance as AppInstance,
+    backupDestination: get("BACKUP_DESTINATION"),
+    // Valor inválido volta ao padrão, como sempre voltou: o intervalo só pinta o indicador.
+    backupIntervalHours: Number(get("BACKUP_INTERVAL_HOURS") ?? "24") || 24,
+    appVersion: get("npm_package_version") ?? "0.0.0",
   };
 }
 

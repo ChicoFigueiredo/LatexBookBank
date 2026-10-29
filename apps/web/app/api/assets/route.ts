@@ -6,9 +6,8 @@ import { registerUploadedAsset } from "@modules/assets/application/register-uplo
 import { inferKind, storeAsset } from "@modules/assets/application/store-asset";
 import { isAssetKind } from "@modules/assets/domain/asset-kind";
 import { PrismaAssetWriter } from "@modules/assets/infrastructure/prisma-asset-writer";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { storage } from "@infrastructure/composition";
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
-import { env as appEnv } from "@/shared/config/env";
 
 import { BadRequestError, toErrorResponse } from "../http";
 
@@ -77,7 +76,7 @@ export async function POST(request: Request) {
         content: new Uint8Array(await file.arrayBuffer()),
         kind,
       },
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+      storage(),
     );
 
     const asset = await registerUploadedAsset(

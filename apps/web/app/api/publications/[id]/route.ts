@@ -6,8 +6,7 @@ import {
 } from "@modules/publications/application/manage-publications";
 import { PrismaPublicationRepository } from "@modules/publications/infrastructure/prisma-publication-repository";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 
 import { readJson } from "../../http";
 import { toErrorResponse } from "../../http";
@@ -49,12 +48,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   try {
     const body = await readJson(request);
-    const removida = await deletePublication(
-      new PrismaPublicationRepository(),
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
-      id,
-      { title: body["title"] },
-    );
+    const removida = await deletePublication(new PrismaPublicationRepository(), storage(), id, {
+      title: body["title"],
+    });
 
     return NextResponse.json({ deleted: removida });
   } catch (error) {

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 
 import { emptyTrash } from "@modules/document-tree/application/empty-trash";
 import { PrismaTrashPurge, readGlobalTrash } from "@modules/document-tree/infrastructure/prisma-global-trash";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 
 import { toErrorResponse } from "../http";
 
@@ -47,7 +46,7 @@ export async function DELETE() {
   try {
     const result = await emptyTrash(
       new PrismaTrashPurge(),
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+      storage(),
     );
     return NextResponse.json(result);
   } catch (error) {

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { storage } from "@infrastructure/composition";
 import { env as appEnv } from "@/shared/config/env";
 
 import type { ExecuteRenderDeps } from "../application/execute-render";
@@ -23,7 +23,7 @@ export function renderWiringFromEnv():
   const executor = workerFor(env.rendererBaseUrl, env.rendererSecret);
   return {
     executor,
-    storage: new LocalFileStorageProvider({ rootDir: env.storageRoot }),
+    storage: storage(),
     jobs: new PrismaRenderJobRepository(),
     // A versão que entra no hash é a que o worker reporta, e não a do ambiente da aplicação: é a
     // imagem que compila quem sabe se mudou (PLT-05).

@@ -5,8 +5,7 @@ import {
   recordRecognition,
   recordRecognitionFailure,
 } from "@modules/recognition/infrastructure/prisma-capture-queue";
-import { VisionMathRecognizer } from "@modules/recognition/infrastructure/vision-math-recognizer";
-import { env as appEnv } from "@/shared/config/env";
+import { visionRecognizer } from "@infrastructure/composition";
 import { MathRecognitionError } from "@/shared/ports";
 
 import { BadRequestError, toErrorResponse } from "../http";
@@ -32,10 +31,8 @@ export async function POST(request: Request) {
   let anchorId: string | null = null;
 
   try {
-    const env = appEnv();
-
-    const model = process.env["AI_VISION_MODEL"] ?? null;
-    if (env.aiBaseUrl === null || model === null) {
+    const vision = visionRecognizer();
+    if (vision === null) {
       // Modelo de visão é outro: o bom de código raramente enxerga. Sem ele configurado, dizer o
       // que falta é melhor que tentar com o modelo de texto e devolver algo sem sentido.
       return NextResponse.json(
@@ -74,13 +71,7 @@ export async function POST(request: Request) {
     const rawAnchor = form.get("anchorId");
     anchorId = typeof rawAnchor === "string" && rawAnchor !== "" ? rawAnchor : null;
 
-    const recognizer = new VisionMathRecognizer({
-      baseUrl: env.aiBaseUrl,
-      apiKey: env.aiApiKey,
-      model,
-    });
-
-    const result = await recognizer.recognize({
+    const result = await vision.recognizer.recognize({
       image: new Uint8Array(await image.arrayBuffer()),
       mimeType: image.type || "image/png",
       mode: mode as "display" | "inline" | "mixed" | "text",

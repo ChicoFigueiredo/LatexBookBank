@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 import { LibraryNotFoundError } from "@modules/workspaces/domain/library";
 import { deleteLibrary, renameLibrary } from "@modules/workspaces/application/manage-libraries";
 import { PrismaLibraryRepository } from "@modules/workspaces/infrastructure/prisma-library-repository";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 
 import { readJson } from "../../http";
 import { toErrorResponse } from "../../http";
@@ -67,7 +66,7 @@ export async function DELETE(
     const body = await readJson(request);
     const deleted = await deleteLibrary(
       new PrismaLibraryRepository(),
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+      storage(),
       libraryId,
       { name: body["name"] },
     );

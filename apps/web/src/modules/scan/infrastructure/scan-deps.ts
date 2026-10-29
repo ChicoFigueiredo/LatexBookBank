@@ -2,8 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { env as appEnv } from "@/shared/config/env";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { storage as storageProvider } from "@infrastructure/composition";
 import { runScan } from "@modules/scan/application/run-scan";
 
 import { createFigurePass } from "@modules/scan/application/figure-pass";
@@ -16,14 +15,13 @@ import { PrismaScanSources, PrismaScanStore, storageKeyOfAsset } from "./prisma-
 import { mathPassFromEnv, semanticPassFromEnv } from "./scan-passes";
 
 /**
- * As peças do scan para as rotas. As rotas deste projeto montam os adaptadores na hora; aqui
- * fica só o que as rotas do scan repetiriam — e o laço, que precisa das mesmas peças fora da
- * requisição.
+ * As peças do scan para as rotas e para o laço, que precisa das mesmas peças fora da requisição.
+ * O storage e a IA vêm da raiz de composição (`@infrastructure/composition`); aqui fica o que é
+ * só do scan.
  */
 export function scanDeps() {
-  const env = appEnv();
   const store = new PrismaScanStore();
-  const storage = new LocalFileStorageProvider({ rootDir: env.storageRoot });
+  const storage = storageProvider();
   const opener = new PdfjsDocumentReader();
 
   // A mesma passada serve ao laço e ao "recortar de novo" da revisão: uma peça, dois usos.
@@ -42,8 +40,8 @@ export function scanDeps() {
         sourceKey: storageKeyOfAsset,
         // As figuras são recortadas durante a varredura (D58): a revisão precisa vê-las.
         figures,
-        semantic: semanticPassFromEnv(env),
-        math: mathPassFromEnv(env),
+        semantic: semanticPassFromEnv(),
+        math: mathPassFromEnv(),
       },
       runId,
     ),

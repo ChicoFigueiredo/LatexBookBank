@@ -6,8 +6,7 @@ import {
   readExistingIndex,
 } from "@modules/portability/infrastructure/prisma-import-index";
 import { writeImportedWorkspace } from "@modules/portability/infrastructure/prisma-workspace-sink";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 import { readCappedBody } from "@/shared/http/read-capped-body";
 
 import { toErrorResponse } from "../../http";
@@ -44,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const params = new URL(request.url).searchParams;
-    const storage = new LocalFileStorageProvider({ rootDir: appEnv().storageRoot });
+    const files = storage();
     const outcome = await importArchive(
       bytes,
       {
@@ -54,7 +53,7 @@ export async function POST(request: Request) {
       {
         readIndex: readExistingIndex,
         describeConflicts,
-        write: (plan, assets) => writeImportedWorkspace(plan, assets, storage),
+        write: (plan, assets) => writeImportedWorkspace(plan, assets, files),
       },
     );
 

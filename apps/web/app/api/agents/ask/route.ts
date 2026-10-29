@@ -8,7 +8,6 @@ import {
 } from "@modules/agents/application/build-propose-tools";
 import { buildCandidateRenderTool } from "@modules/agents/application/render-candidate";
 import { isAgentMode, profileForMode } from "@modules/agents/domain/agent-mode";
-import { capabilitiesFor } from "@modules/agents/domain/ai-profile";
 import type { AgentMode } from "@modules/agents/domain/agent-run";
 import { diffPatch } from "@modules/agents/domain/patch-diff";
 import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
@@ -20,9 +19,9 @@ import {
   type AgentContext,
   type ContextItem,
 } from "@modules/agents/domain/agent-context";
-import { OpenAiCompatibleProvider } from "@modules/agents/infrastructure/openai-compatible-provider";
 import { PrismaAgentReadPort } from "@infrastructure/agent/prisma-agent-read-port";
 import { recordAgentRun, workspaceOfQuestion } from "@infrastructure/agent/prisma-agent-run-writer";
+import { aiProvider } from "@infrastructure/composition";
 import { env as appEnv } from "@/shared/config/env";
 
 import { BadRequestError, readJson, toErrorResponse } from "../../http";
@@ -80,13 +79,10 @@ export async function POST(request: Request) {
     const questionId = parseOptionalId(body["questionId"]);
     const mode = parseMode(body["mode"]);
 
-    const provider = new OpenAiCompatibleProvider({
-      baseUrl: env.aiBaseUrl,
-      apiKey: env.aiApiKey,
-      // `AI_TOOL_CALLING=true` corrige o perfil quando o modelo sabe mais do que ele assume —
-      // `qwen3-coder:30b` no Ollama, por exemplo. A regra é a mesma que o /diagnostico mostra.
-      capabilities: capabilitiesFor(env.aiBaseUrl, { toolCalling: env.aiToolCalling }),
-    });
+    // `AI_TOOL_CALLING=true` corrige o perfil quando o modelo sabe mais do que ele assume —
+    // `qwen3-coder:30b` no Ollama, por exemplo. A regra é a mesma que o /diagnostico mostra.
+    const provider = aiProvider();
+    if (provider === null) throw new Error("AI_BASE_URL sumiu entre a checagem e a montagem.");
 
     // No modo `REVIEW` o agente ganha as tools de proposta — que **não** escrevem: elas guardam o
     // patch numa bandeja para o humano revisar. A escrita continua sendo um gesto do usuário, por

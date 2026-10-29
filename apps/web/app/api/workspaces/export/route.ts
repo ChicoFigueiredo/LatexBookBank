@@ -1,8 +1,8 @@
 import { toPortable } from "@modules/portability/application/export-workspace";
 import { writeArchive } from "@modules/portability/domain/portable-archive";
 import { readWorkspaceForExport } from "@modules/portability/infrastructure/prisma-workspace-source";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
+import { env } from "@/shared/config/env";
 import { NextResponse } from "next/server";
 
 import { toErrorResponse } from "../../http";
@@ -28,8 +28,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const storage = new LocalFileStorageProvider({ rootDir: appEnv().storageRoot });
-    const source = await readWorkspaceForExport(workspaceId, storage);
+    const files = storage();
+    const source = await readWorkspaceForExport(workspaceId, files);
 
     if (source === null) {
       return NextResponse.json(
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     const archive = await writeArchive({
       workspace: toPortable(source.workspace),
       assets: source.assets,
-      appVersion: process.env["npm_package_version"] ?? "0.0.0",
+      appVersion: env().appVersion,
       exportedAt: new Date().toISOString(),
     });
 

@@ -8,9 +8,8 @@ import {
   createAsset,
   findAsset,
 } from "@modules/assets/infrastructure/prisma-asset-writer";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
+import { storage } from "@infrastructure/composition";
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
-import { env as appEnv } from "@/shared/config/env";
 
 import { BadRequestError, toErrorResponse } from "../../http";
 
@@ -87,7 +86,7 @@ export async function POST(request: Request) {
         content: new Uint8Array(await image.arrayBuffer()),
         kind: "CROP",
       },
-      new LocalFileStorageProvider({ rootDir: appEnv().storageRoot }),
+      storage(),
     );
 
     const cropAsset = await createAsset({ ...stored, workspaceId: source.workspaceId });

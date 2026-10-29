@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { env } from "@/shared/config/env";
+import { env, visionConfigured } from "@/shared/config/env";
 import { getPublicationTree } from "@modules/document-tree/application/get-publication-tree";
 import { PrismaDocumentTreeRepository } from "@modules/document-tree/infrastructure/prisma-document-tree-repository";
 import { isContainerKind } from "@modules/document-tree/domain/add-placement";
@@ -56,7 +56,7 @@ export default async function ScanRunPage({ params }: { params: Promise<{ id: st
         .filter((node) => isContainerKind(node.kind))
         .map((node) => ({ id: node.id, title: node.title, depth: node.depth }))}
       aiAvailable={appEnv.aiBaseUrl !== null && appEnv.aiModel !== null}
-      mathAvailable={appEnv.aiBaseUrl !== null && Boolean(process.env["AI_VISION_MODEL"])}
+      mathAvailable={visionConfigured(appEnv)}
       initial={{ run: scanRunDto(view.run, view.running, view.interrupted), items: view.items }}
     />
   );

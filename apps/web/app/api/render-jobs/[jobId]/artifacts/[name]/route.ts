@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { findRenderArtifact } from "@modules/rendering/infrastructure/prisma-render-job-repository";
-import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
-import { env as appEnv } from "@/shared/config/env";
+import { storage } from "@infrastructure/composition";
 import { servedContentHeaders } from "@/shared/http/served-content";
 import { asStorageKey, AssetNotFoundError } from "@/shared/ports";
 
@@ -36,9 +35,7 @@ export const GET = withErrors(async function GET(
     );
   }
 
-  const stored = await new LocalFileStorageProvider({
-    rootDir: appEnv().storageRoot,
-  })
+  const stored = await storage()
     .get(asStorageKey(asset.storageKey))
     .catch((error: unknown) => {
       throw error instanceof AssetNotFoundError ? new ArtifactEvictedError() : error;
