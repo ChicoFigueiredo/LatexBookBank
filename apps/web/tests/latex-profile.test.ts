@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,6 +11,8 @@ import {
   profileById,
   RENDER_PROFILES,
 } from "@modules/rendering/domain/latex-profile";
+
+import { machineEnv } from "./support/machine-env";
 
 const question = (over: Partial<QuestionForRender> = {}): QuestionForRender => ({
   id: "q1",
@@ -58,27 +59,28 @@ describe("perfis", () => {
  * arquivo **se ele estiver na máquina** e confere que nenhum package foi esquecido na cópia — o
  * tipo de erro que só aparece quando uma questão específica para de compilar, meses depois.
  *
- * Fora da máquina de desenvolvimento o arquivo não existe, e o teste se declara pulado em vez de
- * falhar: o CI não tem o acervo legado, e um teste vermelho por isso viraria ruído até alguém
- * desativá-lo.
+ * O caminho vem de `LEGACY_LATEX_PREAMBLE` (ambiente ou `.env.local`), e não de um padrão
+ * embutido: endereço de máquina não mora no código. Sem a variável, o teste se pula **dizendo qual
+ * variável falta** — o CI não tem o acervo legado, e um vermelho por isso viraria ruído. Com a
+ * variável apontando para um arquivo que não existe, ele **falha**: é o acervo que mudou de lugar
+ * (já aconteceu, de `/mnt/t` para `/mnt/bak`), e pular calado ali esconderia o perfil desatualizado.
  */
-const LEGACY_PREAMBLE_PATH =
-  process.env["LEGACY_LATEX_PREAMBLE"] ??
-  "/mnt/d/Chico/banco-questoes.windows/LatexRender5/latex-includes.tex";
-
-function readLegacyPreamble(): string | null {
-  try {
-    return readFileSync(fileURLToPath(new URL(`file://${LEGACY_PREAMBLE_PATH}`)), "utf8");
-  } catch {
-    return null;
-  }
-}
+const LEGACY_PREAMBLE_PATH = machineEnv("LEGACY_LATEX_PREAMBLE");
 
 describe("Legacy Compatibility × latex-includes.tex", () => {
-  const legacy = readLegacyPreamble();
+  const nome =
+    LEGACY_PREAMBLE_PATH === null
+      ? "não esqueceu nenhum package do arquivo original — pulado: LEGACY_LATEX_PREAMBLE não definida"
+      : "não esqueceu nenhum package do arquivo original";
 
-  it.skipIf(legacy === null)("não esqueceu nenhum package do arquivo original", () => {
-    const wanted = [...(legacy ?? "").matchAll(/^\s*\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}/gm)]
+  it.skipIf(LEGACY_PREAMBLE_PATH === null)(nome, () => {
+    expect(
+      existsSync(LEGACY_PREAMBLE_PATH ?? ""),
+      `LEGACY_LATEX_PREAMBLE aponta para ${LEGACY_PREAMBLE_PATH}, que não existe`,
+    ).toBe(true);
+    const legacy = readFileSync(LEGACY_PREAMBLE_PATH ?? "", "utf8");
+
+    const wanted = [...legacy.matchAll(/^\s*\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}/gm)]
       .flatMap((match) => (match[1] ?? "").split(",").map((name) => name.trim()))
       .filter(Boolean);
 

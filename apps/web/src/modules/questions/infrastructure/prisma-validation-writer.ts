@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import type { ValidationWriter } from "@modules/questions/application/validate-question";
+import type { QuestionValidation } from "@modules/questions/application/validate-question";
 import type { QuestionForPlugin } from "@modules/questions/domain/question-type-plugin";
 import { isQuestionType, type ValidationStatus } from "@modules/questions/domain/question-type";
 
@@ -14,21 +14,34 @@ import { isQuestionType, type ValidationStatus } from "@modules/questions/domain
  *
  * Ver spec §4.1 · issue #147.
  */
-export class PrismaValidationWriter implements ValidationWriter {
+export class PrismaValidationWriter implements QuestionValidation {
+  questionForValidation(questionId: string): Promise<QuestionForPlugin | null> {
+    return questionForValidation(questionId);
+  }
+
   async setValidationStatus(
     questionId: string,
     status: ValidationStatus,
     keepVersion?: Date,
   ): Promise<void> {
+    // Sem `keepVersion` — o botão "Validar questão" —, a versão é a de agora. Valer **sempre**, e
+    // não só no caminho do salvamento, é a correção da #259: o botão fica dentro do editor aberto,
+    // e o autosave seguinte batia em 409 sem que ninguém tivesse editado nada.
+    const version =
+      keepVersion ??
+      (await prisma.question.findUnique({ where: { id: questionId }, select: { updatedAt: true } }))
+        ?.updatedAt;
+    if (version === undefined) return;
+
     // `updateMany` e não `update`: a questão pode ter sido apagada entre o salvamento e a
     // validação, e derrubar o salvamento por causa disso seria trocar um dado bom por um erro.
     await prisma.question.updateMany({
       where: {
         id: questionId,
-        // Condicional pela versão: se alguém editou entre o salvamento e a validação, o veredito
+        // Condicional pela versão: se alguém editou entre a leitura e a validação, o veredito
         // que está sendo gravado é sobre um texto que já não existe. Não gravar é o certo — a
         // edição nova vai disparar a própria validação.
-        ...(keepVersion === undefined ? {} : { updatedAt: keepVersion }),
+        updatedAt: version,
       },
       data: {
         validationStatus: status,
@@ -40,9 +53,9 @@ export class PrismaValidationWriter implements ValidationWriter {
         // versão de antes —, e o **salvamento seguinte** batia em 409. Na tela: digite, espere
         // salvar, continue digitando, e a barra diz "conflito · recarregue".
         //
-        // A validação é estado **derivado** do texto que acabou de ser gravado. Derivado não é
-        // uma versão nova da questão, e não pode se passar por uma.
-        ...(keepVersion === undefined ? {} : { updatedAt: keepVersion }),
+        // A validação é estado **derivado** do texto. Derivado não é uma versão nova da questão,
+        // e não pode se passar por uma.
+        updatedAt: version,
       },
     });
   }

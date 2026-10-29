@@ -88,13 +88,25 @@ class InMemoryTree implements DocumentTreeRepository, DocumentTreeWriter {
     }
   }
 
+  /**
+   * Um relógio que anda um minuto a cada exclusão: cada ato tem o seu instante, como no banco,
+   * e é só assim que "excluído antes" se distingue de "excluído junto" (#260, TST-08).
+   */
+  private clock = Date.parse("2026-08-07T18:00:00.000Z");
+
   async softDeleteMany(nodeIds: readonly string[]): Promise<void> {
-    const now = new Date("2026-08-07T18:00:00.000Z");
+    const now = new Date((this.clock += 60_000));
     for (const row of this.rows) if (nodeIds.includes(row.id)) row.deletedAt = now;
   }
 
-  async restoreMany(nodeIds: readonly string[]): Promise<void> {
-    for (const row of this.rows) if (nodeIds.includes(row.id)) row.deletedAt = null;
+  async restoreMany(
+    nodeIds: readonly string[],
+    reposition?: { readonly nodeId: string; readonly sortKey: string },
+  ): Promise<void> {
+    for (const row of this.rows) {
+      if (nodeIds.includes(row.id)) row.deletedAt = null;
+      if (reposition && row.id === reposition.nodeId) row.sortKey = reposition.sortKey;
+    }
   }
 
   async duplicateSubtree(_publicationId: string, plan: readonly PlannedNode[]): Promise<string> {
@@ -127,6 +139,7 @@ class InMemoryTree implements DocumentTreeRepository, DocumentTreeWriter {
         parentId: row.parentId,
         title: row.title,
         kind: "SECTION" as const,
+        sortKey: row.sortKey,
         deletedAt: row.deletedAt as Date,
       }));
   }
@@ -264,14 +277,53 @@ describe("restaurar", () => {
     expect((await tree.listDeleted()).length).toBe(4);
   });
 
-  it("um filho excluído à parte, antes, não volta de carona", async () => {
+  it("um filho excluído à parte, antes do pai, não volta de carona", async () => {
+    // A regra (#260): o filho que foi excluído antes é um ato próprio. Restaurar o pai devolve o
+    // que saiu **junto** com ele; o filho continua na lixeira e volta à parte, depois do pai.
     await deleteNode(deps, PUB, "sub1");
-    await deleteNode(deps, PUB, "sec2");
+    await deleteNode(deps, PUB, "sec1");
 
-    const restored = await restoreNode(deps, PUB, "sec2");
+    const restored = await restoreNode(deps, PUB, "sec1");
 
-    expect(restored).toEqual(["sec2"]);
+    expect(restored).toEqual(["sec1"]);
     expect((await tree.listDeleted()).map((d) => d.id)).toEqual(["sub1"]);
+
+    expect(await restoreNode(deps, PUB, "sub1")).toEqual(["sub1"]);
+    expect(tree.snapshot().find((r) => r.id === "sub1")?.parentId).toBe("sec1");
+  });
+
+  it("restaurar não repete a sortKey de um irmão criado enquanto o nó estava na lixeira", async () => {
+    // cap1: sec1 (a0), sec2 (a1). Excluída a sec1, a seção nova criada no começo recebe a0 —
+    // a chave que a sec1 tinha. Restaurá-la com a chave antiga punha dois irmãos em a0.
+    await deleteNode(deps, PUB, "sec1");
+    const nova = await createNode(deps, {
+      publicationId: PUB,
+      kind: "SECTION",
+      title: "Seção nova",
+      placement: { kind: "firstChild", parentId: "cap1" },
+    });
+
+    await restoreNode(deps, PUB, "sec1");
+
+    const irmaos = tree.snapshot().filter((r) => r.parentId === "cap1" && r.deletedAt === null);
+    expect(new Set(irmaos.map((r) => r.sortKey)).size).toBe(irmaos.length);
+
+    // E a árvore continua aceitando inserção ali — com chaves repetidas, isto respondia 500.
+    await expect(
+      createNode(deps, {
+        publicationId: PUB,
+        kind: "SECTION",
+        title: "Entremeio",
+        placement: { kind: "after", siblingId: nova },
+      }),
+    ).resolves.toBeTypeOf("string");
+  });
+
+  it("sem colisão, a sortKey de antes fica — o nó volta ao lugar de origem", async () => {
+    await deleteNode(deps, PUB, "sec1");
+    await restoreNode(deps, PUB, "sec1");
+
+    expect(tree.snapshot().find((r) => r.id === "sec1")?.sortKey).toBe("a0");
   });
 
   it("recusa restaurar o que não está na lixeira", async () => {

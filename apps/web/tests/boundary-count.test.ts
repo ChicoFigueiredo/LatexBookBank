@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -52,13 +53,7 @@ describe("as fronteiras de infraestrutura", () => {
   it("**toda** interface de porta ou é fronteira ou é forma de dado", () => {
     // Forma de dado — `PutAssetInput`, `AgentResult` — não é abstração: é o contrato do que
     // atravessa. O que a regra proíbe é a interface com verbo que ninguém implementa.
-    const declaradas = [...codigo.matchAll(/export interface (\w+) \{([^}]*)\}/gs)];
-
-    const comVerbo = declaradas
-      .filter(([, , corpo]) => /^\s*\w+[?]?\s*[(<]/m.test(corpo ?? ""))
-      .map(([, nome]) => nome as string);
-
-    expect(comVerbo.sort()).toEqual([...FRONTEIRAS].sort());
+    expect(interfacesComVerbo(codigo).sort()).toEqual([...FRONTEIRAS].sort());
   });
 
   it("cada fronteira tem implementação — abstração sem implementação é cerimônia", () => {
@@ -75,6 +70,94 @@ describe("as fronteiras de infraestrutura", () => {
     }
   });
 });
+
+/**
+ * O guard de cima só vale o que vale o detector. A primeira versão era uma regex que exigia `{`
+ * logo depois do nome e parava no primeiro `}`: interface genérica, com `extends`, com objeto
+ * aninhado antes do verbo, com verbo escrito como propriedade e type alias passavam todas
+ * (TST-12 da revisão de 2026-09-23). Cada forma aqui é uma porta que ele tem de ver.
+ */
+describe("o detector de interface com verbo", () => {
+  const casos: ReadonlyArray<readonly [string, string, string]> = [
+    [
+      "genérica",
+      "TransactionRunner",
+      "export interface TransactionRunner<T> {\n  run(work: () => Promise<T>): Promise<T>;\n}",
+    ],
+    [
+      "com extends",
+      "Cache",
+      "interface Base { size: number }\nexport interface Cache extends Base {\n  get(key: string): string;\n}",
+    ],
+    [
+      "com objeto aninhado antes do verbo",
+      "Queue",
+      "export interface Queue {\n  opts: { retries: number };\n  push(job: string): void;\n}",
+    ],
+    ["com o verbo como propriedade", "Clock", "export interface Clock {\n  now: () => Date;\n}"],
+    [
+      "escrita como type alias",
+      "Locker",
+      "export type Locker = {\n  lock(key: string): Promise<void>;\n};",
+    ],
+  ];
+
+  for (const [forma, nome, fonte] of casos) {
+    it(`vê a porta ${forma}`, () => {
+      expect(interfacesComVerbo(fonte)).toEqual([nome]);
+    });
+  }
+
+  it("não confunde forma de dado com porta", () => {
+    const fonte = [
+      "export interface PutAssetInput {\n  key: string;\n  meta: { size: number };\n}",
+      "export type AiMessage = { role: string } | { tool: string };",
+      "/** export interface Fantasma {\n  run(): void;\n} */",
+    ].join("\n");
+
+    expect(interfacesComVerbo(fonte)).toEqual([]);
+  });
+});
+
+/**
+ * As interfaces e os type aliases de objeto exportados que têm verbo: um método, ou uma
+ * propriedade cujo tipo é função. Pela árvore do TypeScript, e não por texto: comentário não
+ * conta, genérico, `extends` e objeto aninhado não atrapalham.
+ */
+function interfacesComVerbo(codigo: string): string[] {
+  const fonte = ts.createSourceFile("portas.ts", codigo, ts.ScriptTarget.Latest, true);
+  const nomes: string[] = [];
+
+  const temVerbo = (membros: ts.NodeArray<ts.TypeElement>) =>
+    membros.some(
+      (membro) =>
+        ts.isMethodSignature(membro) ||
+        ts.isCallSignatureDeclaration(membro) ||
+        (ts.isPropertySignature(membro) &&
+          membro.type !== undefined &&
+          ts.isFunctionTypeNode(membro.type)),
+    );
+
+  const exportada = (node: ts.Node) =>
+    ts.canHaveModifiers(node) &&
+    (ts.getModifiers(node) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+
+  for (const node of fonte.statements) {
+    if (!exportada(node)) continue;
+
+    if (ts.isInterfaceDeclaration(node) && temVerbo(node.members)) {
+      nomes.push(node.name.text);
+    } else if (
+      ts.isTypeAliasDeclaration(node) &&
+      ts.isTypeLiteralNode(node.type) &&
+      temVerbo(node.type.members)
+    ) {
+      nomes.push(node.name.text);
+    }
+  }
+
+  return nomes;
+}
 
 function varrer(dir: string): string[] {
   const encontrados: string[] = [];

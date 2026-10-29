@@ -98,7 +98,7 @@ describe("livro grande", () => {
   });
 
   it("esvaziar uma lixeira com mais de mil nós apaga todos", async () => {
-    const { emptyGlobalTrash } =
+    const { PrismaTrashPurge } =
       await import("@modules/document-tree/infrastructure/prisma-global-trash");
     const { prisma } = await import("@infrastructure/database/sqlite/client");
 
@@ -107,7 +107,7 @@ describe("livro grande", () => {
       await prisma.documentNode.count({ where: { deletedAt: { not: null } } }),
     ).toBeGreaterThan(MUITOS);
 
-    await emptyGlobalTrash();
+    await new PrismaTrashPurge().purge();
     expect(await prisma.documentNode.count({ where: { deletedAt: { not: null } } })).toBe(0);
   });
 

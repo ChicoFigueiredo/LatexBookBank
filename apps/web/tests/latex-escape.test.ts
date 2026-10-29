@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { escapeIfProse, escapeLatexText } from "@modules/recognition/domain/latex-escape";
+import { escapeIfProse, escapeLatexText } from "@modules/latex/domain/latex-escape";
 
 /**
  * Prosa lida de um recorte, entrando num documento LaTeX (#193).

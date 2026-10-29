@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 
 import {
   DEFAULT_RENDER_OPTIONS,
@@ -15,6 +15,7 @@ import { compile } from "../src/compile.ts";
 import { ensureFormat, formatKey, FORMATS_DIR } from "../src/format-cache.ts";
 import { JobStore } from "../src/jobs.ts";
 import { createHandler } from "../src/server.ts";
+import { describeComTex } from "./tex.ts";
 
 /**
  * Um job não enxerga o outro, e o que sai de um job é só dele (tarefa F5 da revisão de
@@ -54,7 +55,7 @@ function renderRequest(payload: RenderBundle): Request {
   });
 }
 
-describe("o jobId é de um job só", () => {
+describeComTex("o jobId é de um job só", () => {
   it("o store recusa um id que já está em andamento, em vez de sobrescrever", () => {
     const store = new JobStore();
 
@@ -79,7 +80,7 @@ describe("o jobId é de um job só", () => {
   });
 });
 
-describe("só as páginas do PDF saem como páginas", () => {
+describeComTex("só as páginas do PDF saem como páginas", () => {
   it("uma figura chamada `page-3.png` não vira página renderizada", async () => {
     const png = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -110,7 +111,7 @@ describe("só as páginas do PDF saem como páginas", () => {
   });
 });
 
-describe("o formato pré-compilado", () => {
+describeComTex("o formato pré-compilado", () => {
   it("um `.fmt` corrompido não derruba o perfil: compila sem ele e o descarta", async () => {
     // Um `-ini` morto no meio do dump deixava o arquivo pela metade em /tmp/lbb-formats, e todo
     // render daquele perfil falhava com "Fatal format file error" até reiniciar o contêiner.
@@ -138,7 +139,7 @@ describe("o formato pré-compilado", () => {
   });
 });
 
-describe("o prazo é do job inteiro", () => {
+describeComTex("o prazo é do job inteiro", () => {
   it("passadas a mais param na primeira que falha, e o erro aparece uma vez", async () => {
     // Três passadas sobre um erro davam o mesmo diagnóstico três vezes, e o triplo do tempo.
     const once = await compile(bundle({ sourceLatex: "\\naoExiste" }), new Map(), deps);

@@ -3,11 +3,7 @@ import { NextResponse } from "next/server";
 import { resolveQuestionScope } from "@/shared/authorization/question-scope";
 
 import { QuestionNotFoundError, saveQuestion } from "@modules/questions/application/save-question";
-import { validateAndPersist } from "@modules/questions/application/validate-question";
-import {
-  PrismaValidationWriter,
-  questionForValidation,
-} from "@modules/questions/infrastructure/prisma-validation-writer";
+import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 import {
   MetadataError,
   normalizeMetadata,
@@ -182,33 +178,32 @@ export async function PATCH(
       throw new BadRequestError("`nickname` precisa ser texto ou nulo.");
     }
 
-    const result = await saveQuestion(new PrismaQuestionRepository(), {
-      questionId,
-      expectedUpdatedAt,
-      edit: {
-        ...(parseLatex(body["statementLatex"], "statementLatex") !== undefined
-          ? { statementLatex: parseLatex(body["statementLatex"], "statementLatex") as string }
-          : {}),
-        ...(parseLatex(body["solutionLatex"], "solutionLatex") !== undefined
-          ? { solutionLatex: parseLatex(body["solutionLatex"], "solutionLatex") as string }
-          : {}),
-        ...(parseLatex(body["complementLatex"], "complementLatex") !== undefined
-          ? { complementLatex: parseLatex(body["complementLatex"], "complementLatex") as string }
-          : {}),
-        ...(nickname !== undefined ? { nickname: nickname as string | null } : {}),
-        ...(type !== undefined ? { type } : {}),
-        ...(status !== undefined ? { status: status as QuestionStatus } : {}),
-        // Os metadados vão pelo mesmo `PATCH` e pela mesma versão. Um segundo caminho de escrita
-        // teria o próprio `updatedAt` a comparar — duas versões da mesma questão brigando.
-        ...normalizeMetadata(metadataFrom(body)),
+    const result = await saveQuestion(
+      new PrismaQuestionRepository(),
+      {
+        questionId,
+        expectedUpdatedAt,
+        edit: {
+          ...(parseLatex(body["statementLatex"], "statementLatex") !== undefined
+            ? { statementLatex: parseLatex(body["statementLatex"], "statementLatex") as string }
+            : {}),
+          ...(parseLatex(body["solutionLatex"], "solutionLatex") !== undefined
+            ? { solutionLatex: parseLatex(body["solutionLatex"], "solutionLatex") as string }
+            : {}),
+          ...(parseLatex(body["complementLatex"], "complementLatex") !== undefined
+            ? { complementLatex: parseLatex(body["complementLatex"], "complementLatex") as string }
+            : {}),
+          ...(nickname !== undefined ? { nickname: nickname as string | null } : {}),
+          ...(type !== undefined ? { type } : {}),
+          ...(status !== undefined ? { status: status as QuestionStatus } : {}),
+          // Os metadados vão pelo mesmo `PATCH` e pela mesma versão. Um segundo caminho de escrita
+          // teria o próprio `updatedAt` a comparar — duas versões da mesma questão brigando.
+          ...normalizeMetadata(metadataFrom(body)),
+        },
       },
-    });
-
-    // Revalida **depois** de gravar, e só quando gravou: o autosave dispara por tempo, e
-    // reavaliar a cada pausa da digitação seria custo por questão que não mudou. Falha aqui não
-    // derruba o salvamento — o texto já está no banco, e um selo desatualizado é menos grave que
-    // um 500 depois de gravar.
-    if (result.written) await revalidate(questionId, result.snapshot.updatedAt);
+      // O caso de uso revalida depois de gravar, sem mover a versão que esta resposta devolve.
+      new PrismaValidationWriter(),
+    );
 
     return NextResponse.json({
       id: result.snapshot.id,
@@ -242,29 +237,5 @@ export async function PATCH(
       );
     }
     return toErrorResponse(error);
-  }
-}
-
-/**
- * Recalcula o estado de validação da questão.
- *
- * Aqui e não dentro de `saveQuestion`: salvar é uma escrita com concorrência otimista, e pendurar
- * uma segunda escrita dentro dela faria uma falha de validação desfazer o salvamento — quer
- * dizer, perder o texto de quem estava digitando por causa de um selo.
- *
- * Silenciosa de propósito: o salvamento já respondeu que deu certo, e deu. Um selo desatualizado
- * é menos grave que um 500 depois de gravar.
- */
-async function revalidate(questionId: string, keepVersion: Date): Promise<void> {
-  try {
-    const question = await questionForValidation(questionId);
-    if (question === null) return;
-
-    // `keepVersion` é a versão que este `PATCH` acabou de devolver ao cliente. Gravar o veredito
-    // **sem movê-la** é o que impede o próprio salvamento de invalidar o cliente que ele acabou
-    // de responder — ver #166, e o comentário longo no adaptador.
-    await validateAndPersist(new PrismaValidationWriter(), questionId, question, keepVersion);
-  } catch {
-    return;
   }
 }

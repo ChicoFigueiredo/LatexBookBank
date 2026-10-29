@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createClient } from "@libsql/client";
-
 import { CalibreCatalogProvider } from "@modules/publications/infrastructure/calibre-catalog-provider";
+
+import { writeCalibreMetadata } from "./support/calibre-library";
 
 /**
  * A busca do catálogo **acha acento**.
@@ -22,32 +22,13 @@ let root = "";
 beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), "lbb-calibre-busca-"));
 
-  const client = createClient({ url: `file:${path.join(root, "metadata.db")}` });
-  for (const sql of [
-    // Schema do Calibre de hoje (`user_version` 27): sem `books.isbn`, com `identifiers`.
-    `create table books (id integer primary key, title text, sort text, timestamp text,
-      pubdate text, series_index real default 1.0, author_sort text, lccn text,
-      path text, flags integer, uuid text, has_cover bool, last_modified text)`,
-    `create table identifiers (id integer primary key, book integer, type text, val text)`,
-    `create table authors (id integer primary key, name text, sort text, link text)`,
-    `create table books_authors_link (id integer primary key, book integer, author integer)`,
-    `create table publishers (id integer primary key, name text, sort text)`,
-    `create table books_publishers_link (id integer primary key, book integer, publisher integer)`,
-    `create table series (id integer primary key, name text, sort text)`,
-    `create table books_series_link (id integer primary key, book integer, series integer)`,
-    `create table languages (id integer primary key, lang_code text)`,
-    `create table books_languages_link (id integer primary key, book integer, lang_code integer,
-      item_order integer default 0)`,
-    `create table data (id integer primary key, book integer, format text,
-      uncompressed_size integer, name text)`,
+  // Schema do Calibre de hoje (`user_version` 27): sem `books.isbn`, com `identifiers`.
+  await writeCalibreMetadata(root, [
     // Maiúsculas com acento: exatamente como o título vem no acervo real.
     `insert into books (id, title, author_sort, path, uuid, has_cover)
      values (1, 'MANUAL DE DIREITO TRIBUTÁRIO - 5ª Edição', 'SABBAG, EDUARDO', 'x/y (1)', 'u1', 0),
             (2, 'A Música dos Números Primos', 'Sautoy, Marcus du', 'x/z (2)', 'u2', 0)`,
-  ]) {
-    await client.execute(sql);
-  }
-  client.close();
+  ]);
 });
 
 afterAll(async () => {

@@ -9,6 +9,10 @@ import {
 } from "../domain/apply-patch";
 import type { QuestionState } from "../domain/patch-diff";
 import type { QuestionPatch } from "../domain/question-patch";
+import {
+  afterQuestionChanged,
+  type QuestionValidation,
+} from "@modules/questions/application/validate-question";
 
 /**
  * Aplica o que o usuário aprovou — **numa transação, com a revisão anterior gravada antes**.
@@ -93,8 +97,9 @@ export interface ApplyInput {
 export async function applyQuestionPatch(
   applier: PatchApplier,
   input: ApplyInput,
+  validation?: QuestionValidation,
 ): Promise<ApplyResult> {
-  return applier.transact(async (tx) => {
+  const result = await applier.transact(async (tx) => {
     const state = await tx.readStateForUpdate(input.questionId);
     if (state === null) throw new QuestionGoneError(input.questionId);
 
@@ -134,6 +139,11 @@ export async function applyQuestionPatch(
       summary,
     };
   });
+
+  // Depois da transação, e fora dela: o patch que corrige o gabarito tira a questão do vermelho
+  // (tarefa D4 da revisão de 2026-09-23). Falhar aqui não desfaz o que o usuário aprovou.
+  if (validation) await afterQuestionChanged(validation, input.questionId);
+  return result;
 }
 
 /**
@@ -146,6 +156,7 @@ export async function applyQuestionPatch(
 export async function revertQuestion(
   applier: PatchApplier,
   input: { questionId: string; snapshotJson: string; summary: string },
+  validation?: QuestionValidation,
 ): Promise<number> {
   const snapshot = JSON.parse(input.snapshotJson) as QuestionSnapshot;
 
@@ -159,7 +170,7 @@ export async function revertQuestion(
     isCorrect: option.isCorrect,
   }));
 
-  return applier.transact(async (tx) => {
+  const revisionNumber = await applier.transact(async (tx) => {
     const state = await tx.readStateForUpdate(input.questionId);
     if (state === null) throw new QuestionGoneError(input.questionId);
 
@@ -187,4 +198,8 @@ export async function revertQuestion(
 
     return revisionNumber;
   });
+
+  // Reverter devolve texto e gabarito de antes — e o veredito tem de voltar com eles.
+  if (validation) await afterQuestionChanged(validation, input.questionId);
+  return revisionNumber;
 }

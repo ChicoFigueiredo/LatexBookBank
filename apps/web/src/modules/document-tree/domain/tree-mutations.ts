@@ -55,9 +55,23 @@ function siblingsOf(
   parentId: string | null,
   excludeId?: string,
 ): TreeNodeRecord[] {
-  return records
-    .filter((record) => record.parentId === parentId && record.id !== excludeId)
-    .sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0));
+  return (
+    records
+      .filter((record) => record.parentId === parentId && record.id !== excludeId)
+      // Desempate por id: dois irmãos com a mesma chave (o defeito da #260, em banco antigo) ficam
+      // numa ordem estável, e não na que o banco devolver.
+      .sort((a, b) =>
+        a.sortKey < b.sortKey
+          ? -1
+          : a.sortKey > b.sortKey
+            ? 1
+            : a.id < b.id
+              ? -1
+              : a.id > b.id
+                ? 1
+                : 0,
+      )
+  );
 }
 
 /**

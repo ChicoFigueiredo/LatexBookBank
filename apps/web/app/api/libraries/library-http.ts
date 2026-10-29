@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   InvalidPublicationError,
   PublicationConfirmationMismatchError,
+  PublicationInAssessmentsError,
 } from "@modules/publications/domain/publication-draft";
 import { PublicationNotFoundError } from "@modules/publications/application/manage-publications";
 import {
@@ -52,6 +53,15 @@ export function toLibraryErrorResponse(error: unknown): NextResponse {
     return NextResponse.json(
       { error: "confirmation_mismatch", message: error.message, field: "confirmation" },
       { status: 400 },
+    );
+  }
+
+  // 409: o pedido está certo, e o que o recusa é o estado — uma prova usa questão do livro. A lista
+  // vai junto para a tela nomear as provas sem interpretar a mensagem.
+  if (error instanceof PublicationInAssessmentsError) {
+    return NextResponse.json(
+      { error: "publication_in_assessments", message: error.message, assessments: error.assessments },
+      { status: 409 },
     );
   }
 

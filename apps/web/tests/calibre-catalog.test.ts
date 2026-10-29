@@ -8,6 +8,8 @@ import { createClient } from "@libsql/client";
 import { CalibreCatalogProvider } from "@modules/publications/infrastructure/calibre-catalog-provider";
 import { CatalogUnavailableError } from "@/shared/ports/library-catalog";
 
+import { writeCalibreMetadata } from "./support/calibre-library";
+
 /**
  * Contract test da sexta fronteira (§44): o adaptador do Calibre.
  *
@@ -23,32 +25,14 @@ import { CatalogUnavailableError } from "@/shared/ports/library-catalog";
 let root = "";
 
 /**
- * O schema é o do Calibre **de hoje** (`user_version` 27), conferido contra as duas bibliotecas
- * reais desta máquina: `books` **não tem** coluna `isbn`, e identificador vive em `identifiers`.
+ * O schema é o do Calibre **de hoje** (`user_version` 27), em `tests/support/calibre-library.ts`:
+ * `books` **não tem** coluna `isbn`, e identificador vive em `identifiers`.
  *
  * A fixture antiga declarava `books.isbn`, copiando a biblioteca de 64 livros da spike. Contra o
  * acervo real de 3.260 livros, a consulta que ela protegia morre inteira — `no such column:
  * isbn` — e o catálogo não abre. Um teste verde sobre um schema que o usuário não tem é pior que
- * nenhum teste: ele afirma o contrário do que acontece.
+ * nenhum teste: ele afirma o contrário do que acontece. Por isso o schema é um só, o mesmo do E2E.
  */
-const SCHEMA = [
-  `create table books (id integer primary key, title text, sort text, timestamp text,
-    pubdate text, series_index real default 1.0, author_sort text, lccn text,
-    path text, flags integer, uuid text, has_cover bool, last_modified text)`,
-  `create table identifiers (id integer primary key, book integer, type text, val text)`,
-  `create table authors (id integer primary key, name text, sort text, link text)`,
-  `create table books_authors_link (id integer primary key, book integer, author integer)`,
-  `create table publishers (id integer primary key, name text, sort text)`,
-  `create table books_publishers_link (id integer primary key, book integer, publisher integer)`,
-  `create table series (id integer primary key, name text, sort text)`,
-  `create table books_series_link (id integer primary key, book integer, series integer)`,
-  `create table languages (id integer primary key, lang_code text)`,
-  `create table books_languages_link (id integer primary key, book integer, lang_code integer,
-    item_order integer default 0)`,
-  `create table data (id integer primary key, book integer, format text,
-    uncompressed_size integer, name text)`,
-];
-
 const SEED = [
   `insert into authors (id, name) values (1, 'Iezzi, Gelson'), (2, 'Murakami, Carlos'),
     (3, 'Sautoy, Marcus du')`,
@@ -83,9 +67,7 @@ const SEED = [
 beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), "lbb-calibre-fixture-"));
 
-  const client = createClient({ url: `file:${path.join(root, "metadata.db")}` });
-  for (const sql of [...SCHEMA, ...SEED]) await client.execute(sql);
-  client.close();
+  await writeCalibreMetadata(root, SEED);
 
   const livro1 = path.join(root, "Gelson Iezzi", "Conjuntos e Funcoes (1)");
   await mkdir(livro1, { recursive: true });
