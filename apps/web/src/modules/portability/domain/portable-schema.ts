@@ -326,13 +326,31 @@ export class RetiredFormatVersionError extends Error {
   }
 }
 
+/**
+ * O arquivo não é o que diz ser. Com `expected` e `actual`, é um checksum ou um nome que não
+ * confere; só com `what`, é a frase inteira do que está errado (schema, JSON, entrada estranha).
+ */
 export class CorruptArchiveError extends Error {
-  constructor(what: string, expected: string, actual: string) {
+  constructor(what: string, expected?: string, actual?: string) {
     super(
-      `O arquivo está corrompido: ${what} não confere. ` +
-        `Esperado \`${expected.slice(0, 12)}…\`, encontrado \`${actual.slice(0, 12)}…\`.`,
+      expected === undefined || actual === undefined
+        ? `O arquivo está corrompido: ${what}.`
+        : `O arquivo está corrompido: ${what} não confere. ` +
+            `Esperado \`${expected.slice(0, 12)}…\`, encontrado \`${actual.slice(0, 12)}…\`.`,
     );
     this.name = "CorruptArchiveError";
+  }
+}
+
+/**
+ * O arquivo passa de um teto: tamanho de uma entrada, total descompactado ou quantidade de
+ * entradas. Separado do "corrompido" porque a resposta HTTP é outra (413), e porque um zip bomb
+ * pode ser um zip perfeitamente válido.
+ */
+export class ArchiveTooLargeError extends Error {
+  constructor(what: string) {
+    super(`O arquivo é grande demais para importar: ${what}.`);
+    this.name = "ArchiveTooLargeError";
   }
 }
 

@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { toRuntime } from "@modules/portability/application/import-workspace";
 import { readArchive } from "@modules/portability/domain/portable-archive";
 import {
+  ArchiveTooLargeError,
   CorruptArchiveError,
+  RetiredFormatVersionError,
   UnknownFormatVersionError,
 } from "@modules/portability/domain/portable-schema";
 import { deduplicarColisoes } from "@modules/portability/domain/import-conflicts";
@@ -14,6 +16,7 @@ import {
 import { writeImportedWorkspace } from "@modules/portability/infrastructure/prisma-workspace-sink";
 import { LocalFileStorageProvider } from "@infrastructure/storage/local/local-file-storage-provider";
 import { env as appEnv } from "@/shared/config/env";
+import { PayloadTooLargeError, readCappedBody } from "@/shared/http/read-capped-body";
 
 import { toErrorResponse } from "../../tree-http";
 
@@ -37,17 +40,13 @@ const MAX_BYTES = 512 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
-    const bytes = new Uint8Array(await request.arrayBuffer());
+    // Com teto **enquanto** lê: o `Content-Length` recusa antes do primeiro byte, e a contagem
+    // pega o corpo que não o declara (#270). Ler tudo para depois comparar era aceitar 5 GB.
+    const bytes = await readCappedBody(request, MAX_BYTES);
     if (bytes.byteLength === 0) {
       return NextResponse.json(
         { error: "bad_request", message: "O corpo precisa ser o arquivo `.lbb`." },
         { status: 400 },
-      );
-    }
-    if (bytes.byteLength > MAX_BYTES) {
-      return NextResponse.json(
-        { error: "too_large", message: "O arquivo passa de 512 MB." },
-        { status: 413 },
       );
     }
 
@@ -80,6 +79,21 @@ export async function POST(request: Request) {
       report,
     });
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return NextResponse.json(
+        { error: "too_large", message: "O arquivo passa de 512 MB." },
+        { status: 413 },
+      );
+    }
+    if (error instanceof ArchiveTooLargeError) {
+      return NextResponse.json({ error: "too_large", message: error.message }, { status: 413 });
+    }
+    if (error instanceof RetiredFormatVersionError) {
+      return NextResponse.json(
+        { error: "retired_format_version", message: error.message },
+        { status: 422 },
+      );
+    }
     if (error instanceof UnknownFormatVersionError) {
       return NextResponse.json(
         { error: "unknown_format_version", message: error.message },

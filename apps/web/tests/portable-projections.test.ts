@@ -7,6 +7,11 @@ import {
 import { toRuntime } from "@modules/portability/application/import-workspace";
 import { readArchive, writeArchive } from "@modules/portability/domain/portable-archive";
 
+/** `sha256` de mentira, mas com a forma de um — o schema da v3 confere. */
+const AA = "aa".repeat(32);
+const BB = "bb".repeat(32);
+const CC = "cc".repeat(32);
+
 /**
  * As duas projeções, e o round-trip que as exercita juntas.
  *
@@ -54,11 +59,11 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
       legacyUpdatedAt: "2020-01-02T03:04:05.000Z",
       metadataJson: '{"series":"concursos"}',
       assets: [
-        { sha256: "aa11", kind: "COVER", mimeType: "image/jpeg", originalFilename: "capa.jpg", width: 600, height: 900, metadataJson: null },
-        { sha256: "bb22", kind: "SOURCE_PDF", mimeType: "application/pdf", originalFilename: "jd3.pdf", width: null, height: null, metadataJson: null },
+        { sha256: AA, kind: "COVER", mimeType: "image/jpeg", originalFilename: "capa.jpg", width: 600, height: 900, metadataJson: null },
+        { sha256: BB, kind: "SOURCE_PDF", mimeType: "application/pdf", originalFilename: "jd3.pdf", width: null, height: null, metadataJson: null },
       ],
-      coverAssetSha256: "aa11",
-      sourcePdfAssetSha256: "bb22",
+      coverAssetSha256: AA,
+      sourcePdfAssetSha256: BB,
       nodes: [
         {
           id: "uuid-node-1",
@@ -75,8 +80,8 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           bodyLatex: "Juros simples incidem só sobre o capital.",
           anchors: [
             {
-              sha256: "bb22",
-              cropSha256: "cc33",
+              sha256: BB,
+              cropSha256: CC,
               pageNumber: 12,
               box: { x: 0.1, y: 0.2, width: 0.8, height: 0.05 },
               rotation: 90,
@@ -122,8 +127,8 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
             legacyId: 101,
             tags: ["juros simples"],
             assets: [
-              { sha256: "cc33", kind: "QUESTION_IMAGE", mimeType: "image/png", originalFilename: "fig3.png", width: 320, height: 200, metadataJson: null },
-              { sha256: "aa11", kind: "ATTACHMENT", mimeType: "image/jpeg", originalFilename: null, width: null, height: null, metadataJson: '{"x":1}' },
+              { sha256: CC, kind: "QUESTION_IMAGE", mimeType: "image/png", originalFilename: "fig3.png", width: 320, height: 200, metadataJson: null },
+              { sha256: AA, kind: "ATTACHMENT", mimeType: "image/jpeg", originalFilename: null, width: null, height: null, metadataJson: '{"x":1}' },
             ],
             options: [
               {
@@ -197,8 +202,8 @@ describe("runtime → portable", () => {
 
     expect(portable.tags.map((tag) => tag.name)).toEqual(["álgebra", "juros simples"]);
     expect(portable.publications[0]?.nodes[1]?.question?.assets.map((asset) => asset.sha256)).toEqual([
-      "aa11",
-      "cc33",
+      AA,
+      CC,
     ]);
   });
 });

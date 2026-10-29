@@ -2,6 +2,8 @@ import { unzipSync, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 
 import {
+  ArchiveTooLargeError,
+  DEFAULT_ARCHIVE_LIMITS,
   readArchive,
   sha256Of,
   writeArchive,
@@ -314,6 +316,133 @@ describe("o que é recusado", () => {
     files["data.json"] = bytesOf("dado adulterado também");
 
     await expect(readArchive(zipSync(files))).rejects.toThrow(UnknownFormatVersionError);
+  });
+});
+
+/**
+ * O `.lbb` vem de fora — de outra máquina, de alguém, de um site que o planta (SEC-03, #270). Ler
+ * o zip inteiro para a memória antes de olhar o que ele diz ser é o que deixa um arquivo de 1 MB
+ * pedir 20 GB ao processo.
+ */
+describe("o que entra no zip tem teto e lista fechada (#270)", () => {
+  /** Troca o tamanho descompactado declarado de uma entrada, no cabeçalho local e no central. */
+  const lieAboutSize = (zip: Uint8Array, name: string, declared: number) => {
+    const copy = zip.slice();
+    const view = new DataView(copy.buffer);
+    const decoder = new TextDecoder();
+    for (let at = 0; at < copy.length - 46; at++) {
+      const signature = view.getUint32(at, true);
+      if (signature === 0x04034b50) {
+        const length = view.getUint16(at + 26, true);
+        if (decoder.decode(copy.subarray(at + 30, at + 30 + length)) === name) view.setUint32(at + 22, declared, true);
+      }
+      if (signature === 0x02014b50) {
+        const length = view.getUint16(at + 28, true);
+        if (decoder.decode(copy.subarray(at + 46, at + 46 + length)) === name) view.setUint32(at + 24, declared, true);
+      }
+    }
+    return copy;
+  };
+
+  const withExtra = async (name: string, content: Uint8Array<ArrayBuffer>) => {
+    const files = unzipSync(await write());
+    files[name] = content;
+    return zipSync(files);
+  };
+
+  it.each(["leia-me.sh", "../fora.txt", "assets/ab/nao-e-hash.png"])(
+    "entrada fora da lista é recusada: %s",
+    async (name) => {
+      await expect(readArchive(await withExtra(name, bytesOf("x")))).rejects.toThrow(CorruptArchiveError);
+    },
+  );
+
+  it("asset com extensão que o formato não produz é recusado", async () => {
+    const sha = await sha256Of(bytesOf("binario"));
+    await expect(readArchive(await withExtra(assetPath(sha, ".exe"), bytesOf("binario")))).rejects.toThrow(
+      CorruptArchiveError,
+    );
+  });
+
+  it("asset acima do teto é recusado, mesmo com o tamanho declarado mentindo (zip bomb)", async () => {
+    const zeros = new Uint8Array(2 * 1024 * 1024);
+    const sha = await sha256Of(zeros);
+    const path = assetPath(sha, ".bin");
+    const honest = await write({ assets: [{ sha256: sha, extension: ".bin", bytes: zeros }] });
+    const lying = lieAboutSize(honest, path, 10);
+    const limits = { ...DEFAULT_ARCHIVE_LIMITS, maxAssetBytes: 1024 * 1024 };
+
+    await expect(readArchive(honest, limits)).rejects.toThrow(ArchiveTooLargeError);
+    await expect(readArchive(lying, limits)).rejects.toThrow(ArchiveTooLargeError);
+  });
+
+  it("o total descompactado tem teto", async () => {
+    const one = new Uint8Array(600 * 1024).fill(1);
+    const two = new Uint8Array(600 * 1024).fill(2);
+    const archive = await write({
+      assets: [
+        { sha256: await sha256Of(one), extension: ".bin", bytes: one },
+        { sha256: await sha256Of(two), extension: ".bin", bytes: two },
+      ],
+    });
+
+    await expect(readArchive(archive, { ...DEFAULT_ARCHIVE_LIMITS, maxTotalBytes: 1024 * 1024 })).rejects.toThrow(
+      ArchiveTooLargeError,
+    );
+  });
+
+  it("a quantidade de entradas tem teto", async () => {
+    const assets = await Promise.all(
+      [1, 2, 3].map(async (n) => ({ sha256: await sha256Of(bytesOf(`a${n}`)), extension: ".txt", bytes: bytesOf(`a${n}`) })),
+    );
+
+    await expect(readArchive(await write({ assets }), { ...DEFAULT_ARCHIVE_LIMITS, maxEntries: 4 })).rejects.toThrow(
+      ArchiveTooLargeError,
+    );
+  });
+
+  it("os tetos padrão são os de um acervo real, com folga", () => {
+    expect(DEFAULT_ARCHIVE_LIMITS.maxAssetBytes).toBe(64 * 1024 * 1024);
+    expect(DEFAULT_ARCHIVE_LIMITS.maxTotalBytes).toBe(2 * 1024 * 1024 * 1024);
+  });
+});
+
+/** O `data.json` e o manifesto são conferidos contra o schema da v3, e não aceitos por cast. */
+describe("o dado tem schema (#270)", () => {
+  const withData = async (data: string, manifestOver: Record<string, unknown> = {}) => {
+    const files = unzipSync(await write());
+    const manifest = JSON.parse(new TextDecoder().decode(files["manifest.json"] as Uint8Array));
+    const bytes = bytesOf(data);
+    files["data.json"] = bytes;
+    files["manifest.json"] = bytesOf(
+      JSON.stringify({ ...manifest, dataChecksum: await sha256Of(bytes), ...manifestOver }),
+    );
+    return zipSync(files);
+  };
+
+  it("`data.json` que não é JSON vira arquivo corrompido, e não um erro de sintaxe", async () => {
+    await expect(readArchive(await withData("{não é json"))).rejects.toThrow(CorruptArchiveError);
+  });
+
+  it("tipo errado no dado é recusado com o caminho do campo", async () => {
+    const wrong = { ...workspace(), publications: [{ ...workspace().publications[0], title: 42 }] };
+    const refusal = readArchive(await withData(JSON.stringify(wrong)));
+
+    await expect(refusal).rejects.toThrow(CorruptArchiveError);
+    await expect(refusal).rejects.toThrow(/publications\.0\.title/);
+  });
+
+  it("campo que falta é recusado — a v3 não completa nada por conta própria", async () => {
+    const { assessments: _assessments, ...missing } = workspace();
+    void _assessments;
+
+    await expect(readArchive(await withData(JSON.stringify(missing)))).rejects.toThrow(/assessments/);
+  });
+
+  it("manifesto sem os campos do formato é recusado", async () => {
+    await expect(readArchive(await withData(JSON.stringify(workspace()), { counts: "muitos" }))).rejects.toThrow(
+      CorruptArchiveError,
+    );
   });
 });
 
