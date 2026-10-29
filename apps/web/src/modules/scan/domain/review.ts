@@ -1,5 +1,6 @@
 import { isAnchorRole, type AnchorRole } from "@modules/assets/domain/node-anchors";
-import { normalizeAnchor, type NormalizedBox } from "@modules/assets/domain/source-anchor";
+import { normalizeAnchor } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import { escapeLatexText } from "@modules/latex/domain/latex-escape";
 
 import type { CaptureProfile } from "./capture-profile";

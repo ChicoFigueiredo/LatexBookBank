@@ -38,9 +38,23 @@ async function seedPublication(slug: string) {
       sizeBytes: 1,
     },
   });
+  const crop = (name: string) =>
+    prisma.asset.create({
+      data: {
+        workspaceId: workspace.id,
+        publicationId: publication.id,
+        kind: "CROP",
+        storageKey: `${slug}-${name}.png`,
+        mimeType: "image/png",
+        originalFilename: `${name}.png`,
+        sha256: `${slug}-${name}`,
+        sizeBytes: 1,
+      },
+      select: { id: true },
+    });
   const anchor = (
     createdAt: Date,
-    extra: { sourceText?: string; extractionMethod?: string } = {},
+    extra: { sourceText?: string; extractionMethod?: string; cropAssetId?: string } = {},
   ) =>
     prisma.sourceAnchor.create({
       data: {
@@ -56,7 +70,7 @@ async function seedPublication(slug: string) {
       },
       select: { id: true },
     });
-  return { prisma, publication, anchor };
+  return { prisma, publication, anchor, crop };
 }
 
 describe("a fila de captura lida do banco", () => {
@@ -105,21 +119,53 @@ describe("a fila de captura lida do banco", () => {
   it("a falha de um novo reconhecimento não apaga a transcrição anterior (CAP-15)", async () => {
     const { readCaptureFacts, recordRecognition, recordRecognitionFailure } =
       await import("@modules/recognition/infrastructure/prisma-capture-queue");
-    const { publication, anchor } = await seedPublication("fila-falha");
-    const recorte = await anchor(new Date(Date.UTC(2026, 0, 1)));
+    const { publication, anchor, crop } = await seedPublication("fila-falha");
+    const imagem = await crop("recorte");
+    const recorte = await anchor(new Date(Date.UTC(2026, 0, 1)), { cropAssetId: imagem.id });
+    const alvo = { anchorId: recorte.id, cropAssetId: imagem.id };
 
-    await recordRecognition(recorte.id, {
+    await recordRecognition(alvo, {
       latex: "x^2 + 1",
       method: "recognition:vision",
       model: "modelo",
       metadataJson: "{}",
     });
-    await recordRecognitionFailure(recorte.id, {
+    await recordRecognitionFailure(alvo, {
       error: "tempo esgotado",
       at: new Date(Date.UTC(2026, 0, 2)),
     });
 
     const [item] = pendingQueue(await readCaptureFacts(publication.id));
     expect(item).toMatchObject({ state: "error", recognizedText: "x^2 + 1" });
+  });
+
+  it("o reconhecimento só grava na âncora do recorte que foi lido (SEC-06)", async () => {
+    // `anchorId` e `cropAssetId` vêm do formulário: uma âncora de outro recorte não recebe a
+    // transcrição — nem a falha — de uma imagem que não é a dela.
+    const { recordRecognition, recordRecognitionFailure } =
+      await import("@modules/recognition/infrastructure/prisma-capture-queue");
+    const { prisma, anchor, crop } = await seedPublication("fila-escopo");
+    const deste = await crop("deste");
+    const doOutro = await crop("do-outro");
+    const recorte = await anchor(new Date(Date.UTC(2026, 0, 1)), { cropAssetId: deste.id });
+    const alheio = { anchorId: recorte.id, cropAssetId: doOutro.id };
+
+    expect(
+      await recordRecognition(alheio, {
+        latex: "y",
+        method: "recognition:vision",
+        model: "modelo",
+        metadataJson: "{}",
+      }),
+    ).toBe(false);
+    expect(
+      await recordRecognitionFailure(alheio, { error: "x", at: new Date(Date.UTC(2026, 0, 2)) }),
+    ).toBe(false);
+    expect(
+      await prisma.sourceAnchor.findUniqueOrThrow({
+        where: { id: recorte.id },
+        select: { sourceText: true, extractionMethod: true },
+      }),
+    ).toEqual({ sourceText: null, extractionMethod: null });
   });
 });

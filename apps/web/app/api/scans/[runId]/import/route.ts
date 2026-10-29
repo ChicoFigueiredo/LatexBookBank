@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { PrismaValidationWriter } from "@modules/questions/infrastructure/prisma-validation-writer";
 import { previewImportRemoval, removeImport, type RemovalScope } from "@modules/scan/application/remove-import";
 import type { ImportPreviewResponse, ImportRemovalResponse } from "@modules/scan/application/scan-contract";
 import { PrismaScanImport } from "@modules/scan/infrastructure/prisma-scan-import";
@@ -33,7 +34,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ r
   try {
     const { runId } = await params;
     const { store } = scanDeps();
-    const result = await removeImport({ store, imports: new PrismaScanImport() }, { runId, scope: scopeOf(request) });
+    const result = await removeImport(
+      { store, imports: new PrismaScanImport() },
+      { runId, scope: scopeOf(request) },
+      new PrismaValidationWriter(),
+    );
     return NextResponse.json(result satisfies ImportRemovalResponse);
   } catch (error) {
     return toErrorResponse(error);

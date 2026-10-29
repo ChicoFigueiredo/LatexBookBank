@@ -126,11 +126,17 @@ describe("recognizeCrop", () => {
     return {
       calls,
       log: {
-        recordRecognition: async (anchorId: string, input: { latex: string }) => {
-          calls.push(`ok ${anchorId} ${input.latex}`);
+        recordRecognition: async (
+          { anchorId, cropAssetId }: { anchorId: string; cropAssetId: string },
+          input: { latex: string },
+        ) => {
+          calls.push(`ok ${anchorId}/${cropAssetId} ${input.latex}`);
         },
-        recordRecognitionFailure: async (anchorId: string, input: { error: string }) => {
-          calls.push(`falha ${anchorId} ${input.error}`);
+        recordRecognitionFailure: async (
+          { anchorId, cropAssetId }: { anchorId: string; cropAssetId: string },
+          input: { error: string },
+        ) => {
+          calls.push(`falha ${anchorId}/${cropAssetId} ${input.error}`);
         },
       },
     };
@@ -168,7 +174,7 @@ describe("recognizeCrop", () => {
     );
 
     expect(candidate).toMatchObject({ cropAssetId: "c1", state: "candidate" });
-    expect(calls).toEqual(["ok a1 x^2"]);
+    expect(calls).toEqual(["ok a1/c1 x^2"]);
   });
 
   it("a falha do provider fica na âncora, e o erro sobe para a rota dizer 502", async () => {
@@ -178,7 +184,7 @@ describe("recognizeCrop", () => {
     await expect(
       recognizeCrop({ recognizer: () => recognizer(falha), log: l, now }, command),
     ).rejects.toBe(falha);
-    expect(calls).toEqual(["falha a1 timeout"]);
+    expect(calls).toEqual(["falha a1/c1 timeout"]);
   });
 
   it("o endpoint sem chave falha como o reconhecimento: registrado na âncora, e 502 na rota", async () => {
@@ -198,7 +204,7 @@ describe("recognizeCrop", () => {
     await expect(pedido).rejects.toBeInstanceOf(MathRecognitionError);
     await expect(pedido).rejects.toThrow(/AI_API_KEY/);
     expect(calls).toEqual([
-      "falha a1 Credencial ausente para openrouter. Defina AI_API_KEY em .env.local",
+      "falha a1/c1 Credencial ausente para openrouter. Defina AI_API_KEY em .env.local",
     ]);
   });
 

@@ -44,8 +44,3 @@ function workerFor(baseUrl: string, secret: string): RenderWorkerExecutor {
   }
   return worker.executor;
 }
-
-/** Não configurado é diferente de fora do ar: este se resolve editando `.env.local`. */
-export const RENDERER_NOT_CONFIGURED_MESSAGE =
-  "`RENDERER_BASE_URL` e `RENDERER_SECRET` não estão definidos. " +
-  "Suba o worker com `docker compose up -d` e preencha o `.env.local`.";

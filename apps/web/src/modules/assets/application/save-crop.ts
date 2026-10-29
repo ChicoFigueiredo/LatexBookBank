@@ -1,6 +1,7 @@
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import type { StorageProvider } from "@/shared/ports";
 
-import { normalizeAnchor, type NormalizedBox } from "../domain/source-anchor";
+import { normalizeAnchor } from "../domain/source-anchor";
 import { storeAsset, type StoredAssetRecord } from "./store-asset";
 
 /**

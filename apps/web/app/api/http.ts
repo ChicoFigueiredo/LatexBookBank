@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { QuestionGoneError } from "@modules/agents/application/apply-question-patch";
+import {
+  AgentRunOutOfScopeError,
+  OptionFromAnotherQuestionError,
+  QuestionGoneError,
+} from "@modules/agents/application/apply-question-patch";
 import { NothingApprovedError } from "@modules/agents/domain/apply-patch";
 import { PatchRejectedError } from "@modules/agents/domain/question-patch";
 import {
@@ -27,6 +31,7 @@ import { CyclicMoveError, NodeNotFoundError } from "@modules/document-tree/domai
 import {
   ArchiveTooLargeError,
   CorruptArchiveError,
+  ExportTooLargeError,
   RetiredFormatVersionError,
   UnknownFormatVersionError,
 } from "@modules/portability/domain/portable-schema";
@@ -56,6 +61,7 @@ import { InvalidQuestionTypeError } from "@modules/questions/domain/question-blu
 import { MetadataError } from "@modules/questions/domain/question-metadata";
 import { InvalidTagError } from "@modules/questions/domain/tag";
 import { RecognitionProvenanceError } from "@modules/recognition/application/create-question-from-recognition";
+import { VisionNotConfiguredError } from "@modules/recognition/application/recognize-crop";
 import {
   CaptureInUseError,
   CaptureNotFoundError,
@@ -65,6 +71,8 @@ import {
   EmptyCandidateError,
 } from "@modules/recognition/domain/recognition-candidate";
 import { ArtifactEvictedError } from "@modules/rendering/domain/artifact-evicted";
+import { RenderArtifactNotFoundError } from "@modules/rendering/domain/render-artifact-not-found";
+import { RendererNotConfiguredError } from "@modules/rendering/domain/renderer-not-configured";
 import {
   ApprovalConflictError,
   DestinationNotInPublicationError,
@@ -266,15 +274,24 @@ const rules = (): readonly ErrorRule[] =>
     on(RecognitionProvenanceError, 404, "source_missing"),
     // O provider falhou: o recorte segue guardado, e a mensagem diz o que houve.
     on(MathRecognitionError, 502, "recognition_failed"),
+    // Não configurado é diferente de fora do ar: este se resolve editando `.env.local`.
+    on(VisionNotConfiguredError, 503, "vision_not_configured"),
 
     // Agente.
     on(AiCredentialMissingError, 503, "ai_credential_missing"),
     on(NothingApprovedError, 400, "nothing_approved"),
     on(PatchRejectedError, 400, "patch_rejected", (error) => ({ issues: error.issues })),
     on(QuestionGoneError, 409, "question_gone"),
+    // A segunda barreira do aplicador: o plano já descarta o id, e chegar aqui é pedido montado à
+    // mão. 400 — o que está errado é o patch, não o estado da questão.
+    on(OptionFromAnotherQuestionError, 400, "option_from_another_question"),
+    // O turno citado no patch não é desta questão (SEC-06): 404, sem dizer se existe noutra.
+    on(AgentRunOutOfScopeError, 404, "agent_run_not_found"),
 
     // Render: 503 e não 500 quando o worker não respondeu — é indisponibilidade, e o texto está salvo.
     on(RendererUnavailableError, 503, "renderer_unavailable"),
+    on(RendererNotConfiguredError, 503, "renderer_not_configured"),
+    on(RenderArtifactNotFoundError, 404, "not_found"),
 
     // Avaliações.
     on(AssessmentNotFoundError, 404, "not_found"),
@@ -346,6 +363,8 @@ const rules = (): readonly ErrorRule[] =>
     on(RetiredFormatVersionError, 422, "retired_format_version"),
     on(UnknownFormatVersionError, 422, "unknown_format_version"),
     on(CorruptArchiveError, 422, "corrupt_archive"),
+    // Exportação. 409: o pedido está certo, o que o recusa é o tamanho da biblioteca.
+    on(ExportTooLargeError, 409, "export_too_large"),
   ]);
 
 /** A mensagem do conflito de versão diz o que mudou, na língua da tela. */

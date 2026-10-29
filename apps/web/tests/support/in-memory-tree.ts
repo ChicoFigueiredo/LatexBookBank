@@ -4,6 +4,7 @@ import type {
   DocumentTreeWriter,
   NewNode,
   PlannedNode,
+  RestoredRoot,
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
@@ -92,14 +93,22 @@ export class InMemoryTree implements DocumentTreeRepository, DocumentTreeWriter 
     for (const row of this.rows) if (nodeIds.includes(row.id)) row.deletedAt = now;
   }
 
-  async restoreMany(
-    nodeIds: readonly string[],
-    reposition?: { readonly nodeId: string; readonly sortKey: string },
-  ): Promise<void> {
-    for (const row of this.rows) {
-      if (nodeIds.includes(row.id)) row.deletedAt = null;
-      if (reposition && row.id === reposition.nodeId) row.sortKey = reposition.sortKey;
-    }
+  async restoreMany(nodeIds: readonly string[], root?: RestoredRoot): Promise<void> {
+    for (const row of this.rows) if (nodeIds.includes(row.id)) row.deletedAt = null;
+    const restored = root ? this.rows.find((row) => row.id === root.nodeId) : undefined;
+    if (!root || !restored) return;
+    // Como o adaptador: os irmãos vivos no momento da escrita, sem a própria raiz.
+    const siblingKeys = this.rows
+      .filter(
+        (row) =>
+          row.publicationId === restored.publicationId &&
+          row.parentId === restored.parentId &&
+          row.deletedAt === null &&
+          row.id !== restored.id,
+      )
+      .map((row) => row.sortKey);
+    const sortKey = root.sortKeyAmong(siblingKeys);
+    if (sortKey !== null) restored.sortKey = sortKey;
   }
 
   async duplicateSubtree(publicationId: string, plan: readonly PlannedNode[]): Promise<string> {

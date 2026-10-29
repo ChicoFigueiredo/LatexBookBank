@@ -114,6 +114,14 @@ export interface AiProvider {
   stream?(request: AgentRequest): AsyncIterable<AgentEvent>;
 }
 
+/**
+ * O endpoint que a configuração aponta: a porta, e o que o perfil dele sabe fazer. Sem tool calling
+ * o turno do agente degrada para JSON no prompt em vez de falhar, e quem decide isso precisa saber.
+ */
+export interface ConfiguredAiProvider extends AiProvider {
+  readonly capabilities: AiModelCapabilities;
+}
+
 export class AiProviderError extends Error {
   constructor(
     message: string,

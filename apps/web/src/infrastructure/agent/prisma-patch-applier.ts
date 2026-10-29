@@ -1,14 +1,16 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import {
-  AlternativaDeOutraQuestaoError,
+  OptionFromAnotherQuestionError,
   type PatchApplier,
   type PatchTransaction,
 } from "@modules/agents/application/apply-question-patch";
-import type { QuestionState } from "@modules/agents/domain/patch-diff";
 import { rebalanceKeys } from "@/shared/ordering/fractional-index";
 import { appendRevision } from "@modules/revisions/infrastructure/prisma-revision-writer";
+
+import { readQuestionState } from "./prisma-question-state";
 
 /**
  * A aplicação do patch, sobre o Prisma — **a única escrita do fluxo agêntico**.
@@ -20,9 +22,6 @@ import { appendRevision } from "@modules/revisions/infrastructure/prisma-revisio
  *
  * Ver spec §35 · issue #101.
  */
-
-/** O cliente dentro da transação. `prisma.$transaction` entrega um cliente restrito. */
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 const METADATA_COLUMNS = new Set([
   "difficulty",
@@ -42,7 +41,7 @@ export class PrismaPatchApplier implements PatchApplier {
 }
 
 /** Lança se algum dos ids não for uma alternativa desta questão. */
-async function exigirDaQuestao(
+async function requireOwnOptions(
   client: Tx,
   questionId: string,
   optionIds: readonly string[],
@@ -50,7 +49,7 @@ async function exigirDaQuestao(
   const ids = [...new Set(optionIds)];
   if (ids.length === 0) return;
 
-  const daQuestao = new Set(
+  const ownIds = new Set(
     (
       await client.questionOption.findMany({
         where: { questionId, id: { in: ids } },
@@ -58,60 +57,22 @@ async function exigirDaQuestao(
       })
     ).map((row) => row.id),
   );
-  const estranhos = ids.filter((id) => !daQuestao.has(id));
-  if (estranhos.length > 0) throw new AlternativaDeOutraQuestaoError(questionId, estranhos);
+  const foreignIds = ids.filter((id) => !ownIds.has(id));
+  if (foreignIds.length > 0) throw new OptionFromAnotherQuestionError(questionId, foreignIds);
 }
 
 function makeTransaction(client: Tx): PatchTransaction {
   return {
     async readStateForUpdate(questionId) {
-      const row = await client.question.findUnique({
-        where: { id: questionId },
-        select: {
-          type: true,
-          statementLatex: true,
-          solutionLatex: true,
-          complementLatex: true,
-          nickname: true,
-          difficulty: true,
-          year: true,
-          board: true,
-          institution: true,
-          role: true,
-          roleLevel: true,
-          publisher: true,
-          videoUrl: true,
-          options: {
-            orderBy: { sortKey: "asc" },
-            select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },
-          },
-          tags: { select: { tag: { select: { name: true } } } },
-        },
+      // O mesmo estado do diff e da revisão, lido dentro desta transação.
+      return readQuestionState(questionId, client);
+    },
+
+    async findAgentRun(agentRunId) {
+      return client.agentRun.findUnique({
+        where: { id: agentRunId },
+        select: { questionId: true },
       });
-      if (!row) return null;
-
-      const {
-        type,
-        options,
-        tags,
-        statementLatex,
-        solutionLatex,
-        complementLatex,
-        nickname,
-        ...meta
-      } = row;
-
-      const state: QuestionState = {
-        type,
-        statementLatex,
-        solutionLatex,
-        complementLatex,
-        nickname,
-        options,
-        metadata: meta,
-        tags: tags.map((link) => link.tag.name),
-      };
-      return state;
     },
 
     async writeRevision(input) {
@@ -133,7 +94,7 @@ function makeTransaction(client: Tx): PatchTransaction {
     async applyOptions(questionId, options) {
       // Antes de gravar qualquer linha: ignorar só o id estranho e gravar o resto deixava um
       // gabarito exclusivo sem correta (a antiga desmarcada, a nova em outra questão).
-      await exigirDaQuestao(
+      await requireOwnOptions(
         client,
         questionId,
         options.map((option) => option.id),
@@ -159,7 +120,7 @@ function makeTransaction(client: Tx): PatchTransaction {
     },
 
     async applyReorder(questionId, optionIds) {
-      await exigirDaQuestao(client, questionId, optionIds);
+      await requireOwnOptions(client, questionId, optionIds);
 
       // Chaves novas para todas: reescrever a lista inteira é barato para uma questão (dezenas de
       // alternativas, não milhares) e evita a aritmética de inserção entre vizinhos, que é onde

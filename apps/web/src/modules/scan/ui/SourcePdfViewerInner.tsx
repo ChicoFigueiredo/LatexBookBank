@@ -12,7 +12,7 @@ import {
   type Handle,
   type Point,
 } from "@modules/assets/domain/crop-interaction";
-import { normalizedBoxFrom, type NormalizedBox, type PixelRect } from "@modules/assets/domain/source-anchor";
+import { normalizedBoxFrom, type NormalizedBox, type PixelRect } from "@/shared/geometry/normalized-box";
 import type { Overlay, OverlayTone } from "@modules/scan/domain/review-view";
 
 /**

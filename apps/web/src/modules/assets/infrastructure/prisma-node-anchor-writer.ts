@@ -1,4 +1,4 @@
-import type { Prisma } from "@/generated/prisma/client";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type { NodeAnchorPlan } from "@modules/assets/domain/node-anchors";
 
 /**
@@ -13,8 +13,6 @@ import type { NodeAnchorPlan } from "@modules/assets/domain/node-anchors";
  * cria nó em lote (o escritor de nó, que o importador legado usa pela linha de comando) chega aqui
  * com a transação dele, e importar o cliente faria o `server-only` abortar o script.
  */
-
-type Tx = Prisma.TransactionClient;
 
 /**
  * Reescreve a lista inteira dentro de uma transação que já existe.

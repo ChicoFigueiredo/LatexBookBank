@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type { StorageProvider } from "@/shared/ports";
 import type { ScanRunner } from "@modules/scan/application/scan-store";
 
 import { seedBookWithSource } from "./support/scan-seed";
@@ -100,6 +101,7 @@ describe("livro grande", () => {
   it("esvaziar uma lixeira com mais de mil nós apaga todos", async () => {
     const { PrismaTrashPurge } =
       await import("@modules/document-tree/infrastructure/prisma-global-trash");
+    const { emptyTrash } = await import("@modules/document-tree/application/empty-trash");
     const { prisma } = await import("@infrastructure/database/sqlite/client");
 
     // A lixeira do teste anterior já passa de mil nós.
@@ -107,7 +109,9 @@ describe("livro grande", () => {
       await prisma.documentNode.count({ where: { deletedAt: { not: null } } }),
     ).toBeGreaterThan(MUITOS);
 
-    await new PrismaTrashPurge().purge();
+    // Sem render na lixeira: nenhum arquivo para apagar, e o storage não é tocado.
+    const storage = { delete: async () => undefined } as unknown as StorageProvider;
+    await emptyTrash(new PrismaTrashPurge(), storage);
     expect(await prisma.documentNode.count({ where: { deletedAt: { not: null } } })).toBe(0);
   });
 

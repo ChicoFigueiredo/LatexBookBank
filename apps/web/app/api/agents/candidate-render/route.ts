@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { RendererNotConfiguredError } from "@modules/rendering/domain/renderer-not-configured";
 import { compileDraft } from "@modules/rendering/application/render-document";
 import { QUESTION_PREVIEW_PROFILE } from "@modules/rendering/domain/latex-profile";
 import { isLatexField } from "@modules/rendering/domain/render-source";
@@ -7,7 +8,6 @@ import { questionRenderSource } from "@modules/rendering/infrastructure/prisma-q
 import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
 import type { CandidateRenderResponse } from "@modules/agents/application/agent-contract";
 
-import { rendererNotConfigured } from "../../render-http";
 import { toErrorResponse } from "../../http";
 import { BadRequestError, readJson } from "../../http";
 
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     const wiring = renderWiringFromEnv();
-    if (wiring === null) return rendererNotConfigured();
+    if (wiring === null) throw new RendererNotConfiguredError();
 
     const body = await readJson(request);
 

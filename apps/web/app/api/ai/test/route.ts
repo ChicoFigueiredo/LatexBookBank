@@ -59,6 +59,12 @@ export async function POST() {
       models: names.slice(0, 40),
     });
   } catch (error) {
+    /*
+      Fora da tabela de `http.ts` de propósito (decisão I4 da revisão): o corpo desta rota é
+      `{ ok, message }`, e não `{ error, message }`, porque o resultado do teste é a resposta —
+      a tela mostra a frase com o selo verde ou vermelho, inclusive quando a conexão falhou.
+      O status segue a tabela (503 sem chave, 502 o endpoint falhou); o corpo, não.
+    */
     if (error instanceof AiCredentialMissingError) {
       return NextResponse.json({ ok: false, message: error.message }, { status: 503 });
     }

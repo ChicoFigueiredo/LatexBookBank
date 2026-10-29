@@ -12,7 +12,7 @@ import {
 } from "./capture-profile";
 import { assembleDocument, positionOf, type DocLine, type ScanDocument } from "./document";
 import { findFigures, type Figure } from "./figures";
-import { toNormalizedBox } from "./geometry";
+import { toNormalizedBox } from "@/shared/geometry/normalized-box";
 import type { PageModel } from "./page";
 import {
   combineConfidence,

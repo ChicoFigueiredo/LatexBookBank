@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   ArchiveTooLargeError,
   DEFAULT_ARCHIVE_LIMITS,
+  ExportTooLargeError,
+  MAX_ARCHIVE_BYTES,
   readArchive,
   sha256Of,
   writeArchive,
@@ -146,14 +148,20 @@ const workspace = (over: Partial<PortableWorkspace> = {}): PortableWorkspace => 
   ...over,
 });
 
-const write = (over: Partial<Parameters<typeof writeArchive>[0]> = {}) =>
-  writeArchive({
-    workspace: workspace(),
-    assets: [],
-    appVersion: "0.0.0-test",
-    exportedAt: "2026-08-10T00:00:00.000Z",
-    ...over,
-  });
+const write = (
+  over: Partial<Parameters<typeof writeArchive>[0]> = {},
+  limits?: Parameters<typeof writeArchive>[1],
+) =>
+  writeArchive(
+    {
+      workspace: workspace(),
+      assets: [],
+      appVersion: "0.0.0-test",
+      exportedAt: "2026-08-10T00:00:00.000Z",
+      ...over,
+    },
+    limits,
+  );
 
 describe("round-trip", () => {
   it("exportar e importar devolve o workspace **idêntico**", async () => {
@@ -403,7 +411,50 @@ describe("o que entra no zip tem teto e lista fechada (#270)", () => {
 
   it("os tetos padrão são os de um acervo real, com folga", () => {
     expect(DEFAULT_ARCHIVE_LIMITS.maxAssetBytes).toBe(64 * 1024 * 1024);
-    expect(DEFAULT_ARCHIVE_LIMITS.maxTotalBytes).toBe(2 * 1024 * 1024 * 1024);
+    // O mesmo teto do corpo da rota de import (SEC-03): um número só, nos dois lados.
+    expect(DEFAULT_ARCHIVE_LIMITS.maxTotalBytes).toBe(MAX_ARCHIVE_BYTES);
+    expect(MAX_ARCHIVE_BYTES).toBe(1024 * 1024 * 1024);
+  });
+});
+
+/**
+ * O `.lbb` que o app exporta, o app importa (SEC-03, G3 da revisão de código).
+ *
+ * A rota cortava o corpo em 512 MB e o leitor aceitava 2 GB: o backup de uma biblioteca com os PDFs
+ * passava de um e não do outro, e o arquivo baixado não voltava. Agora a exportação confere os
+ * mesmos tetos que a leitura e recusa antes de gerar um arquivo que não volta.
+ */
+describe("a exportação respeita os tetos da importação (SEC-03)", () => {
+  const asset = async (fill: number, size: number) => {
+    const bytes = new Uint8Array(size).fill(fill);
+    return { sha256: await sha256Of(bytes), extension: ".bin", bytes };
+  };
+
+  it("acima do total, recusa com a mensagem do que fazer", async () => {
+    const assets = [await asset(1, 600 * 1024), await asset(2, 600 * 1024)];
+    const limits = { ...DEFAULT_ARCHIVE_LIMITS, maxTotalBytes: 1024 * 1024 };
+
+    const refused = write({ assets }, limits);
+
+    await expect(refused).rejects.toThrow(ExportTooLargeError);
+    await expect(refused).rejects.toThrow(/1 MB/);
+  });
+
+  it("um asset acima do teto da leitura também recusa", async () => {
+    const limits = { ...DEFAULT_ARCHIVE_LIMITS, maxAssetBytes: 1024 * 1024 };
+
+    await expect(write({ assets: [await asset(3, 2 * 1024 * 1024)] }, limits)).rejects.toThrow(
+      ExportTooLargeError,
+    );
+  });
+
+  it("a mesma figura em vários lugares conta uma vez, como entra no zip", async () => {
+    const one = await asset(4, 600 * 1024);
+    const limits = { ...DEFAULT_ARCHIVE_LIMITS, maxTotalBytes: 1024 * 1024 };
+
+    const archive = await write({ assets: [one, one, one] }, limits);
+
+    await expect(readArchive(archive, limits)).resolves.toBeDefined();
   });
 });
 

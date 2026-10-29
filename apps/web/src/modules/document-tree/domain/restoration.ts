@@ -1,3 +1,5 @@
+import { generateKeyBetween } from "@/shared/ordering/fractional-index";
+
 /**
  * Quando um nó da lixeira pode voltar sozinho.
  *
@@ -21,3 +23,17 @@ export const isRestorable = (
   node: { readonly parentId: string | null },
   deleted: { has(id: string): boolean },
 ): boolean => deletedAncestorOf(node, deleted) === null;
+
+/**
+ * A chave com que a raiz restaurada volta, dadas as chaves dos irmãos vivos.
+ *
+ * `null` quando a de antes está livre: o nó volta ao lugar de origem. Quando um irmão criado
+ * enquanto ele estava na lixeira tomou a mesma chave, logo depois dele — o lugar mais perto do de
+ * origem que está livre. Dois irmãos com a mesma chave deixam a ordem por conta do banco, e
+ * qualquer inserção entre eles cai em `generateKeyBetween(k, k)`.
+ */
+export function restoredSortKey(sortKey: string, siblingKeys: readonly string[]): string | null {
+  if (!siblingKeys.includes(sortKey)) return null;
+  const next = [...siblingKeys].sort().find((key) => key > sortKey) ?? null;
+  return generateKeyBetween(sortKey, next);
+}

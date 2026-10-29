@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, injectCss } from "@/design-system";
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import { cycleRegion, type Overlay } from "@modules/scan/domain/review-view";
 
 import { SourcePdfViewer } from "./SourcePdfViewer";

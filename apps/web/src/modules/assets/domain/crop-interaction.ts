@@ -1,4 +1,4 @@
-import type { PixelRect } from "./source-anchor";
+import type { PixelRect } from "@/shared/geometry/normalized-box";
 
 /**
  * As regras de desenhar e ajustar o retângulo de recorte.

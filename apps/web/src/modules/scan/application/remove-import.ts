@@ -1,3 +1,8 @@
+import {
+  afterQuestionChanged,
+  type QuestionValidation,
+} from "@modules/questions/application/validate-question";
+
 import { isInProgress } from "../domain/scan-run";
 import { bodyPieceLatex } from "../domain/approval-latex";
 import { planImportRemoval, type ImportedNode, type ImportRemovalPlan } from "../domain/import-removal";
@@ -42,7 +47,8 @@ export interface ScanImportStore {
   sendToTrash(nodeIds: readonly string[]): Promise<void>;
   /** O que a execução acrescentou a nós que ela não criou — o capítulo reaproveitado (#249). */
   listAppendedPieces(runId: string): Promise<readonly AppendedPieces[]>;
-  detachPieces(entries: readonly DetachedPieces[]): Promise<void>;
+  /** Tira os trechos e as âncoras, e devolve as questões cujo enunciado mudou. */
+  detachPieces(entries: readonly DetachedPieces[]): Promise<readonly string[]>;
 }
 
 export interface RemoveImportDeps {
@@ -121,6 +127,7 @@ async function piecesToDetach(deps: RemoveImportDeps, runId: string): Promise<De
 export async function removeImport(
   deps: RemoveImportDeps,
   input: { readonly runId: string; readonly scope: RemovalScope },
+  validation?: QuestionValidation,
 ): Promise<RemovalResult> {
   const run = await deps.store.findRun(input.runId);
   if (!run) throw new ScanRunNotFoundError(input.runId);
@@ -158,8 +165,12 @@ export async function removeImport(
     órfãos sem nenhum caminho de volta até eles.
   */
   await deps.imports.sendToTrash(plan.trash);
-  await deps.imports.detachPieces(detached);
+  const changedQuestions = await deps.imports.detachPieces(detached);
   await deps.store.deleteRun(input.runId);
+  // O enunciado que perdeu o trecho é outro texto: o selo da árvore tem de ser o dele (D65).
+  if (validation) {
+    for (const questionId of changedQuestions) await afterQuestionChanged(validation, questionId);
+  }
 
   return {
     scope: "import",

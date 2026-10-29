@@ -149,6 +149,7 @@ function fakeApplier(initial: QuestionState = state()) {
       log.push(`read:${id}`);
       return Promise.resolve(current as QuestionState | null);
     },
+    findAgentRun: () => Promise.resolve(null),
     writeRevision: (input) => {
       log.push(`revision:${input.origin}:${input.snapshotJson.length}b`);
       revisions += 1;

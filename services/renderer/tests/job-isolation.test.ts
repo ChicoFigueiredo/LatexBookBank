@@ -15,7 +15,7 @@ import { compile } from "../src/compile.ts";
 import { ensureFormat, formatKey, FORMATS_DIR } from "../src/format-cache.ts";
 import { JobStore } from "../src/jobs.ts";
 import { createHandler } from "../src/server.ts";
-import { describeComTex } from "./tex.ts";
+import { describeWithTex } from "./tex.ts";
 
 /**
  * Um job não enxerga o outro, e o que sai de um job é só dele (tarefa F5 da revisão de
@@ -55,7 +55,7 @@ function renderRequest(payload: RenderBundle): Request {
   });
 }
 
-describeComTex("o jobId é de um job só", () => {
+describeWithTex("o jobId é de um job só", () => {
   it("o store recusa um id que já está em andamento, em vez de sobrescrever", () => {
     const store = new JobStore();
 
@@ -80,7 +80,7 @@ describeComTex("o jobId é de um job só", () => {
   });
 });
 
-describeComTex("só as páginas do PDF saem como páginas", () => {
+describeWithTex("só as páginas do PDF saem como páginas", () => {
   it("uma figura chamada `page-3.png` não vira página renderizada", async () => {
     const png = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -111,7 +111,7 @@ describeComTex("só as páginas do PDF saem como páginas", () => {
   });
 });
 
-describeComTex("o formato pré-compilado", () => {
+describeWithTex("o formato pré-compilado", () => {
   it("um `.fmt` corrompido não derruba o perfil: compila sem ele e o descarta", async () => {
     // Um `-ini` morto no meio do dump deixava o arquivo pela metade em /tmp/lbb-formats, e todo
     // render daquele perfil falhava com "Fatal format file error" até reiniciar o contêiner.
@@ -139,7 +139,7 @@ describeComTex("o formato pré-compilado", () => {
   });
 });
 
-describeComTex("o prazo é do job inteiro", () => {
+describeWithTex("o prazo é do job inteiro", () => {
   it("passadas a mais param na primeira que falha, e o erro aparece uma vez", async () => {
     // Três passadas sobre um erro davam o mesmo diagnóstico três vezes, e o triplo do tempo.
     const once = await compile(bundle({ sourceLatex: "\\naoExiste" }), new Map(), deps);

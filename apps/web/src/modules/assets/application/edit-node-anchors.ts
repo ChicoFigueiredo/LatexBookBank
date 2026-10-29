@@ -4,7 +4,8 @@ import {
   type AnchorRole,
   type NodeAnchorLink,
 } from "@modules/assets/domain/node-anchors";
-import { normalizeAnchor, type NormalizedBox } from "@modules/assets/domain/source-anchor";
+import { normalizeAnchor } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 
 /**
  * Acrescentar e retirar âncoras de uma questão pelo *Ver fonte* do editor (D43, D47).

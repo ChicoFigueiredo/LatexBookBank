@@ -2,15 +2,12 @@ import { NextResponse } from "next/server";
 
 import { requireQuestionScope } from "@/shared/authorization/question-scope";
 
+import { RendererNotConfiguredError } from "@modules/rendering/domain/renderer-not-configured";
 import { renderDocument } from "@modules/rendering/application/render-document";
 import { questionRenderSource } from "@modules/rendering/infrastructure/prisma-question-render-source";
 import { renderWiringFromEnv } from "@modules/rendering/infrastructure/render-wiring";
 
-import {
-  parseRenderProfile,
-  rendererNotConfigured,
-  renderJobResponse,
-} from "../../../../../render-http";
+import { parseRenderProfile, renderJobResponse } from "../../../../../render-http";
 import { toErrorResponse } from "../../../../../http";
 import { readJson } from "../../../../../http";
 
@@ -37,7 +34,7 @@ export async function POST(
     const scope = await requireQuestionScope(id, questionId);
 
     const wiring = renderWiringFromEnv();
-    if (wiring === null) return rendererNotConfigured();
+    if (wiring === null) throw new RendererNotConfiguredError();
 
     const body = await readJson(request).catch(() => ({}) as Record<string, unknown>);
     const profile = parseRenderProfile(body);

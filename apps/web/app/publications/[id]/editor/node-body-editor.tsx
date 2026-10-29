@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge, Banner, Button, Divider, Tabs, useStoredState } from "@/design-system";
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";

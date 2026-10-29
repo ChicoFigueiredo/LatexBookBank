@@ -17,30 +17,30 @@ import { describe } from "vitest";
  * nada.
  */
 
-const BINARIOS = [
+const TEX_BINARIES = [
   ["pdflatex", "--version"],
   ["pdftocairo", "-v"],
 ] as const;
 
-const faltando = BINARIOS.filter(([bin, flag]) => {
+const missing = TEX_BINARIES.filter(([bin, flag]) => {
   const probe = spawnSync(bin, [flag], { stdio: "ignore" });
   return probe.error !== undefined || probe.status !== 0;
 }).map(([bin]) => bin);
 
-export const TEX_DISPONIVEL = faltando.length === 0;
+export const TEX_AVAILABLE = missing.length === 0;
 
-const MOTIVO = `sem ${faltando.join(" e ")} no PATH`;
+const SKIP_REASON = `sem ${missing.join(" e ")} no PATH`;
 
-if (!TEX_DISPONIVEL) {
+if (!TEX_AVAILABLE) {
   if (process.env["RENDERER_REQUIRE_TEX"] === "1") {
     throw new Error(
-      `RENDERER_REQUIRE_TEX=1, mas o ambiente está ${MOTIVO}: os testes de compilação não rodariam.`,
+      `RENDERER_REQUIRE_TEX=1, mas o ambiente está ${SKIP_REASON}: os testes de compilação não rodariam.`,
     );
   }
-  console.warn(`[renderer] testes de compilação pulados: ${MOTIVO}.`);
+  console.warn(`[renderer] testes de compilação pulados: ${SKIP_REASON}.`);
 }
 
 /** `describe` que só roda com o TeX instalado, e que diz no nome por que pulou quando não está. */
-export function describeComTex(nome: string, corpo: () => void): void {
-  describe.runIf(TEX_DISPONIVEL)(TEX_DISPONIVEL ? nome : `${nome} — pulado: ${MOTIVO}`, corpo);
+export function describeWithTex(name: string, body: () => void): void {
+  describe.runIf(TEX_AVAILABLE)(TEX_AVAILABLE ? name : `${name} — pulado: ${SKIP_REASON}`, body);
 }

@@ -3,7 +3,7 @@ import "server-only";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import type { OpenedPdf, PdfDocumentOpener } from "@modules/scan/application/pdf-document";
 import type { Graphic, RawPage, RawSpan } from "@modules/scan/domain/page";
 import type * as PdfJsModule from "pdfjs-dist/legacy/build/pdf.mjs";

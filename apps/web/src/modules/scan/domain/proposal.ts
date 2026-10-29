@@ -1,5 +1,5 @@
 import type { AnchorRole } from "@modules/assets/domain/node-anchors";
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 
 /**

@@ -21,13 +21,13 @@ function sources(dir: string): string[] {
     .map((file) => path.join(dir, file));
 }
 
-const codigo = [...sources("src"), ...sources("app")].map((file) => ({
+const code = [...sources("src"), ...sources("app")].map((file) => ({
   file,
   text: readFileSync(path.join(root, file), "utf8"),
 }));
 
 /** Cada adaptador concreto, e o único arquivo que pode instanciá-lo. */
-const DONOS: ReadonlyArray<readonly [string, string]> = [
+const OWNERS: ReadonlyArray<readonly [string, string]> = [
   ["LocalFileStorageProvider", "src/infrastructure/composition.ts"],
   ["OpenAiCompatibleProvider", "src/infrastructure/composition.ts"],
   ["VisionMathRecognizer", "src/infrastructure/composition.ts"],
@@ -37,24 +37,38 @@ const DONOS: ReadonlyArray<readonly [string, string]> = [
 
 describe("os adaptadores concretos nascem na raiz de composição", () => {
   it("há código para varrer", () => {
-    expect(codigo.length).toBeGreaterThan(100);
+    expect(code.length).toBeGreaterThan(100);
   });
 
-  for (const [classe, dono] of DONOS) {
-    it(`\`new ${classe}\` só em ${dono}`, () => {
-      const fora = codigo
-        .filter(({ file, text }) => text.includes(`new ${classe}(`) && file !== dono)
+  for (const [concreteClass, owner] of OWNERS) {
+    it(`\`new ${concreteClass}\` só em ${owner}`, () => {
+      const outside = code
+        .filter(({ file, text }) => text.includes(`new ${concreteClass}(`) && file !== owner)
         .map(({ file }) => file);
 
-      expect(fora).toEqual([]);
+      expect(outside).toEqual([]);
     });
   }
+
+  it("as fábricas devolvem a porta, e não a classe concreta", () => {
+    // `aiProvider()` devolvia `OpenAiCompatibleProvider`: quem chamava podia usar o que a porta
+    // não promete, e trocar o adaptador quebraria o chamador em vez de ser só trocar a fábrica.
+    const composition = readFileSync(path.join(root, "src/infrastructure/composition.ts"), "utf8");
+    const returnTypes = [...composition.matchAll(/\)\s*:\s*([^=;{]*?)\s*\{\n/g)].map(
+      (match) => match[1] ?? "",
+    );
+
+    expect(returnTypes.length).toBeGreaterThan(0);
+    expect(
+      returnTypes.filter((type) => OWNERS.some(([concrete]) => type.includes(concrete))),
+    ).toEqual([]);
+  });
 });
 
 /**
  * Quem pode ler `process.env` direto, e por quê. Fora daqui, a configuração vem de `env()`.
  */
-const LEITORES = new Set([
+const ENV_READERS = new Set([
   // O ponto de leitura, validado uma vez.
   "src/shared/config/env.ts",
   // O cliente Prisma nasce no import; os testes trocam o `DATABASE_URL` antes de importá-lo, e o
@@ -66,13 +80,13 @@ const LEITORES = new Set([
 
 describe("o ambiente é lido uma vez", () => {
   it("ninguém mais lê `process.env`, a não ser o `NODE_ENV` do próprio Next", () => {
-    const soltos = codigo
-      .filter(({ file }) => !LEITORES.has(file))
+    const strays = code
+      .filter(({ file }) => !ENV_READERS.has(file))
       .filter(({ text }) =>
         text.replaceAll(/process\.env(\.NODE_ENV|\["NODE_ENV"\])/g, "").match(/process\.env\b/),
       )
       .map(({ file }) => file);
 
-    expect(soltos).toEqual([]);
+    expect(strays).toEqual([]);
   });
 });

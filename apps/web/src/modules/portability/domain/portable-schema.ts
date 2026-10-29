@@ -355,6 +355,22 @@ export class ArchiveTooLargeError extends Error {
 }
 
 /**
+ * A biblioteca não cabe num `.lbb` que o próprio app aceitaria de volta (SEC-03).
+ *
+ * A exportação confere os tetos da leitura antes de entregar o arquivo: gerar um backup que o
+ * import recusa é pior que recusar na hora, porque a pessoa só descobre no dia de restaurar.
+ */
+export class ExportTooLargeError extends Error {
+  constructor(what: string) {
+    super(
+      `A biblioteca é grande demais para um .lbb que o app consiga importar de volta: ${what}. ` +
+        `Divida o acervo em bibliotecas menores, ou tire da biblioteca os PDFs que não precisam viajar.`,
+    );
+    this.name = "ExportTooLargeError";
+  }
+}
+
+/**
  * Aceita a versão, ou recusa.
  *
  * **Nunca adivinha.** Um arquivo de versão futura pode ter campo que este código leria errado, e

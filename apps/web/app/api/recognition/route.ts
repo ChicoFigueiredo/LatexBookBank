@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import {
   recognizeCrop,
-  type RecognitionMode,
+  VisionNotConfiguredError,
 } from "@modules/recognition/application/recognize-crop";
+import { isRecognitionMode } from "@modules/recognition/domain/recognition-mode";
 import type { RecognitionCandidate } from "@modules/recognition/domain/recognition-review";
 import {
   recordRecognition,
@@ -29,21 +30,11 @@ import { BadRequestError, toErrorResponse } from "../http";
  */
 export const dynamic = "force-dynamic";
 
-const MODES = new Set(["display", "inline", "mixed", "text"]);
-
 export async function POST(request: Request) {
   try {
-    if (!visionConfigured(appEnv())) {
-      // Modelo de visão é outro: o bom de código raramente enxerga. Sem ele configurado, dizer o
-      // que falta é melhor que tentar com o modelo de texto e devolver algo sem sentido.
-      return NextResponse.json(
-        {
-          error: "vision_not_configured",
-          message: "Defina `AI_BASE_URL` e `AI_VISION_MODEL` em `apps/web/.env.local`.",
-        },
-        { status: 503 },
-      );
-    }
+    // Modelo de visão é outro: o bom de código raramente enxerga. Sem ele configurado, dizer o
+    // que falta é melhor que tentar com o modelo de texto e devolver algo sem sentido.
+    if (!visionConfigured(appEnv())) throw new VisionNotConfiguredError();
 
     const form = await request.formData().catch(() => null);
     if (form === null) throw new BadRequestError("Envie como `multipart/form-data`.");
@@ -57,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     const rawMode = form.get("mode");
-    const mode = typeof rawMode === "string" && MODES.has(rawMode) ? rawMode : "display";
+    const mode = isRecognitionMode(rawMode) ? rawMode : "display";
 
     /**
      * A âncora, quando o cliente a manda.
@@ -92,7 +83,7 @@ export async function POST(request: Request) {
         anchorId,
         image: new Uint8Array(await image.arrayBuffer()),
         mimeType: image.type || "image/png",
-        mode: mode as RecognitionMode,
+        mode,
       },
     );
 

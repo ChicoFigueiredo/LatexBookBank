@@ -6,6 +6,7 @@ import type {
   DocumentTreeRepository,
   DocumentTreeWriter,
   NewNode,
+  RestoredRoot,
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
 import { isNodeKind, isNumberingStyle } from "@modules/document-tree/domain/node-kind";
@@ -187,20 +188,27 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     });
   }
 
-  async restoreMany(
-    nodeIds: readonly string[],
-    reposition?: { readonly nodeId: string; readonly sortKey: string },
-  ): Promise<void> {
+  async restoreMany(nodeIds: readonly string[], root?: RestoredRoot): Promise<void> {
     if (nodeIds.length === 0) return;
     await prisma.$transaction(async (tx) => {
       for (const ids of inChunks(nodeIds)) {
         await tx.documentNode.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
       }
-      if (reposition) {
-        await tx.documentNode.update({
-          where: { id: reposition.nodeId },
-          data: { sortKey: reposition.sortKey },
-        });
+      if (!root) return;
+
+      // Os irmãos vivos lidos aqui, e não no caso de uso: a chave nova vê o que foi gravado até
+      // esta transação abrir (ACV-09).
+      const { publicationId, parentId } = await tx.documentNode.findUniqueOrThrow({
+        where: { id: root.nodeId },
+        select: { publicationId: true, parentId: true },
+      });
+      const siblings = await tx.documentNode.findMany({
+        where: { publicationId, parentId, deletedAt: null, id: { not: root.nodeId } },
+        select: { sortKey: true },
+      });
+      const sortKey = root.sortKeyAmong(siblings.map((sibling) => sibling.sortKey));
+      if (sortKey !== null) {
+        await tx.documentNode.update({ where: { id: root.nodeId }, data: { sortKey } });
       }
     });
   }

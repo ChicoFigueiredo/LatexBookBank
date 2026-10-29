@@ -1,18 +1,10 @@
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { Rect } from "@/shared/geometry/normalized-box";
 
 /**
- * Retângulos em **pontos do PDF**, origem no canto superior esquerdo, y para baixo — a mesma
- * convenção da `segment-page` e de toda caixa normalizada do projeto (D28).
- *
- * O scan raciocina em pontos porque é neles que as tolerâncias fazem sentido ("a calha mede 3 a
- * 8 pt"); só vira fração de página na hora de propor uma âncora.
+ * As medidas que o scan faz sobre retângulos em **pontos do PDF** — o `Rect` e as conversões para
+ * a caixa normalizada são de todos, e moram em `src/shared/geometry` (ARQ-12).
  */
-export interface Rect {
-  readonly x0: number;
-  readonly y0: number;
-  readonly x1: number;
-  readonly y1: number;
-}
+export type { Rect };
 
 export const width = (rect: Rect): number => rect.x1 - rect.x0;
 export const height = (rect: Rect): number => rect.y1 - rect.y0;
@@ -68,57 +60,6 @@ export function intersectionOverUnion(a: Rect, b: Rect): number {
 
   const union = width(a) * height(a) + width(b) * height(b) - intersection;
   return union > 0 ? intersection / union : 0;
-}
-
-/**
- * A caixa normalizada como retângulo, para comparar duas âncoras.
- *
- * Mora aqui porque tem dois donos: a aprovação, que pergunta "esta âncora já está no acervo?", e
- * a herança de revisão, que pergunta "isto é o mesmo lugar do livro?". Duas perguntas, uma conta.
- */
-export function boxRect(box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }): Rect {
-  return { x0: box.x, y0: box.y, x1: box.x + box.width, y1: box.y + box.height };
-}
-
-const PRECISION = 1e6;
-const round = (value: number): number => Math.round(value * PRECISION) / PRECISION;
-
-/**
- * A caixa em frações da página, presa às bordas.
- *
- * Prender em vez de recusar, como a `segment-page`: quem desenhou foi a aritmética, e uma
- * folga que vaza dois pontos na margem não é erro de ninguém. Seis casas, as de `normalizeAnchor`.
- */
-export function toNormalizedBox(
-  rect: Rect,
-  page: { readonly width: number; readonly height: number },
-): NormalizedBox {
-  const x0 = clamp(rect.x0, 0, page.width);
-  const y0 = clamp(rect.y0, 0, page.height);
-  const x1 = clamp(rect.x1, x0, page.width);
-  const y1 = clamp(rect.y1, y0, page.height);
-
-  const x = round(x0 / page.width);
-  const y = round(y0 / page.height);
-
-  return {
-    x,
-    y,
-    width: Math.min(round((x1 - x0) / page.width), round(1 - x)),
-    height: Math.min(round((y1 - y0) / page.height), round(1 - y)),
-  };
-}
-
-export function fromNormalizedBox(
-  box: NormalizedBox,
-  page: { readonly width: number; readonly height: number },
-): Rect {
-  return {
-    x0: box.x * page.width,
-    y0: box.y * page.height,
-    x1: (box.x + box.width) * page.width,
-    y1: (box.y + box.height) * page.height,
-  };
 }
 
 export const clamp = (value: number, min: number, max: number): number =>

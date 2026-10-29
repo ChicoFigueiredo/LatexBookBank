@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import type { Tx } from "@infrastructure/database/sqlite/transaction";
 import type { StoredAssetRecord } from "@modules/assets/application/store-asset";
 import type { AssetWriter, NewAsset, WrittenAsset } from "@modules/assets/domain/book-source";
 import {
@@ -8,7 +9,7 @@ import {
   planNodeAnchors,
   type NodeAnchorLink,
 } from "@modules/assets/domain/node-anchors";
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import type { CropWriter, PersistCrop } from "@modules/assets/application/save-crop";
 import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
 import { resolveAssetOwner } from "@/shared/authorization/asset-owner-scope";
@@ -29,9 +30,6 @@ export interface CreateAssetInput extends StoredAssetRecord {
   readonly questionId?: string | null;
   readonly publicationId?: string | null;
 }
-
-/** O cliente dentro da transação. `prisma.$transaction` entrega um cliente restrito. */
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 export async function createAsset(input: CreateAssetInput): Promise<{ id: string }> {
   return createAssetWith(prisma, input);

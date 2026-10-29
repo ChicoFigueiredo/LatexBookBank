@@ -1,6 +1,7 @@
 import type { AnchorMatch, CaptureProfile, DraftItem, WalkContext } from "../capture-profile";
 import type { DocLine, ScanDocument } from "../document";
-import { fromNormalizedBox, overlapRatio } from "../geometry";
+import { fromNormalizedBox } from "@/shared/geometry/normalized-box";
+import { overlapRatio } from "../geometry";
 import { dividerFromAnchors } from "../layout";
 import type { TextLine } from "../page";
 import type { Diagnostic, DiagnosticStatus, ScanKind } from "../proposal";

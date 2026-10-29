@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import type { CropAnchor } from "@modules/recognition/application/recognize-crop";
 import type { CaptureDiscarder } from "@modules/recognition/application/discard-capture";
 import { FAILED_METHOD, type CaptureFacts } from "@modules/recognition/domain/capture-queue";
 
@@ -72,7 +73,7 @@ export async function readCaptureFacts(publicationId: string): Promise<readonly 
  * exige o gesto humano. O que fica guardado é a proposta.
  */
 export async function recordRecognition(
-  anchorId: string,
+  { anchorId, cropAssetId }: CropAnchor,
   input: {
     readonly latex: string;
     readonly method: string;
@@ -80,8 +81,9 @@ export async function recordRecognition(
     readonly metadataJson: string;
   },
 ): Promise<boolean> {
+  // O recorte no `where`: a âncora de outro recorte não é achada, e nada é gravado (SEC-06).
   const { count } = await prisma.sourceAnchor.updateMany({
-    where: { id: anchorId },
+    where: { id: anchorId, cropAssetId },
     data: {
       sourceText: input.latex.slice(0, 20_000),
       extractionMethod: input.method,
@@ -101,11 +103,11 @@ export async function recordRecognition(
  * vira "erro" (é o `extractionMethod` que diz), e o texto continua lá para a pessoa decidir.
  */
 export async function recordRecognitionFailure(
-  anchorId: string,
+  { anchorId, cropAssetId }: CropAnchor,
   input: { readonly error: string; readonly at: Date },
 ): Promise<boolean> {
   const { count } = await prisma.sourceAnchor.updateMany({
-    where: { id: anchorId },
+    where: { id: anchorId, cropAssetId },
     data: {
       extractionMethod: FAILED_METHOD,
       metadataJson: JSON.stringify({ error: input.error, at: input.at.toISOString() }),

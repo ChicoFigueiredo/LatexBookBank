@@ -9,16 +9,13 @@
  * Normalizado em 0..1, o mesmo retângulo vale em 72, 150 ou 600 DPI, na tela e na impressão — e
  * continua valendo se o PDF for reprocessado por outra ferramenta.
  *
+ * A caixa normalizada e as conversões dela são de todos os módulos, e moram em
+ * `src/shared/geometry` (ARQ-12). Aqui fica o que é da âncora: validá-la e descrever de onde veio.
+ *
  * Ver spec §18 · D28 · issue #121.
  */
 
-export interface NormalizedBox {
-  /** Origem no canto **superior esquerdo** da página, como toda API de imagem que vamos usar. */
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
+import { roundFraction, type NormalizedBox } from "@/shared/geometry/normalized-box";
 
 export interface SourceAnchorInput {
   readonly pageNumber: number;
@@ -72,64 +69,12 @@ export function normalizeAnchor(input: SourceAnchorInput): SourceAnchorInput {
   return {
     pageNumber,
     box: {
-      x: round(box.x),
-      y: round(box.y),
-      width: round(box.width),
-      height: round(box.height),
+      x: roundFraction(box.x),
+      y: roundFraction(box.y),
+      width: roundFraction(box.width),
+      height: roundFraction(box.height),
     },
     rotation: rotation === 0 ? null : rotation,
-  };
-}
-
-const PRECISION = 1e6;
-const round = (value: number): number => Math.round(value * PRECISION) / PRECISION;
-
-export interface PixelRect {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-/**
- * O retângulo em pixels, para um tamanho de página concreto.
- *
- * É aqui que o normalizado vira absoluto — e **só aqui**, no momento de recortar. O resultado
- * nunca é guardado: ele vale para aquele render, e o próximo pode ser em outro DPI.
- *
- * Arredonda para fora (`floor` na origem, `ceil` no tamanho): meio pixel a mais no recorte é
- * invisível; meio pixel a menos corta a serifa da primeira letra.
- */
-export function pixelRectFor(
-  box: NormalizedBox,
-  page: { readonly width: number; readonly height: number },
-): PixelRect {
-  const x = Math.floor(box.x * page.width);
-  const y = Math.floor(box.y * page.height);
-
-  return {
-    x,
-    y,
-    width: Math.min(Math.ceil(box.width * page.width), page.width - x),
-    height: Math.min(Math.ceil(box.height * page.height), page.height - y),
-  };
-}
-
-/**
- * A caixa normalizada a partir de um retângulo desenhado em pixels.
- *
- * O caminho inverso, usado pela tela: a pessoa arrasta sobre uma imagem de 1240×1754 e o que se
- * guarda é a fração. Sem isto, cada tela guardaria o próprio DPI junto do dado.
- */
-export function normalizedBoxFrom(
-  rect: PixelRect,
-  page: { readonly width: number; readonly height: number },
-): NormalizedBox {
-  return {
-    x: round(rect.x / page.width),
-    y: round(rect.y / page.height),
-    width: round(rect.width / page.width),
-    height: round(rect.height / page.height),
   };
 }
 

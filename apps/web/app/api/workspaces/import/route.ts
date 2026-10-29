@@ -6,6 +6,7 @@ import type {
   ImportNeedsDecisionBody,
   ImportSimulationResponse,
 } from "@modules/portability/application/import-contract";
+import { MAX_ARCHIVE_BYTES } from "@modules/portability/domain/portable-archive";
 import {
   describeConflicts,
   readExistingIndex,
@@ -14,7 +15,7 @@ import { writeImportedWorkspace } from "@modules/portability/infrastructure/pris
 import { storage } from "@infrastructure/composition";
 import { readCappedBody } from "@/shared/http/read-capped-body";
 
-import { toErrorResponse } from "../../http";
+import { BadRequestError, toErrorResponse } from "../../http";
 
 /**
  * Importa um `.lbb`.
@@ -32,20 +33,13 @@ import { toErrorResponse } from "../../http";
  */
 export const dynamic = "force-dynamic";
 
-/** Um acervo grande cabe em algumas centenas de MB; acima disso é engano, não uso. */
-const MAX_BYTES = 512 * 1024 * 1024;
-
 export async function POST(request: Request) {
   try {
     // Com teto **enquanto** lê: o `Content-Length` recusa antes do primeiro byte, e a contagem
     // pega o corpo que não o declara (#270). Ler tudo para depois comparar era aceitar 5 GB.
-    const bytes = await readCappedBody(request, MAX_BYTES);
-    if (bytes.byteLength === 0) {
-      return NextResponse.json(
-        { error: "bad_request", message: "O corpo precisa ser o arquivo `.lbb`." },
-        { status: 400 },
-      );
-    }
+    // O teto é o do leitor e o da exportação (SEC-03): o `.lbb` que o app gera, o app aceita.
+    const bytes = await readCappedBody(request, MAX_ARCHIVE_BYTES);
+    if (bytes.byteLength === 0) throw new BadRequestError("O corpo precisa ser o arquivo `.lbb`.");
 
     const params = new URL(request.url).searchParams;
     const files = storage();

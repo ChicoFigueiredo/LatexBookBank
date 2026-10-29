@@ -6,7 +6,7 @@ import { DEFAULT_RENDER_OPTIONS, type RenderBundle } from "@latexbookbank/render
 import { AUTH_HEADER, MissingSecretError, requireSecret } from "../src/auth.ts";
 import { JobStore } from "../src/jobs.ts";
 import { createHandler } from "../src/server.ts";
-import { describeComTex } from "./tex.ts";
+import { describeWithTex } from "./tex.ts";
 
 /**
  * As rotas, exercitadas de verdade — inclusive a compilação.
@@ -166,7 +166,7 @@ describe("GET /render/:id e artefatos", () => {
   });
 });
 
-describeComTex("GET /health — versões dos binários", () => {
+describeWithTex("GET /health — versões dos binários", () => {
   it("traz as versões dos binários e a do renderer", async () => {
     const response = await createHandler(deps)(new Request("http://renderer/health"));
     const health = (await response.json()) as Record<string, unknown>;
@@ -178,7 +178,7 @@ describeComTex("GET /health — versões dos binários", () => {
   });
 });
 
-describeComTex("POST /render — compilação de verdade", () => {
+describeWithTex("POST /render — compilação de verdade", () => {
   it("compila e devolve o job concluído", async () => {
     const payload = bundle();
     const response = await createHandler(deps)(renderRequest(payload));
@@ -230,7 +230,7 @@ describeComTex("POST /render — compilação de verdade", () => {
   });
 });
 
-describeComTex("GET /render/:id — artefatos compilados", () => {
+describeWithTex("GET /render/:id — artefatos compilados", () => {
   it("devolve os bytes do PDF compilado", async () => {
     const handle = createHandler(deps);
     const payload = bundle();
