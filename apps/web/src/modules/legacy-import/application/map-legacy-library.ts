@@ -343,8 +343,15 @@ export function mapLegacyLibrary(
     portable: {
       name: options.workspaceName,
       slug: options.workspaceSlug,
+      description: null,
+      // A identidade da biblioteca legada vai ao writer à parte (`LegacyWorkspaceIdentity`).
+      legacyId: null,
+      legacySourcePath: null,
       tags: [],
       publications: portablePublications,
+      assessments: [],
+      templates: [],
+      revisions: [],
     },
     excluded,
     coercedDifficulty,

@@ -1,11 +1,15 @@
 import type {
   PortableAsset,
+  PortableAssessment,
   PortableNode,
   PortableOption,
   PortablePublication,
   PortableQuestion,
+  PortableRevision,
+  PortableTemplate,
   PortableWorkspace,
 } from "../domain/portable-schema";
+import { translateSnapshotIds } from "../domain/snapshot-ids";
 
 /**
  * A projeção **runtime → portable**.
@@ -25,8 +29,59 @@ import type {
 export interface RuntimeWorkspace {
   readonly name: string;
   readonly slug: string;
+  readonly description: string | null;
+  readonly legacyId: number | null;
+  readonly legacySourcePath: string | null;
   readonly tags: readonly { readonly name: string; readonly kind: string }[];
   readonly publications: readonly RuntimePublication[];
+  readonly assessments: readonly RuntimeAssessment[];
+  readonly templates: readonly RuntimeTemplate[];
+  readonly revisions: readonly RuntimeRevision[];
+}
+
+export interface RuntimeAssessment {
+  readonly title: string;
+  readonly subtitle: string | null;
+  readonly notes: string | null;
+  readonly sections: readonly {
+    readonly title: string | null;
+    readonly sortKey: string;
+    readonly items: readonly {
+      readonly questionId: string;
+      readonly sortKey: string;
+      readonly points: number | null;
+      readonly pinnedLastOptionIds: readonly string[];
+    }[];
+  }[];
+  readonly variants: readonly {
+    readonly label: string;
+    readonly seed: number;
+    readonly shuffleQuestions: boolean;
+    readonly shuffleOptions: boolean;
+    readonly createdAt: string;
+    readonly questions: readonly {
+      readonly questionId: string;
+      readonly position: number;
+      readonly options: readonly {
+        readonly optionId: string;
+        readonly displayedLabel: string;
+        readonly position: number;
+      }[];
+    }[];
+  }[];
+}
+
+/** O template não cita id nenhum: o mesmo formato do portable. */
+export type RuntimeTemplate = PortableTemplate;
+
+export interface RuntimeRevision {
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly revisionNumber: number;
+  readonly origin: string;
+  readonly summary: string;
+  readonly snapshotJson: string;
+  readonly createdAt: string;
 }
 
 /** O asset descrito — o mesmo formato do portable: não há id de runtime nele para traduzir. */
@@ -135,25 +190,129 @@ export interface RuntimeOption {
  */
 class RefMinter {
   private counters = new Map<string, number>();
+  /** Todo id de runtime que ganhou `ref` — é por ele que avaliações e revisões se traduzem. */
+  readonly refOf = new Map<string, string>();
 
-  next(prefix: string): string {
+  next(prefix: string, id?: string): string {
     const value = (this.counters.get(prefix) ?? 0) + 1;
     this.counters.set(prefix, value);
-    return `${prefix}-${value}`;
+    const ref = `${prefix}-${value}`;
+    if (id !== undefined) this.refOf.set(id, ref);
+    return ref;
   }
 }
 
 export function toPortable(runtime: RuntimeWorkspace): PortableWorkspace {
   const mint = new RefMinter();
+  const publications = runtime.publications.map((publication) => toPublication(publication, mint));
+  const refOf = (id: string) => mint.refOf.get(id);
 
   return {
     name: runtime.name,
     slug: runtime.slug,
+    description: runtime.description,
+    legacyId: runtime.legacyId,
+    legacySourcePath: runtime.legacySourcePath,
     // Ordenadas: duas exportações do mesmo workspace precisam sair iguais, e a ordem em que o
     // banco devolve tags não é garantida.
     tags: [...runtime.tags].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    publications: runtime.publications.map((publication) => toPublication(publication, mint)),
+    publications,
+    assessments: runtime.assessments.map((assessment) => toAssessment(assessment, refOf)),
+    templates: [...runtime.templates].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    revisions: toRevisions(runtime.revisions, refOf),
   };
+}
+
+/**
+ * A avaliação com as questões e as alternativas trocadas pela `ref` do arquivo.
+ *
+ * Questão que não está no arquivo (de outra biblioteca, de antes do guarda da #177) sai do item e
+ * da variante: não há para onde apontar no destino. Alternativa que não existe mais sai do mapa
+ * pelo mesmo motivo — ela já não apontava para nada na origem.
+ */
+function toAssessment(
+  assessment: RuntimeAssessment,
+  refOf: (id: string) => string | undefined,
+): PortableAssessment {
+  const known = (ids: readonly string[]) =>
+    ids.flatMap((id) => {
+      const ref = refOf(id);
+      return ref === undefined ? [] : [ref];
+    });
+
+  return {
+    title: assessment.title,
+    subtitle: assessment.subtitle,
+    notes: assessment.notes,
+    sections: assessment.sections.map((section) => ({
+      title: section.title,
+      sortKey: section.sortKey,
+      items: section.items.flatMap((item) => {
+        const question = refOf(item.questionId);
+        if (question === undefined) return [];
+        return [
+          {
+            question,
+            sortKey: item.sortKey,
+            points: item.points,
+            pinnedLastOptions: known(item.pinnedLastOptionIds),
+          },
+        ];
+      }),
+    })),
+    variants: assessment.variants.map((variant) => ({
+      label: variant.label,
+      seed: variant.seed,
+      shuffleQuestions: variant.shuffleQuestions,
+      shuffleOptions: variant.shuffleOptions,
+      createdAt: variant.createdAt,
+      questions: variant.questions.flatMap((entry) => {
+        const question = refOf(entry.questionId);
+        if (question === undefined) return [];
+        return [
+          {
+            question,
+            position: entry.position,
+            options: entry.options.flatMap((option) => {
+              const ref = refOf(option.optionId);
+              if (ref === undefined) return [];
+              return [{ option: ref, displayedLabel: option.displayedLabel, position: option.position }];
+            }),
+          },
+        ];
+      }),
+    })),
+  };
+}
+
+/** Por entidade e número: o banco não garante ordem, e o arquivo precisa sair igual. */
+function toRevisions(
+  revisions: readonly RuntimeRevision[],
+  refOf: (id: string) => string | undefined,
+): readonly PortableRevision[] {
+  return revisions
+    .flatMap((revision): PortableRevision[] => {
+      const entity = refOf(revision.entityId);
+      if (entity === undefined) return [];
+      return [
+        {
+          entityType: revision.entityType,
+          entity,
+          revisionNumber: revision.revisionNumber,
+          origin: revision.origin,
+          summary: revision.summary,
+          snapshotJson: translateSnapshotIds(revision.snapshotJson, refOf),
+          createdAt: revision.createdAt,
+        },
+      ];
+    })
+    .sort((a, b) =>
+      a.entityType !== b.entityType
+        ? a.entityType.localeCompare(b.entityType)
+        : a.entity !== b.entity
+          ? a.entity.localeCompare(b.entity, "en", { numeric: true })
+          : a.revisionNumber - b.revisionNumber,
+    );
 }
 
 /**
@@ -200,10 +359,10 @@ function toPublication(publication: RuntimePublication, mint: RefMinter): Portab
   // estivesse em outra publicação seria dado corrompido, não um caso a suportar.
   const nodes = inTreeOrder(publication.nodes);
   const refById = new Map<string, string>();
-  for (const node of nodes) refById.set(node.id, mint.next("node"));
+  for (const node of nodes) refById.set(node.id, mint.next("node", node.id));
 
   return {
-    ref: mint.next("pub"),
+    ref: mint.next("pub", publication.id),
     title: publication.title,
     subtitle: publication.subtitle,
     publisher: publication.publisher,
@@ -261,7 +420,7 @@ function toNode(node: RuntimeNode, refById: Map<string, string>, mint: RefMinter
 
 function toQuestion(question: RuntimeQuestion, mint: RefMinter): PortableQuestion {
   return {
-    ref: mint.next("q"),
+    ref: mint.next("q", question.id),
     type: question.type,
     nickname: question.nickname,
     statementLatex: question.statementLatex,
@@ -288,7 +447,7 @@ function toQuestion(question: RuntimeQuestion, mint: RefMinter): PortableQuestio
 
 function toOption(option: RuntimeOption, mint: RefMinter): PortableOption {
   return {
-    ref: mint.next("o"),
+    ref: mint.next("o", option.id),
     sortKey: option.sortKey,
     statementLatex: option.statementLatex,
     solutionLatex: option.solutionLatex,

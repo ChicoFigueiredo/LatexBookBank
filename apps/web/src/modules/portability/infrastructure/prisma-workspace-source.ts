@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
+import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
 import { listSourceAssets, type OwnedAssetRow } from "@modules/assets/infrastructure/prisma-owned-assets";
 import type {
   RuntimeAsset,
@@ -60,7 +61,54 @@ export async function readWorkspaceForExport(
     select: {
       name: true,
       slug: true,
+      description: true,
+      legacyId: true,
+      legacySourcePath: true,
       tags: { select: { name: true, kind: true } },
+      templates: {
+        orderBy: { name: "asc" },
+        select: { name: true, audience: true, preambleLatex: true, optionsJson: true },
+      },
+      assessments: {
+        orderBy: [{ createdAt: "asc" }, { title: "asc" }],
+        select: {
+          title: true,
+          subtitle: true,
+          notes: true,
+          sections: {
+            orderBy: { sortKey: "asc" },
+            select: {
+              title: true,
+              sortKey: true,
+              items: {
+                orderBy: { sortKey: "asc" },
+                select: { questionId: true, sortKey: true, points: true, pinnedLastOptionIdsJson: true },
+              },
+            },
+          },
+          variants: {
+            orderBy: { label: "asc" },
+            select: {
+              label: true,
+              seed: true,
+              shuffleQuestions: true,
+              shuffleOptions: true,
+              createdAt: true,
+              questions: {
+                orderBy: { position: "asc" },
+                select: {
+                  questionId: true,
+                  position: true,
+                  options: {
+                    orderBy: { position: "asc" },
+                    select: { optionId: true, displayedLabel: true, position: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       publications: {
         orderBy: [{ createdAt: "asc" }, { title: "asc" }],
         select: {
@@ -199,10 +247,61 @@ export async function readWorkspaceForExport(
     return asset ? asset.sha256 : null;
   };
 
+  // O histórico de tudo o que o arquivo leva. `Revision` não tem `workspaceId`: chega-se a ela
+  // pelo id da entidade, e só a entidade exportada tem para onde voltar.
+  const entityIds = row.publications.flatMap((publication) => [
+    publication.id,
+    ...publication.nodes.flatMap((node) => [
+      node.id,
+      ...(node.question === null ? [] : [node.question.id, ...node.question.options.map((option) => option.id)]),
+    ]),
+  ]);
+  const revisions = [];
+  for (const ids of inChunks(entityIds)) {
+    revisions.push(
+      ...(await prisma.revision.findMany({
+        where: { entityId: { in: ids } },
+        select: {
+          entityType: true,
+          entityId: true,
+          revisionNumber: true,
+          origin: true,
+          summary: true,
+          snapshotJson: true,
+          createdAt: true,
+        },
+      })),
+    );
+  }
+
   const workspace: RuntimeWorkspace = {
     name: row.name,
     slug: row.slug,
+    description: row.description,
+    legacyId: row.legacyId,
+    legacySourcePath: row.legacySourcePath,
     tags: row.tags,
+    templates: row.templates,
+    revisions: revisions.map((revision) => ({ ...revision, createdAt: revision.createdAt.toISOString() })),
+    assessments: row.assessments.map((assessment) => ({
+      title: assessment.title,
+      subtitle: assessment.subtitle,
+      notes: assessment.notes,
+      sections: assessment.sections.map((section) => ({
+        title: section.title,
+        sortKey: section.sortKey,
+        items: section.items.map((item) => ({
+          questionId: item.questionId,
+          sortKey: item.sortKey,
+          points: item.points,
+          pinnedLastOptionIds: parseIds(item.pinnedLastOptionIdsJson),
+        })),
+      })),
+      variants: assessment.variants.map((variant) => ({
+        ...variant,
+        createdAt: variant.createdAt.toISOString(),
+      })),
+    })),
     publications: row.publications.map((publication) => {
       // Os arquivos das questões deste livro; o que o livro citar e não estiver aqui é dele.
       const questionAssets = new Map<string, readonly OwnedAssetRow[]>();
@@ -338,4 +437,14 @@ function dedupe(rows: readonly OwnedAssetRow[]): readonly OwnedAssetRow[] {
     seen.add(key);
     return true;
   });
+}
+
+/** O JSON da coluna, como o repositório de avaliações o lê: malformado vira lista vazia. */
+function parseIds(raw: string): readonly string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
 }

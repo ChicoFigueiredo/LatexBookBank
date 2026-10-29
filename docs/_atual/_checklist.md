@@ -1263,7 +1263,10 @@ e eles escondiam o que falta de verdade)*
 - ✅ Independência de path garantida
 
 **Exportação**
-- ✅ Exporta um workspace inteiro *(artefato de render **não** atravessa — é cache regenerável)*
+- ✅ Exporta um workspace inteiro *(artefato de render **não** atravessa — é cache regenerável. Até
+  a v3, "inteiro" era só livros e questões; desde a #269 leva também avaliações com variantes e o
+  mapa de letras, templates, revisões, a lixeira e o `legacyId` da biblioteca, e a tela diz o que
+  o arquivo leva)*
 - ✅ Assets duplicados aparecem uma única vez no zip
 - ✅ Checksums calculados e gravados
 - ✅ Progresso visível para acervos grandes *(#195 — a resposta saía `chunked`, **sem
@@ -2152,7 +2155,8 @@ escritas de verdade no banco de desenvolvimento.*
 - ✅ Importa `.lbb` *(com dry-run antes de gravar, sempre)*
 - ✅ Round-trip preserva identidade *(verificado contra o banco real)*
 - ✅ Backup recorrente produz `.lbb` restaurável *(um arquivo do backup automático passa pelo
-  mesmo round-trip)*
+  mesmo round-trip; desde a v3, #268 e #269, contra outro banco e com figuras, avaliações e
+  revisões)*
 
 ---
 

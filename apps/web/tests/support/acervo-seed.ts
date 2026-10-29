@@ -326,6 +326,112 @@ export async function seedFullLibrary(slug: string) {
     },
   });
 
+  const [optionA, optionB, optionC] = await prisma.questionOption.findMany({
+    where: { questionId: question.id },
+    orderBy: { sortKey: "asc" },
+  });
+
+  // O histórico: o antes de uma edição do agente na questão (com o id das alternativas dentro do
+  // snapshot) e o antes de uma edição do corpo do capítulo.
+  await prisma.revision.create({
+    data: {
+      entityType: "QUESTION",
+      entityId: question.id,
+      revisionNumber: 1,
+      origin: "AGENT",
+      agentRunId: "6f1c9a2e-0000-4000-8000-00000000a9e1",
+      summary: "enunciado",
+      snapshotJson: JSON.stringify({
+        statementLatex: "Sejam A e B (antes)",
+        solutionLatex: "",
+        complementLatex: "",
+        nickname: null,
+        options: [optionA, optionB, optionC].map((option) => ({
+          id: option!.id,
+          statementLatex: option!.statementLatex,
+          isCorrect: option!.isCorrect,
+        })),
+        metadata: { year: 2013 },
+        tags: ["conjuntos"],
+      }),
+      createdAt: new Date("2026-09-10T10:00:00.000Z"),
+    },
+  });
+  await prisma.revision.create({
+    data: {
+      entityType: "DOCUMENT_NODE",
+      entityId: chapter.id,
+      revisionNumber: 1,
+      origin: "USER",
+      summary: "corpo",
+      snapshotJson: JSON.stringify({ bodyLatex: "Um conjunto (antes)." }),
+      createdAt: new Date("2026-09-11T10:00:00.000Z"),
+    },
+  });
+
+  await prisma.documentTemplate.create({
+    data: {
+      workspaceId: workspace.id,
+      name: "Prova do aluno",
+      audience: "STUDENT",
+      preambleLatex: "\\documentclass{article}",
+      optionsJson: '{"answerSpaceCm":4,"showPoints":true}',
+    },
+  });
+
+  // Uma prova já impressa: a questão viva e a da lixeira, e a variante A com o mapa de letras —
+  // o gabarito de quem corrige.
+  await prisma.assessment.create({
+    data: {
+      workspaceId: workspace.id,
+      title: "P1 — Conjuntos",
+      subtitle: "1º bimestre",
+      notes: "Sem calculadora.",
+      sections: {
+        create: {
+          title: "Parte I",
+          sortKey: "a0",
+          items: {
+            create: [
+              { questionId: trashed.id, sortKey: "a0", points: 1 },
+              {
+                questionId: question.id,
+                sortKey: "a1",
+                points: 2.5,
+                pinnedLastOptionIdsJson: JSON.stringify([optionC!.id]),
+              },
+            ],
+          },
+        },
+      },
+      variants: {
+        create: {
+          label: "A",
+          seed: 123,
+          shuffleQuestions: true,
+          shuffleOptions: false,
+          createdAt: new Date("2026-09-20T08:00:00.000Z"),
+          questions: {
+            create: [
+              { questionId: trashed.id, position: 1 },
+              {
+                questionId: question.id,
+                position: 2,
+                options: {
+                  create: [
+                    { optionId: optionB!.id, displayedLabel: "a", position: 1 },
+                    { optionId: optionA!.id, displayedLabel: "b", position: 2 },
+                    { optionId: optionC!.id, displayedLabel: "c", position: 3 },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
   return {
     prisma,
     storage,

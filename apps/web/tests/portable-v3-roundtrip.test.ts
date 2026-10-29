@@ -47,6 +47,54 @@ const PORTABLE_HOME: Readonly<
     }
   >
 > = {
+  Workspace: {
+    sample: (w) => w,
+    notCarried: RUNTIME_IDENTITY,
+  },
+  Assessment: {
+    sample: (w) => w.assessments[0]!,
+    notCarried: { ...RUNTIME_IDENTITY, workspaceId: "o workspace é o próprio arquivo" },
+  },
+  AssessmentSection: {
+    sample: (w) => w.assessments[0]!.sections[0]!,
+    notCarried: { id: RUNTIME_IDENTITY.id, assessmentId: "a seção mora dentro da avaliação" },
+  },
+  AssessmentItem: {
+    sample: (w) => w.assessments[0]!.sections[0]!.items[0]!,
+    renamed: { questionId: "question", pinnedLastOptionIdsJson: "pinnedLastOptions" },
+    notCarried: { id: RUNTIME_IDENTITY.id, sectionId: "o item mora dentro da seção" },
+  },
+  AssessmentVariant: {
+    sample: (w) => w.assessments[0]!.variants[0]!,
+    notCarried: { id: RUNTIME_IDENTITY.id, assessmentId: "a variante mora dentro da avaliação" },
+  },
+  AssessmentVariantQuestion: {
+    sample: (w) => w.assessments[0]!.variants[0]!.questions[0]!,
+    renamed: { questionId: "question" },
+    notCarried: { id: RUNTIME_IDENTITY.id, variantId: "mora dentro da variante" },
+  },
+  AssessmentVariantOptionMap: {
+    sample: (w) =>
+      w.assessments[0]!.variants[0]!.questions.find((question) => question.options.length > 0)!
+        .options[0]!,
+    renamed: { optionId: "option" },
+    notCarried: {
+      id: RUNTIME_IDENTITY.id,
+      variantQuestionId: "mora dentro da questão da variante",
+    },
+  },
+  DocumentTemplate: {
+    sample: (w) => w.templates[0]!,
+    notCarried: { ...RUNTIME_IDENTITY, workspaceId: "o workspace é o próprio arquivo" },
+  },
+  Revision: {
+    sample: (w) => w.revisions[0]!,
+    renamed: { entityId: "entity" },
+    notCarried: {
+      id: RUNTIME_IDENTITY.id,
+      agentRunId: "o turno do agente não atravessa; a revisão vale sem ele (schema)",
+    },
+  },
   Publication: {
     sample: (w) => w.publications[0]!,
     renamed: { coverAssetId: "coverAsset", sourcePdfAssetId: "sourcePdfAsset" },
@@ -289,6 +337,115 @@ describe("exportar um acervo e restaurá-lo noutro banco", () => {
       (column) => !(column in home.notCarried) && !carried.has(home.renamed?.[column] ?? column),
     );
     expect(lost).toEqual([]);
+  });
+
+  it("a biblioteca volta com a descrição e a origem legada — e o import legado a reconhece", () => {
+    expect(restored).toMatchObject({
+      description: "As apostilas do Chico",
+      legacyId: 42,
+      legacySourcePath: "/mnt/bak/Fundamentos",
+    });
+  });
+
+  it("a prova impressa volta com o gabarito: cada letra aponta para a mesma alternativa", () => {
+    const runtime = restoredRuntime!.workspace;
+    const options = new Map(
+      runtime.publications
+        .flatMap((publication) => publication.nodes)
+        .flatMap((node) => node.question?.options ?? [])
+        .map((option) => [option.id, option.statementLatex]),
+    );
+    const statements = new Map(
+      runtime.publications
+        .flatMap((publication) => publication.nodes)
+        .flatMap((node) =>
+          node.question ? [[node.question.id, node.question.statementLatex] as const] : [],
+        ),
+    );
+
+    const [assessment] = runtime.assessments;
+    expect(assessment).toMatchObject({
+      title: "P1 — Conjuntos",
+      subtitle: "1º bimestre",
+      notes: "Sem calculadora.",
+    });
+    expect(
+      assessment!.sections.flatMap((section) =>
+        section.items.map((item) => [
+          statements.get(item.questionId),
+          item.points,
+          item.pinnedLastOptionIds.map((id) => options.get(id)),
+        ]),
+      ),
+    ).toEqual([
+      ["Questão excluída", 1, []],
+      [seeded.statementLatex, 2.5, ["$[3,5]$"]],
+    ]);
+
+    const [variant] = assessment!.variants;
+    expect(variant).toMatchObject({
+      label: "A",
+      seed: 123,
+      shuffleQuestions: true,
+      shuffleOptions: false,
+      createdAt: "2026-09-20T08:00:00.000Z",
+    });
+    expect(
+      variant!.questions.map((question) => [
+        question.position,
+        statements.get(question.questionId),
+        question.options.map((option) => [option.displayedLabel, options.get(option.optionId)]),
+      ]),
+    ).toEqual([
+      [1, "Questão excluída", []],
+      [
+        2,
+        seeded.statementLatex,
+        [
+          ["a", "$[0,5]$"],
+          ["b", "$[0,3]$"],
+          ["c", "$[3,5]$"],
+        ],
+      ],
+    ]);
+  });
+
+  it("o histórico volta, e o snapshot aponta para as alternativas do banco novo", () => {
+    const runtime = restoredRuntime!.workspace;
+    const nodes = runtime.publications.flatMap((publication) => publication.nodes);
+    const question = nodes.find((node) => node.legacyId === 101)!.question!;
+    const chapter = nodes.find((node) => node.legacyId === 100)!;
+
+    const byEntity = runtime.revisions.map((revision) => [
+      revision.entityType,
+      revision.entityId,
+      revision.origin,
+    ]);
+    expect(byEntity).toEqual(
+      expect.arrayContaining([
+        ["QUESTION", question.id, "AGENT"],
+        ["DOCUMENT_NODE", chapter.id, "USER"],
+      ]),
+    );
+    expect(runtime.revisions).toHaveLength(2);
+
+    const snapshot = JSON.parse(
+      runtime.revisions.find((revision) => revision.entityType === "QUESTION")!.snapshotJson,
+    ) as { options: { id: string }[] };
+    expect(snapshot.options.map((option) => option.id)).toEqual(
+      question.options.map((option) => option.id),
+    );
+  });
+
+  it("os templates voltam", () => {
+    expect(restored.templates).toEqual([
+      {
+        name: "Prova do aluno",
+        audience: "STUDENT",
+        preambleLatex: "\\documentclass{article}",
+        optionsJson: '{"answerSpaceCm":4,"showPoints":true}',
+      },
+    ]);
   });
 
   it("a questão da lixeira volta na lixeira", () => {

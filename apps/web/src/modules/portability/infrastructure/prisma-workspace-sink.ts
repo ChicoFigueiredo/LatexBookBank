@@ -5,6 +5,7 @@ import { recordOwnedAsset } from "@modules/assets/infrastructure/prisma-owned-as
 import type { RuntimeAsset } from "@modules/portability/application/export-workspace";
 import type { ImportPlan } from "@modules/portability/application/import-workspace";
 import type { ArchiveAsset } from "@modules/portability/domain/portable-archive";
+import { translateSnapshotIds } from "@modules/portability/domain/snapshot-ids";
 import type { StorageProvider } from "@/shared/ports";
 
 /**
@@ -46,12 +47,31 @@ export async function writeImportedWorkspace(
   const missingAssets = new Set<string>();
 
   return prisma.$transaction(async (client) => {
+    // `legacyId` é `@unique`: é a identidade da biblioteca de origem, e se ela já está neste banco
+    // (restaurar com a original ainda aqui), a cópia entra sem ele — duas bibliotecas não podem
+    // ser "a" biblioteca 42 do legado, e a que já estava continua sendo.
+    const legacyId =
+      plan.workspace.legacyId !== null &&
+      (await client.workspace.findUnique({ where: { legacyId: plan.workspace.legacyId }, select: { id: true } })) ===
+        null
+        ? plan.workspace.legacyId
+        : null;
+
     const workspace = await client.workspace.create({
       // Slug é `@unique`: dois imports do mesmo arquivo precisam de nomes distintos, e sufixar
       // com o instante é mais honesto que falhar — quem importou duas vezes quer as duas.
-      data: { name: plan.workspace.name, slug: `${plan.workspace.slug}-${Date.now()}` },
+      data: {
+        name: plan.workspace.name,
+        slug: `${plan.workspace.slug}-${Date.now()}`,
+        description: plan.workspace.description,
+        legacyId,
+        legacySourcePath: plan.workspace.legacySourcePath,
+      },
       select: { id: true },
     });
+
+    /** Id do plano → id deste banco, para tudo o que avaliações e revisões citam. */
+    const idOf = new Map<string, string>();
 
     const tagIdByName = new Map<string, string>();
     for (const tag of plan.workspace.tags) {
@@ -134,6 +154,7 @@ export async function writeImportedWorkspace(
         },
         select: { id: true },
       });
+      idOf.set(publication.id, createdPublication.id);
 
       /**
        * Os autores renascem **por nome**, e não por id.
@@ -205,8 +226,10 @@ export async function writeImportedWorkspace(
           questionId = createdQuestion.id;
           questions += 1;
 
+          idOf.set(question.id, createdQuestion.id);
+
           for (const option of question.options) {
-            await client.questionOption.create({
+            const createdOption = await client.questionOption.create({
               data: {
                 questionId: createdQuestion.id,
                 sortKey: option.sortKey,
@@ -218,7 +241,9 @@ export async function writeImportedWorkspace(
                 legacyId: option.legacyId,
                 legacyMarcacao: option.legacyMarcacao,
               },
+              select: { id: true },
             });
+            idOf.set(option.id, createdOption.id);
             options += 1;
           }
 
@@ -256,6 +281,7 @@ export async function writeImportedWorkspace(
         });
 
         nodeIdByRef.set(node.id, createdNode.id);
+        idOf.set(node.id, createdNode.id);
         if (questionId !== null) questionIdByNode.set(node.id, questionId);
         nodes += 1;
       }
@@ -332,6 +358,96 @@ export async function writeImportedWorkspace(
           }
         }
       }
+    }
+
+    for (const template of plan.workspace.templates) {
+      await client.documentTemplate.create({ data: { workspaceId: workspace.id, ...template } });
+    }
+
+    // As avaliações e o gabarito de cada variante. Um item que cita questão fora do arquivo
+    // não tem para onde apontar — o export já não o leva, e aqui é só a rede.
+    for (const assessment of plan.workspace.assessments) {
+      const createdAssessment = await client.assessment.create({
+        data: {
+          workspaceId: workspace.id,
+          title: assessment.title,
+          subtitle: assessment.subtitle,
+          notes: assessment.notes,
+        },
+        select: { id: true },
+      });
+
+      for (const section of assessment.sections) {
+        const createdSection = await client.assessmentSection.create({
+          data: { assessmentId: createdAssessment.id, title: section.title, sortKey: section.sortKey },
+          select: { id: true },
+        });
+        for (const item of section.items) {
+          const questionId = idOf.get(item.questionId);
+          if (questionId === undefined) continue;
+          await client.assessmentItem.create({
+            data: {
+              sectionId: createdSection.id,
+              questionId,
+              sortKey: item.sortKey,
+              points: item.points,
+              pinnedLastOptionIdsJson: JSON.stringify(
+                item.pinnedLastOptionIds.flatMap((id) => idOf.get(id) ?? []),
+              ),
+            },
+          });
+        }
+      }
+
+      for (const variant of assessment.variants) {
+        const createdVariant = await client.assessmentVariant.create({
+          data: {
+            assessmentId: createdAssessment.id,
+            label: variant.label,
+            seed: variant.seed,
+            shuffleQuestions: variant.shuffleQuestions,
+            shuffleOptions: variant.shuffleOptions,
+            createdAt: new Date(variant.createdAt),
+          },
+          select: { id: true },
+        });
+        for (const entry of variant.questions) {
+          const questionId = idOf.get(entry.questionId);
+          if (questionId === undefined) continue;
+          await client.assessmentVariantQuestion.create({
+            data: {
+              variantId: createdVariant.id,
+              questionId,
+              position: entry.position,
+              options: {
+                create: entry.options.flatMap((option) => {
+                  const optionId = idOf.get(option.optionId);
+                  return optionId === undefined
+                    ? []
+                    : [{ optionId, displayedLabel: option.displayedLabel, position: option.position }];
+                }),
+              },
+            },
+          });
+        }
+      }
+    }
+
+    // O histórico, com o snapshot apontando para as alternativas deste banco.
+    for (const revision of plan.workspace.revisions) {
+      const entityId = idOf.get(revision.entityId);
+      if (entityId === undefined) continue;
+      await client.revision.create({
+        data: {
+          entityType: revision.entityType,
+          entityId,
+          revisionNumber: revision.revisionNumber,
+          origin: revision.origin,
+          summary: revision.summary,
+          snapshotJson: translateSnapshotIds(revision.snapshotJson, (id) => idOf.get(id)),
+          createdAt: new Date(revision.createdAt),
+        },
+      });
     }
 
     return {

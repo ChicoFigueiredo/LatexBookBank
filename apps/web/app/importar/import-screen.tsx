@@ -9,6 +9,7 @@ import {
   fraseDoConflito,
   numero,
 } from "@modules/portability/domain/import-conflicts";
+import { LBB_CARRIES, LBB_LEAVES } from "@modules/portability/domain/backup-scope";
 import { formatarTamanho } from "@modules/publications/domain/book-overview";
 
 import { useAcervoStyles } from "../acervo-styles";
@@ -225,9 +226,22 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
                 <div className="lbb-acervo-eyebrow" style={{ marginBottom: 0 }}>
                   Exportar
                 </div>
-                <p className="lbb-book-sub" style={{ margin: "8px 0 12px" }}>
-                  Uma biblioteca inteira num único <code>.lbb</code> — com assets e recortes de
-                  origem.
+                <p className="lbb-book-sub" style={{ margin: "8px 0 4px" }}>
+                  Uma biblioteca inteira num único <code>.lbb</code>, que é também o backup. Ele
+                  leva:
+                </p>
+                {/*
+                  O que o arquivo leva, item por item (#269). "Uma biblioteca inteira" sozinho deixava
+                  a pessoa supor o resto, e a v2 não levava figuras, provas nem histórico — a
+                  descoberta seria na hora de restaurar.
+                */}
+                <ul className="lbb-book-sub" style={{ margin: "0 0 4px", paddingLeft: "1.2em" }}>
+                  {LBB_CARRIES.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                <p className="lbb-book-sub" style={{ margin: "0 0 12px" }}>
+                  {LBB_LEAVES}
                 </p>
 
                 {/*
@@ -291,6 +305,11 @@ export function ImportScreen({ libraries }: ImportScreenProps) {
                     : infra.backup.health === "unconfigured"
                       ? "Backup automático não configurado. O .lbb exportado é a cópia — guarde um por biblioteca, fora deste computador, e ele volta por esta mesma tela."
                       : infra.backup.summary}
+                </p>
+                <p className="lbb-book-sub" style={{ margin: "0 0 12px" }}>
+                  Cada backup é o mesmo <code>.lbb</code> da exportação, com tudo o que ela leva — e
+                  só abre o formato atual (v3): um <code>.lbb</code> v1 ou v2 é recusado, e o
+                  caminho é exportar de novo.
                 </p>
                 <span className="lbb-source-size">
                   {infra === null

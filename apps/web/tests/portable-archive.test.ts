@@ -30,6 +30,12 @@ const bytesOf = (text: string) => new TextEncoder().encode(text);
 const workspace = (over: Partial<PortableWorkspace> = {}): PortableWorkspace => ({
   name: "Matemática Financeira",
   slug: "matematica-financeira",
+  description: null,
+  legacyId: null,
+  legacySourcePath: null,
+  assessments: [],
+  templates: [],
+  revisions: [],
   tags: [{ name: "juros simples", kind: "TOPIC" }],
   publications: [
     {

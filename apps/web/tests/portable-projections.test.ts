@@ -18,6 +18,12 @@ import { readArchive, writeArchive } from "@modules/portability/domain/portable-
 const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
   name: "Matemática Financeira",
   slug: "matematica-financeira",
+  description: null,
+  legacyId: null,
+  legacySourcePath: null,
+  assessments: [],
+  templates: [],
+  revisions: [],
   tags: [
     { name: "juros simples", kind: "TOPIC" },
     { name: "álgebra", kind: "SUBJECT" },

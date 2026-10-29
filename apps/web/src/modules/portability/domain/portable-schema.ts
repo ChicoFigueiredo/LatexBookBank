@@ -52,11 +52,97 @@ export interface PortableManifest {
 
 /* ───────────────────────────── o dado portável ───────────────────────────── */
 
+/**
+ * A biblioteca inteira (v3, #269): o conteúdo **e** o que se fez com ele.
+ *
+ * Avaliações, variantes, revisões e templates entraram porque o `.lbb` é o backup declarado do
+ * produto, e um backup que devolve os livros e perde as provas não restaura. O mapa de letras da
+ * variante é o gabarito de uma prova que pode já ter ido para a sala — ele não se reconstrói pela
+ * `seed` se o acervo mudou desde a impressão.
+ */
 export interface PortableWorkspace {
   readonly name: string;
   readonly slug: string;
+  readonly description: string | null;
+  /**
+   * `IdBiblio` do legado. Atravessa porque é o que o import legado usa para saber que a biblioteca
+   * já foi importada: sem ele, restaurar o backup e rodar o import do legado de novo duplicaria
+   * a biblioteca inteira.
+   */
+  readonly legacyId: number | null;
+  readonly legacySourcePath: string | null;
   readonly publications: readonly PortablePublication[];
   readonly tags: readonly PortableTag[];
+  readonly assessments: readonly PortableAssessment[];
+  readonly templates: readonly PortableTemplate[];
+  readonly revisions: readonly PortableRevision[];
+}
+
+/**
+ * Uma avaliação. As questões e as alternativas entram pela `ref` do arquivo: a avaliação
+ * referencia o acervo, nunca o copia (schema §20), e o arquivo preserva isso.
+ */
+export interface PortableAssessment {
+  readonly title: string;
+  readonly subtitle: string | null;
+  readonly notes: string | null;
+  readonly sections: readonly PortableAssessmentSection[];
+  readonly variants: readonly PortableVariant[];
+}
+
+export interface PortableAssessmentSection {
+  readonly title: string | null;
+  readonly sortKey: string;
+  readonly items: readonly {
+    /** A `ref` da questão. */
+    readonly question: string;
+    readonly sortKey: string;
+    readonly points: number | null;
+    /** As `ref` das alternativas que não se movem no sorteio. */
+    readonly pinnedLastOptions: readonly string[];
+  }[];
+}
+
+/** Uma impressão sorteada, com o mapa de letras — **o gabarito**. */
+export interface PortableVariant {
+  readonly label: string;
+  readonly seed: number;
+  readonly shuffleQuestions: boolean;
+  readonly shuffleOptions: boolean;
+  /** ISO 8601: quando a prova foi sorteada — quem corrige quer saber qual impressão é qual. */
+  readonly createdAt: string;
+  readonly questions: readonly {
+    readonly question: string;
+    readonly position: number;
+    readonly options: readonly {
+      readonly option: string;
+      readonly displayedLabel: string;
+      readonly position: number;
+    }[];
+  }[];
+}
+
+export interface PortableTemplate {
+  readonly name: string;
+  readonly audience: string;
+  readonly preambleLatex: string | null;
+  readonly optionsJson: string;
+}
+
+/**
+ * O antes de uma mudança. `entity` é a `ref` da publicação, do nó, da questão ou da alternativa;
+ * os ids de alternativa dentro do `snapshotJson` também viajam como `ref` e voltam como os ids do
+ * banco de destino — é o que deixa "desfazer" funcionar depois do restore.
+ */
+export interface PortableRevision {
+  readonly entityType: string;
+  readonly entity: string;
+  readonly revisionNumber: number;
+  readonly origin: string;
+  readonly summary: string;
+  readonly snapshotJson: string;
+  /** ISO 8601. */
+  readonly createdAt: string;
 }
 
 export interface PortableTag {

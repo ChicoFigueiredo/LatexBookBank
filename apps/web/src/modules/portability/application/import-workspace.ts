@@ -1,4 +1,5 @@
 import type { PortableWorkspace } from "../domain/portable-schema";
+import { translateSnapshotIds } from "../domain/snapshot-ids";
 import type { RuntimeWorkspace } from "./export-workspace";
 
 /**
@@ -225,12 +226,69 @@ export function toRuntime(
     };
   });
 
+  // As `ref` que o arquivo define: é por elas que avaliações e revisões apontam para o acervo.
+  const refs = new Set<string>();
+  for (const publication of portable.publications) {
+    refs.add(publication.ref);
+    for (const node of publication.nodes) {
+      refs.add(node.ref);
+      if (node.question === null) continue;
+      refs.add(node.question.ref);
+      for (const option of node.question.options) refs.add(option.ref);
+    }
+  }
+  const idOf = (ref: string): string | undefined => (refs.has(ref) ? newId(ref) : undefined);
+
   return {
     workspace: {
       name: portable.name,
       slug: portable.slug,
+      description: portable.description,
+      legacyId: portable.legacyId,
+      legacySourcePath: portable.legacySourcePath,
       tags: portable.tags,
       publications,
+      assessments: portable.assessments.map((assessment) => ({
+        title: assessment.title,
+        subtitle: assessment.subtitle,
+        notes: assessment.notes,
+        sections: assessment.sections.map((section) => ({
+          title: section.title,
+          sortKey: section.sortKey,
+          items: section.items.map((item) => ({
+            questionId: newId(item.question),
+            sortKey: item.sortKey,
+            points: item.points,
+            pinnedLastOptionIds: item.pinnedLastOptions.map(newId),
+          })),
+        })),
+        variants: assessment.variants.map((variant) => ({
+          label: variant.label,
+          seed: variant.seed,
+          shuffleQuestions: variant.shuffleQuestions,
+          shuffleOptions: variant.shuffleOptions,
+          createdAt: variant.createdAt,
+          questions: variant.questions.map((entry) => ({
+            questionId: newId(entry.question),
+            position: entry.position,
+            options: entry.options.map((option) => ({
+              optionId: newId(option.option),
+              displayedLabel: option.displayedLabel,
+              position: option.position,
+            })),
+          })),
+        })),
+      })),
+      templates: portable.templates,
+      revisions: portable.revisions.map((revision) => ({
+        entityType: revision.entityType,
+        entityId: newId(revision.entity),
+        revisionNumber: revision.revisionNumber,
+        origin: revision.origin,
+        summary: revision.summary,
+        snapshotJson: translateSnapshotIds(revision.snapshotJson, idOf),
+        createdAt: revision.createdAt,
+      })),
     },
     collisions,
   };
