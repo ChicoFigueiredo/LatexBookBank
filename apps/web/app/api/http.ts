@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { QuestionGoneError } from "@modules/agents/application/apply-question-patch";
+import {
+  AgentRunOutOfScopeError,
+  QuestionGoneError,
+} from "@modules/agents/application/apply-question-patch";
 import { NothingApprovedError } from "@modules/agents/domain/apply-patch";
 import { PatchRejectedError } from "@modules/agents/domain/question-patch";
 import {
@@ -273,6 +276,8 @@ const rules = (): readonly ErrorRule[] =>
     on(NothingApprovedError, 400, "nothing_approved"),
     on(PatchRejectedError, 400, "patch_rejected", (error) => ({ issues: error.issues })),
     on(QuestionGoneError, 409, "question_gone"),
+    // O turno citado no patch não é desta questão (SEC-06): 404, sem dizer se existe noutra.
+    on(AgentRunOutOfScopeError, 404, "agent_run_not_found"),
 
     // Render: 503 e não 500 quando o worker não respondeu — é indisponibilidade, e o texto está salvo.
     on(RendererUnavailableError, 503, "renderer_unavailable"),

@@ -22,10 +22,19 @@ import { candidateFrom, type RecognitionCandidate } from "../domain/recognition-
 
 export type RecognitionMode = "display" | "inline" | "mixed" | "text";
 
+/**
+ * A âncora e o recorte que foi lido. Os dois vêm do formulário, e a gravação só acontece quando a
+ * âncora é mesmo a daquele recorte (SEC-06): a transcrição de uma imagem não vai para outra.
+ */
+export interface CropAnchor {
+  readonly anchorId: string;
+  readonly cropAssetId: string;
+}
+
 /** Onde o resultado de cada tentativa fica guardado: a âncora do recorte. */
 export interface RecognitionLog {
   recordRecognition(
-    anchorId: string,
+    anchor: CropAnchor,
     input: {
       readonly latex: string;
       readonly method: string;
@@ -34,7 +43,7 @@ export interface RecognitionLog {
     },
   ): Promise<unknown>;
   recordRecognitionFailure(
-    anchorId: string,
+    anchor: CropAnchor,
     input: { readonly error: string; readonly at: Date },
   ): Promise<unknown>;
 }
@@ -62,6 +71,10 @@ export async function recognizeCrop(
   command: RecognizeCropCommand,
 ): Promise<RecognitionCandidate> {
   const now = deps.now ?? (() => new Date());
+  const anchor: CropAnchor | null =
+    command.anchorId === null
+      ? null
+      : { anchorId: command.anchorId, cropAssetId: command.cropAssetId };
 
   let result;
   try {
@@ -81,16 +94,16 @@ export async function recognizeCrop(
     // "aguardando" depois de um recarregamento. A transcrição que a âncora já tinha **fica**
     // (#253): tentar de novo e dar timeout não pode apagar o que a tentativa anterior trouxe.
     // Falhar ao registrar não troca o erro que a pessoa precisa ver.
-    if (error instanceof MathRecognitionError && command.anchorId !== null) {
+    if (error instanceof MathRecognitionError && anchor !== null) {
       await deps.log
-        .recordRecognitionFailure(command.anchorId, { error: error.message, at: now() })
+        .recordRecognitionFailure(anchor, { error: error.message, at: now() })
         .catch(() => undefined);
     }
     throw error;
   }
 
-  if (command.anchorId !== null) {
-    await deps.log.recordRecognition(command.anchorId, {
+  if (anchor !== null) {
+    await deps.log.recordRecognition(anchor, {
       latex: result.latex,
       method: `recognition:${result.providerId}`,
       model: result.model,

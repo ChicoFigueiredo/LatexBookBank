@@ -1,7 +1,10 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import type { RecognitionProvenanceWriter } from "@modules/recognition/application/create-question-from-recognition";
+import type {
+  ProvenanceTarget,
+  RecognitionProvenanceWriter,
+} from "@modules/recognition/application/create-question-from-recognition";
 import type { RecognitionRun } from "@modules/recognition/domain/recognition-candidate";
 
 /**
@@ -18,11 +21,15 @@ import type { RecognitionRun } from "@modules/recognition/domain/recognition-can
  * aqui **agora**".
  */
 export class PrismaRecognitionProvenance implements RecognitionProvenanceWriter {
-  async recordRun(anchorId: string, run: RecognitionRun): Promise<boolean> {
+  async recordRun(
+    { publicationId, anchorId, cropAssetId }: ProvenanceTarget,
+    run: RecognitionRun,
+  ): Promise<boolean> {
     // `updateMany` e não `update`: âncora inexistente devolve zero em vez de lançar, e quem chama
     // traduz isso num erro com nome — `update` daria um `P2025` cru subindo até a rota.
     const { count } = await prisma.sourceAnchor.updateMany({
-      where: { id: anchorId },
+      // Livro e recorte no `where`: a âncora de outro livro, ou de outro recorte, não é achada.
+      where: { id: anchorId, publicationId, cropAssetId },
       data: {
         extractionMethod: `recognition:${run.providerId}`,
         extractionModel: run.model,

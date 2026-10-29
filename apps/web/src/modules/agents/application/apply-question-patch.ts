@@ -32,6 +32,11 @@ import {
 export interface PatchTransaction {
   /** O estado corrente, lido **dentro** da transação. */
   readStateForUpdate(questionId: string): Promise<QuestionState | null>;
+  /**
+   * A questão em foco no turno do agente, ou `null` quando o turno não existe. Só o fato: conferir
+   * que o turno é da questão do patch é do caso de uso.
+   */
+  findAgentRun(agentRunId: string): Promise<{ readonly questionId: string | null } | null>;
   /** Grava a revisão do estado anterior e devolve o número dela. */
   writeRevision(input: {
     questionId: string;
@@ -90,6 +95,22 @@ export class AlternativaDeOutraQuestaoError extends Error {
   }
 }
 
+/**
+ * O turno do agente citado no patch não existe, ou não é da questão (SEC-06).
+ *
+ * O `agentRunId` vem do corpo e vai para a revisão: aceitá-lo sem conferir deixava atribuir a
+ * mudança ao turno de outra questão. A resposta não distingue o inexistente do alheio.
+ */
+export class AgentRunOutOfScopeError extends Error {
+  constructor(
+    readonly agentRunId: string,
+    readonly questionId: string,
+  ) {
+    super(`O turno do agente \`${agentRunId}\` não é da questão \`${questionId}\`.`);
+    this.name = "AgentRunOutOfScopeError";
+  }
+}
+
 export interface ApplyResult {
   readonly revisionNumber: number;
   readonly applied: readonly string[];
@@ -121,6 +142,14 @@ export async function applyQuestionPatch(
   const result = await applier.transact(async (tx) => {
     const state = await tx.readStateForUpdate(input.questionId);
     if (state === null) throw new QuestionGoneError(input.questionId);
+
+    // O turno vai para a revisão como autor da mudança: tem de ser um turno sobre esta questão.
+    if (input.agentRunId) {
+      const run = await tx.findAgentRun(input.agentRunId);
+      if (run === null || run.questionId !== input.questionId) {
+        throw new AgentRunOutOfScopeError(input.agentRunId, input.questionId);
+      }
+    }
 
     // Recalculado do estado corrente. Lança quando nada aprovado sobrou.
     const plan: ApplyPlan = planApply(state, input.patch, input.approvedChangeIds);

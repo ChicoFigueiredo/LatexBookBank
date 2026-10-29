@@ -25,15 +25,27 @@ import type { ApprovedCandidate } from "@modules/recognition/domain/recognition-
 
 export class RecognitionProvenanceError extends Error {
   constructor(readonly anchorId: string) {
-    super(`A âncora ${anchorId} não existe — o recorte precisa ser salvo antes.`);
+    super(
+      `A âncora ${anchorId} não existe neste livro, com este recorte — o recorte precisa ser salvo antes.`,
+    );
     this.name = "RecognitionProvenanceError";
   }
 }
 
+/**
+ * A âncora onde a proveniência vai, com o livro da URL e o recorte aprovado: os ids vêm do corpo,
+ * e a âncora só é achada quando é daquele livro e daquele recorte (SEC-06).
+ */
+export interface ProvenanceTarget {
+  readonly publicationId: string;
+  readonly anchorId: string;
+  readonly cropAssetId: string;
+}
+
 /** Grava, na âncora, qual execução do reconhecedor originou a versão aprovada (§69). */
 export interface RecognitionProvenanceWriter {
-  /** `false` quando a âncora não existe. */
-  recordRun(anchorId: string, run: ApprovedCandidate["run"]): Promise<boolean>;
+  /** `false` quando a âncora não existe — ou não é daquele livro e daquele recorte. */
+  recordRun(target: ProvenanceTarget, run: ApprovedCandidate["run"]): Promise<boolean>;
 }
 
 export interface CreateFromRecognitionCommand {
@@ -62,7 +74,10 @@ export async function createQuestionFromRecognition(
   // A proveniência é gravada **antes** da questão, e a razão é a ordem do estrago: se a âncora não
   // existe, a questão nasceria sem origem e ninguém notaria até alguém perguntar de onde ela veio.
   // Falhar aqui não perde nada — nada foi criado ainda.
-  const recorded = await deps.provenance.recordRun(candidate.source.anchorId, candidate.run);
+  const recorded = await deps.provenance.recordRun(
+    { publicationId: command.publicationId, ...candidate.source },
+    candidate.run,
+  );
   if (!recorded) throw new RecognitionProvenanceError(candidate.source.anchorId);
 
   const created = await createQuestion(

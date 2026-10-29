@@ -263,6 +263,83 @@ describe("aplicar o patch aprovado", () => {
   });
 });
 
+/**
+ * O turno do agente que o corpo cita tem de ser desta questão (SEC-06, C3 da revisão de código).
+ *
+ * O `agentRunId` vinha do corpo e ia direto para a revisão: uma requisição montada à mão
+ * atribuía a mudança ao turno de outra questão, e a auditoria passava a mentir sobre quem propôs.
+ */
+describe("o turno do agente citado no patch", () => {
+  async function turno(workspaceId: string, questionId: string | null) {
+    const run = await prisma.agentRun.create({
+      data: { workspaceId, questionId, providerId: "teste", model: "teste", state: "DONE" },
+      select: { id: true },
+    });
+    return run.id;
+  }
+  const proposta = () => patch({ fields: [{ field: "statementLatex", value: "Outra taxa?" }] });
+
+  it("o turno desta questão vai para a revisão", async () => {
+    const { workspace, question } = await questaoNoLivro();
+    const agentRunId = await turno(workspace.id, question.id);
+
+    await applyQuestionPatch(applier, {
+      questionId: question.id,
+      patch: proposta(),
+      approvedChangeIds: await aprovadas(question.id, proposta(), ["field:statementLatex"]),
+      agentRunId,
+    });
+
+    const [revisao] = await prisma.revision.findMany({
+      where: { entityType: "QUESTION", entityId: question.id },
+    });
+    expect(revisao?.agentRunId).toBe(agentRunId);
+  });
+
+  it.each([
+    ["de outra questão", "outra"],
+    ["sem questão em foco", "nenhuma"],
+    ["que não existe", "inexistente"],
+  ] as const)("o turno %s é recusado, e nada é gravado", async (_nome, caso) => {
+    const { AgentRunOutOfScopeError } =
+      await import("@modules/agents/application/apply-question-patch");
+    const { workspace, question } = await questaoNoLivro();
+    const outra = await questaoNoLivro();
+    const agentRunId =
+      caso === "outra"
+        ? await turno(outra.workspace.id, outra.question.id)
+        : caso === "nenhuma"
+          ? await turno(workspace.id, null)
+          : "turno-que-nao-existe";
+    const antes = await estado(question.id);
+
+    await expect(
+      applyQuestionPatch(applier, {
+        questionId: question.id,
+        patch: proposta(),
+        approvedChangeIds: await aprovadas(question.id, proposta(), ["field:statementLatex"]),
+        agentRunId,
+      }),
+    ).rejects.toThrow(AgentRunOutOfScopeError);
+
+    expect(await estado(question.id)).toEqual(antes);
+    expect(
+      await prisma.revision.count({ where: { entityType: "QUESTION", entityId: question.id } }),
+    ).toBe(0);
+  });
+
+  it("a recusa sai pela tabela de erros, como 404 que não distingue o inexistente do alheio", async () => {
+    const { AgentRunOutOfScopeError } =
+      await import("@modules/agents/application/apply-question-patch");
+    const { toErrorResponse } = await import("../app/api/http");
+
+    const response = toErrorResponse(new AgentRunOutOfScopeError("turno", "questao"));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: "agent_run_not_found" });
+  });
+});
+
 describe("reverter", () => {
   it("devolve texto, alternativas, ordem, metadados e tags, e grava uma revisão antes", async () => {
     const { question, um, dois, tres } = await questaoNoLivro();

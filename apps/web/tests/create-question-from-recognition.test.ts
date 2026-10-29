@@ -12,6 +12,7 @@ import type {
 import {
   RecognitionProvenanceError,
   createQuestionFromRecognition,
+  type ProvenanceTarget,
   type RecognitionProvenanceWriter,
 } from "@modules/recognition/application/create-question-from-recognition";
 import {
@@ -59,7 +60,7 @@ class RecordingProvenance implements RecognitionProvenanceWriter {
   received: { anchorId: string; run: RecognitionRun } | null = null;
   constructor(private readonly exists = true) {}
 
-  recordRun = async (anchorId: string, value: RecognitionRun): Promise<boolean> => {
+  recordRun = async ({ anchorId }: ProvenanceTarget, value: RecognitionRun): Promise<boolean> => {
     this.received = { anchorId, run: value };
     return this.exists;
   };

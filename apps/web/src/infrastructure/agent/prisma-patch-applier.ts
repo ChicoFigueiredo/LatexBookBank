@@ -70,6 +70,13 @@ function makeTransaction(client: Tx): PatchTransaction {
       return readQuestionState(questionId, client);
     },
 
+    async findAgentRun(agentRunId) {
+      return client.agentRun.findUnique({
+        where: { id: agentRunId },
+        select: { questionId: true },
+      });
+    },
+
     async writeRevision(input) {
       // A numeração é do módulo de revisões, contada dentro desta transação.
       return appendRevision(client, {
