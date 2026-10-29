@@ -351,11 +351,13 @@ describe("mapLegacyLibrary com figuras", () => {
     const q10 = nodes.find((n) => n.legacyId === 10)!.question!;
 
     expect(q9.solutionLatex).toBe(`Veja \\includegraphics[width=0.5\\linewidth]{${NAME_A}}`);
-    expect(q9.assets).toEqual([sha(FIG_A)]);
+    expect(q9.assets.map((asset) => asset.sha256)).toEqual([sha(FIG_A)]);
 
     const nameB = figures.renamesByQuestion.get(10)!.get(REF_B)!;
     expect(q10.options[0]!.solutionLatex).toBe(`\\includegraphics{${nameB}}`);
-    expect(q10.assets).toEqual([sha(FIG_B)]);
+    expect(q10.assets.map((asset) => asset.sha256)).toEqual([sha(FIG_B)]);
+    // Descrita com o nome real e o tipo do legado: é o nome que o LaTeX reescrito cita.
+    expect(q10.assets[0]).toMatchObject({ kind: "QUESTION_IMAGE", originalFilename: expect.any(String) });
     // `originalLatex` é proveniência: fica como veio, mesmo citando a figura.
     expect(q10.originalLatex).toBe(`\\includegraphics{${REF_B}}`);
   });

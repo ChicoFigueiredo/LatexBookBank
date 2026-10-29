@@ -1,7 +1,13 @@
 import "server-only";
 
 import { prisma } from "@infrastructure/database/sqlite/client";
-import type { RuntimeWorkspace } from "@modules/portability/application/export-workspace";
+import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
+import { listSourceAssets, type OwnedAssetRow } from "@modules/assets/infrastructure/prisma-owned-assets";
+import type {
+  RuntimeAsset,
+  RuntimeWorkspace,
+} from "@modules/portability/application/export-workspace";
+import { archiveExtensionFor } from "@modules/portability/domain/portable-schema";
 import type { StorageProvider } from "@/shared/ports";
 import { asStorageKey } from "@/shared/ports";
 
@@ -16,11 +22,12 @@ import { asStorageKey } from "@/shared/ports";
  * carregá-los faria o `.lbb` de um acervo pequeno pesar centenas de megabytes de PDF que o
  * destino recompila em segundos.
  *
- * Ver spec §7 · issue #117.
+ * Os arquivos vêm pelo repositório de assets (`listSourceAssets`), com o dono de cada um: a
+ * questão leva os dela, o livro leva os seus — capa, PDFs fonte, figuras do scan — e qualquer
+ * arquivo que uma âncora cite e não seja de questão nenhuma do livro.
+ *
+ * Ver spec §7 · issue #117 · #268.
  */
-
-/** O que não atravessa: derivado de compilação, reconstruível no destino. */
-const DERIVED_KINDS = new Set(["RENDER_PDF", "RENDER_PNG", "RENDER_SVG"]);
 
 export interface WorkspaceExport {
   readonly workspace: RuntimeWorkspace;
@@ -33,6 +40,18 @@ export interface WorkspaceExport {
   readonly missingAssets: readonly string[];
 }
 
+const describe = (row: OwnedAssetRow): RuntimeAsset => ({
+  sha256: row.sha256,
+  kind: row.kind,
+  mimeType: row.mimeType,
+  originalFilename: row.originalFilename,
+  width: row.width,
+  height: row.height,
+  metadataJson: row.metadataJson,
+});
+
+const iso = (date: Date | null): string | null => (date === null ? null : date.toISOString());
+
 export async function readWorkspaceForExport(
   workspaceId: string,
   storage: StorageProvider,
@@ -42,8 +61,56 @@ export async function readWorkspaceForExport(
     select: {
       name: true,
       slug: true,
+      description: true,
+      legacyId: true,
+      legacySourcePath: true,
       tags: { select: { name: true, kind: true } },
+      templates: {
+        orderBy: { name: "asc" },
+        select: { name: true, audience: true, preambleLatex: true, optionsJson: true },
+      },
+      assessments: {
+        orderBy: [{ createdAt: "asc" }, { title: "asc" }],
+        select: {
+          title: true,
+          subtitle: true,
+          notes: true,
+          sections: {
+            orderBy: { sortKey: "asc" },
+            select: {
+              title: true,
+              sortKey: true,
+              items: {
+                orderBy: { sortKey: "asc" },
+                select: { questionId: true, sortKey: true, points: true, pinnedLastOptionIdsJson: true },
+              },
+            },
+          },
+          variants: {
+            orderBy: { label: "asc" },
+            select: {
+              label: true,
+              seed: true,
+              shuffleQuestions: true,
+              shuffleOptions: true,
+              createdAt: true,
+              questions: {
+                orderBy: { position: "asc" },
+                select: {
+                  questionId: true,
+                  position: true,
+                  options: {
+                    orderBy: { position: "asc" },
+                    select: { optionId: true, displayedLabel: true, position: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       publications: {
+        orderBy: [{ createdAt: "asc" }, { title: "asc" }],
         select: {
           id: true,
           title: true,
@@ -54,27 +121,33 @@ export async function readWorkspaceForExport(
           otherIdentifier: true,
           edition: true,
           editionYear: true,
+          publicationDate: true,
           language: true,
           series: true,
           volume: true,
           notes: true,
+          captureProfileId: true,
           authors: { orderBy: { position: "asc" }, select: { author: { select: { name: true } } } },
           legacyId: true,
           legacyUuid: true,
+          legacyUpdatedAt: true,
           metadataJson: true,
+          coverAssetId: true,
           sourcePdfAssetId: true,
+          // A lixeira também: excluir tira das telas, não do acervo (v3).
           nodes: {
-            where: { deletedAt: null },
             orderBy: { sortKey: "asc" },
             select: {
               id: true,
               parentId: true,
               kind: true,
               title: true,
+              slug: true,
               sortKey: true,
               numberingStyle: true,
               originalLabel: true,
               legacyId: true,
+              deletedAt: true,
               bodyLatex: true,
               anchors: {
                 orderBy: { sortOrder: "asc" },
@@ -87,10 +160,13 @@ export async function readWorkspaceForExport(
                       yNormalized: true,
                       widthNormalized: true,
                       heightNormalized: true,
+                      rotation: true,
                       sourceText: true,
                       extractionMethod: true,
                       extractionModel: true,
-                      sourceAsset: { select: { sha256: true, storageKey: true, mimeType: true } },
+                      metadataJson: true,
+                      sourceAssetId: true,
+                      cropAssetId: true,
                     },
                   },
                 },
@@ -130,9 +206,6 @@ export async function readWorkspaceForExport(
                       legacyMarcacao: true,
                     },
                   },
-                  assets: {
-                    select: { sha256: true, storageKey: true, kind: true, mimeType: true },
-                  },
                 },
               },
             },
@@ -143,93 +216,198 @@ export async function readWorkspaceForExport(
   });
   if (!row) return null;
 
-  const wanted = new Map<string, { storageKey: string; mimeType: string }>();
-
-  // O PDF fonte de cada livro viaja no arquivo (v2): as âncoras apontam para ele, e uma âncora sem
-  // o PDF seria uma coordenada sobre nada.
-  const sourceIds = row.publications.map((p) => p.sourcePdfAssetId).filter((id): id is string => id !== null);
-  const sources = new Map(
-    (
-      await prisma.asset.findMany({
-        where: { id: { in: sourceIds } },
-        select: { id: true, sha256: true, storageKey: true, mimeType: true },
-      })
-    ).map((asset) => [asset.id, asset]),
+  // Os ids que o livro cita por ponteiro: capa, PDF fonte e os arquivos das âncoras.
+  const cited = row.publications.flatMap((publication) => [
+    publication.coverAssetId,
+    publication.sourcePdfAssetId,
+    ...publication.nodes.flatMap((node) =>
+      node.anchors.flatMap(({ sourceAnchor }) => [sourceAnchor.sourceAssetId, sourceAnchor.cropAssetId]),
+    ),
+  ]);
+  const rows = await listSourceAssets(
+    workspaceId,
+    cited.filter((id): id is string => id !== null),
   );
-  const want = (asset: { sha256: string; storageKey: string; mimeType: string }) => {
-    wanted.set(asset.sha256, { storageKey: asset.storageKey, mimeType: asset.mimeType });
-    return asset.sha256;
+  const byId = new Map(rows.map((asset) => [asset.id, asset]));
+
+  const byQuestion = new Map<string, OwnedAssetRow[]>();
+  const byPublication = new Map<string, OwnedAssetRow[]>();
+  for (const asset of rows) {
+    if (asset.questionId !== null) {
+      byQuestion.set(asset.questionId, [...(byQuestion.get(asset.questionId) ?? []), asset]);
+    } else if (asset.publicationId !== null) {
+      byPublication.set(asset.publicationId, [...(byPublication.get(asset.publicationId) ?? []), asset]);
+    }
+  }
+
+  // Os bytes viajam uma vez por hash, seja quem for o dono.
+  const wanted = new Map<string, OwnedAssetRow>();
+  const shaOf = (id: string | null): string | null => {
+    const asset = id === null ? undefined : byId.get(id);
+    return asset ? asset.sha256 : null;
   };
+
+  // O histórico de tudo o que o arquivo leva. `Revision` não tem `workspaceId`: chega-se a ela
+  // pelo id da entidade, e só a entidade exportada tem para onde voltar.
+  const entityIds = row.publications.flatMap((publication) => [
+    publication.id,
+    ...publication.nodes.flatMap((node) => [
+      node.id,
+      ...(node.question === null ? [] : [node.question.id, ...node.question.options.map((option) => option.id)]),
+    ]),
+  ]);
+  const revisions = [];
+  for (const ids of inChunks(entityIds)) {
+    revisions.push(
+      ...(await prisma.revision.findMany({
+        where: { entityId: { in: ids } },
+        select: {
+          entityType: true,
+          entityId: true,
+          revisionNumber: true,
+          origin: true,
+          summary: true,
+          snapshotJson: true,
+          createdAt: true,
+        },
+      })),
+    );
+  }
 
   const workspace: RuntimeWorkspace = {
     name: row.name,
     slug: row.slug,
+    description: row.description,
+    legacyId: row.legacyId,
+    legacySourcePath: row.legacySourcePath,
     tags: row.tags,
-    publications: row.publications.map((publication) => ({
-      id: publication.id,
-      title: publication.title,
-      subtitle: publication.subtitle,
-      publisher: publication.publisher,
-      nickname: publication.nickname,
-      isbn: publication.isbn,
-      otherIdentifier: publication.otherIdentifier,
-      edition: publication.edition,
-      editionYear: publication.editionYear,
-      language: publication.language,
-      series: publication.series,
-      volume: publication.volume,
-      notes: publication.notes,
-      authors: publication.authors.map((entry) => entry.author.name),
-      legacyId: publication.legacyId,
-      legacyUuid: publication.legacyUuid,
-      metadataJson: publication.metadataJson,
-      coverAssetSha256: null,
-      sourcePdfAssetSha256: (() => {
-        const source = publication.sourcePdfAssetId ? sources.get(publication.sourcePdfAssetId) : undefined;
-        return source ? want(source) : null;
-      })(),
-      nodes: publication.nodes.map((node) => ({
-        id: node.id,
-        parentId: node.parentId,
-        kind: node.kind,
-        title: node.title,
-        sortKey: node.sortKey,
-        numberingStyle: node.numberingStyle,
-        originalLabel: node.originalLabel,
-        legacyId: node.legacyId,
-        bodyLatex: node.bodyLatex,
-        anchors: node.anchors.map(({ role, sourceAnchor: anchor }) => ({
-          sha256: want(anchor.sourceAsset),
-          pageNumber: anchor.pageNumber,
-          box: {
-            x: anchor.xNormalized,
-            y: anchor.yNormalized,
-            width: anchor.widthNormalized,
-            height: anchor.heightNormalized,
-          },
-          role,
-          sourceText: anchor.sourceText,
-          extractionMethod: anchor.extractionMethod,
-          extractionModel: anchor.extractionModel,
+    templates: row.templates,
+    revisions: revisions.map((revision) => ({ ...revision, createdAt: revision.createdAt.toISOString() })),
+    assessments: row.assessments.map((assessment) => ({
+      title: assessment.title,
+      subtitle: assessment.subtitle,
+      notes: assessment.notes,
+      sections: assessment.sections.map((section) => ({
+        title: section.title,
+        sortKey: section.sortKey,
+        items: section.items.map((item) => ({
+          questionId: item.questionId,
+          sortKey: item.sortKey,
+          points: item.points,
+          pinnedLastOptionIds: parseIds(item.pinnedLastOptionIdsJson),
         })),
-        question:
-          node.question === null
-            ? null
-            : {
-                ...node.question,
-                tags: node.question.tags.map((link) => link.tag.name),
-                assetSha256: node.question.assets
-                  .filter((asset) => !DERIVED_KINDS.has(asset.kind))
-                  .map((asset) => {
-                    wanted.set(asset.sha256, {
-                      storageKey: asset.storageKey,
-                      mimeType: asset.mimeType,
-                    });
-                    return asset.sha256;
-                  }),
-              },
+      })),
+      variants: assessment.variants.map((variant) => ({
+        ...variant,
+        createdAt: variant.createdAt.toISOString(),
       })),
     })),
+    publications: row.publications.map((publication) => {
+      // Os arquivos das questões deste livro; o que o livro citar e não estiver aqui é dele.
+      const questionAssets = new Map<string, readonly OwnedAssetRow[]>();
+      const inQuestions = new Set<string>();
+      for (const node of publication.nodes) {
+        if (node.question === null) continue;
+        const own = byQuestion.get(node.question.id) ?? [];
+        questionAssets.set(node.question.id, own);
+        for (const asset of own) inQuestions.add(asset.sha256);
+      }
+
+      const own = new Map<string, OwnedAssetRow>();
+      for (const asset of byPublication.get(publication.id) ?? []) {
+        if (!own.has(asset.sha256)) own.set(asset.sha256, asset);
+      }
+      const pointed = [
+        publication.coverAssetId,
+        publication.sourcePdfAssetId,
+        ...publication.nodes.flatMap((node) =>
+          node.anchors.flatMap(({ sourceAnchor }) => [sourceAnchor.sourceAssetId, sourceAnchor.cropAssetId]),
+        ),
+      ];
+      for (const id of pointed) {
+        const asset = id === null ? undefined : byId.get(id);
+        if (asset && !own.has(asset.sha256) && !inQuestions.has(asset.sha256)) own.set(asset.sha256, asset);
+      }
+
+      for (const asset of [...own.values(), ...[...questionAssets.values()].flat()]) {
+        if (!wanted.has(asset.sha256)) wanted.set(asset.sha256, asset);
+      }
+
+      return {
+        id: publication.id,
+        title: publication.title,
+        subtitle: publication.subtitle,
+        publisher: publication.publisher,
+        nickname: publication.nickname,
+        isbn: publication.isbn,
+        otherIdentifier: publication.otherIdentifier,
+        edition: publication.edition,
+        editionYear: publication.editionYear,
+        publicationDate: iso(publication.publicationDate),
+        language: publication.language,
+        series: publication.series,
+        volume: publication.volume,
+        notes: publication.notes,
+        authors: publication.authors.map((entry) => entry.author.name),
+        captureProfileId: publication.captureProfileId,
+        legacyId: publication.legacyId,
+        legacyUuid: publication.legacyUuid,
+        legacyUpdatedAt: iso(publication.legacyUpdatedAt),
+        metadataJson: publication.metadataJson,
+        assets: [...own.values()].map(describe),
+        coverAssetSha256: shaOf(publication.coverAssetId),
+        sourcePdfAssetSha256: shaOf(publication.sourcePdfAssetId),
+        nodes: publication.nodes.map((node) => {
+          const anchors = node.anchors.flatMap(({ role, sourceAnchor: anchor }) => {
+            const sha256 = shaOf(anchor.sourceAssetId);
+            // Âncora cujo PDF não existe mais em linha nenhuma: não há o que apontar no destino.
+            if (sha256 === null) return [];
+            return [
+              {
+                sha256,
+                cropSha256: shaOf(anchor.cropAssetId),
+                pageNumber: anchor.pageNumber,
+                box: {
+                  x: anchor.xNormalized,
+                  y: anchor.yNormalized,
+                  width: anchor.widthNormalized,
+                  height: anchor.heightNormalized,
+                },
+                rotation: anchor.rotation,
+                role,
+                sourceText: anchor.sourceText,
+                extractionMethod: anchor.extractionMethod,
+                extractionModel: anchor.extractionModel,
+                metadataJson: anchor.metadataJson,
+              },
+            ];
+          });
+
+          return {
+              id: node.id,
+              parentId: node.parentId,
+              kind: node.kind,
+              title: node.title,
+              slug: node.slug,
+              sortKey: node.sortKey,
+              numberingStyle: node.numberingStyle,
+              originalLabel: node.originalLabel,
+              legacyId: node.legacyId,
+              deletedAt: iso(node.deletedAt),
+              bodyLatex: node.bodyLatex,
+              anchors,
+              question:
+                node.question === null
+                  ? null
+                  : {
+                      ...node.question,
+                      tags: node.question.tags.map((link) => link.tag.name),
+                      assets: dedupe(questionAssets.get(node.question.id) ?? []).map(describe),
+                    },
+          };
+        }),
+      };
+    }),
   };
 
   const assets: { sha256: string; extension: string; bytes: Uint8Array }[] = [];
@@ -238,7 +416,7 @@ export async function readWorkspaceForExport(
   for (const [sha256, { storageKey, mimeType }] of wanted) {
     try {
       const stored = await storage.get(asStorageKey(storageKey));
-      assets.push({ sha256, extension: extensionFor(mimeType), bytes: stored.content });
+      assets.push({ sha256, extension: archiveExtensionFor(mimeType), bytes: stored.content });
     } catch {
       // Asset que o banco declara e o storage não tem: o export **continua** e reporta. Abortar
       // por uma figura ausente impediria exportar um acervo inteiro por causa de um arquivo que
@@ -250,13 +428,23 @@ export async function readWorkspaceForExport(
   return { workspace, assets, missingAssets };
 }
 
-const EXTENSIONS: Readonly<Record<string, string>> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-  "image/svg+xml": ".svg",
-  "application/pdf": ".pdf",
-  "text/plain": ".txt",
-};
+/** A mesma linha duas vezes para o mesmo dono (dado antigo) é um arquivo só no formato. */
+function dedupe(rows: readonly OwnedAssetRow[]): readonly OwnedAssetRow[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = `${row.sha256}:${row.kind}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
-/** A extensão é cosmética — o endereço é o hash. Serve para o zip ser navegável à mão. */
-const extensionFor = (mimeType: string): string => EXTENSIONS[mimeType] ?? "";
+/** O JSON da coluna, como o repositório de avaliações o lê: malformado vira lista vazia. */
+function parseIds(raw: string): readonly string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}

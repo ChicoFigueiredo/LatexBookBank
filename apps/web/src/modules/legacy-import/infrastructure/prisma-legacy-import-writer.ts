@@ -185,7 +185,7 @@ export class PrismaLegacyImportWriter {
               options += 1;
             }
 
-            for (const sha256 of question.assetSha256) {
+            for (const { sha256 } of question.assets) {
               const figure = figureBySha.get(sha256);
               if (figure === undefined || figures === null) {
                 // O mapeamento só lista hash que a resolução produziu, então isto é um bug de

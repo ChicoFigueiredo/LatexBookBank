@@ -25,11 +25,21 @@ export interface BackupStatus {
   readonly totalBytes: number;
   readonly failures: readonly { readonly workspaceId: string; readonly message: string }[];
   readonly lastArchives: readonly { readonly slug: string; readonly bytes: number }[];
+  /**
+   * Com que intervalo este serviço roda. É o que deixa o app dizer "atrasado" em vez de "em dia"
+   * quando o serviço para: um sucesso mais velho que duas rodadas não é backup em dia (PLT-13).
+   */
+  readonly intervalHours: number;
 }
 
-export async function writeStatus(destination: string, outcome: BackupOutcome): Promise<void> {
+export async function writeStatus(
+  destination: string,
+  outcome: BackupOutcome,
+  intervalMs: number,
+): Promise<void> {
   const status: BackupStatus = {
     finishedAt: new Date().toISOString(),
+    intervalHours: intervalMs / 3_600_000,
     // Sucesso parcial **não** é sucesso: um workspace que falhou precisa fazer o indicador ficar
     // vermelho, ou ninguém olha.
     ok: outcome.failures.length === 0 && outcome.archives.length > 0,

@@ -1,6 +1,8 @@
-import { unzipSync, zipSync } from "fflate";
+import { Unzip, UnzipInflate, zipSync } from "fflate";
 
 import {
+  ARCHIVE_EXTENSIONS,
+  ArchiveTooLargeError,
   assertKnownVersion,
   assetPath,
   CorruptArchiveError,
@@ -8,7 +10,9 @@ import {
   type PortableManifest,
   type PortableWorkspace,
 } from "./portable-schema";
-import { migrateToCurrent } from "./portable-migrations";
+import { parseManifest, parsePortableWorkspace, readDeclaredVersion } from "./portable-validation";
+
+export { ArchiveTooLargeError } from "./portable-schema";
 
 /**
  * O `.lbb`: um zip com manifesto, dados e assets endereçados por conteúdo.
@@ -95,25 +99,177 @@ export async function writeArchive(input: WriteInput): Promise<Uint8Array> {
 }
 
 /**
+ * Os tetos da leitura (#270).
+ *
+ * O `.lbb` vem de fora, e o zip declara o tamanho das próprias entradas — um arquivo de 1 MB pode
+ * dizer que tem 10 bytes por entrada e descompactar 20 GB. Os tetos valem sobre o que **sai** do
+ * descompactador, contado enquanto sai, e não sobre o que o cabeçalho afirma.
+ *
+ * O acervo real inteiro tem 109 MB; 64 MB por asset é o teto do próprio storage, e 2 GB no total é
+ * folga de vinte vezes. O `data.json` de uma biblioteca de mil questões tem poucos MB.
+ */
+export interface ArchiveLimits {
+  readonly maxEntries: number;
+  readonly maxAssetBytes: number;
+  readonly maxDataBytes: number;
+  readonly maxTotalBytes: number;
+}
+
+export const DEFAULT_ARCHIVE_LIMITS: ArchiveLimits = {
+  maxEntries: 100_000,
+  maxAssetBytes: 64 * 1024 * 1024,
+  maxDataBytes: 256 * 1024 * 1024,
+  maxTotalBytes: 2 * 1024 * 1024 * 1024,
+};
+
+/** `assets/<ab>/<sha256>.<ext>`, com o diretório igual ao começo do hash. */
+const ASSET_ENTRY = /^assets\/([0-9a-f]{2})\/([0-9a-f]{64})(\.[a-z0-9]+)$/;
+
+/**
+ * O que a entrada pode ser: o manifesto, os dados, ou um asset com nome de hash e extensão da lista
+ * fechada. Qualquer outra coisa — um script, um `../`, um nome inventado — é arquivo adulterado.
+ */
+function classify(
+  name: string,
+):
+  | { readonly kind: "manifest" | "data" }
+  | { readonly kind: "asset"; readonly sha256: string; readonly extension: string } {
+  if (name === MANIFEST) return { kind: "manifest" };
+  if (name === DATA) return { kind: "data" };
+
+  const match = ASSET_ENTRY.exec(name);
+  if (match && match[2]!.startsWith(match[1]!) && ARCHIVE_EXTENSIONS.has(match[3]!)) {
+    return { kind: "asset", sha256: match[2]!, extension: match[3]! };
+  }
+  throw new CorruptArchiveError(`a entrada \`${name.slice(0, 120)}\` não pertence a um .lbb`);
+}
+
+/** O pedaço de zip entregue ao descompactador por vez: limita o maior bloco que sai de uma vez. */
+const PUSH_BYTES = 16 * 1024;
+
+/**
+ * Descompacta contando, e para no primeiro teto.
+ *
+ * `unzipSync` alocava tudo antes de qualquer conferência. Aqui o zip entra em pedaços pequenos, e
+ * cada pedaço descompactado é somado na hora: um deflate expande no máximo ~1000×, então 16 KB de
+ * entrada nunca viram mais que ~16 MB de uma vez, e o teto corta antes de a memória ir embora.
+ */
+function unzipWithin(bytes: Uint8Array, limits: ArchiveLimits): Map<string, Uint8Array> {
+  const files = new Map<string, Uint8Array>();
+  let entries = 0;
+  let total = 0;
+  let failure: Error | null = null;
+
+  const unzipper = new Unzip((file) => {
+    if (failure) return;
+    entries += 1;
+    if (entries > limits.maxEntries) {
+      failure = new ArchiveTooLargeError(`mais de ${limits.maxEntries} entradas`);
+      return;
+    }
+
+    let entry: ReturnType<typeof classify>;
+    try {
+      entry = classify(file.name);
+    } catch (error) {
+      failure = error as Error;
+      return;
+    }
+    if (files.has(file.name)) {
+      failure = new CorruptArchiveError(`a entrada \`${file.name}\` aparece duas vezes`);
+      return;
+    }
+
+    const cap =
+      entry.kind === "asset"
+        ? limits.maxAssetBytes
+        : entry.kind === "data"
+          ? limits.maxDataBytes
+          : 1024 * 1024;
+    // O tamanho declarado recusa cedo o caso honesto; o contado abaixo pega o que mente.
+    if ((file.originalSize ?? 0) > cap) {
+      failure = new ArchiveTooLargeError(`\`${file.name}\` passa de ${cap} bytes`);
+      return;
+    }
+
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    file.ondata = (error, chunk, final) => {
+      if (failure) return;
+      if (error) {
+        failure = new CorruptArchiveError(
+          `a entrada \`${file.name}\` não descompacta (${error.message})`,
+        );
+        return;
+      }
+      size += chunk.length;
+      total += chunk.length;
+      if (size > cap) {
+        failure = new ArchiveTooLargeError(`\`${file.name}\` passa de ${cap} bytes`);
+        file.terminate();
+        return;
+      }
+      if (total > limits.maxTotalBytes) {
+        failure = new ArchiveTooLargeError(
+          `o conteúdo descompactado passa de ${limits.maxTotalBytes} bytes`,
+        );
+        file.terminate();
+        return;
+      }
+      chunks.push(chunk);
+      if (final) files.set(file.name, concat(chunks, size));
+    };
+    file.start();
+  });
+  unzipper.register(UnzipInflate);
+
+  try {
+    for (let at = 0; at < bytes.length && !failure; at += PUSH_BYTES) {
+      const end = Math.min(bytes.length, at + PUSH_BYTES);
+      unzipper.push(bytes.subarray(at, end), end === bytes.length);
+    }
+  } catch (error) {
+    failure ??= new CorruptArchiveError(`o zip não abre (${(error as Error).message})`);
+  }
+  if (failure) throw failure;
+
+  return files;
+}
+
+function concat(chunks: readonly Uint8Array[], size: number): Uint8Array {
+  if (chunks.length === 1) return chunks[0]!;
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
+}
+
+/**
  * Lê e **verifica** antes de devolver.
  *
- * A ordem importa: versão primeiro, checksum depois, dado por último. Um arquivo de versão futura
- * pode ter checksum válido e conteúdo que este código leria errado — verificar integridade antes
- * de versão responderia "está íntegro" sobre algo que não se sabe ler.
+ * A ordem importa: tetos e nomes primeiro (enquanto descompacta), versão depois, checksum, e o
+ * dado por último. Um arquivo de versão futura pode ter checksum válido e conteúdo que este código
+ * leria errado — verificar integridade antes de versão responderia "está íntegro" sobre algo que
+ * não se sabe ler. O manifesto e o `data.json` passam pelo schema da v3 (`portable-validation`).
  */
-export async function readArchive(bytes: Uint8Array): Promise<ReadOutput> {
-  const files = unzipSync(bytes);
-  const decoder = new TextDecoder();
+export async function readArchive(
+  bytes: Uint8Array,
+  limits: ArchiveLimits = DEFAULT_ARCHIVE_LIMITS,
+): Promise<ReadOutput> {
+  const files = unzipWithin(bytes, limits);
 
-  const manifestBytes = files[MANIFEST];
+  const manifestBytes = files.get(MANIFEST);
   if (!manifestBytes) {
     throw new CorruptArchiveError("o manifesto", "manifest.json", "ausente");
   }
 
-  const manifest = JSON.parse(decoder.decode(manifestBytes)) as PortableManifest;
-  assertKnownVersion(manifest.formatVersion);
+  assertKnownVersion(readDeclaredVersion(manifestBytes));
+  const manifest = parseManifest(manifestBytes);
 
-  const dataBytes = files[DATA];
+  const dataBytes = files.get(DATA);
   if (!dataBytes) throw new CorruptArchiveError("os dados", "data.json", "ausente");
 
   const dataChecksum = await sha256Of(dataBytes);
@@ -122,27 +278,26 @@ export async function readArchive(bytes: Uint8Array): Promise<ReadOutput> {
   }
 
   const assets: ArchiveAsset[] = [];
-  for (const [path, content] of Object.entries(files)) {
-    if (!path.startsWith("assets/")) continue;
-
-    const name = path.split("/").pop() as string;
-    const dot = name.lastIndexOf(".");
-    const sha256 = dot === -1 ? name : name.slice(0, dot);
-    const extension = dot === -1 ? "" : name.slice(dot);
+  for (const [path, content] of files) {
+    const entry = classify(path);
+    if (entry.kind !== "asset") continue;
 
     // O nome do arquivo **é** a afirmação de qual é o conteúdo. Conferir é o que impede um zip
     // adulterado de entregar outra figura com o mesmo nome — e custa um hash por asset.
     const actual = await sha256Of(content);
-    if (actual !== sha256) {
-      throw new CorruptArchiveError(`o asset \`${name}\``, sha256, actual);
+    if (actual !== entry.sha256) {
+      throw new CorruptArchiveError(
+        `o asset \`${entry.sha256}${entry.extension}\``,
+        entry.sha256,
+        actual,
+      );
     }
 
-    assets.push({ sha256, extension, bytes: content });
+    assets.push({ sha256: entry.sha256, extension: entry.extension, bytes: content });
   }
 
-  const missing = manifest.assetChecksums.filter(
-    (sha) => !assets.some((asset) => asset.sha256 === sha),
-  );
+  const present = new Set(assets.map((asset) => asset.sha256));
+  const missing = manifest.assetChecksums.filter((sha) => !present.has(sha));
   if (missing.length > 0) {
     throw new CorruptArchiveError(
       `${missing.length} asset(s) que o manifesto declara`,
@@ -151,15 +306,7 @@ export async function readArchive(bytes: Uint8Array): Promise<ReadOutput> {
     );
   }
 
-  return {
-    manifest,
-    // O arquivo antigo sai daqui já no formato de hoje: quem importa não precisa saber de versões.
-    workspace: migrateToCurrent(
-      JSON.parse(decoder.decode(dataBytes)) as PortableWorkspace,
-      manifest.formatVersion,
-    ),
-    assets,
-  };
+  return { manifest, workspace: parsePortableWorkspace(dataBytes), assets };
 }
 
 function countOf(workspace: PortableWorkspace, assets: number): PortableManifest["counts"] {

@@ -1,4 +1,5 @@
 import type {
+  PortableAsset,
   PortableNode,
   PortableOption,
   PortablePublication,
@@ -22,6 +23,7 @@ import {
   siblingOrder,
   UnknownTipoQuestaoError,
 } from "../domain/legacy-mapping";
+import { LEGACY_FIGURE_ASSET_KIND } from "../domain/legacy-figures";
 import { EMPTY_LEGACY_FIGURES, type LegacyFiguresResolution } from "./import-legacy-figures";
 
 /**
@@ -167,14 +169,25 @@ function toPortableNodes(
           legacyId: row.IdQuestao,
           tags: [],
           options,
-          // Só o hash, nunca caminho (contrato do portable). Deduplicado: a mesma figura citada
+          // Descrita, nunca por caminho (contrato do portable). Deduplicada: a mesma figura citada
           // no enunciado e na resposta é um asset só.
           assets: [
-            ...new Set(
+            ...new Map(
               figures.figures
                 .filter((figure) => figure.legacyQuestionId === row.IdQuestao)
-                .map((figure) => figure.sha256),
-            ),
+                .map((figure): [string, PortableAsset] => [
+                  figure.sha256,
+                  {
+                    sha256: figure.sha256,
+                    kind: LEGACY_FIGURE_ASSET_KIND,
+                    mimeType: figure.mimeType,
+                    originalFilename: figure.originalFilename,
+                    width: null,
+                    height: null,
+                    metadataJson: null,
+                  },
+                ]),
+            ).values(),
           ],
         };
       }
@@ -188,6 +201,10 @@ function toPortableNodes(
         numberingStyle: mapNumbering(row.Numeracao),
         originalLabel: row.Numeracao_Original === null ? null : String(row.Numeracao_Original),
         legacyId: row.IdQuestao,
+        slug: null,
+        deletedAt: null,
+        bodyLatex: "",
+        anchors: [],
         question,
       });
     }
@@ -208,13 +225,23 @@ function toPortablePublication(
     publisher: null,
     legacyId: idPublication,
     legacyUuid: legacy?.UUID ? legacy.UUID.toLowerCase() : null,
+    legacyUpdatedAt: null,
     metadataJson: null,
-    coverAsset: null,
     isbn: blankToNull(legacy?.ISBN),
     nickname: blankToNull(legacy?.PublicationNick),
+    otherIdentifier: null,
+    edition: null,
+    editionYear: null,
+    publicationDate: null,
+    language: null,
     series: blankToNull(legacy?.PublicationSeries),
+    volume: null,
     notes: blankToNull(legacy?.Notes),
     authors: legacy?.AuthorSort?.trim() ? [legacy.AuthorSort.trim()] : [],
+    captureProfileId: null,
+    assets: [],
+    coverAsset: null,
+    sourcePdfAsset: null,
     nodes,
   };
 }
@@ -316,8 +343,15 @@ export function mapLegacyLibrary(
     portable: {
       name: options.workspaceName,
       slug: options.workspaceSlug,
+      description: null,
+      // A identidade da biblioteca legada vai ao writer à parte (`LegacyWorkspaceIdentity`).
+      legacyId: null,
+      legacySourcePath: null,
       tags: [],
       publications: portablePublications,
+      assessments: [],
+      templates: [],
+      revisions: [],
     },
     excluded,
     coercedDifficulty,

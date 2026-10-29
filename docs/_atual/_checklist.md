@@ -110,7 +110,7 @@ enquadramento, e a segmentação automática saiu do adiamento com 30 de 30 ques
 | — prova arquitetural | **◐6.5** | schema PostgreSQL provado; falta a suíte de integração contra PostgreSQL; o par de storage foi adiado explicitamente em 2026-09-09 |
 | B — banco de questões | ✅7 | domínio, telas e schema fechados |
 | C — agente | ✅8 · ✅9 · ✅10 | fechada, e a §35 conferida linha a linha |
-| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; os ◐ são o `ImportReport` e o §33 "Legado"; a 13 só não mostra progresso |
+| D — acervo legado e portabilidade | **◐11** · ✅12 · **◐13** | a 11 tem as 11 bibliotecas e as figuras de questão no banco de dev; o ◐ é o §33 "Legado" (o `ImportReport` estruturado saiu na revisão de 2026-09-23); a 13 só não mostra progresso |
 | E — ingestão visual | **◐14** · ✅15 | falta a inserção assistida de figura |
 | F — diferencial de produto | ✅16 · **◐17** | a 17 espera o guarda de autorização e o resto do diagnóstico |
 | G — captura em volume | **◐18** · **19** | decidida e começada em 2026-09-10: o bloco "A fonte do livro" fechou, e a captura abre no PDF. Falta o scan de intervalo, os perfis, o livro ao lado do **editor** e o corpo do nó |
@@ -1088,7 +1088,11 @@ e eles escondiam o que falta de verdade)*
   excluída pela invariante das alternativas (5 opções, nenhuma correta). **Decisão do Chico em
   2026-09-09:** ratificar que ProfMat 9 fica fora, e registrar as 5 de Fundamentos como limitação
   conhecida — nó estrutural com resposta é o legado usando a tabela errada, e importar isso criaria
-  um conceito novo por causa de duas linhas. Nada se perde: o `originalLatex` guarda a citação)*
+  um conceito novo por causa de duas linhas. ~~Nada se perde: o `originalLatex` guarda a citação~~
+  — **corrigido na revisão de 2026-09-23 (SPA-08)**: perde-se, sim. Do nó estrutural o import leva
+  só o título; o `latexQuestao`, a resposta, o complemento e as alternativas dele não vão para coluna
+  nenhuma, e só existem no `.knowchico`. Da ProfMat 9 não entra nada. O caminho sem conceito novo,
+  se a decisão for revista, é levar o LaTeX do nó estrutural para o corpo do nó (ADR 0001))*
 
 **Mapeamento**
 - ✅ Biblioteca → `Workspace` (D11) *(2026-08-31 — `map-legacy-library.ts` + `MapLegacyLibraryOptions`)*
@@ -1157,10 +1161,11 @@ e eles escondiam o que falta de verdade)*
   confere `Workspace.legacyId` **antes** de qualquer leitura; workspace novo não tem com o que
   colidir por dentro. Provado rodando a Cesgranrio CAIXA duas vezes: a segunda diz "já importada,
   nada feito")*
-- ◐ `ImportReport`: importados, atualizados, ignorados, inconsistentes, órfãos, assets ausentes
-  *(o relatório do script cobre importados e inconsistentes — as questões excluídas por invariante,
-  com o motivo. Faltam "atualizados" (não há caso de uso ainda — o import de hoje só cria) e
-  "assets ausentes" (Fase 11 ainda não importa asset nenhum))*
+- ✅ `ImportReport`: importados, atualizados, ignorados, inconsistentes, órfãos, assets ausentes
+  *(revisão de 2026-09-23, SPA-09: `legacy-import-report.ts` monta as seis categorias como dado —
+  "atualizados" é 0 declarado, porque o import só cria — e os scripts de dry-run e de gravação o
+  gravam em JSON com `REPORT_PATH`. A coluna `Deleted` do legado tem decisão registrada em
+  `DELIBERATELY_IGNORED_COLUMNS`: 0 linhas marcadas no acervo, ACV-13)*
 - ✅ `legacyId` preservado após o import *(`Workspace.legacyId`, `Publication.legacyId/legacyUuid`,
   `DocumentNode.legacyId`, `Question.legacyId`, `QuestionOption.legacyId/legacyMarcacao` — todos
   gravados e conferidos direto no banco depois da escrita real)*
@@ -1247,9 +1252,8 @@ e eles escondiam o que falta de verdade)*
 - ✅ **Não depende diretamente da migration atual do Prisma**
 - ✅ Export faz projeção **runtime → portable**
 - ✅ Import faz projeção **portable → runtime**
-- [ ] Migradores de formato previstos — só existe a v1; o migrador nasce com a v2, e escrevê-lo
-  antes seria adivinhar de onde ela vem. *O planejamento pede migradores "**quando fizer sentido**";
-  com uma versão só, não faz — isto é escopo futuro, não dívida*
+- ✅ Migradores de formato — *revogado pela v3 (#268, #269): o backup vale daqui para frente, e só
+  o `.lbb` v3 abre; v1 e v2 são recusados com mensagem que manda exportar de novo, sem migrador*
 - ✅ `formatVersion` declarado no `manifest.json`
 - ✅ Versão desconhecida é recusada com mensagem clara — **nunca adivinhada**
 
@@ -1265,7 +1269,10 @@ e eles escondiam o que falta de verdade)*
 - ✅ Independência de path garantida
 
 **Exportação**
-- ✅ Exporta um workspace inteiro *(artefato de render **não** atravessa — é cache regenerável)*
+- ✅ Exporta um workspace inteiro *(artefato de render **não** atravessa — é cache regenerável. Até
+  a v3, "inteiro" era só livros e questões; desde a #269 leva também avaliações com variantes e o
+  mapa de letras, templates, revisões, a lixeira e o `legacyId` da biblioteca, e a tela diz o que
+  o arquivo leva)*
 - ✅ Assets duplicados aparecem uma única vez no zip
 - ✅ Checksums calculados e gravados
 - ✅ Progresso visível para acervos grandes *(#195 — a resposta saía `chunked`, **sem
@@ -1282,7 +1289,9 @@ e eles escondiam o que falta de verdade)*
 - ✅ Verifica `formatVersion` — **antes** do checksum
 - ✅ Verifica checksums e recusa arquivo corrompido
 - ✅ Religa assets ao `StorageProvider` de destino *(chaves novas — é o que o endereço por hash compra)*
-- ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão
+- ✅ Colisão de `legacyId`/`uuid` gera relatório e exige decisão *(desde a #270 o servidor exige:
+  com colisão, gravar pede `acceptCollisions=1`, e sem ele é 409 e nada é gravado. E a colisão tem
+  escopo — livro por `legacyId` só na biblioteca de mesma origem, questão só no livro que colidiu)*
 - ✅ **Nada é sobrescrito em silêncio**
 - ✅ Relatório de importação *(com `dryRun=1` para ver antes de gravar)*
 - ✅ UI de importação *(com dry-run **antes** de gravar, sempre — e desde a #189 a confirmação é um
@@ -1782,16 +1791,19 @@ vinculado". O app sabia qual era o PDF e ainda assim recebia com "Trazer arquivo
   exemplo e a nota para o corpo da seção, na ordem do livro
 
 **Portabilidade** *(D37, D42)*
-- ✅ Portable Schema **v2**, com o corpo, as âncoras do nó e o PDF fonte
-- ✅ Migrador `v1 → v2` — o primeiro
+- ✅ Portable Schema **v2**, com o corpo, as âncoras do nó e o PDF fonte *(substituído pela v3,
+  #268: figuras com nome, tipo e MIME, a capa, o recorte da âncora e a lixeira)*
+- ✅ Migrador `v1 → v2` — o primeiro *(removido com a v3: só ela abre)*
 - ✅ Versão desconhecida continua sendo recusada, nunca adivinhada
 
 **Aceite da fase**
 - [ ] Uma seção com teoria compila **junto** com as questões que ela contém *(o corpo compila
   sozinho; a composição com as questões é da exportação de avaliação)*
-- ✅ Um `.lbb` v1 gerado antes desta fase importa sem perda
+- ✅ Um `.lbb` v1 gerado antes desta fase importa sem perda *(revogado pela v3: é recusado com
+  mensagem)*
 - ✅ O round-trip de um `.lbb` v2 com corpo de nó dá identidade *(e contra o banco: escanear,
-  aprovar, exportar e importar devolvem corpo, âncoras e PDF fonte)*
+  aprovar, exportar e importar devolvem corpo, âncoras e PDF fonte; na v3, também as figuras do
+  corpo e das questões, que a v2 não levava — #268)*
 - ◐ O *Curso de Análise* tem uma seção com teoria e exercícios, ambos vindos do PDF *(a proposta
   tem; aprovar no acervo real fica com o autor)*
 - [ ] Reavaliar as 5 figuras órfãs de Fundamentos
@@ -2145,14 +2157,15 @@ escritas de verdade no banco de desenvolvimento.*
 - ✅ Import snippets LaTeX *(enunciado, resposta, complemento e origem — `latexQuestao`,
   `latexResposta`, `latexComplemento`, `latexOrigin`)*
 - ✅ Relatório *(console do script: publicações, exclusões por invariante com motivo e legacyId,
-  contagem final — falta só o formato `ImportReport` estruturado, hoje é texto)*
+  contagem final; desde a revisão de 2026-09-23 também o `ImportReport` estruturado, em JSON)*
 
 ### Portabilidade *(novo, D18/D32)*
 - ✅ Exporta workspace em `.lbb`
 - ✅ Importa `.lbb` *(com dry-run antes de gravar, sempre)*
 - ✅ Round-trip preserva identidade *(verificado contra o banco real)*
 - ✅ Backup recorrente produz `.lbb` restaurável *(um arquivo do backup automático passa pelo
-  mesmo round-trip)*
+  mesmo round-trip; desde a v3, #268 e #269, contra outro banco e com figuras, avaliações e
+  revisões)*
 
 ---
 

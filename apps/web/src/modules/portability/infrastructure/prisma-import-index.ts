@@ -24,39 +24,57 @@ import type { PortableWorkspace } from "@modules/portability/domain/portable-sch
  */
 
 export async function readExistingIndex(): Promise<ExistingIndex> {
-  const [publicacoes, questoes] = await Promise.all([
+  const [bibliotecas, publicacoes, nos] = await Promise.all([
+    prisma.workspace.findMany({
+      where: { legacyId: { not: null } },
+      select: { id: true, legacyId: true },
+    }),
     prisma.publication.findMany({
       // `isbn` entra no OR: livro nascido no app não tem chave legada nenhuma, e era exatamente
       // ele que não colidia com a própria cópia.
       where: {
         OR: [{ legacyId: { not: null } }, { legacyUuid: { not: null } }, { isbn: { not: null } }],
       },
-      select: { id: true, legacyId: true, legacyUuid: true, isbn: true },
+      select: { id: true, workspaceId: true, legacyId: true, legacyUuid: true, isbn: true },
     }),
-    prisma.question.findMany({
-      where: { legacyId: { not: null } },
-      select: { id: true, legacyId: true },
+    // A questão pelo nó que a aponta: é o nó que diz de que livro ela é (ACV-11).
+    prisma.documentNode.findMany({
+      where: { question: { legacyId: { not: null } } },
+      select: { publicationId: true, question: { select: { id: true, legacyId: true } } },
     }),
   ]);
 
-  const publicationsByLegacyId = new Map<number, string>();
+  const workspacesByLegacyId = new Map<number, string>();
+  for (const row of bibliotecas) {
+    if (row.legacyId !== null) workspacesByLegacyId.set(row.legacyId, row.id);
+  }
+
+  const publicationsByLegacyId = new Map<string, Map<number, string>>();
   const publicationsByLegacyUuid = new Map<string, string>();
   const publicationsByIsbn = new Map<string, string>();
 
   for (const row of publicacoes) {
-    if (row.legacyId !== null) publicationsByLegacyId.set(row.legacyId, row.id);
+    if (row.legacyId !== null) {
+      const daBiblioteca = publicationsByLegacyId.get(row.workspaceId) ?? new Map<number, string>();
+      daBiblioteca.set(row.legacyId, row.id);
+      publicationsByLegacyId.set(row.workspaceId, daBiblioteca);
+    }
     if (row.legacyUuid !== null) publicationsByLegacyUuid.set(row.legacyUuid, row.id);
 
     const isbn = normalizeIsbn(row.isbn);
     if (isbn !== null) publicationsByIsbn.set(isbn, row.id);
   }
 
-  const questionsByLegacyId = new Map<number, string>();
-  for (const row of questoes) {
-    if (row.legacyId !== null) questionsByLegacyId.set(row.legacyId, row.id);
+  const questionsByLegacyId = new Map<string, Map<number, string>>();
+  for (const row of nos) {
+    if (row.question === null || row.question.legacyId === null) continue;
+    const doLivro = questionsByLegacyId.get(row.publicationId) ?? new Map<number, string>();
+    doLivro.set(row.question.legacyId, row.question.id);
+    questionsByLegacyId.set(row.publicationId, doLivro);
   }
 
   return {
+    workspacesByLegacyId,
     publicationsByLegacyId,
     publicationsByLegacyUuid,
     publicationsByIsbn,
@@ -79,10 +97,12 @@ export async function describeConflicts(
 ): Promise<readonly ConflitoDeImportacao[]> {
   if (colisoes.length === 0) return [];
 
+  const workspaceIds = colisoes.filter((c) => c.kind === "workspace").map((c) => c.existingId);
   const publicationIds = colisoes.filter((c) => c.kind === "publication").map((c) => c.existingId);
   const questionIds = colisoes.filter((c) => c.kind === "question").map((c) => c.existingId);
 
-  const [publicacoes, contagens, questoes] = await Promise.all([
+  const [bibliotecas, publicacoes, contagens, questoes] = await Promise.all([
+    prisma.workspace.findMany({ where: { id: { in: workspaceIds } }, select: { id: true, name: true } }),
     prisma.publication.findMany({
       where: { id: { in: publicationIds } },
       select: { id: true, title: true, nickname: true, legacyId: true, legacyUuid: true },
@@ -120,7 +140,19 @@ export async function describeConflicts(
     if (isbn !== null) noArquivo.set(`isbn:${isbn}`, quantas);
   }
 
+  const bibliotecaPorId = new Map(bibliotecas.map((row) => [row.id, row.name]));
+
   return colisoes.map((colisao): ConflitoDeImportacao => {
+    if (colisao.kind === "workspace") {
+      return {
+        kind: "workspace",
+        title: bibliotecaPorId.get(colisao.existingId) ?? portable.name,
+        existingQuestions: null,
+        incomingQuestions: null,
+        existingId: colisao.existingId,
+      };
+    }
+
     if (colisao.kind === "question") {
       const questao = questaoPorId.get(colisao.existingId);
 

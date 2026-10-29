@@ -4,8 +4,17 @@ import {
   toPortable,
   type RuntimeWorkspace,
 } from "@modules/portability/application/export-workspace";
-import { toRuntime } from "@modules/portability/application/import-workspace";
+import {
+  EMPTY_INDEX,
+  toRuntime,
+  type ExistingIndex,
+} from "@modules/portability/application/import-workspace";
 import { readArchive, writeArchive } from "@modules/portability/domain/portable-archive";
+
+/** `sha256` de mentira, mas com a forma de um — o schema da v3 confere. */
+const AA = "aa".repeat(32);
+const BB = "bb".repeat(32);
+const CC = "cc".repeat(32);
 
 /**
  * As duas projeções, e o round-trip que as exercita juntas.
@@ -18,6 +27,12 @@ import { readArchive, writeArchive } from "@modules/portability/domain/portable-
 const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
   name: "Matemática Financeira",
   slug: "matematica-financeira",
+  description: null,
+  legacyId: null,
+  legacySourcePath: null,
+  assessments: [],
+  templates: [],
+  revisions: [],
   tags: [
     { name: "juros simples", kind: "TOPIC" },
     { name: "álgebra", kind: "SUBJECT" },
@@ -41,32 +56,44 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
       volume: "2",
       notes: "exemplar anotado",
       authors: ["Iezzi, Gelson", "Murakami, Carlos"],
+      publicationDate: "2019-03-01T00:00:00.000Z",
+      captureProfileId: "book-v1",
       legacyId: 7,
       legacyUuid: "legacy-uuid-1",
+      legacyUpdatedAt: "2020-01-02T03:04:05.000Z",
       metadataJson: '{"series":"concursos"}',
-      coverAssetSha256: "aa11",
-      sourcePdfAssetSha256: "bb22",
+      assets: [
+        { sha256: AA, kind: "COVER", mimeType: "image/jpeg", originalFilename: "capa.jpg", width: 600, height: 900, metadataJson: null },
+        { sha256: BB, kind: "SOURCE_PDF", mimeType: "application/pdf", originalFilename: "jd3.pdf", width: null, height: null, metadataJson: null },
+      ],
+      coverAssetSha256: AA,
+      sourcePdfAssetSha256: BB,
       nodes: [
         {
           id: "uuid-node-1",
           parentId: null,
           kind: "CHAPTER",
           title: "Juros Simples",
+          slug: "juros-simples",
           sortKey: "a0",
           numberingStyle: "ROMAN",
           originalLabel: "I",
           legacyId: 100,
+          deletedAt: null,
           question: null,
           bodyLatex: "Juros simples incidem só sobre o capital.",
           anchors: [
             {
-              sha256: "bb22",
+              sha256: BB,
+              cropSha256: CC,
               pageNumber: 12,
               box: { x: 0.1, y: 0.2, width: 0.8, height: 0.05 },
+              rotation: 90,
               role: "PRIMARY",
               sourceText: "Capítulo I — Juros Simples",
               extractionMethod: "scan:book-v1@1",
               extractionModel: null,
+              metadataJson: '{"itemKey":"k"}',
             },
           ],
         },
@@ -75,10 +102,12 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
           parentId: "uuid-node-1",
           kind: "QUESTION",
           title: null,
+          slug: null,
           sortKey: "a1",
           numberingStyle: "ARABIC",
           originalLabel: "1",
           legacyId: 101,
+          deletedAt: "2026-09-01T12:00:00.000Z",
           bodyLatex: "",
           anchors: [],
           question: {
@@ -101,7 +130,10 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
             validationStatus: "VALID",
             legacyId: 101,
             tags: ["juros simples"],
-            assetSha256: ["bb22", "aa11"],
+            assets: [
+              { sha256: CC, kind: "QUESTION_IMAGE", mimeType: "image/png", originalFilename: "fig3.png", width: 320, height: 200, metadataJson: null },
+              { sha256: AA, kind: "ATTACHMENT", mimeType: "image/jpeg", originalFilename: null, width: null, height: null, metadataJson: '{"x":1}' },
+            ],
             options: [
               {
                 id: "uuid-o-1",
@@ -173,7 +205,10 @@ describe("runtime → portable", () => {
     const portable = toPortable(runtime());
 
     expect(portable.tags.map((tag) => tag.name)).toEqual(["álgebra", "juros simples"]);
-    expect(portable.publications[0]?.nodes[1]?.question?.assets).toEqual(["aa11", "bb22"]);
+    expect(portable.publications[0]?.nodes[1]?.question?.assets.map((asset) => asset.sha256)).toEqual([
+      AA,
+      CC,
+    ]);
   });
 });
 
@@ -204,34 +239,6 @@ describe("round-trip das projeções", () => {
     // Na ordem em que assinam: quem assina primeiro assina primeiro, e é dela que a estante tira
     // "Iezzi e outros".
     expect(livro?.authors).toEqual(["Iezzi, Gelson", "Murakami, Carlos"]);
-  });
-
-  it("arquivo gravado antes destes campos continua importando", () => {
-    // O `.lbb` de ontem não tem a ficha. Ausente vira `null`, e o import não recusa — recusar o
-    // backup de alguém por ele ser antigo é o oposto do que um formato de portabilidade faz.
-    const portable = toPortable(runtime());
-    const antigo = {
-      ...portable,
-      // A ficha é removida do arquivo para simular o `.lbb` de ontem. `Omit` em vez de
-      // desestruturação porque o lint recusa dez variáveis declaradas e não usadas — e ele está
-      // certo: o que interessa aqui é o que **fica**, não o que sai.
-      publications: portable.publications.map((publicacao) => {
-        const copia: Record<string, unknown> = { ...publicacao };
-        for (const campo of [
-          "nickname", "isbn", "otherIdentifier", "edition", "editionYear",
-          "language", "series", "volume", "notes", "authors",
-        ]) {
-          delete copia[campo];
-        }
-        return copia as unknown as (typeof portable.publications)[number];
-      }),
-    };
-
-    const [livro] = toRuntime(antigo).workspace.publications;
-
-    expect(livro?.title).toBe("Juros e Descontos");
-    expect(livro?.isbn).toBeNull();
-    expect(livro?.authors).toEqual([]);
   });
 
   it("**projetar o resultado de novo dá o mesmo arquivo**", () => {
@@ -314,16 +321,29 @@ describe("round-trip pelo arquivo inteiro", () => {
   });
 });
 
+/** Um índice do destino vazio, com só o que o teste preenche. */
+const index = (over: Partial<ExistingIndex> = {}): ExistingIndex => ({ ...EMPTY_INDEX, ...over });
+
+/** A biblioteca 42 do legado — a origem que dá escopo ao `legacyId` do livro (ACV-11). */
+const fromLibrary42 = () => toPortable({ ...runtime(), legacyId: 42 });
+
 describe("colisões — nada é sobrescrito em silêncio", () => {
-  it("publicação com o mesmo `legacyId` no destino vira colisão relatada", () => {
+  it("a biblioteca de mesma origem (`legacyId`) vira colisão relatada", () => {
+    const plan = toRuntime(fromLibrary42(), index({ workspacesByLegacyId: new Map([[42, "ws-42"]]) }));
+
+    expect(plan.collisions).toContainEqual({ kind: "workspace", by: "legacyId", value: 42, existingId: "ws-42" });
+  });
+
+  it("publicação com o mesmo `legacyId` **na biblioteca de mesma origem** vira colisão relatada", () => {
     // Um import que atualizasse por conta própria transformaria "trazer um acervo" em
     // "sobrescrever o meu", e a diferença só apareceria depois de o trabalho de alguém sumir.
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map([[7, "id-existente"]]),
-      publicationsByLegacyUuid: new Map(),
-      publicationsByIsbn: new Map(),
-      questionsByLegacyId: new Map(),
-    });
+    const plan = toRuntime(
+      fromLibrary42(),
+      index({
+        workspacesByLegacyId: new Map([[42, "ws-42"]]),
+        publicationsByLegacyId: new Map([["ws-42", new Map([[7, "id-existente"]])]]),
+      }),
+    );
 
     expect(plan.collisions).toContainEqual({
       kind: "publication",
@@ -331,6 +351,30 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
       value: 7,
       existingId: "id-existente",
     });
+  });
+
+  it("o mesmo `legacyId` de livro em **outra** biblioteca não é o mesmo livro (ACV-11)", () => {
+    // A numeração do legado recomeça em cada biblioteca: o livro 7 da biblioteca 1 não tem nada a
+    // ver com o livro 7 da 42, e acusar conflito ensinava a pessoa a ignorar o relatório.
+    const plan = toRuntime(
+      fromLibrary42(),
+      index({
+        workspacesByLegacyId: new Map([[1, "ws-1"]]),
+        publicationsByLegacyId: new Map([["ws-1", new Map([[7, "livro-de-outra"]])]]),
+        questionsByLegacyId: new Map([["livro-de-outra", new Map([[101, "questao-de-outra"]])]]),
+      }),
+    );
+
+    expect(plan.collisions).toEqual([]);
+  });
+
+  it("arquivo sem origem legada não colide livro por `legacyId` — não há escopo que lhe dê sentido", () => {
+    const plan = toRuntime(
+      toPortable(runtime()),
+      index({ publicationsByLegacyId: new Map([["ws-1", new Map([[7, "livro-de-outra"]])]]) }),
+    );
+
+    expect(plan.collisions).toEqual([]);
   });
 
   it("**ISBN** também colide — a chave que funciona para livro nascido no app", () => {
@@ -342,14 +386,12 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
      *
      * O ISBN é o identificador que a pessoa digitou, e significa "é este livro" fora deste banco.
      */
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map(),
-      publicationsByLegacyUuid: new Map(),
+    const plan = toRuntime(
+      toPortable(runtime()),
       // Sem hífen no índice, com hífen no arquivo: é assim que a ficha catalográfica escreve, e
       // comparar sem normalizar deixaria passar a duplicata mais óbvia que existe.
-      publicationsByIsbn: new Map([["9788535700114", "id-mesmo-livro"]]),
-      questionsByLegacyId: new Map(),
-    });
+      index({ publicationsByIsbn: new Map([["9788535700114", "id-mesmo-livro"]]) }),
+    );
 
     expect(plan.collisions).toContainEqual({
       kind: "publication",
@@ -369,26 +411,36 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
         ...semChaves,
         publications: [{ ...publicacao!, legacyId: null, legacyUuid: null, isbn: null }],
       }),
-      {
-        publicationsByLegacyId: new Map(),
-        publicationsByLegacyUuid: new Map(),
-        publicationsByIsbn: new Map([["9788535700114", "outro"]]),
-        questionsByLegacyId: new Map(),
-      },
+      index({ publicationsByIsbn: new Map([["9788535700114", "outro"]]) }),
     );
 
     expect(plan.collisions).toEqual([]);
   });
 
-  it("questão com o mesmo `legacyId` também é relatada", () => {
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map(),
-      publicationsByLegacyUuid: new Map(),
-      publicationsByIsbn: new Map(),
-      questionsByLegacyId: new Map([[101, "q-existente"]]),
-    });
+  it("questão com o mesmo `legacyId` é relatada **dentro do livro que colidiu**, e só ali", () => {
+    const plan = toRuntime(
+      toPortable(runtime()),
+      index({
+        publicationsByLegacyUuid: new Map([["legacy-uuid-1", "mesmo-livro"]]),
+        questionsByLegacyId: new Map([
+          ["mesmo-livro", new Map([[101, "q-existente"]])],
+          ["outro-livro", new Map([[101, "q-de-outro-livro"]])],
+        ]),
+      }),
+    );
 
-    expect(plan.collisions.map((entry) => entry.kind)).toEqual(["question"]);
+    expect(plan.collisions.filter((entry) => entry.kind === "question")).toEqual([
+      { kind: "question", by: "legacyId", value: 101, existingId: "q-existente" },
+    ]);
+  });
+
+  it("questão de livro que não colidiu não é relatada, mesmo com o `legacyId` igual", () => {
+    const plan = toRuntime(
+      toPortable(runtime()),
+      index({ questionsByLegacyId: new Map([["outro-livro", new Map([[101, "q-de-outro-livro"]])]]) }),
+    );
+
+    expect(plan.collisions).toEqual([]);
   });
 
   it("destino vazio não gera colisão nenhuma", () => {
@@ -396,12 +448,7 @@ describe("colisões — nada é sobrescrito em silêncio", () => {
   });
 
   it("o plano existe mesmo com colisão — quem decide é quem chamou", () => {
-    const plan = toRuntime(toPortable(runtime()), {
-      publicationsByLegacyId: new Map([[7, "id-existente"]]),
-      publicationsByLegacyUuid: new Map(),
-      publicationsByIsbn: new Map(),
-      questionsByLegacyId: new Map(),
-    });
+    const plan = toRuntime(toPortable(runtime()), index({ publicationsByIsbn: new Map([["9788535700114", "x"]]) }));
 
     expect(plan.workspace.publications).toHaveLength(1);
   });

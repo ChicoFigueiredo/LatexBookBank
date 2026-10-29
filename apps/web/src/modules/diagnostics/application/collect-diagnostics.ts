@@ -4,6 +4,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { capabilitiesFor, profileForBaseUrl } from "@modules/agents/domain/ai-profile";
+import {
+  describeBackupStatus,
+  type BackupStatusFile,
+} from "@modules/diagnostics/domain/backup-status";
 import type { Diagnostics, SectionStatus } from "@modules/diagnostics/domain/diagnostics";
 import { probeHostTex, type HostTex } from "@modules/diagnostics/infrastructure/host-tex";
 import {
@@ -217,14 +221,6 @@ function describeAi(
   };
 }
 
-interface BackupStatusFile {
-  finishedAt?: string;
-  ok?: boolean;
-  workspaces?: number;
-  totalBytes?: number;
-  failures?: { workspaceId: string; message: string }[];
-}
-
 /**
  * Lê o estado que o serviço de backup deixou.
  *
@@ -246,23 +242,15 @@ async function readBackupStatus(): Promise<SectionStatus> {
     const raw = await readFile(join(destination, "backup-status.json"), "utf8");
     const status = JSON.parse(raw) as BackupStatusFile;
 
-    const when = status.finishedAt ? new Date(status.finishedAt) : null;
-    const failures = status.failures ?? [];
-
+    // Verde só enquanto o último sucesso é recente (PLT-13): um "ok" de vinte dias atrás é um
+    // serviço parado, não um backup em dia.
+    const described = describeBackupStatus(status, {
+      now: new Date(),
+      intervalHours: Number(process.env["BACKUP_INTERVAL_HOURS"] ?? "24") || 24,
+    });
     return {
-      health: status.ok === true ? "ok" : "off",
-      summary:
-        status.ok === true
-          ? `Último backup: ${format(when)} · ${formatBytes(status.totalBytes ?? 0)}`
-          : `Último backup falhou — ${format(when)}`,
-      details: [
-        { label: "Destino", value: destination },
-        { label: "Workspaces", value: String(status.workspaces ?? 0) },
-        ...failures.map((failure) => ({
-          label: `Falha (${failure.workspaceId})`,
-          value: failure.message.slice(0, 200),
-        })),
-      ],
+      ...described,
+      details: [{ label: "Destino", value: destination }, ...described.details],
     };
   } catch {
     // Destino configurado e sem arquivo de estado: o serviço nunca rodou. Dizer isso é melhor que

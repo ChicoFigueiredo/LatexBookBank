@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { PrismaLibSql } from "@prisma/adapter-libsql";
@@ -5,6 +6,10 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaClient } from "../src/generated/prisma/client.ts";
 import { LocalFileStorageProvider } from "../src/infrastructure/storage/local/local-file-storage-provider.ts";
 import { resolveLegacyFigures } from "../src/modules/legacy-import/application/import-legacy-figures.ts";
+import {
+  buildLegacyImportReport,
+  type LegacyImportReportJson,
+} from "../src/modules/legacy-import/application/legacy-import-report.ts";
 import { mapLegacyLibrary } from "../src/modules/legacy-import/application/map-legacy-library.ts";
 import { NodeLegacyFsProbe } from "../src/modules/legacy-import/infrastructure/node-legacy-fs-probe.ts";
 import { PrismaLegacyImportWriter } from "../src/modules/legacy-import/infrastructure/prisma-legacy-import-writer.ts";
@@ -26,6 +31,10 @@ import { EMPTY_INDEX, toRuntime } from "../src/modules/portability/application/i
  * por isso o acervo precisa estar montado na hora de escrever, não só na de auditar.
  *
  * Exige `CONFIRM=yes` de propósito: isto cria dado real no banco de `DATABASE_URL`.
+ *
+ * O relatório é o `ImportReport` estruturado da Fase 11 (`legacy-import-report.ts`): o mesmo no
+ * dry-run e na gravação, resumido no console e gravado em JSON quando `REPORT_PATH` é dado — duas
+ * execuções se comparam com um `diff`.
  *
  *     LEGACY_ID=15 LEGACY_LIBRARY_PATH=/mnt/t/KnowChico/Analise/analise-elon.knowchico \
  *     WORKSPACE_NAME="Análise Elon" WORKSPACE_SLUG=analise-elon CONFIRM=yes \
@@ -72,35 +81,51 @@ async function main(): Promise<void> {
     const mapping = mapLegacyLibrary(contents, { workspaceName, workspaceSlug, figures });
     const plan = toRuntime(mapping.portable, EMPTY_INDEX);
 
-    console.log(`${plan.workspace.publications.length} publicação(ões), ${mapping.excluded.length} excluída(s) por invariante.`);
-    if (mapping.excluded.length > 0) {
-      for (const entry of mapping.excluded) console.log(`  - ${entry.legacyId}: ${entry.reason}`);
-    }
-
     const attached = figures.figures.length - mapping.unattachedFigures.length;
-    console.log(`${figures.figures.length} figura(s) no disco; ${attached} vai(vão) como Asset de questão.`);
-    for (const entry of mapping.unattachedFigures) {
-      console.log(`  - questão ${entry.legacyQuestionId} · ${entry.relativePath}: sem questão no destino (${entry.reason})`);
-    }
-    for (const entry of figures.skipped) {
-      console.log(`  - questão ${entry.legacyQuestionId} · ${entry.field} · ${entry.ref}: ${entry.reason}`);
-    }
+    const reportOf = (written: Parameters<typeof buildLegacyImportReport>[0]["written"]) =>
+      buildLegacyImportReport({ mapping, skippedFigures: figures.skipped, attachedFigures: attached, written });
 
     if (!confirmed) {
+      await emit(reportOf(null));
       console.log("\nNada escrito ainda — rode de novo com CONFIRM=yes para gravar.");
       return;
     }
 
-    const report = await writer.write(
+    const written = await writer.write(
       plan,
       { legacyId, legacySourcePath: libraryPath },
       { resolution: figures, storage },
     );
 
-    console.log(`\nEscrito: workspace ${report.workspaceId}`);
-    console.log(`  ${report.publications} publicação(ões), ${report.nodes} nó(s), ${report.questions} questão(ões), ${report.options} alternativa(s), ${report.figures} figura(s).`);
+    console.log(`\nEscrito: workspace ${written.workspaceId}`);
+    await emit(reportOf(written));
   } finally {
     await prisma.$disconnect();
+  }
+}
+
+/** O resumo no console, e o JSON inteiro em `REPORT_PATH` quando dado. */
+async function emit(report: LegacyImportReportJson): Promise<void> {
+  const { importados: i } = report;
+  console.log(
+    `${report.dryRun ? "Entraria" : "Entrou"}: ${i.publicacoes} publicação(ões), ${i.nos} nó(s), ` +
+      `${i.questoes} questão(ões), ${i.alternativas} alternativa(s), ${i.figuras} figura(s).`,
+  );
+  for (const [label, entries] of [
+    ["inconsistente(s)", report.inconsistentes],
+    ["ignorado(s)", report.ignorados],
+    ["órfão(s)", report.orfaos],
+    ["asset(s) ausente(s)", report.assetsAusentes],
+  ] as const) {
+    if (entries.length === 0) continue;
+    console.log(`${entries.length} ${label}:`);
+    for (const entry of entries) console.log(`  - ${entry.legacyId}: ${entry.motivo}`);
+  }
+
+  const reportPath = process.env["REPORT_PATH"];
+  if (reportPath) {
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+    console.log(`Relatório em ${reportPath}`);
   }
 }
 

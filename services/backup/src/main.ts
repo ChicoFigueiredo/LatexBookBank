@@ -38,7 +38,7 @@ async function runOnce(config: BackupConfig): Promise<BackupOutcome> {
   }
 
   await prune(config);
-  await writeStatus(config.destination, outcome);
+  await writeStatus(config.destination, outcome, config.intervalMs);
 
   return outcome;
 }
@@ -86,10 +86,11 @@ async function main(): Promise<void> {
       // página de diagnóstico lê. Um backup que falha sem avisar é pior que nenhum, porque cria a
       // impressão de que existe.
       console.error("[backup] falhou:", error);
-      await writeStatus(config.destination, {
-        archives: [],
-        failures: [{ workspaceId: "*", message: String(error) }],
-      }).catch(() => undefined);
+      await writeStatus(
+        config.destination,
+        { archives: [], failures: [{ workspaceId: "*", message: String(error) }] },
+        config.intervalMs,
+      ).catch(() => undefined);
     }
   };
 

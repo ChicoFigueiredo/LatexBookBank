@@ -216,6 +216,37 @@ describe("importar um `.lbb`", () => {
 
     await waitFor(() => expect(urls).toHaveLength(2));
     expect(urls[1]).not.toContain("dryRun");
+    // Sem conflito no dry-run, não há o que aceitar.
+    expect(urls[1]).not.toContain("acceptCollisions");
     await waitFor(() => expect(screen.getByText(/Importado: 7/)).toBeTruthy());
+  });
+
+  it("com conflito no dry-run, confirmar leva o aceite — o servidor recusa gravar sem ele (#270)", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", (url: string) => {
+      urls.push(String(url));
+      const dry = String(url).includes("dryRun=1");
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            dry
+              ? {
+                  wouldCreate: { publications: 1, questions: 7, assets: 0 },
+                  collisions: [{ kind: "publication", by: "isbn", value: "978", existingId: "x" }],
+                }
+              : { report: { questions: 7 } },
+          ),
+      } as Response);
+    });
+    const view = show();
+    await escolher(view);
+
+    await waitFor(() => expect(screen.getByText(/Importar como um workspace novo/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Importar" }));
+
+    await waitFor(() => expect(urls).toHaveLength(2));
+    expect(urls[1]).toContain("acceptCollisions=1");
   });
 });

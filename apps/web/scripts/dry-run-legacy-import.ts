@@ -1,9 +1,11 @@
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 import { PrismaClient } from "../src/generated/prisma/client.ts";
 import { resolveLegacyFigures } from "../src/modules/legacy-import/application/import-legacy-figures.ts";
+import { buildLegacyImportReport } from "../src/modules/legacy-import/application/legacy-import-report.ts";
 import { mapLegacyLibrary } from "../src/modules/legacy-import/application/map-legacy-library.ts";
 import { NodeLegacyFsProbe } from "../src/modules/legacy-import/infrastructure/node-legacy-fs-probe.ts";
 import { SqliteLegacyLibraryReader } from "../src/modules/legacy-import/infrastructure/sqlite-legacy-library-reader.ts";
@@ -21,41 +23,68 @@ import {
  *     WORKSPACE_NAME="Cesgranrio CAIXA" WORKSPACE_SLUG=cesgranrio-caixa \
  *       bun run scripts/dry-run-legacy-import.ts
  *
+ * Com `REPORT_PATH`, grava também o `ImportReport` estruturado (`legacy-import-report.ts`) em JSON
+ * — o mesmo que `write-legacy-import.ts` grava —, para comparar duas rodadas com um `diff`.
+ *
  * O índice do destino é consultado direto pelo Prisma aqui dentro, sem passar por
  * `readExistingIndex` — aquele arquivo é `server-only`, e um script não é um Server Component.
  * Mesma consulta, mesmo formato de índice.
  */
 async function readExistingIndex(prisma: PrismaClient): Promise<ExistingIndex> {
-  const [publicacoes, questoes] = await Promise.all([
+  const [bibliotecas, publicacoes, nos] = await Promise.all([
+    prisma.workspace.findMany({
+      where: { legacyId: { not: null } },
+      select: { id: true, legacyId: true },
+    }),
     prisma.publication.findMany({
       where: {
         OR: [{ legacyId: { not: null } }, { legacyUuid: { not: null } }, { isbn: { not: null } }],
       },
-      select: { id: true, legacyId: true, legacyUuid: true, isbn: true },
+      select: { id: true, workspaceId: true, legacyId: true, legacyUuid: true, isbn: true },
     }),
-    prisma.question.findMany({
-      where: { legacyId: { not: null } },
-      select: { id: true, legacyId: true },
+    prisma.documentNode.findMany({
+      where: { question: { legacyId: { not: null } } },
+      select: { publicationId: true, question: { select: { id: true, legacyId: true } } },
     }),
   ]);
 
-  const publicationsByLegacyId = new Map<number, string>();
+  // Com escopo (ACV-11): o `legacyId` de livro vale dentro da biblioteca, o de questão dentro do
+  // livro. A numeração do legado recomeça em cada biblioteca.
+  const workspacesByLegacyId = new Map<number, string>();
+  for (const row of bibliotecas) {
+    if (row.legacyId !== null) workspacesByLegacyId.set(row.legacyId, row.id);
+  }
+
+  const publicationsByLegacyId = new Map<string, Map<number, string>>();
   const publicationsByLegacyUuid = new Map<string, string>();
   const publicationsByIsbn = new Map<string, string>();
 
   for (const row of publicacoes) {
-    if (row.legacyId !== null) publicationsByLegacyId.set(row.legacyId, row.id);
+    if (row.legacyId !== null) {
+      const daBiblioteca = publicationsByLegacyId.get(row.workspaceId) ?? new Map<number, string>();
+      daBiblioteca.set(row.legacyId, row.id);
+      publicationsByLegacyId.set(row.workspaceId, daBiblioteca);
+    }
     if (row.legacyUuid !== null) publicationsByLegacyUuid.set(row.legacyUuid, row.id);
     const isbn = normalizeIsbn(row.isbn);
     if (isbn !== null) publicationsByIsbn.set(isbn, row.id);
   }
 
-  const questionsByLegacyId = new Map<number, string>();
-  for (const row of questoes) {
-    if (row.legacyId !== null) questionsByLegacyId.set(row.legacyId, row.id);
+  const questionsByLegacyId = new Map<string, Map<number, string>>();
+  for (const row of nos) {
+    if (row.question === null || row.question.legacyId === null) continue;
+    const doLivro = questionsByLegacyId.get(row.publicationId) ?? new Map<number, string>();
+    doLivro.set(row.question.legacyId, row.question.id);
+    questionsByLegacyId.set(row.publicationId, doLivro);
   }
 
-  return { publicationsByLegacyId, publicationsByLegacyUuid, publicationsByIsbn, questionsByLegacyId };
+  return {
+    workspacesByLegacyId,
+    publicationsByLegacyId,
+    publicationsByLegacyUuid,
+    publicationsByIsbn,
+    questionsByLegacyId,
+  };
 }
 
 async function main(): Promise<void> {
@@ -128,6 +157,18 @@ async function main(): Promise<void> {
       for (const collision of plan.collisions) {
         console.log(`  - ${collision.kind} por ${collision.by}=${collision.value} → id existente ${collision.existingId}`);
       }
+    }
+
+    const reportPath = process.env["REPORT_PATH"];
+    if (reportPath) {
+      const report = buildLegacyImportReport({
+        mapping,
+        skippedFigures: figures.skipped,
+        attachedFigures: figures.figures.length - mapping.unattachedFigures.length,
+        written: null,
+      });
+      await writeFile(reportPath, JSON.stringify(report, null, 2));
+      console.log(`\nRelatório em ${reportPath}`);
     }
   } finally {
     await prisma.$disconnect();

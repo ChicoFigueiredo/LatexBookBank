@@ -15,9 +15,16 @@ import { LocalFileStorageProvider } from "../src/infrastructure/storage/local/lo
  * metadata para trazer. `cover.jpg`/`cover.png` são reais; um PDF fonte solto na pasta (achado
  * numa das 8, `Prof-Mat/pub0000000008`) também é — os dois são gravados aqui.
  *
- *     bun run scripts/backfill-legacy-assets.ts
+ * **Lista antes de gravar** (PLT-16): sem `CONFIRM=yes` é dry-run — diz o que gravaria e não
+ * escreve nada, nem no banco nem no storage. O asset e o vínculo com a publicação vão numa
+ * transação só, e o vínculo só pega se a publicação ainda não tem capa (ou fonte): uma queda entre
+ * os dois não deixa mais um `Asset` órfão, e rodar de novo não cria um segundo.
+ *
+ *     bun run scripts/backfill-legacy-assets.ts                # dry-run
+ *     CONFIRM=yes bun run scripts/backfill-legacy-assets.ts    # grava
  */
 async function main(): Promise<void> {
+  const confirmed = process.env["CONFIRM"] === "yes";
   const url = process.env["DATABASE_URL"];
   const storageRoot = process.env["STORAGE_ROOT"];
   if (!url) throw new Error("DATABASE_URL ausente. Rode `bun run setup`.");
@@ -25,6 +32,58 @@ async function main(): Promise<void> {
 
   const prisma = new PrismaClient({ adapter: new PrismaLibSql({ url }) });
   const storage = new LocalFileStorageProvider({ rootDir: storageRoot });
+
+  /**
+   * Grava o arquivo e liga à publicação — o `Asset` e o ponteiro juntos, ou nenhum dos dois.
+   *
+   * O `updateMany` com o ponteiro nulo no `where` é o guarda da corrida: se outra execução (ou o
+   * app) ligou um arquivo entre a leitura e aqui, a transação desfaz o `Asset` em vez de deixá-lo
+   * solto.
+   */
+  const attach = async (input: {
+    readonly workspaceId: string;
+    readonly publicationId: string;
+    readonly kind: "COVER" | "SOURCE_PDF";
+    readonly bytes: Uint8Array;
+    readonly mimeType: string;
+    readonly originalFilename: string;
+  }): Promise<{ readonly sizeBytes: number } | null> => {
+    const stored = await storage.put({
+      workspaceId: input.workspaceId,
+      content: input.bytes,
+      mimeType: input.mimeType,
+      originalFilename: input.originalFilename,
+    });
+    const pointer = input.kind === "COVER" ? "coverAssetId" : "sourcePdfAssetId";
+
+    return prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.create({
+        data: {
+          workspaceId: input.workspaceId,
+          publicationId: input.publicationId,
+          kind: input.kind,
+          storageKey: stored.storageKey,
+          mimeType: input.mimeType,
+          originalFilename: input.originalFilename,
+          sha256: stored.sha256,
+          sizeBytes: stored.sizeBytes,
+        },
+        select: { id: true },
+      });
+      const linked = await tx.publication.updateMany({
+        where: { id: input.publicationId, [pointer]: null },
+        data: { [pointer]: asset.id },
+      });
+      if (linked.count === 0) {
+        // Alguém ligou outro arquivo nesse meio-tempo: o deste fica de fora, sem linha órfã.
+        await tx.asset.delete({ where: { id: asset.id } });
+        return null;
+      }
+      return { sizeBytes: stored.sizeBytes };
+    });
+  };
+
+  let planned = 0;
 
   try {
     const workspaces = await prisma.workspace.findMany({
@@ -51,6 +110,7 @@ async function main(): Promise<void> {
         // rodando contra o acervo, não hipótese.
         let bytes: Uint8Array | null = null;
         let mimeType = "image/jpeg";
+        let coverFilename = "cover.jpg";
         for (const [filename, mime] of [
           ["cover.jpg", "image/jpeg"],
           ["cover.png", "image/png"],
@@ -58,6 +118,7 @@ async function main(): Promise<void> {
           try {
             bytes = new Uint8Array(await readFile(path.join(libraryDir, folder, filename)));
             mimeType = mime;
+            coverFilename = filename;
             break;
           } catch {
             // tenta a próxima extensão
@@ -69,27 +130,25 @@ async function main(): Promise<void> {
           continue;
         }
 
-        const stored = await storage.put({ workspaceId: workspace.id, content: bytes, mimeType });
+        planned += 1;
+        if (!confirmed) {
+          console.log(`·  ${workspace.name} / pub${publication.legacyId}: gravaria a capa (${bytes.byteLength} bytes)`);
+          continue;
+        }
 
-        const asset = await prisma.asset.create({
-          data: {
-            workspaceId: workspace.id,
-            publicationId: publication.id,
-            kind: "COVER",
-            storageKey: stored.storageKey,
-            mimeType,
-            sha256: stored.sha256,
-            sizeBytes: stored.sizeBytes,
-          },
-          select: { id: true },
+        const done = await attach({
+          workspaceId: workspace.id,
+          publicationId: publication.id,
+          kind: "COVER",
+          bytes,
+          mimeType,
+          originalFilename: coverFilename,
         });
-
-        await prisma.publication.update({
-          where: { id: publication.id },
-          data: { coverAssetId: asset.id },
-        });
-
-        console.log(`✅ ${workspace.name} / pub${publication.legacyId}: capa gravada (${stored.sizeBytes} bytes)`);
+        console.log(
+          done
+            ? `✅ ${workspace.name} / pub${publication.legacyId}: capa gravada (${done.sizeBytes} bytes)`
+            : `—  ${workspace.name} / pub${publication.legacyId}: já ganhou capa por outro caminho`,
+        );
       }
 
       // PDF fonte: um arquivo `.pdf` solto direto na pasta `pub<N>` (não dentro de `idQuestionM/`,
@@ -113,34 +172,33 @@ async function main(): Promise<void> {
         if (pdfFilename === null) continue;
 
         const bytes = new Uint8Array(await readFile(path.join(pubDir, pdfFilename)));
-        const stored = await storage.put({
+
+        planned += 1;
+        if (!confirmed) {
+          console.log(
+            `·  ${workspace.name} / pub${publication.legacyId}: gravaria o PDF fonte (${pdfFilename}, ${bytes.byteLength} bytes)`,
+          );
+          continue;
+        }
+
+        const done = await attach({
           workspaceId: workspace.id,
-          content: bytes,
+          publicationId: publication.id,
+          kind: "SOURCE_PDF",
+          bytes,
           mimeType: "application/pdf",
+          originalFilename: pdfFilename,
         });
-
-        const asset = await prisma.asset.create({
-          data: {
-            workspaceId: workspace.id,
-            publicationId: publication.id,
-            kind: "SOURCE_PDF",
-            storageKey: stored.storageKey,
-            mimeType: "application/pdf",
-            sha256: stored.sha256,
-            sizeBytes: stored.sizeBytes,
-          },
-          select: { id: true },
-        });
-
-        await prisma.publication.update({
-          where: { id: publication.id },
-          data: { sourcePdfAssetId: asset.id },
-        });
-
         console.log(
-          `✅ ${workspace.name} / pub${publication.legacyId}: PDF fonte gravado (${pdfFilename}, ${stored.sizeBytes} bytes)`,
+          done
+            ? `✅ ${workspace.name} / pub${publication.legacyId}: PDF fonte gravado (${pdfFilename}, ${done.sizeBytes} bytes)`
+            : `—  ${workspace.name} / pub${publication.legacyId}: já ganhou PDF fonte por outro caminho`,
         );
       }
+    }
+
+    if (!confirmed) {
+      console.log(`\n${planned} arquivo(s) a gravar. Nada foi escrito. Rode com CONFIRM=yes para gravar.`);
     }
   } finally {
     await prisma.$disconnect();

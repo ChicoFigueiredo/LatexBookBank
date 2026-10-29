@@ -185,7 +185,9 @@ test("exportar e reimportar preserva a ficha catalográfica, autores inclusive",
   const exportado = await page.request.get(`/api/workspaces/export?workspaceId=${library.id}`);
   expect(exportado.ok()).toBeTruthy();
 
-  const importado = await page.request.post("/api/workspaces/import", {
+  // `acceptCollisions=1`: o livro reimportado colide consigo mesmo pelo ISBN, e o servidor só grava
+  // a cópia com o aceite explícito (#270) — é o que a tela manda depois de mostrar o conflito.
+  const importado = await page.request.post("/api/workspaces/import?acceptCollisions=1", {
     headers: { "content-type": "application/zip" },
     data: await exportado.body(),
   });
