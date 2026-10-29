@@ -56,16 +56,25 @@ export async function writeNodeAnchors(tx: Tx, nodeId: string, plan: NodeAnchorP
     });
   }
 
-  const node = await tx.documentNode.update({
+  // **`updatedAt` regravado com o mesmo valor**, no nó e na questão (#259). Ele é o token de
+  // concorrência dos dois editores, e o `@updatedAt` do Prisma o avançaria aqui. A âncora é marcada
+  // pelo *Ver fonte*, de dentro do editor aberto — que só conhece a versão do próprio salvamento —,
+  // e o autosave seguinte batia em 409 sem que ninguém tivesse mexido no texto. Mesma decisão da
+  // validação (#166): estado derivado não é versão nova.
+  const node = await tx.documentNode.findUniqueOrThrow({
     where: { id: nodeId },
-    data: { sourceAnchorId: plan.primaryAnchorId },
-    select: { questionId: true },
+    select: { questionId: true, updatedAt: true, question: { select: { updatedAt: true } } },
   });
 
-  if (node.questionId) {
+  await tx.documentNode.update({
+    where: { id: nodeId },
+    data: { sourceAnchorId: plan.primaryAnchorId, updatedAt: node.updatedAt },
+  });
+
+  if (node.questionId && node.question) {
     await tx.question.update({
       where: { id: node.questionId },
-      data: { sourceAnchorId: plan.primaryAnchorId },
+      data: { sourceAnchorId: plan.primaryAnchorId, updatedAt: node.question.updatedAt },
     });
   }
 }

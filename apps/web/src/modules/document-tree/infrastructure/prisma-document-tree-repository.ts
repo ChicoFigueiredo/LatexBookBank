@@ -103,12 +103,35 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
     return created.id;
   }
 
+  /**
+   * Renomear e mover **não** mudam a versão do nó (#259).
+   *
+   * `updatedAt` é o token de concorrência do **corpo** (`saveNodeBody`), e o `@updatedAt` do Prisma
+   * o avançaria aqui. Com o corpo aberto, renomear o capítulo na árvore ou arrastá-lo fazia o
+   * autosave seguinte bater em 409 — sobre um texto que ninguém mais tinha tocado. Título e
+   * posição são da árvore, não do corpo: o valor é regravado igual, na mesma transação.
+   */
   async rename(nodeId: string, title: string | null): Promise<void> {
-    await prisma.documentNode.update({ where: { id: nodeId }, data: { title } });
+    await prisma.$transaction(async (tx) => {
+      const { updatedAt } = await tx.documentNode.findUniqueOrThrow({
+        where: { id: nodeId },
+        select: { updatedAt: true },
+      });
+      await tx.documentNode.update({ where: { id: nodeId }, data: { title, updatedAt } });
+    });
   }
 
   async move(nodeId: string, parentId: string | null, sortKey: string): Promise<void> {
-    await prisma.documentNode.update({ where: { id: nodeId }, data: { parentId, sortKey } });
+    await prisma.$transaction(async (tx) => {
+      const { updatedAt } = await tx.documentNode.findUniqueOrThrow({
+        where: { id: nodeId },
+        select: { updatedAt: true },
+      });
+      await tx.documentNode.update({
+        where: { id: nodeId },
+        data: { parentId, sortKey, updatedAt },
+      });
+    });
   }
 
   /**

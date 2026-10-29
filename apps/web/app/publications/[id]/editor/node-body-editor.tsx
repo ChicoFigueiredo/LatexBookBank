@@ -114,7 +114,9 @@ export function NodeBodyEditor({
       };
       if (response.status === 409) {
         setState("conflict");
-        setMessage(payload.message ?? "Este nó mudou desde que você abriu.");
+        setMessage(
+          `${payload.message ?? "Este nó mudou desde que você abriu."} O seu texto continua na tela.`,
+        );
         return;
       }
       if (!response.ok) {
@@ -130,6 +132,30 @@ export function NodeBodyEditor({
       setMessage("Não deu para falar com o servidor. O texto continua na tela.");
     }
   }, [nodeId, publicationId]);
+
+  /**
+   * As duas saídas do conflito, e nenhuma descarta o texto sem a pessoa pedir (#259).
+   *
+   * "Recarregar" trocava o rascunho pelo texto do banco, e tudo o que fora digitado desde o último
+   * salvamento sumia sem aviso. Agora quem decide é ela:
+   * - **Manter o meu texto** adota a versão nova e grava o rascunho por cima. O texto da outra aba
+   *   não se perde: o salvamento guarda o estado anterior no histórico, como sempre.
+   * - **Usar o texto salvo** descarta o rascunho — e diz isso no rótulo.
+   */
+  const keepMine = useCallback(async () => {
+    const payload = await fetchBody();
+    if (!payload) return;
+    setData(payload);
+    version.current = payload.version;
+    setMessage(null);
+    await save();
+  }, [fetchBody, save]);
+
+  const takeSaved = useCallback(async () => {
+    await load();
+    setState("idle");
+    setMessage(null);
+  }, [load]);
 
   const onChange = (value: string) => {
     setDraft(value);
@@ -196,13 +222,14 @@ export function NodeBodyEditor({
           tone={state === "conflict" ? "warn" : "danger"}
           actions={
             state === "conflict" ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => void load().then(() => setState("idle"))}
-              >
-                Recarregar
-              </Button>
+              <>
+                <Button size="sm" variant="secondary" onClick={() => void keepMine()}>
+                  Manter o meu texto
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => void takeSaved()}>
+                  Usar o texto salvo (descarta o meu)
+                </Button>
+              </>
             ) : undefined
           }
         >
