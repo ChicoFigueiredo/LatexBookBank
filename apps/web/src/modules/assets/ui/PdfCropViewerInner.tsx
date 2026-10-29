@@ -18,7 +18,7 @@ import {
   normalizedBoxFrom,
   type NormalizedBox,
   type PixelRect,
-} from "@modules/assets/domain/source-anchor";
+} from "@/shared/geometry/normalized-box";
 import { readTextLayer } from "@modules/assets/ui/pdf-text-layer";
 import type { TextPage } from "@/shared/pdf-text/text-layer";
 

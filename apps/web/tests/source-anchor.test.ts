@@ -4,9 +4,8 @@ import {
   describeProvenance,
   InvalidAnchorError,
   normalizeAnchor,
-  normalizedBoxFrom,
-  pixelRectFor,
 } from "@modules/assets/domain/source-anchor";
+import { normalizedBoxFrom, pixelRectFor } from "@/shared/geometry/normalized-box";
 import {
   assertAcceptable,
   extensionOf,

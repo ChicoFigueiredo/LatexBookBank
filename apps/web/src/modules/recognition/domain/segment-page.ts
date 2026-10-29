@@ -1,3 +1,4 @@
+import { toNormalizedBox, type NormalizedBox } from "@/shared/geometry/normalized-box";
 import type { TextPage, PageWord } from "@/shared/pdf-text/text-layer";
 
 /**
@@ -26,13 +27,8 @@ import type { TextPage, PageWord } from "@/shared/pdf-text/text-layer";
 export interface EstimatedQuestion {
   /** O número impresso na prova, quando dá para afirmar. Nunca inventado. */
   readonly number: number | null;
-  /** Caixa normalizada 0..1 sobre a página: {x, y, width, height}. */
-  readonly box: {
-    readonly x: number;
-    readonly y: number;
-    readonly width: number;
-    readonly height: number;
-  };
+  /** Caixa normalizada 0..1 sobre a página, presa às bordas (D28). */
+  readonly box: NormalizedBox;
   /** Por que este recorte foi proposto — some na tela como explicação, e serve ao teste. */
   readonly reason: "enunciado-ate-solucao" | "enunciado-ate-proximo" | "sobra-final";
   /**
@@ -194,7 +190,7 @@ export function segmentPage(pagina: TextPage): readonly EstimatedQuestion[] {
       number: solucoes.some((numero) => numero !== bloco.marcador.numero)
         ? null
         : bloco.marcador.numero,
-      box: caixaNormalizada(esquerda - folga, topo, direita + folga, base, pagina),
+      box: toNormalizedBox({ x0: esquerda - folga, y0: topo, x1: direita + folga, y1: base }, pagina),
       reason: chegaAoFimDaMancha
         ? "sobra-final"
         : solucoes.length > 0
@@ -371,40 +367,6 @@ function entrelinhaDe(linhas: readonly Linha[], alturaTipica: number): number {
 
   return vaos.length > 0 ? mediana(vaos) : alturaTipica * 2;
 }
-
-/**
- * A caixa em 0..1, presa à página.
- *
- * O recorte é guardado normalizado (D28): em pixels ele só significaria alguma coisa junto do DPI
- * em que foi medido. Prender à borda em vez de recusar, aqui, é o certo — quem desenhou foi a
- * aritmética, não a pessoa, e uma folga que vaza dois pontos na margem não é erro de ninguém.
- */
-function caixaNormalizada(
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-  pagina: TextPage,
-): EstimatedQuestion["box"] {
-  const esquerda = Math.max(0, Math.min(x0, pagina.width));
-  const topo = Math.max(0, Math.min(y0, pagina.height));
-  const direita = Math.max(esquerda, Math.min(x1, pagina.width));
-  const base = Math.max(topo, Math.min(y1, pagina.height));
-
-  const x = arredondar(esquerda / pagina.width);
-  const y = arredondar(topo / pagina.height);
-
-  return {
-    x,
-    y,
-    width: Math.min(arredondar((direita - esquerda) / pagina.width), arredondar(1 - x)),
-    height: Math.min(arredondar((base - topo) / pagina.height), arredondar(1 - y)),
-  };
-}
-
-/** Seis casas, as mesmas de `normalizeAnchor`: é lá que esta caixa vai parar. */
-const PRECISAO = 1e6;
-const arredondar = (valor: number): number => Math.round(valor * PRECISAO) / PRECISAO;
 
 function mediana(valores: readonly number[]): number {
   const ordenados = [...valores].sort((a, b) => a - b);

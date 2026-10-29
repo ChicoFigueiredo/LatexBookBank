@@ -116,3 +116,39 @@ describe("módulos sem ciclo", () => {
     expect(cycles(moduleGraph())).toEqual(NAMED_CYCLES);
   });
 });
+
+/**
+ * A geometria de página é primitiva de todos, e mora em `src/shared/geometry` (ARQ-12, I6).
+ *
+ * Onze arquivos do scan importavam a caixa normalizada de `assets/domain/source-anchor`, e a
+ * conversão de pontos para fração estava copiada no scan e no reconhecimento. O que fica no
+ * `source-anchor` é do assets: validar a âncora e descrever a proveniência.
+ */
+describe("a geometria de página mora em src/shared/geometry", () => {
+  const GEOMETRY = ["NormalizedBox", "PixelRect", "pixelRectFor", "normalizedBoxFrom"];
+  const files = [...filesUnder(path.join(root, "src")), ...filesUnder(path.join(root, "app"))];
+
+  it("ninguém importa a geometria do assets", () => {
+    const fromAssets = files.filter((file) =>
+      [...readFileSync(file, "utf8").matchAll(/import\s[^;]*?from\s+["']([^"']+)["']/g)].some(
+        (match) =>
+          /(^|\/)source-anchor$/.test(match[1] ?? "") &&
+          GEOMETRY.some((name) => new RegExp(`\\b${name}\\b`).test(match[0])),
+      ),
+    );
+
+    expect(fromAssets.map((file) => path.relative(root, file))).toEqual([]);
+  });
+
+  it("a conversão para caixa normalizada existe uma vez só", () => {
+    const copies = files.filter(
+      (file) =>
+        !file.includes(`${path.sep}shared${path.sep}geometry${path.sep}`) &&
+        /function (toNormalizedBox|caixaNormalizada|normalizedBoxFrom|pixelRectFor)\b|interface NormalizedBox\b/.test(
+          readFileSync(file, "utf8"),
+        ),
+    );
+
+    expect(copies.map((file) => path.relative(root, file))).toEqual([]);
+  });
+});

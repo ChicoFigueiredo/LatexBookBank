@@ -1,4 +1,6 @@
-import { boxRect, intersectionOverUnion, overlapRatio } from "./geometry";
+import { boxRect } from "@/shared/geometry/normalized-box";
+
+import { intersectionOverUnion, overlapRatio } from "./geometry";
 import { SCAN_KIND_TRAITS, type ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
 

@@ -9,7 +9,7 @@ import {
   type NodeAnchorLink,
 } from "@modules/assets/domain/node-anchors";
 import { writeNodeAnchors } from "@modules/assets/infrastructure/prisma-node-anchor-writer";
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import type {
   AnchoredQuestion,
   NodeAnchorEditor,

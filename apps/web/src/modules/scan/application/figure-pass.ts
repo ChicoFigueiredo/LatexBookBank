@@ -1,4 +1,4 @@
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import type { FigureKind } from "@modules/scan/domain/figures";
 import type { ScanItem } from "@modules/scan/domain/scan-item";
 

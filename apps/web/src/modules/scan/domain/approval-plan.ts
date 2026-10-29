@@ -1,4 +1,4 @@
-import type { NormalizedBox } from "@modules/assets/domain/source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import type { AnchorRole } from "@modules/assets/domain/node-anchors";
 import type { NodeKind } from "@modules/document-tree/domain/node-kind";
 // Os plugins se registram ao serem importados, e é o plugin que diz se o tipo tem alternativas.
@@ -7,7 +7,8 @@ import { isQuestionType, type QuestionType } from "@modules/questions/domain/que
 import { optionsOf, pluginFor } from "@modules/questions/domain/question-type-plugin";
 
 import { bodyPieceLatex, exampleBody, exampleTitle, questionLatex } from "./approval-latex";
-import { boxRect, intersectionOverUnion } from "./geometry";
+import { boxRect } from "@/shared/geometry/normalized-box";
+import { intersectionOverUnion } from "./geometry";
 import { kindsWhere, SCAN_KIND_TRAITS, SCAN_KINDS, type ProposedRegion, type ScanKind } from "./proposal";
 import type { ScanItem } from "./scan-item";
 import { foldText } from "./text";

@@ -1,4 +1,4 @@
-import type { NormalizedBox } from "./source-anchor";
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 
 /**
  * A cadeia de proveniência de uma questão: fonte → página → recorte.
