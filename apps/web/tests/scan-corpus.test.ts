@@ -291,13 +291,14 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     }
 
     /*
-      As respostas, medidas: 450 dos exercícios e 360 dos vestibulares. O que falta o livro não
+      As respostas, medidas: 451 dos exercícios e 360 dos vestibulares. O que falta o livro não
       imprime — a demonstração, o exercício de construir — e nenhuma resposta impressa se perde:
-      as páginas de gráfico da p. 291 e as linhas "90. a  91. a  92. b" da p. 413 perdiam 87.
+      as páginas de gráfico da p. 291 e as linhas "90. a  91. a  92. b" da p. 413 perdiam 87, e a
+      534, com o número colado no símbolo ("534.≡aa"), se perdia até o número sem espaço valer.
     */
     const deExercicio = respostas.filter((item) => item.metadata["answersTo"] === "EXERCISE");
     const deQuestao = respostas.filter((item) => item.metadata["answersTo"] === "QUESTION");
-    expect(deExercicio.length, "respostas dos exercícios").toBe(450);
+    expect(deExercicio.length, "respostas dos exercícios").toBe(451);
     expect(deQuestao.length, "respostas dos vestibulares").toBe(360);
     const alvos = (kind: string) => new Set(items.filter((item) => item.kind === kind).map((item) => item.number));
     expect(deExercicio.filter((item) => !alvos("EXERCISE").has(item.number)), "resposta de exercício sem exercício").toEqual([]);

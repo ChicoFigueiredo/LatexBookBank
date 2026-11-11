@@ -55,9 +55,15 @@ const NUMBER_LINE = /^(\d{1,3})\.\s*(.*)$/;
 /** `1. (UF-RS) …` — a banca entre parênteses é o que marca a questão de vestibular. */
 const VESTIBULAR = /^(\d{1,3})\s*\.\s*\(([^)]{2,40})\)\s*(.*)$/;
 const ITEM = /^\(?([a-z])\)\s/;
-const ANSWER_START = /^(\d{1,3})\s*\.(?:\s|$)/;
+/**
+ * O número e o ponto no começo da linha. Com ou sem espaço depois: no vol. 1 vinha "21. todas", e
+ * do vol. 2 em diante a camada de texto cola o número no que segue ("145.a) 3", "150.6 561").
+ * O "2.5" de dentro de uma resposta não abre outra — o motor descarta o número que não avança.
+ */
+const ANSWER_START = /^(\d{1,3})\s*\.(?!\.)/;
 
 const SIGLAS = "siglas das bancas";
+const SIGLAS_HEADER = "SIGNIFICADO DAS SIGLAS DE VESTIBULARES";
 /** "UF-RJ — Universidade Federal do Rio de Janeiro": a sigla, o travessão, o nome. */
 const SIGLA = /^\S[^—]{0,40}\s—\s\S/;
 
@@ -77,8 +83,22 @@ const ZONE_MARKERS: readonly { readonly header: string; readonly zone: Omit<Docu
     zone: { label: "questões de vestibulares", questionType: "MULTIPLE_CHOICE" },
   },
   // A lista das bancas, depois do gabarito dos vestibulares: em duas colunas, ao contrário do livro.
-  { header: "SIGNIFICADO DAS SIGLAS DE VESTIBULARES E OLIMPIADAS", zone: { label: SIGLAS, columns: true } },
+  { header: SIGLAS_HEADER, zone: { label: SIGLAS, columns: true } },
 ];
+
+/**
+ * O título da lista de siglas: com "e olimpíadas" no vol. 1, sem no vol. 7. A linha inteira, e não
+ * o começo: a do sumário ("… olimpíadas ..... 418") começa igual, e abria a zona na p. 8.
+ */
+const SIGLAS_TITLE = /^SIGNIFICADO DAS SIGLAS DE VESTIBULARES( E OLIMPIADAS)?$/;
+function isSiglasHeader(header: string): boolean {
+  return SIGLAS_TITLE.test(header);
+}
+
+/** O cabeçalho que a linha anuncia, se anuncia algum: igual ao da zona, ou o das siglas. */
+function markerOf(header: string): (typeof ZONE_MARKERS)[number] | undefined {
+  return ZONE_MARKERS.find((candidate) => candidate.header === header || (candidate.header === SIGLAS_HEADER && isSiglasHeader(header)));
+}
 
 const fold = (line: TextLine) => stripAccents(line.text).trim();
 
@@ -478,7 +498,9 @@ function classifyItem(context: WalkContext): AnchorMatch | null {
 
 export const bookFmeV1: CaptureProfile = {
   id: "book-fme-v1",
-  version: 1,
+  // 2: os vols. 2 a 11 — o número de resposta colado no texto, a página de abertura da zona, e
+  // a lista de siglas sem "e olimpíadas".
+  version: 2,
   label: "Fundamentos de Matemática Elementar",
   documentKind: "BOOK",
   description:
@@ -505,24 +527,38 @@ export const bookFmeV1: CaptureProfile = {
     ("Respostas" / "dos exercícios") e só aparece uma vez, enquanto o cabeçalho aparece em todas.
     A comparação é por igualdade da linha inteira, o que descarta de graça a linha do sumário
     ("Respostas dos exercícios ..... 270"), que traz os pontinhos e o número da página.
+
+    Mas a página que abre a zona não tem o cabeçalho, só o título grande: no vol. 11, a abertura
+    das "Questões de / vestibulares" trazia as questões 1 a 3 e ficava na zona anterior, que não é
+    varrida. Se a página de antes da primeira com o cabeçalho tem o título grande da zona — as
+    linhas grandes, juntas, dizem o cabeçalho —, a zona começa nela.
   */
   zones(pages: readonly PageModel[]): readonly DocumentZone[] {
     const found = new Map<string, number>();
     for (const page of pages) {
       for (const line of page.lines) {
-        const header = upper(line);
-        const marker = ZONE_MARKERS.find((candidate) => candidate.header === header);
+        const marker = markerOf(upper(line));
         if (marker && !found.has(marker.header)) found.set(marker.header, page.pageNumber);
       }
     }
 
+    const style = measureStyle(pages.flatMap((page) => page.lines));
+    const titleOf = (page: PageModel | undefined) =>
+      (page?.lines ?? [])
+        .filter((line) => relativeSize(line, style) >= 2.5)
+        .map(upper)
+        .join(" ");
+    const byNumber = new Map(pages.map((page) => [page.pageNumber, page]));
+
     const zones: DocumentZone[] = [{ label: "corpo", from: 1 }];
     for (const marker of ZONE_MARKERS) {
-      const from = found.get(marker.header);
-      if (from !== undefined) zones.push({ ...marker.zone, from });
+      const first = found.get(marker.header);
+      if (first === undefined) continue;
+      const opens = titleOf(byNumber.get(first - 1)) === marker.header;
+      zones.push({ ...marker.zone, from: opens ? first - 1 : first });
     }
     // Depois das siglas vem a contracapa — a coleção, os volumes —, que não é conteúdo do livro.
-    const siglas = pages.filter((page) => page.lines.some((line) => upper(line) === "SIGNIFICADO DAS SIGLAS DE VESTIBULARES E OLIMPIADAS"));
+    const siglas = pages.filter((page) => page.lines.some((line) => isSiglasHeader(upper(line))));
     const ultima = siglas.at(-1)?.pageNumber;
     if (ultima !== undefined && pages.some((page) => page.pageNumber > ultima)) {
       zones.push({ label: "contracapa", from: ultima + 1, skip: true });

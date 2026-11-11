@@ -100,6 +100,69 @@ describe("o motor nas páginas de respostas", () => {
 });
 
 /**
+ * O que os outros volumes do Fundamentos trazem diferente do vol. 1 (medido nos vols. 2 a 11).
+ */
+describe("os outros volumes do Fundamentos", () => {
+  it("a resposta com o número colado no texto também abre: \"145.a) 3\" (vol. 2)", () => {
+    const style = { bodySize: 9 } as never;
+    const linha = (text: string) => ({ text }) as never;
+    expect(profile.answerStart?.(linha("145.a) 3"), style)).toEqual({ number: "145", label: "145." });
+    expect(profile.answerStart?.(linha("146.A3  2√2"), style)).toEqual({ number: "146", label: "146." });
+    expect(profile.answerStart?.(linha("150.6 561"), style)).toEqual({ number: "150", label: "150." });
+    expect(profile.answerStart?.(linha("21. todas"), style)).toEqual({ number: "21", label: "21." });
+    expect(profile.answerStart?.(linha("a) 3"), style)).toBeNull();
+  });
+
+  /** A página que abre a zona: o título grande em duas linhas, sem o cabeçalho corrente. */
+  function abertura(pageNumber: number, titulo: readonly string[], corpo: readonly string[]): RawPage {
+    return {
+      pageNumber,
+      width: 595,
+      height: 842,
+      spans: [
+        ...titulo.map((text, index) => span(text, LEFT, 100 + index * 36, { size: 31.5, fontName: "Times-Bold" })),
+        ...corpo.map((text, index) => span(text, LEFT, 220 + index * 14)),
+      ],
+      graphics: [],
+    };
+  }
+  function comCabecalho(pageNumber: number, cabecalho: string, corpo: readonly string[]): RawPage {
+    return {
+      pageNumber,
+      width: 595,
+      height: 842,
+      spans: [span(cabecalho, RIGHT, 40, { size: 6.7 }), ...corpo.map((text, index) => span(text, LEFT, 100 + index * 14))],
+      graphics: [],
+    };
+  }
+
+  it("a zona começa na página de abertura, a do título grande, e não na seguinte (vol. 11)", () => {
+    const pages = [
+      buildLines(bodyPage()),
+      buildLines(abertura(2, ["Questões de", "vestibulares"], ["1. (UF-PE) Júnior visitou três lojas e gastou um valor."])),
+      buildLines(comCabecalho(3, "QUESTÕES DE VESTIBULARES", ["2. (PUC-RJ) Luciana saiu de casa com algum dinheiro."])),
+    ];
+    const zonas = profile.zones?.(pages) ?? [];
+    expect(zonas.find((zona) => zona.label === "questões de vestibulares")?.from).toBe(2);
+  });
+
+  it("a lista de siglas também se chama só \"Significado das siglas de vestibulares\" (vol. 7)", () => {
+    const pages = [
+      buildLines(bodyPage()),
+      buildLines(comCabecalho(2, "SIGNIFICADO DAS SIGLAS DE VESTIBULARES", ["UF-RJ — Universidade Federal do Rio de Janeiro"])),
+    ];
+    expect((profile.zones?.(pages) ?? []).find((zona) => zona.columns)?.from).toBe(2);
+  });
+
+  it("a linha do sumário com o título das siglas não abre a zona", () => {
+    // "Significado das siglas … ..... 418" no sumário: abria a zona na p. 8, e o livro inteiro
+    // virava lista de siglas.
+    const pages = [buildLines(comCabecalho(1, "SUMÁRIO", ["Significado das siglas de vestibulares e olimpíadas ..... 418"]))];
+    expect((profile.zones?.(pages) ?? []).find((zona) => zona.columns)).toBeUndefined();
+  });
+});
+
+/**
  * De quem é a figura. Nas páginas de respostas o desenho vem embaixo do número — o diagrama de
  * Venn da resposta 21 do *Fundamentos* (p. 279) — e ia para a 22, que começa logo abaixo dele. No
  * corpo, o gráfico ao lado do número é do item que começa ao lado; o de baixo é do de cima.
