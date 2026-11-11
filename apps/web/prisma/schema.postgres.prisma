@@ -401,6 +401,8 @@ model Asset {
   /// Substitui o índice que o `@unique` dava de graça: `createAsset` procura por esta coluna
   /// antes de toda criação, e a exclusão do livro conta as linhas por ela (#243).
   @@index([storageKey])
+  /// As figuras de uma questão (`loadQuestionAssets`): sem ele, cada render lia a tabela inteira.
+  @@index([questionId])
   @@map("assets")
 }
 
@@ -441,6 +443,10 @@ model SourceAnchor {
   nodeAnchors DocumentNodeAnchor[]
 
   @@index([publicationId, pageNumber])
+  /// "A âncora cujo recorte é este asset" — o caminho das figuras de uma questão até ela. Sem o
+  /// índice, compilar uma questão do Fundamentos vol. 1 levava 3,7 min (17 mil assets × 23 mil
+  /// âncoras); com ele, 91 ms.
+  @@index([cropAssetId])
   @@map("source_anchors")
 }
 
