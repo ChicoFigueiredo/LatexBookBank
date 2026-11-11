@@ -1540,6 +1540,13 @@ o scan pulava desde a ADR 0009.
   linha atravessa. Várias respostas na mesma linha ("90. a  91. a  92. b") viram uma linha cada.
 - `scan-engine@4`. No vol. 1: 450 respostas de exercícios e 360 de vestibulares, todas com alvo;
   o que falta o livro não imprime.
+- **No PDF da questão**, a Resposta sai em todo tipo, só na saída de professor, depois da
+  Resolução. A Resolução da discursiva saía com o rótulo "Resposta." e passa a sair "Resolução.":
+  com os dois campos, eram dois blocos "Resposta".
+- **No gabarito da avaliação**, a Resposta só aparece na questão sem alternativas; havendo alguma,
+  a tabela ganha coluna de parágrafo. A versão do professor da avaliação ainda não a mostra.
+- O `.lbb` v3 sem o campo abre com `""` — a versão do formato não sobe. O snapshot de revisão da
+  questão passa à v3, e o snapshot antigo restaura a Resposta vazia.
 
 ---
 
