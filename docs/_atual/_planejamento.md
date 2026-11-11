@@ -1609,9 +1609,10 @@ para outros livros. O que a conferência mostrou virou regra:
   falhavam. 71 eram a conta que o modelo escreve sem delimitador e o "R$" sem escape — na
   aprovação, o parágrafo só de conta vai para `\[ \]` e o "R$" vira "R\$" —, e 9 eram √, ⋅, ⊥ e
   letras gregas soltos no texto, que agora vão à matemática.
-- **Cada varredura recorta as figuras de novo**: o vol. 1 acumulou 15 mil assets, e a consulta das
-  figuras de uma questão, pelas âncoras, leva ~10 s com eles. A coleta dos recortes de execuções
-  apagadas fica como dívida.
+- **Cada varredura recorta as figuras de novo**: o vol. 1 acumulou 16 mil assets. Sem índice em
+  `source_anchors.cropAssetId` e `assets.questionId`, a busca das figuras de uma questão varria
+  todas as âncoras para cada asset, e compilar uma questão levava 3,7 min — o worker, 155 ms. Com
+  os índices, 91 ms. A coleta dos recortes de execuções apagadas fica como dívida.
 - **Na recaptura, a correção do dono da figura refez a aprovação sem refazer o reconhecimento**
   (horas de modelo local): a importação foi apagada e varrida de novo, e um script de trabalho,
   fora do produto, devolveu a cada item o reconhecimento da execução anterior pela mesma chave e
