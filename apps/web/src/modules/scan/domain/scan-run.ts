@@ -74,7 +74,8 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  *
  * `@5`: a figura é de quem começou antes dela, ou de quem começa ao lado — e não de quem começa
  * logo abaixo. No vol. 1, 81 das 696 figuras mudam de dono: o diagrama da resposta 21 ia para a
- * 22, os gráficos do exercício 144 para a seção seguinte.
+ * 22, os gráficos do exercício 144 para a seção seguinte. E o fundo com parágrafos dentro deixa de
+ * ser traço de figura: a LEITURA da p. 211 e a solução da p. 111 voltam a ser texto.
  */
 export const ENGINE_VERSION = "scan-engine@5";
 

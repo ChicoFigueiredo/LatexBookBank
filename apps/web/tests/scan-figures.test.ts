@@ -182,6 +182,27 @@ describe("achar figuras", () => {
     expect(findFigures(input({ graphics: [tarja], lines: [titulo] }))).toEqual([]);
   });
 
+  it("o fundo com parágrafos dentro não é figura: o retrato sobre ele é (vol. 1, p. 211)", () => {
+    // A LEITURA impressa sobre um retângulo rosa, com o retrato de Boole dentro: antes, os dois
+    // viravam uma figura de meia página, e a máscara apagava o texto do reconhecimento.
+    const fundo = drawing([70, 200, 520, 780]);
+    const retrato = drawing([300, 560, 440, 720], "image");
+    const texto = [0, 1, 2, 3, 4].map((n) =>
+      line(`p${n}`, "A lógica como ciência remonta a Aristóteles, seu criador.", [80, 220 + n * 14, 500, 231 + n * 14]),
+    );
+    const figuras = findFigures(input({ graphics: [fundo, retrato], lines: texto }));
+    expect(figuras).toHaveLength(1);
+    expect(figuras[0]?.box).toMatchObject({ x0: 300, y0: 560, x1: 440, y1: 720 });
+    expect(figuras[0]?.kind).toBe("raster");
+  });
+
+  it("mas a moldura com uma grade dentro continua tabela, mesmo com linhas compridas", () => {
+    const moldura = drawing([70, 200, 440, 300]);
+    const linhas = [0, 1, 2, 3, 4].map((n) => line(`r${n}`, "V      F      V      V      F      V", [80, 205 + n * 18, 430, 216 + n * 18]));
+    const figuras = findFigures(input({ graphics: [moldura], lines: linhas, isTable: () => true }));
+    expect(figuras).toHaveLength(1);
+  });
+
   it("mas o diagrama com rótulos continua sendo figura", () => {
     // A diferença é a densidade: muitos traços, e dentro deles só rótulos curtos.
     const diagrama = [drawing([100, 200, 200, 280]), drawing([150, 210, 250, 290]), drawing([90, 195, 260, 300])];

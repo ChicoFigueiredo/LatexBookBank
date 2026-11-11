@@ -203,6 +203,25 @@ function cluster(graphics: readonly FigureGraphic[], gap: number): Cluster[] {
 const kindOf = (kinds: ReadonlySet<"drawing" | "image">): FigureKind =>
   kinds.size > 1 ? "mixed" : kinds.has("image") ? "raster" : "vector";
 
+/** Parágrafos dentro de um retângulo que fazem dele um fundo, e não um traço de figura. */
+const PANEL_TEXT_LINES = 4;
+
+/**
+ * O fundo atrás do texto não é traço de figura (D78).
+ *
+ * A LEITURA do *Fundamentos* é impressa sobre um retângulo rosa. Na p. 211 do vol. 1 o retângulo
+ * e o retrato de Boole formavam uma figura do tamanho de meia página: a máscara dela apagava o
+ * texto do reconhecimento, a conferência não tinha o que comparar — a camada de texto também
+ * ficava atrás da máscara —, e a abertura da LEITURA sumiu. O desenho com parágrafos dentro, e não
+ * uma grade, é fundo; o retrato fica como figura sozinho.
+ */
+function isPanel(graphic: FigureGraphic, lines: readonly FigureLine[], input: FigureInput): boolean {
+  if (graphic.kind !== "drawing") return false;
+  const inside = lines.filter((line) => line.slot === graphic.slot && insideRatio(line, graphic) >= 0.6);
+  const paragraphs = inside.filter((line) => line.text.trim().length > LABEL_CHARS);
+  return paragraphs.length >= PANEL_TEXT_LINES && !input.isTable?.(inside.map((line) => line.id));
+}
+
 export function findFigures(input: FigureInput): readonly Figure[] {
   const gap = input.bodySize * CLUSTER_GAP;
   const padding = input.bodySize * CROP_PADDING;
@@ -219,9 +238,10 @@ export function findFigures(input: FigureInput): readonly Figure[] {
   for (const line of input.lines) linesByPage.set(line.pageNumber, [...(linesByPage.get(line.pageNumber) ?? []), line]);
   const strokes = input.graphics.filter(
     (graphic) =>
-      graphic.kind !== "drawing" ||
-      Math.max(width(graphic), height(graphic)) > input.bodySize * SIGN_SIZE ||
-      !(linesByPage.get(graphic.pageNumber) ?? []).some((line) => intersects(line, graphic)),
+      (graphic.kind !== "drawing" ||
+        Math.max(width(graphic), height(graphic)) > input.bodySize * SIGN_SIZE ||
+        !(linesByPage.get(graphic.pageNumber) ?? []).some((line) => intersects(line, graphic))) &&
+      !isPanel(graphic, linesByPage.get(graphic.pageNumber) ?? [], input),
   );
 
   const figures: Figure[] = [];
