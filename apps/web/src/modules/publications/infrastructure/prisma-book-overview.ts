@@ -120,44 +120,47 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
 
   if (!publication) return null;
 
-  // Uma consulta pela árvore inteira e três agregações, não uma consulta por capítulo: a estrutura
+  // Uma consulta pela árvore inteira e agregações, não uma consulta por capítulo: a estrutura
   // de um livro cabe folgada na memória, e a alternativa é o mesmo N+1 que a estante já evitou.
-  const [nos, primeiraInvalida, anchors, sourceAsset, sourcePdfs] = await Promise.all([
-    prisma.documentNode.findMany({
-      where: { publicationId, deletedAt: null },
-      select: {
-        id: true,
-        parentId: true,
-        kind: true,
-        title: true,
-        originalLabel: true,
-        sortKey: true,
-        questionId: true,
-        question: { select: { validationStatus: true } },
-      },
-    }),
-    prisma.documentNode.findFirst({
-      where: { publicationId, deletedAt: null, question: { validationStatus: "INVALID" } },
-      orderBy: { sortKey: "asc" },
-      select: { id: true },
-    }),
-    prisma.sourceAnchor.findMany({
-      where: { publicationId },
-      select: { pageNumber: true, questions: { select: { id: true }, take: 1 } },
-    }),
-    publication.sourcePdfAssetId
-      ? prisma.asset.findUnique({
-          where: { id: publication.sourcePdfAssetId },
-          select: { originalFilename: true, sizeBytes: true, createdAt: true },
-        })
-      : null,
-    // Todos os PDFs fonte do livro, e não só o atual: ver `FonteAnterior`.
-    prisma.asset.findMany({
-      where: { publicationId, kind: "SOURCE_PDF" },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, originalFilename: true, sizeBytes: true },
-    }),
-  ]);
+  const [nos, primeiraInvalida, totalRecortes, capturados, paginas, sourceAsset, sourcePdfs] =
+    await Promise.all([
+      prisma.documentNode.findMany({
+        where: { publicationId, deletedAt: null },
+        select: {
+          id: true,
+          parentId: true,
+          kind: true,
+          title: true,
+          originalLabel: true,
+          sortKey: true,
+          questionId: true,
+          question: { select: { validationStatus: true } },
+        },
+      }),
+      prisma.documentNode.findFirst({
+        where: { publicationId, deletedAt: null, question: { validationStatus: "INVALID" } },
+        orderBy: { sortKey: "asc" },
+        select: { id: true },
+      }),
+      // Contadas no banco, e não carregadas: trazer de cada âncora a primeira questão faz o Prisma
+      // montar um `IN` com todos os ids, e num livro com muitos recortes isso passa do teto de
+      // parâmetros do SQLite — a tela abria em 500.
+      prisma.sourceAnchor.count({ where: { publicationId } }),
+      prisma.sourceAnchor.count({ where: { publicationId, questions: { some: {} } } }),
+      prisma.sourceAnchor.aggregate({ where: { publicationId }, _max: { pageNumber: true } }),
+      publication.sourcePdfAssetId
+        ? prisma.asset.findUnique({
+            where: { id: publication.sourcePdfAssetId },
+            select: { originalFilename: true, sizeBytes: true, createdAt: true },
+          })
+        : null,
+      // Todos os PDFs fonte do livro, e não só o atual: ver `FonteAnterior`.
+      prisma.asset.findMany({
+        where: { publicationId, kind: "SOURCE_PDF" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, originalFilename: true, sizeBytes: true },
+      }),
+    ]);
 
   const estrutura: StructureNode[] = nos.map((no) => ({
     id: no.id,
@@ -174,12 +177,8 @@ export async function readBookOverview(publicationId: string): Promise<BookOverv
   const questionCount = estrutura.filter((no) => no.isQuestion).length;
   const invalidCount = estrutura.filter((no) => no.isInvalid).length;
 
-  const capturados = anchors.filter((anchor) => anchor.questions.length > 0).length;
-  const naFila = anchors.length - capturados;
-  const ultimaPagina = anchors.reduce<number | null>(
-    (fundo, anchor) => (fundo === null || anchor.pageNumber > fundo ? anchor.pageNumber : fundo),
-    null,
-  );
+  const naFila = totalRecortes - capturados;
+  const ultimaPagina = paginas._max.pageNumber;
 
   return {
     id: publication.id,

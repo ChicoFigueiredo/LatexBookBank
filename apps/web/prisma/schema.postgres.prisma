@@ -219,6 +219,8 @@ model DocumentNode {
   @@index([publicationId, parentId, sortKey])
   @@index([createdByScanRunId])
   @@index([parentId])
+  /// "O recorte já foi usado?" pergunta por esta coluna, por âncora (ver o de `Question`).
+  @@index([sourceAnchorId])
   @@map("document_nodes")
 }
 
@@ -270,6 +272,10 @@ model Question {
   assessmentItems AssessmentItem[]
 
   @@index([type])
+  /// A fila de captura conta os recortes sem questão — um `NOT EXISTS` por âncora. Sem índice, o
+  /// SQLite varre as questões inteiras para cada recorte, e toda tela esperava 14 s pela barra
+  /// lateral num acervo de 10 mil recortes.
+  @@index([sourceAnchorId])
   @@index([difficulty])
   @@index([board, year])
   @@map("questions")
