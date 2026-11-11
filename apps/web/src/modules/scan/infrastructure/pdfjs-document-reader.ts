@@ -183,6 +183,7 @@ export class PdfjsDocumentReader implements PdfDocumentOpener {
       pageNumber: number,
       box: NormalizedBox,
       dpi: number,
+      masks: readonly NormalizedBox[] = [],
     ): Promise<Uint8Array> => {
       const page = await doc.getPage(pageNumber);
       const scale = dpi / 72;
@@ -206,6 +207,12 @@ export class PdfjsDocumentReader implements PdfDocumentOpener {
         viewport,
       }).promise;
       page.cleanup();
+
+      // As figuras que são itens próprios: em branco, para o modelo não as transcrever como texto.
+      context.fillStyle = "#ffffff";
+      for (const mask of masks) {
+        context.fillRect(mask.x * full.width - x, mask.y * full.height - y, mask.width * full.width, mask.height * full.height);
+      }
 
       return new Uint8Array(await canvas.encode("png"));
     };

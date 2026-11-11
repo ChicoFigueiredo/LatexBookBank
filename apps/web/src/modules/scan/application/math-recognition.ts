@@ -6,6 +6,8 @@ import {
 import { kindsWhere, SCAN_KIND_TRAITS } from "@modules/scan/domain/proposal";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
+import type { NormalizedBox } from "@/shared/geometry/normalized-box";
+
 import type { OpenedPdf } from "./pdf-document";
 import type { MathPass } from "./run-scan";
 
@@ -23,6 +25,17 @@ import type { MathPass } from "./run-scan";
 const RECOGNIZED_KINDS = kindsWhere((traits) => traits.recognizesMath);
 const DPI = 200;
 
+const overlaps = (a: NormalizedBox, b: NormalizedBox): boolean =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+/**
+ * As figuras que saem do recorte de um item (D78): as que são itens próprios, e não o próprio item.
+ * O recorte do texto cobre do começo à próxima fronteira, e a tabela-verdade no meio dele era
+ * transcrita duas vezes — no texto e na figura.
+ */
+const figuresAround = (item: ScanItem, all: readonly ScanItem[]): ScanItem[] =>
+  all.filter((other) => other.kind === "FIGURE" && other.key !== item.key && other.reviewState !== "REJECTED");
+
 /** A figura que é tabela (D78): o reconhecimento preenche só a célula que a camada de texto não lê. */
 const isTable = (item: ScanItem): boolean => item.kind === "FIGURE" && Array.isArray(item.metadata["tableRows"]);
 
@@ -31,11 +44,15 @@ export async function recognizeItem(
   pdf: OpenedPdf,
   item: Pick<ScanItem, "regions">,
   now: () => Date = () => new Date(),
+  figures: readonly Pick<ScanItem, "regions">[] = [],
 ): Promise<MathResult> {
   const parts: MathResult[] = [];
 
   for (const region of item.regions) {
-    const image = await pdf.renderRegion(region.pageNumber, region.box, DPI);
+    const masks = figures.flatMap((figure) =>
+      figure.regions.filter((mask) => mask.pageNumber === region.pageNumber && overlaps(mask.box, region.box)).map((mask) => mask.box),
+    );
+    const image = await pdf.renderRegion(region.pageNumber, region.box, DPI, masks);
     const result = await recognizer.recognize({ image, mimeType: "image/png", mode: "mixed" });
     parts.push({
       latex: result.latex,
@@ -66,7 +83,8 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
   return {
     providerId: recognizer.id,
     model,
-    async run({ items, pdf, policy, save, cancelled, progress }) {
+    async run({ items, figures, pdf, policy, save, cancelled, progress }) {
+      const known = figures ?? items;
       const targets = items.filter(
         (item) =>
           (RECOGNIZED_KINDS.has(item.kind) || isTable(item)) &&
@@ -87,7 +105,7 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
         if (await cancelled()) break;
         if (index > 0) await progress?.(index, targets.length);
         try {
-          const mathResult = await recognizeItem(recognizer, pdf, item);
+          const mathResult = await recognizeItem(recognizer, pdf, item, undefined, figuresAround(item, known));
           calls += item.regions.length;
           // A saída do modelo é candidata, não conteúdo (CONTEXT.md, *Reconhecimento*): o item
           // sugerido volta a pedir revisão, a mesma regra do reprocessar à mão (#250, SPG-07).

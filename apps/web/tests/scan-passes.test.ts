@@ -153,4 +153,39 @@ describe("reconhecimento matemático na varredura", () => {
     expect(gravado?.mathResult?.latex).toBe("$x \\pm 1$");
     expect(gravado?.reviewState).toBe("NEEDS_REVIEW");
   });
+
+  it("a figura que é item próprio sai em branco do recorte do texto em volta (D78)", async () => {
+    // A tabela-verdade da p. 17 do Fundamentos ia ao modelo junto do texto, e saía duas vezes:
+    // no corpo, transcrita, e na figura.
+    const regiao = (pageNumber: number, x: number, y: number) => [
+      { pageNumber, role: "PRIMARY" as const, box: { x, y, width: 0.3, height: 0.1 } },
+    ];
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, regions: [{ pageNumber: 17, role: "PRIMARY", box: { x: 0.1, y: 0.1, width: 0.8, height: 0.6 } }] });
+    const tabela = item({ id: "f", key: "F", kind: "FIGURE", regions: regiao(17, 0.2, 0.5) });
+    const longe = item({ id: "g", key: "G", kind: "FIGURE", regions: regiao(17, 0.2, 0.85) });
+    const outraPagina = item({ id: "h", key: "H", kind: "FIGURE", regions: regiao(18, 0.2, 0.5) });
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: "x", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const masks: unknown[] = [];
+    const pdf = {
+      renderRegion: async (_page: number, _box: unknown, _dpi: number, given: readonly unknown[] = []) => {
+        masks.push(...given);
+        return new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+      },
+    } as unknown as OpenedPdf;
+
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      figures: [tabela, longe, outraPagina],
+      pdf,
+      policy: "auto",
+      save: async () => undefined,
+      cancelled: never,
+    });
+
+    expect(masks).toEqual([tabela.regions[0]!.box]);
+  });
 });
