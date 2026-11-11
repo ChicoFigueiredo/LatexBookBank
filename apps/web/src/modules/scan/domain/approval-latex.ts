@@ -305,6 +305,9 @@ function stripLabel(text: string, item: ScanItem): string {
  * `\includegraphics` quebrado: um LaTeX que não compila é pior que uma figura que falta.
  */
 export function figureLatex(item: ScanItem): string {
+  const rows = item.metadata["tableRows"];
+  const table = Array.isArray(rows) && rows.length > 0 ? tableLatex(rows.map((row) => String(row).split("\t")), item) : null;
+  if (table !== null) return table;
   const name = item.metadata["figureLatexName"];
   const caption = (item.reviewedText ?? item.title ?? "").trim();
   const captionLine = caption === "" ? "" : `  \\caption{${escapeLatexText(caption)}}\n`;
@@ -325,6 +328,53 @@ export function figureLatex(item: ScanItem): string {
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+/**
+ * A tabela desenhada, em `tabular` (D78) — ou `null`, e a figura continua imagem.
+ *
+ * Do reconhecimento vem a forma — quantas linhas, quantas colunas — e o cabeçalho, que a camada de
+ * texto não lê (o ∧, o ~ desenhados). Das linhas completas da grade, as células vêm da camada de
+ * texto, que acerta cada uma: o modelo trocou um V por F na p. 17 do vol. 1. Se as duas grades
+ * não batem, não há como saber qual célula é qual, e a imagem é o que não mente.
+ */
+function tableLatex(rows: readonly (readonly string[])[], item: ScanItem): string | null {
+  const recognized = recognizedTable(item.reviewedLatex ?? item.mathResult?.latex ?? null);
+  const width = rows[0]?.length ?? 0;
+  // Mesma forma, linha por linha: é o que deixa dizer que a célula (r, c) é a mesma nas duas.
+  if (recognized === null || recognized.length !== rows.length || recognized.some((row) => row.length !== width)) return null;
+
+  const merged = recognized.map((row, r) => {
+    const text = rows[r]!;
+    const complete = text.every((cell) => cell !== "");
+    return row.map((cell, c) => (complete && !hasUnreadableSymbol(text[c]!) ? escapeLatexText(text[c]!) : cell.trim()));
+  });
+  // As linhas incompletas no alto são o cabeçalho, que o livro separa com um fio.
+  const head = rows.findIndex((row) => row.every((cell) => cell !== ""));
+  const line = (cells: readonly string[]) => `${cells.join(" & ")} \\\\`;
+  return [
+    "\\begin{center}",
+    `\\begin{tabular}{|${Array.from({ length: width }, () => "c").join("|")}|}`,
+    "\\hline",
+    ...merged.slice(0, Math.max(0, head)).map(line),
+    ...(head > 0 ? ["\\hline"] : []),
+    ...merged.slice(Math.max(0, head)).map(line),
+    "\\hline",
+    "\\end{tabular}",
+    "\\end{center}",
+  ].join("\n");
+}
+
+/** As células do `tabular` que o modelo devolveu, sem as linhas desenhadas. */
+function recognizedTable(latex: string | null): string[][] | null {
+  if (latex === null) return null;
+  const body = /\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/.exec(latex)?.[1];
+  if (body === undefined) return null;
+  return body
+    .split(/\\\\/)
+    .map((row) => row.replace(/\\hline|\\cline\{[^}]*\}/g, "").trim())
+    .filter((row) => row !== "")
+    .map((row) => row.split(/(?<!\\)&/));
 }
 
 /**

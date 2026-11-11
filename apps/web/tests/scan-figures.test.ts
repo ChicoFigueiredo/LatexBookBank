@@ -78,6 +78,27 @@ describe("achar figuras", () => {
     expect(protegida[0]?.captionLineIds).toEqual([]);
   });
 
+  it("letra desenhada como traço, na altura do texto, não é figura (vol. 1, p. 20)", () => {
+    // "p ∧ q ⇔ q ∧ p": o ∧ do Fundamentos é traço, e não texto. Quatro ∧ em duas linhas seguidas
+    // viravam uma "figura" que engolia as linhas como rótulo.
+    const linhas = [line("l1", "p q q p", [60, 100, 160, 110]), line("l2", "(p q) r p (q r)", [60, 114, 200, 124])];
+    const conectivos = [
+      drawing([70, 101, 76, 109]),
+      drawing([120, 101, 126, 109]),
+      drawing([80, 115, 86, 123]),
+      drawing([150, 115, 156, 123]),
+    ];
+
+    expect(findFigures(input({ graphics: conectivos, lines: linhas }))).toEqual([]);
+  });
+
+  it("mas o desenho com um traço grande continua figura, mesmo com letras miúdas", () => {
+    // O diagrama de Venn: o círculo é grande; as letras de dentro são rótulo.
+    const circulo = drawing([60, 100, 160, 200]);
+    const letra = drawing([100, 140, 106, 148]);
+    expect(findFigures(input({ graphics: [circulo, letra], lines: [line("a", "A", [90, 150, 96, 158])] }))).toHaveLength(1);
+  });
+
   it("junta os traços vizinhos numa figura só", () => {
     // Um diagrama de Venn: dois círculos e o retângulo do universo, desenhados em traços separados.
     const figuras = findFigures(

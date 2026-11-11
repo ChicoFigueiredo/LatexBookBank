@@ -23,6 +23,9 @@ import type { MathPass } from "./run-scan";
 const RECOGNIZED_KINDS = kindsWhere((traits) => traits.recognizesMath);
 const DPI = 200;
 
+/** A figura que é tabela (D78): o reconhecimento preenche só a célula que a camada de texto não lê. */
+const isTable = (item: ScanItem): boolean => item.kind === "FIGURE" && Array.isArray(item.metadata["tableRows"]);
+
 export async function recognizeItem(
   recognizer: MathRecognitionProvider,
   pdf: OpenedPdf,
@@ -66,7 +69,7 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
     async run({ items, pdf, policy, save, cancelled, progress }) {
       const targets = items.filter(
         (item) =>
-          RECOGNIZED_KINDS.has(item.kind) &&
+          (RECOGNIZED_KINDS.has(item.kind) || isTable(item)) &&
           // O título sem nome é só o rótulo: o parágrafo que emenda nele é reconhecido no texto (D76).
           !(SCAN_KIND_TRAITS[item.kind].heading && item.title === null) &&
           item.reviewState !== "REJECTED" &&

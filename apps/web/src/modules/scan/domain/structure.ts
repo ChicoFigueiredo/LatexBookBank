@@ -12,6 +12,7 @@ import {
 } from "./capture-profile";
 import { assembleDocument, positionOf, type DocLine, type ScanDocument } from "./document";
 import { findFigures, type Figure } from "./figures";
+import { tableRows } from "./tables";
 import { toNormalizedBox } from "@/shared/geometry/normalized-box";
 import { splitLine, type PageModel, type TextLine } from "./page";
 import { measureStyle, type PublicationStyle } from "./typography";
@@ -98,7 +99,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
 
   const records = walk(doc, profile, zones);
   const linesBySlot = indexBySlot(doc.lines);
-  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
+  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile, full.lines);
   const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
   const items = [
     ...checked.map((draft) => withZoneType(finalize(draft, profile, doc, offset), zones)),
@@ -182,7 +183,7 @@ function answerItems(pages: readonly PageModel[], zones: readonly DocumentZone[]
     const { doc, figures } = withoutFigures(full, profile);
     const records = walkAnswers(doc, profile, zone.answersTo);
     const linesBySlot = indexBySlot(doc.lines);
-    const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
+    const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile, full.lines);
     items.push(...drafts.map((draft) => finalize(draft, profile, doc)));
   }
   return items;
@@ -303,8 +304,10 @@ function withFigures(
   records: readonly OpenRecord[],
   doc: ScanDocument,
   profile: CaptureProfile,
+  allLines: readonly DocLine[],
 ): DraftItem[] {
   if (figures.length === 0) return [...drafts];
+  const lineById = new Map(allLines.map((line) => [line.id, line]));
 
   const pageSize = new Map(doc.pages.map((page) => [page.pageNumber, page]));
   const positions = new Map(drafts.map((draft, index) => [draft.key, records[index]?.startIndex ?? index]));
@@ -349,6 +352,11 @@ function withFigures(
     const columnWidth = column ? column.x1 - column.x0 : page.width;
     const fraction = Math.min(1, Math.max(0.15, (figure.box.x1 - figure.box.x0) / columnWidth));
 
+    // A figura que é uma tabela: o que ela engoliu forma uma grade, e a grade vai como texto (D78).
+    const absorbed = figure.absorbedLineIds.flatMap((id) => lineById.get(id) ?? []);
+    const table = tableRows(absorbed);
+    const tableText = table?.map((row) => row.join("\t")) ?? null;
+
     entries.push({
       // A fração precisa caber entre duas linhas: com um milésimo fixo, a 500ª figura de um livro
       // passaria da linha seguinte e sairia do lugar.
@@ -371,7 +379,8 @@ function withFigures(
         ],
         text: figure.caption ?? "",
         latex: null,
-        needsMath: false,
+        // A tabela vai ao reconhecimento: é dele a forma e o cabeçalho que a camada de texto não lê.
+        needsMath: tableText !== null,
         confidence: 0,
         confidenceParts: {
           layout: 0.9,
@@ -382,11 +391,13 @@ function withFigures(
           figure.kind === "raster" ? "imagem embutida na página" : "traços agrupados numa figura",
           ...(figure.caption === null ? [] : ["legenda logo abaixo"]),
           ...(figure.absorbedLineIds.length > 0 ? [`${figure.absorbedLineIds.length} rótulos dentro do desenho`] : []),
+          ...(table ? [`tabela: ${table.length} linhas × ${table[0]!.length} colunas`] : []),
         ],
         metadata: {
           figureKind: figure.kind,
           widthFraction: Math.round(fraction * 100) / 100,
           absorbedLines: figure.absorbedLineIds.length,
+          ...(tableText ? { tableRows: tableText } : {}),
         },
         lines: [],
       },

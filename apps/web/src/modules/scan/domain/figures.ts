@@ -133,6 +133,8 @@ const isDecoration = (rect: Rect): boolean => {
  * O que separa moldura de desenho é a densidade: um diagrama tem muitos traços e pouco texto;
  * uma moldura tem um traço e um parágrafo dentro.
  */
+/** O maior traço de uma letra desenhada, em múltiplos do corpo do texto. */
+const GLYPH_SIZE = 1.5;
 const FRAME_TEXT_COVERAGE = 0.12;
 const FRAME_MAX_STROKES = 2;
 /** Duas linhas de texto de verdade — não rótulos — já denunciam uma moldura. */
@@ -142,6 +144,8 @@ interface Cluster {
   box: Rect;
   kinds: Set<"drawing" | "image">;
   strokes: number;
+  /** O maior lado do maior traço: é o que separa um desenho de uma letra desenhada. */
+  largest: number;
   readonly pageNumber: number;
   readonly slot: number;
 }
@@ -163,6 +167,7 @@ function cluster(graphics: readonly FigureGraphic[], gap: number): Cluster[] {
         box: { x0: graphic.x0, y0: graphic.y0, x1: graphic.x1, y1: graphic.y1 },
         kinds: new Set([graphic.kind]),
         strokes: 1,
+        largest: Math.max(width(graphic), height(graphic)),
         pageNumber: graphic.pageNumber,
         slot: graphic.slot,
       });
@@ -173,9 +178,11 @@ function cluster(graphics: readonly FigureGraphic[], gap: number): Cluster[] {
     first.box = merge(first.box, graphic);
     first.kinds.add(graphic.kind);
     first.strokes += 1;
+    first.largest = Math.max(first.largest, width(graphic), height(graphic));
     for (const other of reached.slice(1)) {
       first.box = merge(first.box, other.box);
       first.strokes += other.strokes;
+      first.largest = Math.max(first.largest, other.largest);
       for (const kind of other.kinds) first.kinds.add(kind);
       clusters.splice(clusters.indexOf(other), 1);
     }
@@ -198,6 +205,23 @@ export function findFigures(input: FigureInput): readonly Figure[] {
     const sameColumn = input.lines.filter(
       (line) => line.pageNumber === group.pageNumber && line.slot === group.slot,
     );
+
+    /*
+      Letra desenhada não é figura.
+
+      O *Fundamentos* desenha ∧ e ∨ como traço, e não como texto: os conectivos do exercício 7
+      (vol. 1, p. 20) viravam quatro "figuras" com pedaços do enunciado dentro, e as linhas que
+      elas engoliam como rótulo sumiam do texto. Um desenho tem pelo menos um traço maior que uma
+      letra — o eixo, o círculo, a moldura da tabela —; um grupo de traços miúdos na altura de
+      linhas de texto é texto.
+    */
+    if (
+      !group.kinds.has("image") &&
+      group.largest <= input.bodySize * GLYPH_SIZE &&
+      sameColumn.some((line) => line.y0 < group.box.y1 && line.y1 > group.box.y0)
+    ) {
+      continue;
+    }
 
     // Moldura em volta de texto não é figura: o que está dentro dela é texto do livro, e continua
     // sendo texto. Só o desenho com poucos traços é suspeito — um diagrama tem dezenas.
