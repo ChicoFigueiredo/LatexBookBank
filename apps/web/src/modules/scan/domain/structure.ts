@@ -679,9 +679,10 @@ function draftOf(
     segments = segmentsOfLines(doc, record.anchorLines);
   } else {
     const stopLine = doc.lines[stopIndex];
-    segments = segmentsBetween(doc, positionOf(first), stopLine ? positionOf(stopLine) : null, linesBySlot);
+    const own = new Set((lines.length > 0 ? lines : [first]).map((line) => line.id));
+    segments = segmentsBetween(doc, positionOf(first), stopLine ? positionOf(stopLine) : null, linesBySlot, own);
     // Um elemento de uma linha colado no seguinte não abre faixa nenhuma: a caixa é a da linha.
-    if (segments.length === 0) segments = segmentsOfLines(doc, lines.length > 0 ? lines : [first]);
+    if (segments.length === 0) segments = segmentsOfLines(doc, lines.length > 0 ? lines : [first], linesBySlot);
   }
 
   const pageSize = new Map(doc.pages.map((page) => [page.pageNumber, page]));

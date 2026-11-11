@@ -93,6 +93,13 @@ describe("o motor nas páginas de respostas", () => {
     expect(answers.slice(3).map((answer) => answer.text)).toEqual(["4. c", "5. d"]);
   });
 
+  it("e o recorte de cada uma fecha antes da vizinha — o modelo lia as duas (vol. 6, resposta 255)", () => {
+    const [quatro, cinco] = answers.slice(3).map((answer) => answer.regions[0]!.box);
+    // "4. c" vai de 300 a 322,5; "5. d" começa em 360.
+    expect((quatro!.x + quatro!.width) * 595).toBeLessThan(360);
+    expect(cinco!.x * 595).toBeGreaterThan(322.5);
+  });
+
   it("a zona de respostas não vira estrutura, e não sobra aviso de zona pulada", () => {
     expect(proposal.items.filter((item) => item.pageNumber === 2 && item.kind !== "ANSWER")).toEqual([]);
     expect(proposal.warnings.filter((warning) => warning.includes("respostas dos exercícios"))).toEqual([]);
@@ -103,6 +110,30 @@ describe("o motor nas páginas de respostas", () => {
  * O que os outros volumes do Fundamentos trazem diferente do vol. 1 (medido nos vols. 2 a 11).
  */
 describe("os outros volumes do Fundamentos", () => {
+  it("na grade de exercícios do corpo, o recorte de cada um fecha antes do vizinho (vol. 8, p. 137)", () => {
+    // "122. f(x) = |x|" à esquerda, "127. f(x) = x·|x|" à direita: o modelo lia os dois no recorte
+    // do 122, e o enunciado dele saía com o do 127.
+    const spans: RawSpan[] = [
+      span("E X E R C Í C I O S", LEFT + 100, 80, { size: 19, fontName: "Times-Bold" }),
+      span("Nos problemas que seguem, calcule a derivada no ponto dado.", LEFT, 100, { size: 10 }),
+    ];
+    for (let n = 1, y = 130; n <= 5; n++, y += 24) {
+      spans.push(number(`${n}.`, LEFT, y), span(`f(x) = ${n}x + 1, no ponto 2`, LEFT + 16, y, { size: 10, endsLine: false }));
+      spans.push(number(`${n + 5}.`, RIGHT, y), span(`f(x) = cos ${n}x, no ponto 0`, RIGHT + 16, y, { size: 10 }));
+    }
+    const proposal = buildProposal([buildLines({ pageNumber: 1, width: 595, height: 842, spans, graphics: [] })], profile);
+    const exercicios = proposal.items.filter((item) => item.kind === "EXERCISE");
+
+    expect(exercicios.map((item) => item.text)).toContain("5. f(x) = 5x + 1, no ponto 2");
+    for (const item of exercicios) {
+      const box = item.regions[0]!.box;
+      const [de, ate] = [box.x * 595, (box.x + box.width) * 595];
+      // A da esquerda acaba antes do número da direita; a da direita começa depois do texto da esquerda.
+      if (Number(item.number) <= 5) expect(ate).toBeLessThan(RIGHT);
+      else expect(de).toBeGreaterThan(LEFT + 16 + 100);
+    }
+  });
+
   it("a resposta com o número colado no texto também abre: \"145.a) 3\" (vol. 2)", () => {
     const style = { bodySize: 9 } as never;
     const linha = (text: string) => ({ text }) as never;

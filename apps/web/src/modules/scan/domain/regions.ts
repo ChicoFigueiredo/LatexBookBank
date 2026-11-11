@@ -34,6 +34,7 @@ export function segmentsBetween(
   start: Position,
   stop: Position | null,
   linesBySlot: ReadonlyMap<number, readonly DocLine[]> = indexBySlot(doc.lines),
+  own?: ReadonlySet<string>,
 ): Segment[] {
   const segments: Segment[] = [];
   const lastSlot = stop ? stop.slot : doc.slots.length - 1;
@@ -83,28 +84,65 @@ export function segmentsBetween(
       }
     }
 
-    segments.push({ pageNumber: slot.pageNumber, rect: { x0, y0, x1, y1 } });
+    const rect = { x0, y0, x1, y1 };
+    segments.push({
+      pageNumber: slot.pageNumber,
+      rect: own ? clearOfNeighbours(rect, lines.filter((line) => own.has(line.id)), lines) : rect,
+    });
   }
 
   return segments;
 }
 
-/** Só as linhas dadas, por vaga — o título, que não carrega o que vem abaixo dele. */
-export function segmentsOfLines(doc: ScanDocument, lines: readonly DocLine[]): Segment[] {
+/**
+ * O recorte fecha antes do item vizinho na mesma altura — o da grade.
+ *
+ * "122. f(x) = |x|" à esquerda e "127. f(x) = x·|x|" à direita, na mesma coluna (vol. 8, p. 137),
+ * ou "253. δf ≥ 3" ao lado de "255. R(x) = 3" (vol. 6, p. 214): a faixa da coluna inteira levava
+ * os dois ao recorte, o modelo de visão lia os dois, e o 122 saía com o enunciado do 127. A linha
+ * de outro item que cruza a altura do recorte, e que fica toda de um lado do que é do item, fecha
+ * a largura antes dela. Linha alheia no meio do que é do item não fecha nada: ali não há corte que
+ * a deixe de fora.
+ */
+function clearOfNeighbours(rect: Rect, own: readonly DocLine[], lines: readonly DocLine[]): Rect {
+  if (own.length === 0) return rect;
+  const left = Math.min(...own.map((line) => line.x0));
+  const right = Math.max(...own.map((line) => line.x1));
+  const mine = new Set(own.map((line) => line.id));
+  let { x0, x1 } = rect;
+  for (const other of lines) {
+    if (mine.has(other.id) || other.y1 <= rect.y0 || other.y0 >= rect.y1) continue;
+    if (other.x0 >= right) x1 = Math.min(x1, other.x0 - 1);
+    else if (other.x1 <= left) x0 = Math.max(x0, other.x1 + 1);
+  }
+  return { ...rect, x0, x1 };
+}
+
+/**
+ * Só as linhas dadas, por vaga — o título, que não carrega o que vem abaixo dele, e o item de uma
+ * linha colado no seguinte. Com `linesBySlot`, o recorte também fecha antes do vizinho na mesma
+ * altura (a grade de exercícios).
+ */
+export function segmentsOfLines(
+  doc: ScanDocument,
+  lines: readonly DocLine[],
+  linesBySlot?: ReadonlyMap<number, readonly DocLine[]>,
+): Segment[] {
   const bySlot = indexBySlot(lines);
   const segments: Segment[] = [];
 
   for (const [s, group] of [...bySlot.entries()].sort((a, b) => a[0] - b[0])) {
     const slot = doc.slots[s];
     if (!slot || group.length === 0) continue;
+    const rect = {
+      x0: Math.min(slot.column.x0, ...group.map((l) => l.x0)) - 1,
+      y0: Math.min(...group.map((l) => l.y0)) - CONTENT_MARGIN,
+      x1: Math.max(slot.column.x1, ...group.map((l) => l.x1)) + 1,
+      y1: Math.max(...group.map((l) => l.y1)) + CONTENT_MARGIN,
+    };
     segments.push({
       pageNumber: slot.pageNumber,
-      rect: {
-        x0: Math.min(slot.column.x0, ...group.map((l) => l.x0)) - 1,
-        y0: Math.min(...group.map((l) => l.y0)) - CONTENT_MARGIN,
-        x1: Math.max(slot.column.x1, ...group.map((l) => l.x1)) + 1,
-        y1: Math.max(...group.map((l) => l.y1)) + CONTENT_MARGIN,
-      },
+      rect: linesBySlot ? clearOfNeighbours(rect, group, linesBySlot.get(s) ?? []) : rect,
     });
   }
 

@@ -85,8 +85,12 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  *
  * `@8`: o expoente e a fração em fonte de texto — corpo menor, fora da linha — contam como
  * matemática. No gabarito do vol. 5, "5¹⁰" saía "510" e a resposta não ia ao modelo.
+ *
+ * `@9`: o recorte do item fecha antes do vizinho na mesma altura. Na grade de exercícios (vol. 8,
+ * p. 137) e na linha com duas respostas (vol. 6, p. 214), o recorte da coluna inteira levava os
+ * dois itens ao modelo, e o 122 saía com o enunciado do 127.
  */
-export const ENGINE_VERSION = "scan-engine@8";
+export const ENGINE_VERSION = "scan-engine@9";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 
