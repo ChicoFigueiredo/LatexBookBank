@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -134,13 +134,19 @@ describe("isolamento: nenhuma chave escapa do workspace", () => {
   });
 
   it("nenhum arquivo é criado fora da raiz durante as tentativas", async () => {
-    // Prova de que a recusa acontece antes de qualquer escrita.
-    await expect(
-      storage.put({ workspaceId: "..", content: bytes("x"), mimeType: "text/plain" }),
-    ).rejects.toThrow();
+    // Prova de que a recusa acontece antes de qualquer escrita. A pasta de cima é só deste teste:
+    // a temporária da máquina é compartilhada, e um `/tmp/x` de outro projeto o derrubava.
+    const parent = await mkdtemp(path.join(tmpdir(), "lbb-storage-parent-"));
+    const confined = new LocalFileStorageProvider({ rootDir: path.join(parent, "raiz") });
+    try {
+      await expect(
+        confined.put({ workspaceId: "..", content: bytes("x"), mimeType: "text/plain" }),
+      ).rejects.toThrow();
 
-    const parent = path.dirname(rootDir);
-    await expect(readFile(path.join(parent, "x"))).rejects.toThrow();
+      expect(await readdir(parent)).toEqual([]);
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
   });
 });
 

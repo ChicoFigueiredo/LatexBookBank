@@ -1482,6 +1482,43 @@ Revisão de código em dois eixos sobre `6dc8662..41b4766` (frentes B a I), em 2
   `trash-dialog`, `use-render.ts`) e respostas do scan sem `satisfies` (get, review, reprocess,
   start, switch-profile), que passam a seguir a ADR 0010 quando o arquivo for mexido.
 
+#### D76 — O item de teoria guarda o parágrafo inteiro, e a primeira frase vira o título
+
+Decidido com o autor em 2026-11-10, na homologação do *Fundamentos* vol. 1. O "1. Chama-se
+**proposição** ou **sentença**…" aparecia na árvore como "Questão 1", e a primeira frase tinha
+sumido: o motor tratava a linha do número como título, e título sem nome não leva o texto a lugar
+nenhum. A metade seguinte, "sificada em verdadeira…", caía no corpo, e o modelo de visão a
+descartava como pedaço de palavra. Foram 73 das 159 subseções do volume.
+
+- **É no motor, para todos os perfis.** Título sem nome cujo parágrafo emenda no número passa o
+  texto ao corpo: o texto começa na linha do número, e o rótulo sai dele e do LaTeX reconhecido.
+- **O título é a primeira frase**, até o primeiro ponto ou dois-pontos ("Há expressões como:"),
+  tirado do **texto reconhecido** e convertido em texto simples — a camada de texto entrega
+  "Quando A  B", sem o ⊂.
+- **Título com nome e símbolo ilegível** ("Conectivo " seguido de um caractere da área privada, ou
+  de controle): a camada de texto continua mandando, e do reconhecimento sai **só o símbolo** de
+  cada buraco, encaixado entre os vizinhos que os dois leem igual. O modelo de visão, diante de um
+  recorte de uma linha, inventa — no ensaio, um parágrafo inteiro depois de "Operações em ℤ" e um
+  "P → Q" depois de "Condicional →". Sem encaixe exato, o título fica como estava; até o
+  reconhecimento rodar, o item é *suspeito*. Título legível ("Condicional →") não muda.
+- **Caractere de controle é símbolo ilegível**, como o da área privada: a fonte do *Fundamentos*
+  entrega U+0001 no lugar do ≥ em 16 trechos do vol. 1, e o `pdflatex` também o recusa.
+- **O corpo traz o parágrafo inteiro**, a primeira frase inclusive, sem o número, que é o rótulo.
+  O título é rótulo de árvore; o negrito e as fórmulas moram no corpo.
+- **O negrito vem da camada de texto**: as palavras que o PDF diz estar em negrito ganham
+  `\textbf` no LaTeX reconhecido. O modelo não é perguntado.
+- **Nó sem título se chama pelo tipo**, em português: "Subseção 1", "Seção IV". Só questão é
+  "Questão N". O cabeçalho do editor deixa de mostrar o tipo em inglês.
+- **A versão do motor sobe** (`ENGINE_VERSION`), porque a proposta muda: um novo scan não reabre
+  a execução velha. O teste que obriga a subir continua com a B7 (#251), adiada.
+- **O vol. 1 se conserta no lugar** (`scripts/repair-theory-items.ts`): os nós afetados ganham
+  título e corpo a partir das páginas que a execução guardou, lidas pelo motor de hoje, e de um
+  novo reconhecimento só do trecho de cada nó. O trecho antigo é achado onde estiver no corpo —
+  depois da figura que o livro põe ao lado, e na forma que a aprovação da época gravou —, e o nó
+  editado depois da aprovação é pulado com o motivo. A revisão é `SYSTEM` com o resumo da
+  aprovação, para o corpo continuar *a revisar*. Idempotente. Ensaiado numa cópia do acervo; no
+  acervo, quem roda é o autor.
+
 ---
 
 ## 4. Arquitetura

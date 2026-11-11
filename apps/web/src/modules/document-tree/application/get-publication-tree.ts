@@ -4,7 +4,7 @@ import type {
   TreeNodeRecord,
 } from "@modules/document-tree/domain/document-tree-repository";
 import { isQuestionType, optionLabelAt, type QuestionType } from "@modules/questions/domain/question-type";
-import type { NodeKind } from "@modules/document-tree/domain/node-kind";
+import { nodeKindLabel, type NodeKind } from "@modules/document-tree/domain/node-kind";
 import { isToReview } from "@modules/questions/domain/to-review";
 import { isBodyToReview } from "@modules/document-tree/domain/node-body";
 import {
@@ -144,7 +144,8 @@ function titleFor(node: TreeNodeRecord): string {
   }
 
   if (node.title) return node.title;
-  if (node.originalLabel) return `Questão ${node.originalLabel}`;
+  // Pelo tipo: o item de teoria "1." do Fundamentos aparecia como "Questão 1" (D76).
+  if (node.originalLabel) return `${nodeKindLabel(node.kind)} ${node.originalLabel}`;
 
   const statement = node.question?.statementLatex.trim() ?? "";
   if (statement !== "") {

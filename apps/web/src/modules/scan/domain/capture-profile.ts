@@ -2,7 +2,7 @@ import type { QuestionType } from "@modules/questions/domain/question-type";
 
 import type { DocLine, ScanDocument } from "./document";
 import type { PageModel, TextLine } from "./page";
-import type { ConfidenceParts, Diagnostic, ProposedItem, ScanKind } from "./proposal";
+import type { ConfidenceParts, Diagnostic, ItemMetadataValue, ProposedItem, ScanKind } from "./proposal";
 import type { PublicationStyle } from "./typography";
 
 /**
@@ -91,7 +91,7 @@ export interface AnchorMatch {
   readonly lines: number;
   readonly confidence: ConfidenceParts;
   readonly evidence: readonly string[];
-  readonly metadata?: Readonly<Record<string, string | number>>;
+  readonly metadata?: Readonly<Record<string, ItemMetadataValue>>;
   /**
    * Tipos abertos que esta âncora encerra antes de se encaixar, além do que `canContain` já
    * encerra — a questão 06 que vem depois do bloco de espanhol (01 a 05) não pertence a ele.
@@ -104,7 +104,7 @@ export interface OpenElement {
   readonly kind: ScanKind;
   readonly number: string | null;
   readonly anchor: DocLine;
-  readonly metadata: Readonly<Record<string, string | number>>;
+  readonly metadata: Readonly<Record<string, ItemMetadataValue>>;
 }
 
 export interface WalkContext {

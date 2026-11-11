@@ -6,7 +6,7 @@ import "@modules/questions/domain/plugins";
 import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
 import { optionsOf, pluginFor } from "@modules/questions/domain/question-type-plugin";
 
-import { bodyPieceLatex, exampleBody, exampleTitle, questionLatex } from "./approval-latex";
+import { bodyPieceLatex, contentLatex, exampleBody, exampleTitle, headingTitle, questionLatex } from "./approval-latex";
 import { boxRect } from "@/shared/geometry/normalized-box";
 import { intersectionOverUnion } from "./geometry";
 import { kindsWhere, SCAN_KIND_TRAITS, SCAN_KINDS, type ProposedRegion, type ScanKind } from "./proposal";
@@ -314,6 +314,17 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
       placePiece({ type: "existing", id: node.id }, item.sortOrder, bodyPieceLatex(item));
     }
   }
+  /** O texto que emenda no número do título — "1. Chama-se…" —, de onde sai o título dele (D76). */
+  const leadPieceOf = (heading: ScanItem): string | null => {
+    const lead = items.find(
+      (item) =>
+        item.parentKey === heading.key &&
+        item.kind === "CONTENT" &&
+        item.reviewState !== "REJECTED" &&
+        typeof item.metadata["leadLabel"] === "string",
+    );
+    return lead ? contentLatex(lead) : null;
+  };
   /** O irmão já posto que precede o item no livro, e o que o segue. */
   const neighbors = (container: NodeRef, sortOrder: number) => {
     const siblings = placedNodes.get(refKey(container)) ?? [];
@@ -383,7 +394,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
           parent: container,
           kind: nodeKind,
           // O exemplo não traz título do livro: o dele é o começo do próprio texto (D56).
-          title: item.kind === "EXAMPLE" ? exampleTitle(item) : item.title,
+          title: item.kind === "EXAMPLE" ? exampleTitle(item) : headingTitle(item, leadPieceOf(item)),
           // "Exercícios" como rótulo e como título diria a mesma coisa duas vezes na árvore.
           originalLabel: item.number ?? (sameText(item.originalLabel, item.title) ? null : item.originalLabel),
           anchors: item.regions,

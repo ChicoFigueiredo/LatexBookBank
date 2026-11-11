@@ -1,3 +1,5 @@
+import { nodeKindLabel } from "./node-kind";
+
 /**
  * A lixeira mostra **o que foi excluído**, e não cada linha que a exclusão tocou.
  *
@@ -121,28 +123,12 @@ export function rotular(no: NoExcluido): string {
   const apelido = no.nickname?.trim();
   const rotulo = no.originalLabel?.trim();
 
-  const nome = titulo || (rotulo ? `${nomeDoTipo(no.kind)} ${rotulo}` : nomeDoTipo(no.kind));
+  const nome = titulo || (rotulo ? `${nodeKindLabel(no.kind)} ${rotulo}` : nodeKindLabel(no.kind));
 
   // O apelido não repete o que o nome já diz: uma questão apelidada "27" com rótulo 27 viraria
   // "Questão 27 · 27", que é ruído com cara de informação.
   return apelido && apelido !== titulo && apelido !== rotulo ? `${nome} · ${apelido}` : nome;
 }
-
-const NOMES: Readonly<Record<string, string>> = {
-  BOOK: "Livro",
-  PART: "Parte",
-  CHAPTER: "Capítulo",
-  SECTION: "Seção",
-  SUBSECTION: "Subseção",
-  CONTENT: "Conteúdo",
-  QUESTION_GROUP: "Grupo",
-  QUESTION: "Questão",
-  FIGURE: "Figura",
-  NOTE: "Nota",
-  EXAMPLE: "Exemplo",
-};
-
-export const nomeDoTipo = (kind: string): string => NOMES[kind] ?? "Nó";
 
 /** Iterativo e com `visitados`, pelo mesmo motivo do overview: ciclo não pode derrubar a tela. */
 function contarSubarvore(
