@@ -142,6 +142,8 @@ const isDecoration = (rect: Rect): boolean => {
  */
 /** O maior traço de uma letra desenhada, em múltiplos do corpo do texto. */
 const GLYPH_SIZE = 1.5;
+/** O maior sinal desenhado sobre uma linha de texto — chave, colchete, barra —, em múltiplos do corpo. */
+const SIGN_SIZE = 2.5;
 const FRAME_TEXT_COVERAGE = 0.12;
 const FRAME_MAX_STROKES = 2;
 /** Duas linhas de texto de verdade — não rótulos — já denunciam uma moldura. */
@@ -209,14 +211,16 @@ export function findFigures(input: FigureInput): readonly Figure[] {
     A letra desenhada sai antes de agrupar (D78): o ∧ da linha logo acima da tabela-verdade da
     p. 17 ficava a 16 pt da moldura, entrava no grupo dela e puxava a frase de cima para dentro
     da caixa — e a grade deixava de ser grade. Traço do tamanho de uma letra, sobre uma linha de
-    texto, é texto.
+    texto, é texto. E a chave, o colchete e a barra desenhados também: no exercício 51 da p. 44,
+    o "{3n | n ∈ ℕ}" ligava o diagrama de Venn, três exercícios abaixo, a tudo o que ficava entre
+    eles — e a máscara da figura apagava esse texto do reconhecimento.
   */
   const linesByPage = new Map<number, FigureLine[]>();
   for (const line of input.lines) linesByPage.set(line.pageNumber, [...(linesByPage.get(line.pageNumber) ?? []), line]);
   const strokes = input.graphics.filter(
     (graphic) =>
       graphic.kind !== "drawing" ||
-      Math.max(width(graphic), height(graphic)) > input.bodySize * GLYPH_SIZE ||
+      Math.max(width(graphic), height(graphic)) > input.bodySize * SIGN_SIZE ||
       !(linesByPage.get(graphic.pageNumber) ?? []).some((line) => intersects(line, graphic)),
   );
 
