@@ -27,6 +27,24 @@ export type NodeKind = (typeof NODE_KINDS)[number];
 export const isNodeKind = (value: string): value is NodeKind =>
   (NODE_KINDS as readonly string[]).includes(value);
 
+const NODE_KIND_LABELS: Readonly<Record<NodeKind, string>> = {
+  BOOK: "Livro",
+  PART: "Parte",
+  CHAPTER: "Capítulo",
+  SECTION: "Seção",
+  SUBSECTION: "Subseção",
+  CONTENT: "Conteúdo",
+  QUESTION_GROUP: "Grupo",
+  QUESTION: "Questão",
+  FIGURE: "Figura",
+  NOTE: "Nota",
+  EXAMPLE: "Exemplo",
+};
+
+/** Como a tela chama o tipo: em português, e nunca o identificador do código (D74, D76). */
+export const nodeKindLabel = (kind: string): string =>
+  isNodeKind(kind) ? NODE_KIND_LABELS[kind] : "Nó";
+
 /** Estilo de numeração. Vem de `Questoes_Numeracao` legado (0 · 13 · 27). */
 export const NUMBERING_STYLES = ["ARABIC", "ROMAN", "LETTER"] as const;
 

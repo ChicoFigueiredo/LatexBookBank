@@ -31,6 +31,7 @@ import { useAgentSession } from "@modules/agents/ui/use-agent-session";
 import type { EditorSelection } from "@modules/latex/ui/LatexEditor";
 import type { TreeNodeDto } from "@modules/document-tree/application/get-publication-tree";
 import { isContainerKind, placementForAdd } from "@modules/document-tree/domain/add-placement";
+import { nodeKindLabel } from "@modules/document-tree/domain/node-kind";
 import { previousSource } from "@modules/questions/domain/inherited-metadata";
 import type { SearchHit } from "@modules/questions/domain/search-query";
 import { countTags, matchesAllTags } from "@modules/questions/domain/tag-filter";
@@ -903,7 +904,7 @@ function NodeDetail({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <PageHeader
-        eyebrow={node.originalLabel ? `${node.kind} · ${node.originalLabel}` : node.kind}
+        eyebrow={node.originalLabel ? `${nodeKindLabel(node.kind)} · ${node.originalLabel}` : nodeKindLabel(node.kind)}
         title={node.title}
         status={<ArtifactStatus status={node.question ? "unvalidated" : "draft"} size="sm" />}
         meta={

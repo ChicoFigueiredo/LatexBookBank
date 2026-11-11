@@ -110,7 +110,8 @@ export const SCAN_KIND_TRAITS: Readonly<Record<ScanKind, ScanKindTraits>> = {
     approvesAs: "node",
     nodeKind: "SUBSECTION",
     family: "título",
-    recognizesMath: false,
+    // O título com símbolo que a camada de texto não lê sai do reconhecimento (D76).
+    recognizesMath: true,
     reclassifiable: true,
     withSnippet: false,
   },
@@ -271,6 +272,9 @@ export const DIAGNOSTIC_STATUSES = [
 ] as const;
 export type DiagnosticStatus = (typeof DIAGNOSTIC_STATUSES)[number];
 
+/** O que um item carrega de fatos do perfil e do motor: a banca, a fração da figura, as palavras em negrito. */
+export type ItemMetadataValue = string | number | readonly string[];
+
 export interface Diagnostic {
   readonly status: DiagnosticStatus;
   readonly reasons: readonly string[];
@@ -300,7 +304,7 @@ export interface ProposedItem {
   readonly evidence: readonly string[];
   readonly diagnostic: Diagnostic | null;
   /** O que o perfil sabe e o acervo não precisa guardar em coluna: língua, faixa de questões. */
-  readonly metadata: Readonly<Record<string, string | number>>;
+  readonly metadata: Readonly<Record<string, ItemMetadataValue>>;
   readonly reviewState: ReviewState;
 }
 

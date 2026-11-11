@@ -55,6 +55,13 @@ fronteira**: o próximo exemplo, o próximo título ou o bloco de exercícios. N
 alternativas, não se responde e não entra numa avaliação.
 _Avoid_: exercício (é o que se responde), questão, problema resolvido
 
+**Item de teoria**:
+O parágrafo de teoria que o livro numera para poder citar — "1. Chama-se proposição…", "ver item
+68". É uma subseção da árvore, com o número por rótulo e a primeira frase por título; o corpo
+traz o parágrafo inteiro, a primeira frase inclusive. Não é questão nem exemplo: não se responde e
+não tem resolução.
+_Avoid_: questão, proposição (é o assunto de um item, não o que ele é), parágrafo numerado
+
 **Questão** (`Question`):
 O conteúdo que um nó de tipo questão carrega: enunciado, resolução, complemento, metadados e,
 quando é objetiva, as alternativas. Tem tipo: escolha simples, múltipla escolha ou discursiva.

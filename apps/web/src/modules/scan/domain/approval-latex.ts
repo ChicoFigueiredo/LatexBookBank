@@ -1,4 +1,10 @@
-import { escapeLatexText, UNICODE_MATH, UNICODE_MATH_CHARS } from "@modules/latex/domain/latex-escape";
+import {
+  escapeLatexText,
+  hasUnreadableSymbol,
+  UNICODE_MATH,
+  UNICODE_MATH_CHARS,
+  UNREADABLE_CHAR,
+} from "@modules/latex/domain/latex-escape";
 
 import type { ScanItem } from "./scan-item";
 
@@ -53,11 +59,181 @@ const textOf = (item: ScanItem): string => item.reviewedText ?? item.text;
 /** Onde o rótulo do livro acaba e o texto começa: "Exemplo 3.", "Exemplo 2.4:", "Exemplo 7)". */
 const LABEL_PREFIX = /^\s*\S+\s+\d+(?:\.\d+)*\s*[.:)]?\s*/;
 
-/** Teoria e nota: um parágrafo. */
+/**
+ * Teoria e nota: um parágrafo.
+ *
+ * O texto que emenda num item de teoria chega com o rótulo na frente — "1. Chama-se…" —, e o
+ * rótulo é do nó; e chega com as palavras que o PDF imprime em negrito, que o corpo guarda (D76).
+ * O LaTeX que a pessoa revisou fica como ela deixou.
+ */
 export function contentLatex(item: ScanItem): string {
-  const ready = reviewedOrRecognized(item);
-  if (ready !== null) return ready.trim();
-  return escapeLatexText(joinLines(textOf(item).split("\n")));
+  if (item.reviewedLatex !== null) return withLatexSymbols(item.reviewedLatex).trim();
+  const leadLabel = typeof item.metadata["leadLabel"] === "string" ? item.metadata["leadLabel"] : null;
+  const recognized = reviewedOrRecognized(item);
+  if (recognized !== null) return markBold(withoutLeadLabel(recognized.trim(), leadLabel), boldPhrasesOf(item), (p) => p);
+
+  const lines = textOf(item).split("\n");
+  const first = leadLabel === null ? (lines[0] ?? "") : withoutLeadLabel(lines[0] ?? "", leadLabel);
+  return markBold(escapeLatexText(joinLines([first, ...lines.slice(1)])), boldPhrasesOf(item), escapeLatexText);
+}
+
+const boldPhrasesOf = (item: ScanItem): readonly string[] => {
+  const phrases = item.metadata["boldPhrases"];
+  return Array.isArray(phrases) ? phrases.filter((phrase): phrase is string => typeof phrase === "string") : [];
+};
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Tira o rótulo do começo — "1.", "\textbf{1.}", "{\bf 1.}" —, e só ele. */
+function withoutLeadLabel(text: string, label: string | null): string {
+  if (label === null) return text;
+  const pattern = new RegExp(`^\\s*(?:\\\\textbf\\{\\s*|\\{\\\\bf\\s+)?${escapeRegExp(label)}\\s*\\}?\\s*`);
+  return text.replace(pattern, "");
+}
+
+/**
+ * As palavras em negrito, em `\textbf`, na ordem em que o livro as imprime.
+ *
+ * Cada uma marca a **próxima** ocorrência depois da anterior, fora da matemática: "proposição" é
+ * negrito na definição e não nas dez vezes em que o parágrafo volta a usá-la.
+ */
+function markBold(latex: string, phrases: readonly string[], toLatex: (phrase: string) => string): string {
+  let result = latex;
+  let cursor = 0;
+  for (const phrase of phrases) {
+    const needle = toLatex(phrase);
+    const pattern = new RegExp(`(?<!\\p{L})${escapeRegExp(needle)}(?!\\p{L})`, "gu");
+    const masked = outsideMath(result);
+    pattern.lastIndex = cursor;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(masked)) !== null) {
+      if (!result.slice(0, match.index).endsWith("\\textbf{")) break;
+    }
+    if (match === null) continue;
+    const at = match.index;
+    result = `${result.slice(0, at)}\\textbf{${needle}}${result.slice(at + needle.length)}`;
+    cursor = at + needle.length + "\\textbf{}".length;
+  }
+  return result;
+}
+
+/** Onde a frase acaba: ponto ou dois-pontos, seguido de espaço ou do fim. */
+const SENTENCE_END = /[.:](?=\s|$)/;
+
+/**
+ * A primeira frase: até o primeiro ponto ou dois-pontos seguido de espaço (D76).
+ *
+ * "2.5" e "(p, q, ...)" não terminam frase — o ponto não vem seguido de espaço. "Há expressões
+ * como:" termina nos dois-pontos, porque o que vem depois é a lista.
+ */
+export function firstSentence(text: string): string {
+  const paragraph = (text.split(/\n\s*\n/)[0] ?? "").replace(/\s+/g, " ").trim();
+  const end = SENTENCE_END.exec(paragraph);
+  return end === null ? paragraph : paragraph.slice(0, end.index + 1);
+}
+
+const LATEX_SYMBOLS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(Object.entries(UNICODE_MATH).map(([char, command]) => [command, char])),
+  "\\land": "∧",
+  "\\lor": "∨",
+  "\\lnot": "¬",
+  "\\sim": "~",
+  "\\to": "→",
+  "\\le": "≤",
+  "\\ge": "≥",
+  "\\ne": "≠",
+  "\\varnothing": "∅",
+  "\\cdot": "·",
+  "\\times": "×",
+  "\\%": "%",
+  "\\&": "&",
+  "\\_": "_",
+  "\\#": "#",
+  "\\$": "$",
+};
+
+/** O operador que se escreve colado no que nega: "~p", e não "~ p". */
+const PREFIX_SYMBOLS = new Set(["\\sim", "\\neg", "\\lnot"]);
+
+/**
+ * O LaTeX em texto simples, para um título (D76): o símbolo vira o caractere — `\subset` vira ⊂ —,
+ * e a formatação sai. Não é renderização; é o que cabe numa linha da árvore.
+ */
+export function latexToPlain(latex: string): string {
+  let text = latex;
+  for (let i = 0; i < 5; i++) {
+    const next = text.replace(/\\(?:textbf|textit|emph|text|mathrm|mathbf|operatorname)\s*\{([^{}]*)\}/g, "$1");
+    if (next === text) break;
+    text = next;
+  }
+  text = text.replace(/\\mathbb\s*\{([NZQRC])\}/g, (_, letter: string) => LATEX_SYMBOLS[`\\mathbb{${letter}}`] ?? letter);
+  // A raiz, como a camada de texto do livro a escreve: "√f(x)", "3√f(x)".
+  text = text.replace(/\\sqrt\s*(?:\[([^\]]*)\])?/g, (_, index: string | undefined) => `${index ?? ""}√`);
+  text = text.replace(/\\[A-Za-z]+|\\[%&_#$]/g, (command) => LATEX_SYMBOLS[command] ?? "");
+  // O espaço que o comando deixava antes do argumento: "~ p" volta a ser "~p".
+  for (const command of PREFIX_SYMBOLS) {
+    const symbol = LATEX_SYMBOLS[command];
+    if (symbol) text = text.replaceAll(`${symbol} `, symbol);
+  }
+  return text
+    .replace(/\$+|\\\(|\\\)|\\\[|\\\]/g, "")
+    .replace(/[{}^_]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * O título que um título da proposta leva ao acervo (D76).
+ *
+ * - **Sem nome**, o item de teoria cujo parágrafo emenda no número: a primeira frase do texto que
+ *   começa nele, já em LaTeX — o reconhecimento lê o ⊂ que a camada de texto perde.
+ * - **Com nome e símbolo ilegível** ("Conectivo " seguido de um caractere da área privada): o
+ *   título da camada de texto, com cada buraco preenchido pelo símbolo que o reconhecimento lê no
+ *   mesmo lugar — a menos que a pessoa tenha mudado o título na revisão.
+ */
+export function headingTitle(item: ScanItem, leadPiece: string | null): string | null {
+  if (item.title === null) {
+    if (leadPiece === null) return null;
+    const sentence = firstSentence(latexToPlain(leadPiece));
+    return sentence === "" ? null : sentence;
+  }
+  const recognized = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  const editedByHand = item.title !== item.proposed.title;
+  if (!hasUnreadableSymbol(item.title) || recognized === null || editedByHand) return item.title;
+  return fillUnreadable(item.title, latexToPlain(withoutLeadLabel(recognized.trim(), item.originalLabel))) ?? item.title;
+}
+
+/** O que pode ocupar um buraco: um símbolo curto, e nunca uma palavra. */
+const SYMBOL_FILL = /^[^\sA-Za-zÀ-ÖØ-öø-ÿ0-9]{1,3}$/u;
+
+/**
+ * Preenche cada buraco do título com o que o reconhecimento lê entre as mesmas palavras.
+ *
+ * Quem manda é a camada de texto: ela acerta letra por letra, e o modelo de visão, diante de um
+ * recorte de uma linha só, inventa — no vol. 1, um parágrafo inteiro depois de "Operações em ℤ".
+ * Do reconhecimento sai só o símbolo, encaixado entre os vizinhos que os dois leem igual. Sem
+ * encaixe exato, `null`: o título fica como estava.
+ */
+function fillUnreadable(title: string, recognized: string): string | null {
+  const plain = recognized.replace(/\s+/g, " ");
+  const pieces = title.split(UNREADABLE_CHAR);
+  let cursor = 0;
+  let result = "";
+  for (const [index, piece] of pieces.entries()) {
+    const known = piece.replace(/\s+/g, " ");
+    const anchor = known.trim();
+    const at = anchor === "" ? cursor : plain.indexOf(anchor, cursor);
+    if (at < 0) return null;
+    if (index > 0) {
+      // O que o modelo lê entre o vizinho anterior e este — ou, no fim do título, o próximo termo.
+      const between = anchor === "" ? (plain.slice(cursor).trim().split(" ")[0] ?? "") : plain.slice(cursor, at).trim();
+      if (!SYMBOL_FILL.test(between)) return null;
+      result += between;
+    }
+    result += known;
+    cursor = at + anchor.length;
+  }
+  return result.replace(/\s+/g, " ").trim();
 }
 
 /**

@@ -60,6 +60,17 @@ describe("o nome do nó na árvore", () => {
     expect(dto?.title).toBe("Questão 27");
   });
 
+  it("nó que não é questão se chama pelo tipo, e não 'Questão N' (D76)", async () => {
+    // O item de teoria "1." do Fundamentos aparecia como "Questão 1", e enganava quem revisava.
+    const [subsecao, secao] = await treeOf([
+      node({ id: "n1", kind: "SUBSECTION", originalLabel: "1", question: null }),
+      node({ id: "n2", kind: "SECTION", originalLabel: "IV", question: null, sortKey: "a1" }),
+    ]);
+
+    expect(subsecao?.title).toBe("Subseção 1");
+    expect(secao?.title).toBe("Seção IV");
+  });
+
   it("deriva do enunciado quando não há título nem rótulo", async () => {
     const [dto] = await treeOf([
       node({ question: question({ statementLatex: "Calcule o valor de $x$ na equação." }) }),

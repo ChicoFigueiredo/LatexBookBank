@@ -48,17 +48,21 @@ const ESCAPES: Readonly<Record<string, string>> = {
 };
 
 /**
- * Caractere da área de uso privado (U+E000–U+F8FF): um símbolo que a camada de texto do PDF não
- * soube ler.
+ * Caractere da área de uso privado (U+E000–U+F8FF), ou de controle: um símbolo que a camada de
+ * texto do PDF não soube ler.
  *
  * O *Fundamentos* escreve =, ∈, ∪ e ⇔ numa fonte própria, e o pdf.js entrega o código privado do
  * glifo, sem significado fora daquela fonte. Na importação de 2026-09-30, 746 das 929 questões do
- * volume 1 tinham algum, e o `pdflatex` recusava todas ("Unicode character U+E060").
+ * volume 1 tinham algum, e o `pdflatex` recusava todas ("Unicode character U+E060"). A mesma fonte
+ * entrega às vezes um caractere de controle (U+0001) no lugar do ≥ — 16 trechos do volume 1 (D76).
+ * Tabulação e quebra de linha são texto, e ficam de fora.
  */
-const UNREADABLE = /[\uE000-\uF8FF]/g;
+export const UNREADABLE_CHAR = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uE000-\uF8FF]/;
+
+const UNREADABLE = new RegExp(UNREADABLE_CHAR.source, "g");
 
 /** O texto tem símbolo que a camada de texto não leu — e que só o reconhecimento de visão recupera. */
-export const hasUnreadableSymbol = (text: string): boolean => /[\uE000-\uF8FF]/.test(text);
+export const hasUnreadableSymbol = (text: string): boolean => UNREADABLE_CHAR.test(text);
 
 /**
  * O que entra no lugar do símbolo ilegível: uma caixa com interrogação, que compila e aparece no

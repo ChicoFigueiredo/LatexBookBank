@@ -65,8 +65,11 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  * `@2`: a figura deixou de engolir a linha que o perfil protege. Mudou proposta de verdade — o
  * *Fundamentos* passou de dez capítulos sem título para os dez capítulos do livro —, e por isso a
  * chave antiga não pode mais reabrir uma execução como se fosse a mesma coisa.
+ *
+ * `@3`: o parágrafo que emenda num título sem nome vai para o texto, e o texto guarda o negrito
+ * (D76). O item de teoria "1. Chama-se proposição…" perdia a primeira frase.
  */
-export const ENGINE_VERSION = "scan-engine@2";
+export const ENGINE_VERSION = "scan-engine@3";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 

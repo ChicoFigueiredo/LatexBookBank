@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { escapeIfProse, escapeLatexText } from "@modules/latex/domain/latex-escape";
+import { escapeIfProse, escapeLatexText, hasUnreadableSymbol } from "@modules/latex/domain/latex-escape";
 
 /**
  * Prosa lida de um recorte, entrando num documento LaTeX (#193).
@@ -80,6 +80,13 @@ describe("símbolo que a camada de texto não leu", () => {
     // deixaria "x  2" calado; a caixa mostra no PDF que ali faltou alguma coisa.
     expect(escapeLatexText("Seja x  2 e A  B.")).toBe("Seja x \\fbox{?} 2 e A \\fbox{?} B.");
     expect(escapeLatexText("100% de A")).toBe("100\\% de A");
+  });
+
+  it("o caractere de controle também é símbolo ilegível; tabulação e quebra de linha, não (D76)", () => {
+    // A fonte do Fundamentos entrega às vezes U+0001 no lugar do ≥: "√f(x) \u0001 g(x)".
+    expect(escapeLatexText("√f(x) \u0001 g(x)")).toBe("√f(x) \\fbox{?} g(x)");
+    expect(hasUnreadableSymbol("√f(x) \u0001 g(x)")).toBe(true);
+    expect(hasUnreadableSymbol("uma linha\toutra\nterceira")).toBe(false);
   });
 });
 

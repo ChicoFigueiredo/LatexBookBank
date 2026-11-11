@@ -257,7 +257,8 @@ function walk(doc: ScanDocument, profile: CaptureProfile, zones: readonly Docume
   const records: OpenRecord[] = [];
   const stack: OpenRecord[] = [];
   const rootChildren = new Map<ScanKind, OpenElement>();
-  let content: { start: number } | null = null;
+  // `leadLabel`: o texto começa na linha do título, depois do rótulo — o parágrafo emendado.
+  let content: { start: number; leadLabel?: string } | null = null;
   let skipUntil = 0;
   const keys = new Set<string>();
 
@@ -274,7 +275,7 @@ function walk(doc: ScanDocument, profile: CaptureProfile, zones: readonly Docume
 
   const flushContent = (stopIndex: number) => {
     if (!content) return;
-    const start = content.start;
+    const { start, leadLabel } = content;
     content = null;
     const parent = stack[stack.length - 1];
     if (stopIndex <= start || !parent || !profile.canContain(parent.kind, "CONTENT")) return;
@@ -289,7 +290,7 @@ function walk(doc: ScanDocument, profile: CaptureProfile, zones: readonly Docume
       startIndex: start,
       stopIndex,
       extent: "until-boundary",
-      element: { kind: "CONTENT", number: null, anchor: first, metadata: {} },
+      element: { kind: "CONTENT", number: null, anchor: first, metadata: leadLabel ? { leadLabel } : {} },
       lastChild: new Map(),
     };
     records.push(record);
@@ -369,6 +370,16 @@ function walk(doc: ScanDocument, profile: CaptureProfile, zones: readonly Docume
       stack.push(record);
       if (match.extent === "heading") close(record, i + consumed);
       skipUntil = i + consumed;
+      /*
+        O parágrafo que emenda no número: "1. Chama-se proposição ou sentença…" (D76).
+
+        O título sem nome é só o rótulo; o resto da linha é o começo do texto. Sem isto a linha
+        ficava inteira com o título, que não tem onde guardá-la, e a primeira frase sumia.
+      */
+      const rest = match.label === null ? "" : leadText(line.text, match.label);
+      if (match.label !== null && match.extent === "heading" && match.title === null && consumed === 1 && rest !== "" && profile.settings.emitContent) {
+        content = { start: i, leadLabel: match.label };
+      }
       continue;
     }
 
@@ -528,9 +539,42 @@ function draftOf(
     confidence: 0,
     confidenceParts: match?.confidence ?? { pattern: 0.85, layout: regions.length > 0 ? 0.9 : 0.3 },
     evidence: match?.evidence ?? ["texto corrido entre dois elementos"],
-    metadata: record.element.metadata,
+    metadata: record.kind === "CONTENT" ? contentMetadata(record.element.metadata, bodyLines) : record.element.metadata,
     lines: bodyLines,
   };
+}
+
+/** O que sobra da linha depois do rótulo do título — vazio quando a linha é só o rótulo. */
+function leadText(text: string, label: string): string {
+  const trimmed = text.trim();
+  return trimmed.startsWith(label) ? trimmed.slice(label.length).trim() : "";
+}
+
+/**
+ * As palavras que o PDF imprime em negrito no texto, para o corpo guardar (D76).
+ *
+ * A camada de texto sabe trecho a trecho o que é negrito, e o modelo de visão não é perguntado.
+ * Fica de fora o rótulo do item de teoria — "1." é do nó, não do corpo — e o que não tem letra.
+ */
+function contentMetadata(metadata: OpenElement["metadata"], lines: readonly DocLine[]): OpenElement["metadata"] {
+  const leadLabel = typeof metadata["leadLabel"] === "string" ? metadata["leadLabel"] : null;
+  const phrases: string[] = [];
+  lines.forEach((line, index) => {
+    let run: string[] = [];
+    const flush = () => {
+      const phrase = run.join(" ").replace(/\s+/g, " ").trim();
+      run = [];
+      if (/\p{L}/u.test(phrase) && !phrases.includes(phrase)) phrases.push(phrase);
+    };
+    const spans = [...line.spans].sort((a, b) => a.x0 - b.x0);
+    spans.forEach((span, position) => {
+      const isLabel = index === 0 && position === 0 && leadLabel !== null && span.text.trim() === leadLabel;
+      if (span.bold && !span.math && !isLabel) run.push(span.text.trim());
+      else flush();
+    });
+    flush();
+  });
+  return phrases.length > 0 ? { ...metadata, boldPhrases: phrases } : metadata;
 }
 
 const TOC_KINDS = kindsWhere((traits) => traits.inToc);
@@ -594,13 +638,29 @@ function checkAgainstToc(
   return { drafts: result, warnings, offset };
 }
 
+/**
+ * O título de subseção com símbolo que a camada de texto não lê — "Conectivo " sem o ∧ (D76).
+ *
+ * O título certo sai do reconhecimento; até ele rodar, o item diz por que não pode ser aceito às
+ * cegas.
+ */
+function unreadableTitle(draft: DraftItem): ProposedItem["diagnostic"] {
+  // Sem nome, o título vem da primeira frase do texto, e é o texto quem passa pelo reconhecimento.
+  if (draft.kind !== "SUBSECTION" || draft.title === null || !hasUnreadableSymbol(draft.title)) return null;
+  return {
+    status: "suspicious",
+    reasons: ["o título tem símbolo que o texto do PDF não lê: reconheça o item"],
+    facts: { unreadableTitle: true },
+  };
+}
+
 function finalize(
   draft: DraftItem,
   profile: CaptureProfile,
   doc: ScanDocument | null,
   offset: number | null = null,
 ): ProposedItem {
-  const diagnostic = doc && profile.validateItem ? profile.validateItem(draft, doc) : null;
+  const diagnostic = (doc && profile.validateItem ? profile.validateItem(draft, doc) : null) ?? unreadableTitle(draft);
   const confidence = combineConfidence(draft.confidenceParts);
   const printed =
     doc?.furniture.printedPages.get(draft.pageNumber) ??

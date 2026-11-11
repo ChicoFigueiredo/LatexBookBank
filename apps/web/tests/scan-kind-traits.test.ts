@@ -56,9 +56,9 @@ describe("SCAN_KIND_TRAITS", () => {
       EXERCISE_GROUP: "QUESTION_GROUP",
       EXAMPLE: "EXAMPLE",
     });
-    // math-recognition.ts e semantic-review.ts.
+    // math-recognition.ts. A subseção entrou pelo título com símbolo ilegível (D76).
     expect(sorted(kindsWhere((t) => t.recognizesMath))).toEqual(
-      sorted(["EXERCISE", "QUESTION", "EXAMPLE", "CONTENT", "NOTE"]),
+      sorted(["EXERCISE", "QUESTION", "EXAMPLE", "CONTENT", "NOTE", "SUBSECTION"]),
     );
     expect(sorted(kindsWhere((t) => t.reclassifiable))).toEqual(
       sorted(["CONTENT", "EXAMPLE", "EXERCISE", "NOTE", "SECTION", "SUBSECTION"]),
