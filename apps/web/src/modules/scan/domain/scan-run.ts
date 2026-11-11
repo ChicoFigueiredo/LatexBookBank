@@ -79,8 +79,11 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  *
  * `@6`: o NUL que a fonte entrega no lugar do "<" vira um caractere da área privada. O banco
  * cortava o texto do item no NUL: 39 linhas de 12 páginas do vol. 1 paravam no meio.
+ *
+ * `@7`: o ASCII que a fonte MathematicalPi entrega ("5" no lugar de "=") vira símbolo ilegível, e
+ * o item vai ao modelo. Nos vols. 3 a 8 e 10 do Fundamentos, milhares de contas saíam trocadas.
  */
-export const ENGINE_VERSION = "scan-engine@6";
+export const ENGINE_VERSION = "scan-engine@7";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 

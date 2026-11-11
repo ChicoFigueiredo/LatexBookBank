@@ -15,9 +15,7 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
  */
 
 const fixture = (name: string) =>
-  new Uint8Array(
-    readFileSync(fileURLToPath(new URL(`./fixtures/scan/${name}`, import.meta.url))),
-  );
+  new Uint8Array(readFileSync(fileURLToPath(new URL(`./fixtures/scan/${name}`, import.meta.url))));
 
 const reader = new PdfjsDocumentReader();
 const opened: OpenedPdf[] = [];
@@ -119,12 +117,68 @@ describe("o caractere NUL da fonte", () => {
       width: 595,
       height: 842,
       spans: [
-        { text: "g(x) \u0000 0 e f(x) \u0004 0", x0: 50, x1: 200, baseline: 100, size: 10, fontName: "Times-Roman", endsLine: true },
+        {
+          text: "g(x) \u0000 0 e f(x) \u0004 0",
+          x0: 50,
+          x1: 200,
+          baseline: 100,
+          size: 10,
+          fontName: "Times-Roman",
+          endsLine: true,
+        },
       ],
       graphics: [],
     });
     const text = page.lines[0]?.text ?? "";
     expect(text).not.toContain("\u0000");
     expect(text).toBe("g(x)  0 e f(x) \u0004 0");
+  });
+});
+
+/**
+ * A fonte de símbolos que entrega o glifo com o código de um dígito: no vol. 7 do Fundamentos, a
+ * MathematicalPi-One dava "=" como "5", "−" como "2" e "+" como "1" — "P(t) = 2(1 − t) + 8t" saía
+ * "P(t) 5 2(1 2 t) 1 8t". O texto parecia legível, o item não ia ao modelo, e ia ao acervo assim.
+ */
+describe("a fonte MathematicalPi", () => {
+  const span = (text: string, fontName: string, x0: number) => ({
+    text,
+    x0,
+    x1: x0 + 6,
+    baseline: 100,
+    size: 9,
+    fontName,
+    endsLine: false,
+  });
+
+  it("o que ela entrega como letra ou dígito é símbolo ilegível; o resto da linha fica", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("P(t)", "VISXLK+FranklinGothic-Book", 50),
+        span("5", "WISXLK+MathematicalPi-One", 60),
+        { ...span("2(1", "VISXLK+FranklinGothic-Book", 70), endsLine: true },
+      ],
+      graphics: [],
+    });
+    expect(page.lines[0]?.text).toBe("P(t)  2(1");
+  });
+
+  it("o símbolo que ela já entrega em Unicode fica, e a fonte Symbol não é tocada", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("x", "Times-Roman", 50),
+        span("∈", "WISXLK+MathematicalPi-One", 60),
+        span("(", "Symbol", 70),
+        { ...span("A", "Times-Roman", 80), endsLine: true },
+      ],
+      graphics: [],
+    });
+    expect(page.lines[0]?.text.replace(/\s/g, "")).toBe("x∈(A");
   });
 });
