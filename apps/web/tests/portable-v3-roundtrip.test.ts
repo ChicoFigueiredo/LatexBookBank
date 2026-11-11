@@ -259,6 +259,13 @@ describe("exportar um acervo e restaurá-lo noutro banco", () => {
     ]);
   });
 
+  it("a resposta da discursiva atravessa", () => {
+    const question = restored.publications[0]?.nodes.find(
+      (node) => node.legacyId === 102,
+    )?.question;
+    expect(question?.answerLatex).toBe("círculo de centro $0$ e raio $2r$");
+  });
+
   it("as figuras voltam com o nome, o tipo e o MIME de origem — e o LaTeX continua achando cada uma", async () => {
     const { loadQuestionAssets, loadPublicationAssets } =
       await import("@modules/rendering/infrastructure/prisma-question-assets");

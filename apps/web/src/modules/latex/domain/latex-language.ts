@@ -113,10 +113,16 @@ export const LATEX_MONARCH_TOKENS = {
   },
 } as const;
 
-/** Campos editáveis de uma questão, na ordem das abas (spec §10). */
+/**
+ * Campos editáveis de uma questão, na ordem das abas (spec §10).
+ *
+ * A Resposta vem logo depois da Resolução: as duas são o que vem depois do enunciado, e o
+ * glossário as separa — o caminho e o resultado (CONTEXT.md, *Resposta*).
+ */
 export const QUESTION_FIELDS = [
   { id: "statementLatex", label: "Conteúdo" },
   { id: "solutionLatex", label: "Resolução" },
+  { id: "answerLatex", label: "Resposta" },
   { id: "complementLatex", label: "Complemento" },
 ] as const;
 

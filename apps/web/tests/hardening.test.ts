@@ -85,6 +85,13 @@ describe("o log estruturado", () => {
     });
   });
 
+  it("a resposta é conteúdo, como a resolução, e também não vai para o log", () => {
+    expect(sanitize({ solutionLatex: "M = C(1+it)", answerLatex: "R$ 1060" })).toEqual({
+      solutionLatex: "[omitido]",
+      answerLatex: "[omitido]",
+    });
+  });
+
   it("valor longo é truncado com a marca do quanto sobrou", () => {
     const clean = sanitize({ stdout: "x".repeat(900) });
     expect(String(clean["stdout"])).toMatch(/…\[\+400\]$/);

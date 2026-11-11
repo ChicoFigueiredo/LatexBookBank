@@ -275,6 +275,66 @@ describe("reverter devolve o estado exato", () => {
   });
 });
 
+describe("a resposta no histórico", () => {
+  it("o patch do agente grava a resposta, e reverter devolve a de antes", async () => {
+    const { revertQuestion, applier, findRevision, prisma } = await modules();
+    const { questionId } = await seedQuestion("DISCURSIVE", []);
+    await prisma.question.update({ where: { id: questionId }, data: { answerLatex: "$4$" } });
+
+    const { changes, result } = await approveAll(
+      questionId,
+      patch({ fields: [{ field: "answerLatex", value: "$\\{9, 6, 3, 0\\}$" }] }),
+    );
+    expect(changes.map((change) => change.label)).toEqual(["Resposta"]);
+    expect(
+      (await prisma.question.findUniqueOrThrow({ where: { id: questionId } })).answerLatex,
+    ).toBe("$\\{9, 6, 3, 0\\}$");
+
+    const revision = await findRevision("QUESTION", questionId, result.revisionNumber);
+    expect(JSON.parse(revision?.snapshotJson ?? "{}")).toMatchObject({ answerLatex: "$4$" });
+
+    await revertQuestion(applier, {
+      questionId,
+      snapshotJson: revision?.snapshotJson ?? "",
+      summary: "Reverte.",
+    });
+    expect(
+      (await prisma.question.findUniqueOrThrow({ where: { id: questionId } })).answerLatex,
+    ).toBe("$4$");
+  });
+
+  it("revisão de antes da resposta restaura a resposta vazia", async () => {
+    // A revisão gravada antes de a Resposta existir não tem o campo: a questão não tinha
+    // resposta, e restaurá-la sem limpar a de agora devolveria um estado que nunca existiu.
+    const { revertQuestion, applier, prisma } = await modules();
+    const { questionId } = await seedQuestion("DISCURSIVE", []);
+    await prisma.question.update({
+      where: { id: questionId },
+      data: { answerLatex: "escrita depois" },
+    });
+
+    await revertQuestion(applier, {
+      questionId,
+      snapshotJson: JSON.stringify({
+        snapshotVersion: 2,
+        type: "DISCURSIVE",
+        statementLatex: "Assinale as corretas.",
+        solutionLatex: "",
+        complementLatex: "",
+        nickname: null,
+        options: [],
+        metadata: {},
+        tags: [],
+      }),
+      summary: "Reverte.",
+    });
+
+    expect(
+      (await prisma.question.findUniqueOrThrow({ where: { id: questionId } })).answerLatex,
+    ).toBe("");
+  });
+});
+
 describe("a ordem das alternativas", () => {
   it("uma ordem parcial não vira mudança — e nada empata", async () => {
     const { readQuestionState, diffPatch } = await modules();

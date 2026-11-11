@@ -64,6 +64,9 @@ const question = z.object({
   nickname: optionalText,
   statementLatex: text,
   solutionLatex: text,
+  // O `.lbb` v3 gravado antes de a Resposta existir não tem o campo. A exceção à regra de não
+  // completar nada: a questão daquele backup não tinha resposta, e vazio é o que ela era.
+  answerLatex: text.default(""),
   complementLatex: text,
   originalLatex: optionalText,
   difficulty: integer,

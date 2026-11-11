@@ -22,6 +22,7 @@ const content: Record<string, AssessmentQuestionContent> = {
     questionId: "q-1",
     statementLatex: "Um capital de \\SI{1000}{\\real} rende quanto?",
     solutionLatex: "$M = C(1+it)$",
+    answerLatex: "",
     options: { "o-a": "\\SI{1020}{\\real}", "o-b": "\\SI{1060}{\\real}", "o-e": "nenhuma" },
     correctOptionIds: ["o-b"],
     hasOptions: true,
@@ -33,6 +34,7 @@ const content: Record<string, AssessmentQuestionContent> = {
     questionId: "q-2",
     statementLatex: "Demonstre o teorema.",
     solutionLatex: "A demonstração usa uma paralela.",
+    answerLatex: "",
     options: {},
     correctOptionIds: [],
     hasOptions: false,
@@ -132,6 +134,42 @@ describe("o que cada versão mostra", () => {
     expect(key).toContain("\\begin{tabular}");
     expect(key).toContain("& --- \\\\");
     expect(key).toContain("[GABARITO]");
+  });
+
+  it("a discursiva com resposta sai com ela no gabarito, no lugar do traço", () => {
+    const comResposta = {
+      ...content,
+      "q-2": { ...content["q-2"]!, answerLatex: "Os ângulos somam $180^\\circ$." },
+    };
+    const key = renderAssessment({ audience: "ANSWER_KEY", header, variant, content: comResposta });
+
+    expect(key).toContain("2 & Os ângulos somam $180^\\circ$. \\\\");
+    expect(key).not.toContain("& --- \\\\");
+    // A resposta é texto corrido: na coluna `c` ela não quebraria linha e sairia da página.
+    expect(key).toMatch(/\\begin\{tabular\}\{\|c\|p\{/);
+    expect(
+      renderAssessment({ audience: "STUDENT", header, variant, content: comResposta }),
+    ).not.toContain("somam");
+  });
+
+  it("sem resposta nenhuma, a tabela continua a de antes", () => {
+    expect(render("ANSWER_KEY")).toContain("\\begin{tabular}{|c|c|}");
+  });
+
+  it("na objetiva quem responde é o gabarito, e a resposta escrita não entra", () => {
+    const objetivaComResposta = {
+      ...content,
+      "q-1": { ...content["q-1"]!, answerLatex: "R$ 1060" },
+    };
+    const key = renderAssessment({
+      audience: "ANSWER_KEY",
+      header,
+      variant,
+      content: objetivaComResposta,
+    });
+
+    expect(key).not.toContain("R$ 1060");
+    expect(key).toContain("\\begin{tabular}{|c|c|}");
   });
 
   it("as instruções não vão para o gabarito", () => {

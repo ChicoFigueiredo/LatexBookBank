@@ -174,6 +174,7 @@ export function snapshotOf(state: QuestionState): string {
     type: state.type,
     statementLatex: state.statementLatex,
     solutionLatex: state.solutionLatex,
+    answerLatex: state.answerLatex,
     complementLatex: state.complementLatex,
     nickname: state.nickname,
     options: state.options.map((option) => ({
@@ -191,13 +192,20 @@ export function snapshotOf(state: QuestionState): string {
  * A versão 2 acrescenta o tipo e a posição de cada alternativa: sem eles, restaurar devolvia uma
  * questão com o tipo trocado depois, e a ordem só por aproximação. Revisão antiga não tem os dois
  * campos, e a restauração dela faz o que dá — ver `revertQuestion`.
+ *
+ * A versão 3 acrescenta a resposta (CONTEXT.md, *Resposta*). A revisão de antes dela não tem o
+ * campo porque a questão não tinha resposta, e restaurá-la deixa a resposta vazia.
  */
-export const SNAPSHOT_VERSION = 2;
+export const SNAPSHOT_VERSION = 3;
 
-/** O snapshot lido de volta: as revisões gravadas antes da versão 2 não têm tipo nem posição. */
-export interface QuestionSnapshot extends Omit<QuestionState, "type" | "options"> {
+/**
+ * O snapshot lido de volta: as revisões gravadas antes da versão 2 não têm tipo nem posição, e as
+ * de antes da versão 3 não têm a resposta.
+ */
+export interface QuestionSnapshot extends Omit<QuestionState, "type" | "options" | "answerLatex"> {
   readonly snapshotVersion?: number;
   readonly type?: string;
+  readonly answerLatex?: string;
   readonly options: readonly {
     readonly id: string;
     readonly sortKey?: string;

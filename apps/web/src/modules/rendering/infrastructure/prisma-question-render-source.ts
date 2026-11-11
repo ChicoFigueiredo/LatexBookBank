@@ -30,8 +30,8 @@ export async function questionRenderSource(
 /**
  * O corpo de um nó como fonte (ADR 0001: "um capítulo com corpo é compilável").
  *
- * O corpo entra no lugar do enunciado de uma discursiva, sem alternativas nem resolução. As
- * figuras são **do livro** (D58): entram no acervo antes de existir questão nenhuma.
+ * O corpo entra no lugar do enunciado de uma discursiva, sem alternativas, resolução nem resposta.
+ * As figuras são **do livro** (D58): entram no acervo antes de existir questão nenhuma.
  */
 export function nodeRenderSource(
   node: { readonly nodeId: string; readonly bodyLatex: string },
@@ -46,6 +46,7 @@ export function nodeRenderSource(
       type: "DISCURSIVE",
       statementLatex: node.bodyLatex,
       solutionLatex: "",
+      answerLatex: "",
       complementLatex: "",
       options: [],
     },
@@ -77,6 +78,7 @@ export async function loadQuestionForRender(
       type: true,
       statementLatex: true,
       solutionLatex: true,
+      answerLatex: true,
       complementLatex: true,
       options: {
         // A ordem é a do `sortKey`, e é ela que decide a letra da alternativa (D9). Sem o
@@ -102,6 +104,7 @@ export async function loadQuestionForRender(
       type: row.type,
       statementLatex: row.statementLatex,
       solutionLatex: row.solutionLatex,
+      answerLatex: row.answerLatex,
       complementLatex: row.complementLatex,
       options: row.options,
     },

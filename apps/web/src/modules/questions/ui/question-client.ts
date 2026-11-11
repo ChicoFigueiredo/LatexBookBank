@@ -23,6 +23,7 @@ export interface QuestionEdit extends Partial<QuestionMetadata> {
   readonly expectedVersion: string;
   readonly statementLatex?: string;
   readonly solutionLatex?: string;
+  readonly answerLatex?: string;
   readonly complementLatex?: string;
   readonly type?: QuestionType;
   readonly status?: QuestionStatus;

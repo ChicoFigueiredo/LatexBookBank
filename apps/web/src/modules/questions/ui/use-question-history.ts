@@ -18,8 +18,8 @@ import { questionApi } from "./question-client";
 export interface QuestionHistoryOptions {
   readonly questionId: string;
   /**
-   * O texto na tela. O diff usa estes três campos no lugar dos do banco: usar o valor gravado
-   * esconderia do usuário justamente o que ele acabou de digitar.
+   * O texto na tela. O diff usa estes campos no lugar dos do banco: usar o valor gravado esconderia
+   * do usuário justamente o que ele acabou de digitar.
    */
   readonly draft: Readonly<Record<QuestionFieldId, string>>;
   /** Depois de restaurar. No editor, recarregar a página inteira. */
@@ -71,9 +71,10 @@ export function useQuestionHistory({
       setChanges(
         diffSnapshots(sides.snapshot, {
           ...sides.current,
-          // Exceto os três campos de texto, que podem ter edição não salva na tela.
+          // Exceto os campos de texto, que podem ter edição não salva na tela.
           statementLatex: draft.statementLatex,
           solutionLatex: draft.solutionLatex,
+          answerLatex: draft.answerLatex,
           complementLatex: draft.complementLatex,
         }),
       );

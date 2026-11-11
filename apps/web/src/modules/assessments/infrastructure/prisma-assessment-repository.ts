@@ -275,6 +275,7 @@ export async function contentFor(
       type: true,
       statementLatex: true,
       solutionLatex: true,
+      answerLatex: true,
       options: {
         orderBy: { sortKey: "asc" },
         select: { id: true, statementLatex: true, isCorrect: true },

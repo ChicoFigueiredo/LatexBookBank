@@ -233,6 +233,9 @@ export async function revertQuestion(
     await tx.applyFields(input.questionId, {
       statementLatex: snapshot.statementLatex,
       solutionLatex: snapshot.solutionLatex,
+      // A revisão de antes da resposta não tem o campo: a questão não tinha resposta, e é a ela
+      // que se volta. Deixar de fora manteria a resposta escrita depois.
+      answerLatex: snapshot.answerLatex ?? "",
       complementLatex: snapshot.complementLatex,
       nickname: snapshot.nickname,
       // O tipo pode ter mudado depois da revisão (o PATCH da questão aceita trocá-lo); sem

@@ -55,6 +55,7 @@ const FORBIDDEN = new Set([
   "databaseUrl",
   "statementLatex",
   "solutionLatex",
+  "answerLatex",
 ]);
 
 /** Valor longo demais para log. Além disso é conteúdo, e conteúdo não é evento. */

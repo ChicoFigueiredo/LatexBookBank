@@ -178,6 +178,7 @@ export async function readWorkspaceForExport(
                   nickname: true,
                   statementLatex: true,
                   solutionLatex: true,
+                  answerLatex: true,
                   complementLatex: true,
                   originalLatex: true,
                   difficulty: true,

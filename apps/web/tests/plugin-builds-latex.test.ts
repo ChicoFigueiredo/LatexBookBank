@@ -38,6 +38,7 @@ const question = (over: Partial<QuestionForRender> = {}): QuestionForRender => (
   type: FAKE_TYPE,
   statementLatex: "O céu é azul?",
   solutionLatex: "Sim.",
+  answerLatex: "",
   complementLatex: "",
   options: [
     { id: "o1", statementLatex: "Verdadeiro", isCorrect: true },

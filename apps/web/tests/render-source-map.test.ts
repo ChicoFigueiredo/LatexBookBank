@@ -27,6 +27,7 @@ const question = (over: Partial<BuildBundleInput["question"]> = {}) => ({
   type: "MULTIPLE_CHOICE" as const,
   statementLatex: "Primeira linha.\nSegunda linha.\nTerceira linha.",
   solutionLatex: "A resposta.",
+  answerLatex: "",
   complementLatex: "O complemento.",
   options: [
     { id: "o1", statementLatex: "alternativa a", isCorrect: false },
@@ -140,6 +141,53 @@ describe("o que muda a montagem muda o mapa junto", () => {
     ]);
     // O enunciado tem três linhas; o bloco da resposta começa na quarta.
     expect(semOpcoes[1]?.startLine).toBe(4);
+  });
+
+  it("a Resposta é bloco próprio, depois da resolução, e o diagnóstico volta para ela", () => {
+    // A resposta é o resultado final (CONTEXT.md): campo do editor, com aba própria — clicar num
+    // erro dela leva à aba dela, e não à da resolução.
+    const request = input({
+      question: question({ answerLatex: "A final.\nSegunda da resposta." }),
+      includeSolution: true,
+    });
+    const spans = buildSourceMap(request);
+    const total = buildRenderBundle(request).sourceLatex.split("\n");
+
+    expect(spans.map((span) => span.origin)).toEqual([
+      "statementLatex",
+      "options",
+      "solutionLatex",
+      "answerLatex",
+      "complementLatex",
+    ]);
+    const linhaDaResposta = total.findIndex((line) => line.includes("Resposta.")) + 1;
+    expect(total[linhaDaResposta - 1]).toBe("\\textbf{Resposta.} A final.");
+    expect(locateBodyLine(spans, linhaDaResposta)).toEqual({ origin: "answerLatex", line: 1 });
+    expect(locateBodyLine(spans, linhaDaResposta + 1)).toEqual({ origin: "answerLatex", line: 2 });
+  });
+
+  it("a Resposta é do gabarito: sem `includeSolution`, ela não sai", () => {
+    const request = input({ question: question({ answerLatex: "A final." }) });
+
+    expect(buildRenderBundle(request).sourceLatex).not.toContain("A final.");
+    expect(buildSourceMap(request).map((span) => span.origin)).not.toContain("answerLatex");
+  });
+
+  it("na discursiva e no tipo sem plugin, Resolução e Resposta são rótulos diferentes", () => {
+    // A discursiva rotulava a resolução de "Resposta" — e com a Resposta de verdade no mesmo PDF,
+    // os dois blocos sairiam com o mesmo nome (CONTEXT.md separa os dois).
+    for (const type of ["DISCURSIVE", "TIPO_SEM_PLUGIN"]) {
+      const corpo = buildRenderBundle(
+        input({
+          question: { ...question({ options: [], answerLatex: "$4$" }), type } as never,
+          includeSolution: true,
+        }),
+      ).sourceLatex;
+
+      expect(corpo, type).toContain("\\textbf{Resolução.} A resposta.");
+      expect(corpo, type).toContain("\\textbf{Resposta.} $4$");
+      expect(corpo.indexOf("Resolução."), type).toBeLessThan(corpo.indexOf("Resposta."));
+    }
   });
 
   it("o `trim` do corpo é descontado: a linha 1 compilada é a **linha 3 do campo**", () => {

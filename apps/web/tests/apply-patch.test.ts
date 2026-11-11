@@ -22,6 +22,7 @@ const state = (over: Partial<QuestionState> = {}): QuestionState => ({
   type: "MULTIPLE_CHOICE",
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
+  answerLatex: "",
   complementLatex: "",
   nickname: null,
   options: [
@@ -286,6 +287,7 @@ describe("a revisão vem antes da escrita, na mesma transação", () => {
 
     const snapshot = JSON.parse(write.mock.calls[0]?.[0].snapshotJson ?? "{}") as object;
     expect(Object.keys(snapshot).sort()).toEqual([
+      "answerLatex",
       "complementLatex",
       "metadata",
       "nickname",
@@ -326,7 +328,9 @@ describe("reverter", () => {
 
     expect(number).toBe(1);
     expect(log[2]).toMatch(/^revision:USER/);
-    expect(log).toContain("fields:statementLatex,solutionLatex,complementLatex,nickname,type");
+    expect(log).toContain(
+      "fields:statementLatex,solutionLatex,answerLatex,complementLatex,nickname,type",
+    );
   });
 
   it("restaura também alternativas, ordem, metadados e tags", async () => {

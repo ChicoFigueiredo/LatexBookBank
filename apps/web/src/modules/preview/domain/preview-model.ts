@@ -62,6 +62,7 @@ export interface PreviewModel {
   readonly statement: readonly PreviewBlock[];
   readonly options: readonly PreviewOption[];
   readonly solution: readonly PreviewBlock[];
+  readonly answer: readonly PreviewBlock[];
   readonly complement: readonly PreviewBlock[];
 }
 

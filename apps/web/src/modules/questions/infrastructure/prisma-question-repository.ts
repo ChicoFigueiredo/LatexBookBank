@@ -17,6 +17,7 @@ const SELECT = {
   type: true,
   statementLatex: true,
   solutionLatex: true,
+  answerLatex: true,
   complementLatex: true,
   nickname: true,
   difficulty: true,

@@ -2,6 +2,7 @@ import type { RenderDiagnostic, RenderProfile } from "@latexbookbank/render-cont
 import { compileDraft } from "@modules/rendering/application/render-document";
 import {
   isLatexField,
+  LATEX_FIELDS,
   type LatexField,
   type RenderSource,
 } from "@modules/rendering/domain/render-source";
@@ -64,7 +65,7 @@ export function buildCandidateRenderTool(deps: CandidateRenderDeps): AgentTool {
       properties: {
         field: {
           type: "string",
-          enum: ["statementLatex", "solutionLatex", "complementLatex"],
+          enum: [...LATEX_FIELDS],
           description: "Qual campo o candidato substitui na compilação.",
         },
         value: { type: "string", description: "O LaTeX candidato, completo." },
@@ -134,7 +135,7 @@ function parseInput(input: unknown): { field: LatexField; value: string } {
   const value = record["value"];
 
   if (!isLatexField(field)) {
-    throw new Error("`field` precisa ser statementLatex, solutionLatex ou complementLatex.");
+    throw new Error(`\`field\` precisa ser ${LATEX_FIELDS.join(", ")}.`);
   }
   if (typeof value !== "string") throw new Error("`value` precisa ser o LaTeX candidato.");
   if (value.length > 200_000) throw new Error("`value` é grande demais para uma questão.");

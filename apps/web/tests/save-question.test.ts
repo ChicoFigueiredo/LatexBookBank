@@ -56,6 +56,7 @@ const base: QuestionSnapshot = {
   type: "MULTIPLE_CHOICE",
   statementLatex: "Calcule $2+2$.",
   solutionLatex: "$4$",
+  answerLatex: "",
   complementLatex: "",
   nickname: null,
   difficulty: 5,
@@ -96,6 +97,20 @@ describe("salvamento normal", () => {
     });
 
     expect(result.snapshot.statementLatex).toBe(base.statementLatex);
+    expect(result.snapshot.solutionLatex).toBe(base.solutionLatex);
+  });
+
+  it("a resposta é campo da edição, como a resolução", async () => {
+    // A resposta é o resultado final, sem o caminho (CONTEXT.md, *Resposta*): o autosave a manda
+    // no mesmo `PATCH` que a resolução, e ela grava pelo mesmo caminho.
+    const result = await saveQuestion(repository, {
+      questionId: "q-1",
+      expectedUpdatedAt: T0,
+      edit: { answerLatex: "$4$" },
+    });
+
+    expect(result.written).toBe(true);
+    expect(result.snapshot.answerLatex).toBe("$4$");
     expect(result.snapshot.solutionLatex).toBe(base.solutionLatex);
   });
 
@@ -187,6 +202,17 @@ describe("autosave sem alterações", () => {
     expect(result.written).toBe(false);
     expect(repository.writes).toBe(0);
     expect(result.snapshot.updatedAt).toEqual(T0);
+  });
+
+  it("a resposta igual à gravada também não é edição", async () => {
+    const result = await saveQuestion(repository, {
+      questionId: "q-1",
+      expectedUpdatedAt: T0,
+      edit: { answerLatex: base.answerLatex },
+    });
+
+    expect(result.written).toBe(false);
+    expect(repository.writes).toBe(0);
   });
 
   it("edição vazia também não grava", async () => {

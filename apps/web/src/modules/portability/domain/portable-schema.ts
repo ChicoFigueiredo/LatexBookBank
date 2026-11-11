@@ -263,6 +263,12 @@ export interface PortableQuestion {
   readonly nickname: string | null;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  /**
+   * A resposta final (CONTEXT.md, *Resposta*). Entrou na v3 **sem subir a versão**: um `.lbb` v3
+   * de antes dela não tem o campo, e a leitura o completa com `""` — a questão daquele backup não
+   * tinha resposta. É o único campo que a leitura completa (ver `portable-validation`).
+   */
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly originalLatex: string | null;
   readonly difficulty: number;

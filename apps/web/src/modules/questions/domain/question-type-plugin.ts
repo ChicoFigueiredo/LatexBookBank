@@ -26,6 +26,8 @@ export interface QuestionForPlugin {
   readonly type: QuestionType;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  /** A resposta final, sem o caminho (CONTEXT.md, *Resposta*). Sai junto com a resolução. */
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly options: readonly QuestionOptionForPlugin[];
 }
@@ -56,7 +58,9 @@ export interface ValidationIssue {
 }
 
 export interface BuildLatexOptions {
-  /** Quando falso, o gabarito e a resolução ficam de fora — é o que se mostra ao aluno. */
+  /**
+   * Quando falso, o gabarito, a resolução e a resposta ficam de fora — é o que se mostra ao aluno.
+   */
   readonly includeSolution?: boolean;
 }
 

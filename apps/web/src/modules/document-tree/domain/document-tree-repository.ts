@@ -29,6 +29,7 @@ export interface TreeQuestionRecord {
   readonly updatedAt: Date;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly difficulty: number;
   readonly board: string | null;

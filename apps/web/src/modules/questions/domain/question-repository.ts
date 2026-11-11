@@ -12,6 +12,8 @@ import type { QuestionStatus, QuestionType } from "@modules/questions/domain/que
 export interface QuestionEdit {
   readonly statementLatex?: string;
   readonly solutionLatex?: string;
+  /** A resposta final, sem o caminho (CONTEXT.md, *Resposta*). */
+  readonly answerLatex?: string;
   readonly complementLatex?: string;
   readonly nickname?: string | null;
   /**
@@ -55,6 +57,7 @@ export interface QuestionSnapshot {
   readonly type: QuestionType;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly nickname: string | null;
   readonly status?: QuestionStatus;

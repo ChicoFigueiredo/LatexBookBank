@@ -22,6 +22,7 @@ export interface QuestionState {
   readonly type: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly nickname: string | null;
   readonly options: readonly {
@@ -95,7 +96,7 @@ export function diffPatch(state: QuestionState, patch: QuestionPatch): readonly 
 
   for (const entry of patch.fields) {
     // `noUncheckedIndexedAccess` está ligado, mas `field` vem do enum da whitelist — o acesso é
-    // sempre a uma das três chaves de texto, e `nickname` tem tratamento próprio por ser anulável.
+    // sempre a uma das chaves de texto, e `nickname` tem tratamento próprio por ser anulável.
     const before =
       entry.field === "nickname" ? (state.nickname ?? "") : (state[entry.field] as string);
     if (before === entry.value) continue;
@@ -246,6 +247,7 @@ function excerptOfOption(state: QuestionState, id: string): string {
 const FIELD_LABELS: Readonly<Record<PatchableQuestionField, string>> = {
   statementLatex: "Enunciado",
   solutionLatex: "Resolução",
+  answerLatex: "Resposta",
   complementLatex: "Complemento",
   nickname: "Apelido",
 };

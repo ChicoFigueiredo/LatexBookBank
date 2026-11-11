@@ -159,6 +159,8 @@ describe("PrismaQuestionCreator, contra um SQLite com as migrações reais", () 
     expect(node.question).toMatchObject({
       statementLatex: "",
       solutionLatex: "",
+      // A resposta também nasce vazia: ela é escrita depois, como a resolução.
+      answerLatex: "",
       board: null,
       year: null,
       sourceAnchorId: null,
