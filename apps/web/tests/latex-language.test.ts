@@ -4,6 +4,7 @@ import {
   LATEX_LANGUAGE_CONFIGURATION,
   LATEX_LANGUAGE_ID,
   LATEX_MONARCH_TOKENS,
+  QUESTION_FIELD_LABELS,
   QUESTION_FIELDS,
   isQuestionField,
 } from "@modules/latex/domain/latex-language";
@@ -113,8 +114,21 @@ describe("campos da questão", () => {
     expect(QUESTION_FIELDS.map((f) => f.id)).toEqual([
       "statementLatex",
       "solutionLatex",
+      "answerLatex",
       "complementLatex",
     ]);
+  });
+
+  it("a Resposta vem logo depois da Resolução, e com o nome do glossário", () => {
+    // Resposta é o resultado final; Resolução, o caminho (CONTEXT.md). A aba diz qual é qual.
+    expect(QUESTION_FIELDS.map((f) => f.label)).toEqual([
+      "Conteúdo",
+      "Resolução",
+      "Resposta",
+      "Complemento",
+    ]);
+    expect(QUESTION_FIELD_LABELS.answerLatex).toBe("Resposta");
+    expect(isQuestionField("answerLatex")).toBe(true);
   });
 
   it("o guarda de tipo recusa campo inventado", () => {

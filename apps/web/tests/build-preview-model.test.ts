@@ -30,18 +30,25 @@ describe("optionLetter", () => {
 });
 
 describe("buildPreviewModel", () => {
-  it("separa os quatro campos do agregado", () => {
+  it("separa os campos de texto do agregado", () => {
     const model = buildPreviewModel(
       source({
         statementLatex: "Enunciado",
-        solutionLatex: "Resposta",
+        solutionLatex: "Resolução",
+        answerLatex: "Resposta",
         complementLatex: "Complemento",
       }),
     );
 
     expect(model.statement).toHaveLength(1);
     expect(model.solution).toHaveLength(1);
+    expect(model.answer).toHaveLength(1);
     expect(model.complement).toHaveLength(1);
+  });
+
+  it("sem a resposta na fonte, ela não vira bloco", () => {
+    // O corpo do nó e a página do scan mostram o preview sem campo de resposta nenhum.
+    expect(buildPreviewModel(source()).answer).toEqual([]);
   });
 
   it("numera as alternativas na ordem recebida", () => {

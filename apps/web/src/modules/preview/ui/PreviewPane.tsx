@@ -27,7 +27,7 @@ import { PreviewBlocks } from "./PreviewBlocks";
  */
 
 /** Os campos que o editor edita — e que, por isso, o cursor pode estar visitando. */
-export type PreviewField = "statement" | "solution" | "complement";
+export type PreviewField = "statement" | "solution" | "answer" | "complement";
 
 export interface PreviewPaneProps {
   readonly source: PreviewSource;
@@ -79,13 +79,7 @@ export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps)
 
   const active = useMemo(() => {
     if (!cursor) return null;
-    const blocks =
-      cursor.field === "statement"
-        ? model.statement
-        : cursor.field === "solution"
-          ? model.solution
-          : model.complement;
-    return blockAt(blocks, cursor.offset);
+    return blockAt(model[cursor.field], cursor.offset);
   }, [cursor, model]);
 
   /*
@@ -108,6 +102,7 @@ export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps)
     model.statement.length === 0 &&
     model.options.length === 0 &&
     model.solution.length === 0 &&
+    model.answer.length === 0 &&
     model.complement.length === 0;
 
   return (
@@ -211,6 +206,12 @@ export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps)
               {...(onPick
                 ? { onPick: (range: SourceRange) => onPick("solution", range.from) }
                 : {})}
+            />
+            <Section
+              title={QUESTION_FIELD_LABELS.answerLatex}
+              blocks={model.answer}
+              active={cursor?.field === "answer" ? active : null}
+              {...(onPick ? { onPick: (range: SourceRange) => onPick("answer", range.from) } : {})}
             />
             <Section
               title={QUESTION_FIELD_LABELS.complementLatex}

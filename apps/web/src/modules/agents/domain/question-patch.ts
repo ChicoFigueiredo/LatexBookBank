@@ -29,6 +29,7 @@ export const PATCH_SCHEMA_VERSION = 1;
 export const PATCHABLE_QUESTION_FIELDS = [
   "statementLatex",
   "solutionLatex",
+  "answerLatex",
   "complementLatex",
   "nickname",
 ] as const;
@@ -112,7 +113,8 @@ export const questionPatchSchema = z
     /** Avisos do próprio agente: o que ele mudou com pouca confiança. */
     warnings: z.array(z.string().max(300)).max(20).default([]),
 
-    fields: z.array(questionFieldPatchSchema).max(4).default([]),
+    // Um por campo: mais que a whitelist é um campo repetido, que o `refine` abaixo já recusa.
+    fields: z.array(questionFieldPatchSchema).max(PATCHABLE_QUESTION_FIELDS.length).default([]),
     options: z.array(optionPatchSchema).max(64).default([]),
     reorder: reorderPatchSchema.optional(),
     metadata: metadataPatchSchema.optional(),

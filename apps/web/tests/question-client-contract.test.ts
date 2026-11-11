@@ -91,6 +91,36 @@ describe("o cliente da questão fala a língua das rotas", () => {
     expect(gravada.board).toBe("CEBRASPE");
   });
 
+  it("a resposta vai no mesmo PATCH da resolução, e a questão nasce sem ela", async () => {
+    const { library, questionId, publicationId, questionApi } = await cenario("q-contrato-7");
+
+    const antes = await library.prisma.question.findUniqueOrThrow({ where: { id: questionId } });
+    expect(antes.answerLatex).toBe("");
+
+    const outcome = await questionApi.save(publicationId, questionId, {
+      expectedVersion: antes.updatedAt.toISOString(),
+      answerLatex: "círculo de centro $0$ e raio $2r$",
+    });
+    expect(outcome.kind).toBe("saved");
+
+    const gravada = await library.prisma.question.findUniqueOrThrow({ where: { id: questionId } });
+    expect(gravada.answerLatex).toBe("círculo de centro $0$ e raio $2r$");
+    expect(gravada.solutionLatex).toBe(antes.solutionLatex);
+  });
+
+  it("resposta que não é texto é recusa, como a resolução", async () => {
+    const { library, questionId, publicationId, questionApi } = await cenario("q-contrato-8");
+    const atual = await library.prisma.question.findUniqueOrThrow({ where: { id: questionId } });
+
+    const outcome = await questionApi.save(publicationId, questionId, {
+      expectedVersion: atual.updatedAt.toISOString(),
+      answerLatex: 42 as unknown as string,
+    });
+
+    expect(outcome).toMatchObject({ kind: "failed", status: 400 });
+    expect(outcome.kind === "failed" ? outcome.message : null).toMatch(/answerLatex/);
+  });
+
   it("versão velha é conflito, com a mensagem da rota", async () => {
     const { questionId, publicationId, questionApi } = await cenario("q-contrato-2");
 

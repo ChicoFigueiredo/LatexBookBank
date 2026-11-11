@@ -50,7 +50,8 @@ export function buildAgentTools(port: AgentReadPort, scope: AgentToolScope): rea
     {
       name: "get_current_question",
       description:
-        "Enunciado, resolução, complemento, tipo e situação de validação da questão aberta.",
+        "Enunciado, resolução, resposta, complemento, tipo e situação de validação da questão " +
+        "aberta.",
       inputSchema: { ...NO_INPUT_SCHEMA },
       execute: async () => {
         if (focused === null) return NO_FOCUS;
@@ -70,6 +71,9 @@ export function buildAgentTools(port: AgentReadPort, scope: AgentToolScope): rea
             "",
             "## Resolução",
             question.solutionLatex || "(vazia)",
+            "",
+            "## Resposta",
+            question.answerLatex || "(vazia)",
             "",
             "## Complemento",
             question.complementLatex || "(vazio)",
@@ -231,6 +235,7 @@ export function buildAgentTools(port: AgentReadPort, scope: AgentToolScope): rea
           type: question.type,
           statementLatex: question.statementLatex,
           solutionLatex: question.solutionLatex,
+          answerLatex: question.answerLatex,
           complementLatex: question.complementLatex,
           options: options.map((option) => ({
             id: option.id,

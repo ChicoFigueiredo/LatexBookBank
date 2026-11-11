@@ -7,7 +7,7 @@ import type { PreviewModel, PreviewOption } from "./preview-model";
  * `QuestionAggregate → PreviewModel`, o primeiro passo do pipeline da spec §11.
  *
  * A entrada é descrita aqui, e não importada do módulo de questões, de propósito: o preview
- * precisa de quatro campos de texto e de uma lista de alternativas, e amarrá-lo ao agregado
+ * precisa dos campos de texto e de uma lista de alternativas, e amarrá-lo ao agregado
  * inteiro faria qualquer mudança no schema de questões bater numa camada que não tem nada a ver
  * com isso.
  */
@@ -20,6 +20,11 @@ export interface PreviewSourceOption {
 export interface PreviewSource {
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  /**
+   * A resposta final (CONTEXT.md, *Resposta*). Opcional porque só a questão a tem: o corpo do nó e
+   * a página do scan usam o mesmo preview, sem campo de resposta nenhum.
+   */
+  readonly answerLatex?: string;
   readonly complementLatex: string;
   /** Já na ordem de `sortKey` — quem ordena é o repositório, não o preview. */
   readonly options: readonly PreviewSourceOption[];
@@ -48,6 +53,7 @@ export function buildPreviewModel(source: PreviewSource): PreviewModel {
     statement: parseLatexPreview(source.statementLatex),
     options,
     solution: parseLatexPreview(source.solutionLatex),
+    answer: parseLatexPreview(source.answerLatex ?? ""),
     complement: parseLatexPreview(source.complementLatex),
   };
 }

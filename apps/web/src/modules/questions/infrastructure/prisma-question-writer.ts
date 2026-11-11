@@ -25,6 +25,7 @@ export type NewQuestionColumns = Pick<
   | "nickname"
   | "statementLatex"
   | "solutionLatex"
+  | "answerLatex"
   | "complementLatex"
   | "originalLatex"
   | "difficulty"

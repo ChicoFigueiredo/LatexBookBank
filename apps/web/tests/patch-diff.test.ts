@@ -18,6 +18,7 @@ const state: QuestionState = {
   type: "MULTIPLE_CHOICE",
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
+  answerLatex: "",
   complementLatex: "",
   nickname: null,
   options: [
@@ -111,6 +112,13 @@ describe("o que a linha mostra", () => {
 
     expect(change?.after).toBe("3\\% · 1\\% · 2\\%");
     expect(change?.before).toBe("1\\% · 2\\% · 3\\%");
+  });
+
+  it("a resposta é linha de LaTeX com o nome da aba", () => {
+    const [change] = diff({ fields: [{ field: "answerLatex", value: "$2\\%$" }] });
+
+    expect(stem(change?.id)).toBe("field:answerLatex");
+    expect(change).toMatchObject({ label: "Resposta", before: "(vazio)", latex: true });
   });
 
   it("valor vazio aparece como `(vazio)`, não como nada", () => {

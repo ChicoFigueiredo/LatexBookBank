@@ -99,6 +99,24 @@ describe("PreviewPane", () => {
     expect(screen.getByRole("heading", { name: "Complemento" })).toBeTruthy();
   });
 
+  it("mostra a resposta numa seção própria, depois da resolução", () => {
+    render(
+      <PreviewPane
+        source={{ ...source, solutionLatex: "porque sim", answerLatex: "$\\{9, 6, 3, 0\\}$" }}
+      />,
+    );
+
+    const titulos = screen.getAllByRole("heading").map((heading) => heading.textContent);
+    expect(titulos).toEqual(["Resolução", "Resposta"]);
+  });
+
+  it("só a resposta já tira o preview do vazio", () => {
+    render(<PreviewPane source={{ ...source, answerLatex: "F, V, V, V e F" }} />);
+
+    expect(screen.queryByText(/aparece aqui conforme você escreve/i)).toBeNull();
+    expect(screen.getByRole("heading", { name: "Resposta" })).toBeTruthy();
+  });
+
   it("omite a seção vazia em vez de deixar um título órfão", () => {
     render(<PreviewPane source={{ ...source, statementLatex: "só o enunciado" }} />);
     expect(screen.queryByRole("heading", { name: "Resolução" })).toBeNull();
@@ -184,6 +202,24 @@ describe("PreviewPane: cursor e clique", () => {
       />,
     );
     expect(aceso()).toBe("A resposta.");
+  });
+
+  it("o cursor na resposta acende o bloco dela, e o clique devolve o campo da resposta", () => {
+    const picks: [string, number][] = [];
+    render(
+      <PreviewPane
+        source={{ ...source, statementLatex: texto, answerLatex: "A final." }}
+        cursor={{ field: "answer", offset: 2 }}
+        onPick={(field, offset) => picks.push([field, offset])}
+      />,
+    );
+    expect(aceso()).toBe("A final.");
+
+    const bloco = [...document.querySelectorAll(".lbb-pv-src")].find(
+      (element) => element.textContent === "A final.",
+    );
+    fireEvent.click(bloco!);
+    expect(picks).toEqual([["answer", 0]]);
   });
 
   it("clicar num bloco devolve o campo e onde ele começa", () => {

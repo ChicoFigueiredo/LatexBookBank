@@ -154,6 +154,9 @@ function toPortableNodes(
           nickname: blankToNull(row.Apelido),
           statementLatex: cite(renames, row.latexQuestao),
           solutionLatex: cite(renames, row.latexResposta),
+          // O legado não tem coluna de resposta: `latexResposta` é a resolução, e a resposta final
+          // (CONTEXT.md, *Resposta*) nasce vazia, como numa questão criada aqui.
+          answerLatex: "",
           complementLatex: cite(renames, row.latexComplemento),
           originalLatex: blankToNull(row.latexOrigin),
           difficulty,

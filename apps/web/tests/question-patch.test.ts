@@ -48,17 +48,18 @@ describe("o que **não** é proponível", () => {
 });
 
 describe("o que é aceito", () => {
-  it("os quatro campos de texto da questão", () => {
+  it("os cinco campos de texto da questão, a resposta entre eles", () => {
     const result = patch({
       fields: [
         { field: "statementLatex", value: "Novo enunciado" },
         { field: "solutionLatex", value: "Nova resolução" },
+        { field: "answerLatex", value: "F, V, V, V e F" },
         { field: "complementLatex", value: "" },
         { field: "nickname", value: "Juros — 3" },
       ],
     });
 
-    expect(result.fields).toHaveLength(4);
+    expect(result.fields).toHaveLength(5);
   });
 
   it("alternativa por id, nunca por letra", () => {

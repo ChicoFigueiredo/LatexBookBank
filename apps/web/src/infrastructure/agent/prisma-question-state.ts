@@ -25,6 +25,7 @@ export async function readQuestionState(
       type: true,
       statementLatex: true,
       solutionLatex: true,
+      answerLatex: true,
       complementLatex: true,
       nickname: true,
       difficulty: true,
@@ -50,6 +51,7 @@ export async function readQuestionState(
     tags,
     statementLatex,
     solutionLatex,
+    answerLatex,
     complementLatex,
     nickname,
     ...metadata
@@ -59,6 +61,7 @@ export async function readQuestionState(
     type,
     statementLatex,
     solutionLatex,
+    answerLatex,
     complementLatex,
     nickname,
     options,

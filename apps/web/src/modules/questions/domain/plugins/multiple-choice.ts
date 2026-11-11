@@ -2,7 +2,7 @@ import { block, type QuestionLatexBlock } from "../question-latex";
 import { optionLabelAt } from "../question-type";
 import type { QuestionForPlugin, QuestionTypePlugin } from "../question-type-plugin";
 
-import { DEFAULT_OPTION_COUNT, validateCommon } from "./shared";
+import { answerBlock, DEFAULT_OPTION_COUNT, validateCommon } from "./shared";
 
 /**
  * Escolha simples: alternativas em quantidade **arbitrária**, exatamente uma correta.
@@ -125,6 +125,9 @@ export const multipleChoicePlugin: QuestionTypePlugin = {
           prefixLines: solution.length - 1,
         });
       }
+
+      const answer = answerBlock(question);
+      if (answer !== null) blocks.push(answer);
 
       if (question.complementLatex.trim() !== "") {
         blocks.push({

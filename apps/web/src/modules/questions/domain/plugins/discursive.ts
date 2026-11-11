@@ -1,7 +1,7 @@
 import { block, type QuestionLatexBlock } from "../question-latex";
 import type { QuestionTypePlugin } from "../question-type-plugin";
 
-import { validateCommon } from "./shared";
+import { answerBlock, validateCommon } from "./shared";
 
 /**
  * Questão discursiva.
@@ -37,13 +37,19 @@ export const discursivePlugin: QuestionTypePlugin = {
 
     if (options?.includeSolution === true && question.solutionLatex.trim() !== "") {
       // As duas primeiras linhas são estrutura: quem clicar num diagnóstico daqui vai para a
-      // primeira linha **da resposta**, não para o `\medskip` que ninguém escreveu.
+      // primeira linha **da resolução**, não para o `\medskip` que ninguém escreveu.
+      //
+      // "Resolução", e não "Resposta": o rótulo antigo é o nome do outro campo (CONTEXT.md), e com
+      // os dois preenchidos o PDF sairia com dois blocos chamados "Resposta".
       blocks.push({
         origin: "solutionLatex",
-        lines: ["", "\\medskip", `\\textbf{Resposta.} ${question.solutionLatex}`],
+        lines: ["", "\\medskip", `\\textbf{Resolução.} ${question.solutionLatex}`],
         prefixLines: 2,
       });
     }
+
+    const answer = options?.includeSolution === true ? answerBlock(question) : null;
+    if (answer !== null) blocks.push(answer);
 
     if (options?.includeSolution === true && question.complementLatex.trim() !== "") {
       blocks.push({

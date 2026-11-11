@@ -19,7 +19,12 @@ import { useQuestionHistory } from "@modules/questions/ui/use-question-history";
  * comportamento; o contrato com as rotas está em `question-client-contract.test.ts`.
  */
 
-const INITIAL = { statementLatex: "a", solutionLatex: "b", complementLatex: "c" } as const;
+const INITIAL = {
+  statementLatex: "a",
+  solutionLatex: "b",
+  answerLatex: "d",
+  complementLatex: "c",
+} as const;
 const URL_QUESTAO = "/api/publications/p-1/questions/q-1";
 
 beforeEach(() => vi.useFakeTimers());
@@ -85,6 +90,30 @@ describe("o autosave", () => {
 
     await act(() => result.current.save());
     expect(bodyOf(patches(fetch)[1]?.[1])["expectedVersion"]).toBe("v2");
+  });
+
+  it("a resposta digitada vai no PATCH da resolução, e um conflito a bloqueia igual", async () => {
+    // A Resposta é um campo como a Resolução (CONTEXT.md): o mesmo rascunho, o mesmo autosave, a
+    // mesma versão — e, no 409, o mesmo bloqueio.
+    const fetch = stubFetch(() => json({ id: "q-1", version: "v2", written: true }));
+    const { result } = draftHook();
+
+    act(() => result.current.changeField("answerLatex", "{9, 6, 3, 0}"));
+    expect(result.current.state).toBe("dirty");
+    expect(result.current.draft.answerLatex).toBe("{9, 6, 3, 0}");
+    await advance(AUTOSAVE_DELAY_MS);
+
+    expect(bodyOf(patches(fetch)[0]?.[1])).toEqual({
+      expectedVersion: "v1",
+      ...INITIAL,
+      answerLatex: "{9, 6, 3, 0}",
+    });
+
+    stubFetch(() => json({ error: "conflict", message: "Mudou antes." }, 409));
+    act(() => result.current.changeField("answerLatex", "F, V, V, V e F"));
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(result.current.state).toBe("conflict");
+    expect(result.current.blocked).toBe(true);
   });
 
   it("os metadados carregados vão no mesmo PATCH, com a mesma versão", async () => {
@@ -192,6 +221,7 @@ describe("o histórico", () => {
     type: "DISCURSIVE",
     statementLatex: "antigo",
     solutionLatex: "b",
+    answerLatex: "d",
     complementLatex: "c",
     nickname: null,
     options: [],
@@ -208,7 +238,12 @@ describe("o histórico", () => {
             summary: "s",
             createdAt: "2026-10-01T00:00:00.000Z",
             snapshot,
-            current: { ...snapshot, statementLatex: "do banco", tags: ["nova"] },
+            current: {
+              ...snapshot,
+              statementLatex: "do banco",
+              answerLatex: "resposta do banco",
+              tags: ["nova"],
+            },
           })
         : json({
             revisions: [
@@ -219,7 +254,12 @@ describe("o histórico", () => {
     const { result } = renderHook(() =>
       useQuestionHistory({
         questionId: "q-1",
-        draft: { statementLatex: "na tela", solutionLatex: "b", complementLatex: "c" },
+        draft: {
+          statementLatex: "na tela",
+          solutionLatex: "b",
+          answerLatex: "resposta na tela",
+          complementLatex: "c",
+        },
         onRestored: () => {},
         revert: agentApi.revertPatch,
       }),
@@ -236,6 +276,9 @@ describe("o histórico", () => {
     const changed = result.current.changes?.map((change) => [change.before, change.after] as const);
     expect(changed).toContainEqual(["antigo", "na tela"]);
     expect(changed?.some(([, after]) => after === "do banco")).toBe(false);
+    // A resposta também é texto da tela: a digitada ainda não salva é a que vale no diff.
+    expect(changed).toContainEqual(["d", "resposta na tela"]);
+    expect(changed?.some(([, after]) => after === "resposta do banco")).toBe(false);
     expect(
       changed?.some(([before, after]) => before.includes("velha") && after.includes("nova")),
     ).toBe(true);

@@ -28,7 +28,12 @@ export interface ResolvedAssets {
 }
 
 /** Os campos de texto que um candidato pode substituir na compilação. */
-export const LATEX_FIELDS = ["statementLatex", "solutionLatex", "complementLatex"] as const;
+export const LATEX_FIELDS = [
+  "statementLatex",
+  "solutionLatex",
+  "answerLatex",
+  "complementLatex",
+] as const;
 export type LatexField = (typeof LATEX_FIELDS)[number];
 
 export const isLatexField = (value: unknown): value is LatexField =>

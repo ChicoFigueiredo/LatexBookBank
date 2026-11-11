@@ -39,6 +39,7 @@ const question = (over: Partial<AgentQuestionView> = {}): AgentQuestionView => (
   nickname: null,
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
+  answerLatex: "",
   complementLatex: "",
   status: "DRAFT",
   validationStatus: "UNVALIDATED",
@@ -171,6 +172,27 @@ describe("o que as tools respondem", () => {
 
     expect(output).toContain("a)");
     expect(output).toContain("b) ✓ correta");
+  });
+
+  it("a questão aberta traz a resposta, com o nome do glossário, depois da resolução", async () => {
+    // O agente pode propor a resposta (`answerLatex`); propor sem ler a de agora seria reescrever
+    // às cegas.
+    const port = new FakePort();
+    port.questions.set(
+      "q-1",
+      question({ solutionLatex: "M = C(1+i)^t", answerLatex: "\\SI{1020}{\\real}" }),
+    );
+
+    const output = await toolsOf(port)("get_current_question").execute({});
+
+    expect(output).toContain("## Resposta\n\\SI{1020}{\\real}");
+    expect(output.indexOf("## Resolução")).toBeLessThan(output.indexOf("## Resposta"));
+    expect(output.indexOf("## Resposta")).toBeLessThan(output.indexOf("## Complemento"));
+  });
+
+  it("sem resposta, diz que está vazia", async () => {
+    const output = await toolsOf(new FakePort())("get_current_question").execute({});
+    expect(output).toContain("## Resposta\n(vazia)");
   });
 
   it("sem questão aberta, diz isso em vez de estourar", async () => {

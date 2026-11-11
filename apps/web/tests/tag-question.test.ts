@@ -115,6 +115,7 @@ const question = (over: Partial<QuestionForPlugin> = {}): QuestionForPlugin => (
   type: "MULTIPLE_CHOICE",
   statementLatex: "Quanto é $2+2$?",
   solutionLatex: "É $4$.",
+  answerLatex: "",
   complementLatex: "",
   options: [
     { id: "o1", statementLatex: "3", isCorrect: false },

@@ -410,6 +410,7 @@ describe("a figura importada chega ao bundle", () => {
         type: q9.type,
         statementLatex: q9.statementLatex,
         solutionLatex: q9.solutionLatex,
+        answerLatex: "",
         complementLatex: q9.complementLatex,
         options: [],
       },
@@ -422,7 +423,7 @@ describe("a figura importada chega ao bundle", () => {
       jobId: "job-1",
       profile: QUESTION_PREVIEW_PROFILE,
       includeSolution: true,
-      question: { id: "q-9", type: q9.type, statementLatex: q9.statementLatex, solutionLatex: q9.solutionLatex, complementLatex: q9.complementLatex, options: [] },
+      question: { id: "q-9", type: q9.type, statementLatex: q9.statementLatex, solutionLatex: q9.solutionLatex, answerLatex: "", complementLatex: q9.complementLatex, options: [] },
       assets: cited.map(({ name, asset }) => ({
         name,
         mimeType: asset.mimeType,

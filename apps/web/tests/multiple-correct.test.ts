@@ -22,6 +22,7 @@ const question = (over: Partial<QuestionForPlugin> = {}): QuestionForPlugin => (
   type: "MULTIPLE_CORRECT",
   statementLatex: "Quais são pares?",
   solutionLatex: "Os divisíveis por dois.",
+  answerLatex: "",
   complementLatex: "",
   options: [
     { id: "o1", statementLatex: "2", isCorrect: true },

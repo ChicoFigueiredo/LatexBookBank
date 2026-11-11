@@ -101,6 +101,7 @@ const workspace = (over: Partial<PortableWorkspace> = {}): PortableWorkspace => 
             nickname: "Montante à vista",
             statementLatex: "Um capital de \\SI{1000}{\\real} à taxa de 2\\%",
             solutionLatex: "M = C(1+it)",
+            answerLatex: "\\SI{1060}{\\real}",
             complementLatex: "",
             originalLatex: "Um capital de R$ 1000",
             difficulty: 2,
@@ -488,6 +489,42 @@ describe("o dado tem schema (#270)", () => {
     void _assessments;
 
     await expect(readArchive(await withData(JSON.stringify(missing)))).rejects.toThrow(/assessments/);
+  });
+
+  /** O workspace do fixture com a questão trocada — o nó dela é o segundo, depois do capítulo. */
+  const withQuestion = (change: (question: Record<string, unknown>) => Record<string, unknown>) => {
+    const base = workspace();
+    const publication = base.publications[0]!;
+    return {
+      ...base,
+      publications: [
+        {
+          ...publication,
+          nodes: publication.nodes.map((node) =>
+            node.question === null ? node : { ...node, question: change({ ...node.question }) },
+          ),
+        },
+      ],
+    };
+  };
+
+  it("o .lbb v3 de antes da Resposta abre, e a resposta volta vazia", async () => {
+    // A Resposta entrou na v3 sem subir a versão: os backups gravados antes não têm o campo, e a
+    // questão deles não tinha resposta. É o único campo que a leitura completa.
+    const data = withQuestion(({ answerLatex: _answerLatex, ...question }) => question);
+
+    const lido = await readArchive(await withData(JSON.stringify(data)));
+    const question = lido.workspace.publications[0]?.nodes.find((node) => node.question)?.question;
+    expect(question?.answerLatex).toBe("");
+    expect(question?.solutionLatex).toBe("M = C(1+it)");
+  });
+
+  it("resposta que não é texto é recusada com o caminho do campo", async () => {
+    const data = withQuestion((question) => ({ ...question, answerLatex: 4 }));
+
+    await expect(readArchive(await withData(JSON.stringify(data)))).rejects.toThrow(
+      /question\.answerLatex/,
+    );
   });
 
   it("manifesto sem os campos do formato é recusado", async () => {

@@ -74,12 +74,14 @@ type RightTab = "rapido" | "render" | "validacao" | "historico" | "origem";
 const PREVIEW_FIELD: Readonly<Record<QuestionFieldId, PreviewField>> = {
   statementLatex: "statement",
   solutionLatex: "solution",
+  answerLatex: "answer",
   complementLatex: "complement",
 };
 
 const FIELD_OF_PREVIEW: Readonly<Record<PreviewField, QuestionFieldId>> = {
   statement: "statementLatex",
   solution: "solutionLatex",
+  answer: "answerLatex",
   complement: "complementLatex",
 };
 
@@ -637,6 +639,7 @@ export function QuestionEditor({
                     source={{
                       statementLatex: draft.statementLatex,
                       solutionLatex: draft.solutionLatex,
+                      answerLatex: draft.answerLatex,
                       complementLatex: draft.complementLatex,
                       // A discursiva guarda as alternativas de quando foi escolha simples; o
                       // preview mostra as do tipo, como o PDF (ARQ-05).

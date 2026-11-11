@@ -278,11 +278,13 @@ export async function seedFullLibrary(slug: string) {
     },
   });
 
-  // A mesma figura numa segunda questão: uma linha de `Asset` por dona, como o legado grava.
+  // A mesma figura numa segunda questão: uma linha de `Asset` por dona, como o legado grava. A
+  // discursiva traz a resposta, que é dela (CONTEXT.md, *Resposta*).
   const sibling = await prisma.question.create({
     data: {
       type: "DISCURSIVE",
       statementLatex: `Refaça com a figura: \\includegraphics{${legacyFigure.latexName}}`,
+      answerLatex: "círculo de centro $0$ e raio $2r$",
       legacyId: 102,
     },
   });

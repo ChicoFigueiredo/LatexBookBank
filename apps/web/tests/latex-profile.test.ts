@@ -19,6 +19,7 @@ const question = (over: Partial<QuestionForRender> = {}): QuestionForRender => (
   type: "MULTIPLE_CHOICE",
   statementLatex: "Quanto é $2+2$?",
   solutionLatex: "É $4$.",
+  answerLatex: "",
   complementLatex: "",
   options: [],
   ...over,
@@ -173,7 +174,8 @@ describe("buildRenderBundle", () => {
     });
 
     expect(bundle.sourceLatex).toContain("Quanto é $2+2$?");
-    expect(bundle.sourceLatex).toContain("\\textbf{Resposta.} É $4$.");
+    // "Resolução", e não "Resposta": a resposta é outro campo (CONTEXT.md).
+    expect(bundle.sourceLatex).toContain("\\textbf{Resolução.} É $4$.");
     expect(bundle.sourceLatex).not.toContain("Gabarito");
   });
 

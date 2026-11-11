@@ -50,6 +50,8 @@ export interface QuestionDto {
   readonly version: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  /** A resposta final, sem o caminho (CONTEXT.md, *Resposta*). */
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly difficultyLabel: string;
   readonly source: string | null;
@@ -191,6 +193,7 @@ const toDto = (entry: TreeNode<TreeNodeRecord>): TreeNodeDto => {
           version: node.question.updatedAt.toISOString(),
           statementLatex: node.question.statementLatex,
           solutionLatex: node.question.solutionLatex,
+          answerLatex: node.question.answerLatex,
           complementLatex: node.question.complementLatex,
           difficultyLabel: DIFFICULTY_LABELS[node.question.difficulty] ?? "—",
           source: [node.question.board, node.question.year].filter(Boolean).join(" · ") || null,

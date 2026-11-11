@@ -116,6 +116,7 @@ const runtime = (over: Partial<RuntimeWorkspace> = {}): RuntimeWorkspace => ({
             nickname: "Montante à vista",
             statementLatex: "Um capital de \\SI{1000}{\\real} à taxa de 2\\%",
             solutionLatex: "M = C(1+it)",
+            answerLatex: "\\SI{1060}{\\real}",
             complementLatex: "",
             originalLatex: null,
             difficulty: 2,

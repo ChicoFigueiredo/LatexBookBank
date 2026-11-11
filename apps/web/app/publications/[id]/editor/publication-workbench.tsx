@@ -1028,6 +1028,7 @@ function NodeDetail({
                 initial={{
                   statementLatex: node.question.statementLatex,
                   solutionLatex: node.question.solutionLatex,
+                  answerLatex: node.question.answerLatex,
                   complementLatex: node.question.complementLatex,
                 }}
                 {...(onAttachSelection ? { onAttachSelection } : {})}

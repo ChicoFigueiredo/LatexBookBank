@@ -22,7 +22,7 @@ import { toErrorResponse } from "../../../http";
  *
  * Com `?revision=N`, devolve o snapshot daquela revisão **e o estado atual**, para o diff.
  *
- * Os dois juntos, e não só o snapshot: o editor guarda apenas os três campos de texto, e montar o
+ * Os dois juntos, e não só o snapshot: o editor guarda apenas os campos de texto, e montar o
  * "atual" a partir dele mostraria alternativa, metadado e tag como inalterados sempre — bem os
  * campos onde o agente mais mexe. O servidor tem o agregado inteiro; mandar os dois lados prontos
  * é o que torna o diff honesto.
