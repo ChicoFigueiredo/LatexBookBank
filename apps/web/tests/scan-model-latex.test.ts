@@ -97,6 +97,15 @@ describe("o circunflexo combinado do ângulo (AB̂C, vol. 7)", () => {
   });
 });
 
+describe("índice e expoente em Unicode (vol. 2: log₃)", () => {
+  it("vão à matemática como _{…} e ^{…}; o ² e o ³ do texto ficam", () => {
+    expect(escapeLatexText("log₃ 9 e xₐ e 10⁺ e ◊")).toBe(
+      "log$_{3}$ 9 e x$_{a}$ e 10$^{+}$ e $\\lozenge$",
+    );
+    expect(escapeLatexText("área em m² e cm³")).toBe("área em m² e cm³");
+  });
+});
+
 describe("o texto da camada do PDF, em LaTeX", () => {
   it("leva √, ⋅, ⊥ e as letras gregas para a matemática — o pdflatex não os aceita no texto", () => {
     expect(escapeLatexText("√3 ⋅ 2 ⊥ ζ α")).toBe(

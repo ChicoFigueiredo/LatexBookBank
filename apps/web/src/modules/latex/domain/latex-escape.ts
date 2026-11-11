@@ -138,6 +138,17 @@ export const UNICODE_MATH: Readonly<Record<string, string>> = {
   φ: "\\varphi",
   ω: "\\omega",
   Ω: "\\Omega",
+  "◊": "\\lozenge",
+  // Índice e expoente em Unicode, da camada de texto ("log₃"): o pdflatex não os aceita. O ² e o ³
+  // ficam de fora — o pdflatex os aceita no texto ("m²"), e é assim que o livro os escreve.
+  ...Object.fromEntries([..."₀₁₂₃₄₅₆₇₈₉"].map((char, digit) => [char, `_{${digit}}`])),
+  ₐ: "_{a}",
+  ₓ: "_{x}",
+  ₙ: "_{n}",
+  ...Object.fromEntries([..."⁰⁴⁵⁶⁷⁸⁹"].map((char, index) => [char, `^{${"0456789"[index]}}`])),
+  "⁺": "^{+}",
+  "⁻": "^{-}",
+  ⁿ: "^{n}",
 };
 
 export const UNICODE_MATH_CHARS = new RegExp(`[${Object.keys(UNICODE_MATH).join("")}]`, "g");
