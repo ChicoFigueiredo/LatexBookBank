@@ -1548,6 +1548,41 @@ o scan pulava desde a ADR 0009.
 - O `.lbb` v3 sem o campo abre com `""` — a versão do formato não sobe. O snapshot de revisão da
   questão passa à v3, e o snapshot antigo restaura a Resposta vazia.
 
+#### D78 — A recaptura do Fundamentos vol. 1, e o perfil que serve de base para outros
+
+Decidido com o autor em 2026-11-11: apagar a importação do vol. 1 e capturá-lo do zero, em lotes
+de páginas, conferindo cada lote contra o PDF — e deixar o `book-fme-v1` pronto para ser clonado
+para outros livros. O que a conferência mostrou virou regra:
+
+- **Cobertura, linha a linha.** A medida que importa é a linha do PDF que não cai em item nenhum.
+  Ela pegou o que as contagens não mostravam: a Apresentação (capítulo sem número), os dois
+  APÊNDICES (capítulo com o rótulo do livro e sem número), o apêndice do cap. III e as seis
+  LEITURAS (seção sem número — a LEITURA entrava no enunciado do último exercício), o título de
+  seção em duas linhas, e a lista de siglas (zona em colunas, uma nota por sigla). A contracapa
+  fica de fora. No vol. 1, sobram fora só folha de rosto, créditos e títulos de grupo das respostas.
+- **A letra desenhada não é figura.** O livro desenha ∧ e ∨ como traço; o motor os agrupava em
+  "figuras" com pedaços do enunciado dentro. Traço do tamanho de uma letra, sobre uma linha de
+  texto, sai antes de agrupar.
+- **A tabela na moldura é `tabular`.** Quando o que a figura engole — ou o que está dentro de uma
+  moldura de dois traços — forma uma grade, a figura é tabela: o reconhecimento dá a forma e o
+  cabeçalho que a camada de texto não lê, e a camada de texto dá as células, que o modelo troca
+  (um V por F na p. 17). Se as grades não batem, fica a imagem. No vol. 1: 42 tabelas.
+- **O recorte do texto não leva as figuras.** Elas saem em branco do recorte que vai ao
+  reconhecimento; senão, a tabela saía duas vezes e o gráfico deixava os rótulos como texto.
+- **O reconhecimento vai em pedaços de poucas linhas** (até ~100 pt, cortados só no espaço de
+  sobra entre linhas). O `gemma3:12b` errava "3/2 = 6/4" e "4 ≤ 3" num recorte de página, a 200,
+  300 e 400 dpi, e acertava num de três linhas. Era o único modelo de visão do Ollama local: o
+  `gemma4` devolveu vazio, o `qwen3.5` não aceita imagem.
+- **O pedaço que inventa número é refeito em metades**, e **o item cujo reconhecimento difere do
+  PDF em números ou V/F fica *suspeito*** com o porquê ("falta 4; sobra —"). A camada de texto
+  não lê o símbolo, mas lê cada dígito. O expoente perdido ("3⁴" virou "34") não é pego: os
+  dígitos são os mesmos.
+- **Compilar nó sem corpo é 422**, e não erro interno.
+- **O perfil de referência**: `scan:clone-profile` deriva um perfil novo do `book-fme-v1` (id,
+  rótulo, versão 1, registro), e `scan:measure` mede um perfil contra um PDF sem banco nem modelo
+  — zonas, itens, respostas, tabelas e as linhas fora de qualquer item. O guia é
+  `docs/_atual/perfil-de-captura.md`.
+
 ---
 
 ## 4. Arquitetura
