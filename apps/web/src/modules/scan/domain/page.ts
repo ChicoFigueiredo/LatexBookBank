@@ -98,9 +98,17 @@ const MAX_GAP_IN_LINE = 2.5;
 const EXTENSION_FONT = /extension|^cmex/i;
 const EXTENSION_DESCENT = 2.6;
 
+/**
+ * O NUL que a fonte entrega no lugar de um símbolo — o "<" do *Fundamentos* vol. 1 — vira um
+ * caractere da área privada: continua ilegível para o motor (`UNREADABLE_CHAR`), e o banco não corta
+ * o texto nele. Com o NUL, o item da p. 272 guardava só até "g(x) ".
+ */
+const NUL = /\u0000/g;
+const NUL_STAND_IN = "";
+
 export function toTextSpan(raw: RawSpan): TextSpan {
   const traits = fontTraits(raw.fontName);
-  const text = raw.text.normalize("NFC");
+  const text = raw.text.normalize("NFC").replace(NUL, NUL_STAND_IN);
   const hanging = EXTENSION_FONT.test(traits.family);
 
   return {

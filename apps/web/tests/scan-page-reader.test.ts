@@ -106,3 +106,25 @@ describe("renderizar um trecho", () => {
     expect(view.getUint32(16)).toBe(Math.ceil(0.5 * 595.276));
   });
 });
+
+/**
+ * O "<" que a fonte do *Fundamentos* entrega como NUL (vol. 1, p. 272: "g(x) < 0" sai como
+ * "g(x) \0 0"). O banco corta o texto no NUL, e o item da p. 272 guardava só até "g(x) ": a letra
+ * da resposta, o texto do item sem reconhecimento e a conferência liam metade.
+ */
+describe("o caractere NUL da fonte", () => {
+  it("vira o símbolo ilegível da área privada, e o resto da linha fica", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        { text: "g(x) \u0000 0 e f(x) \u0004 0", x0: 50, x1: 200, baseline: 100, size: 10, fontName: "Times-Roman", endsLine: true },
+      ],
+      graphics: [],
+    });
+    const text = page.lines[0]?.text ?? "";
+    expect(text).not.toContain("\u0000");
+    expect(text).toBe("g(x)  0 e f(x) \u0004 0");
+  });
+});

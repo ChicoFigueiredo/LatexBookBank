@@ -76,8 +76,11 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  * logo abaixo. No vol. 1, 81 das 696 figuras mudam de dono: o diagrama da resposta 21 ia para a
  * 22, os gráficos do exercício 144 para a seção seguinte. E o fundo com parágrafos dentro deixa de
  * ser traço de figura: a LEITURA da p. 211 e a solução da p. 111 voltam a ser texto.
+ *
+ * `@6`: o NUL que a fonte entrega no lugar do "<" vira um caractere da área privada. O banco
+ * cortava o texto do item no NUL: 39 linhas de 12 páginas do vol. 1 paravam no meio.
  */
-export const ENGINE_VERSION = "scan-engine@5";
+export const ENGINE_VERSION = "scan-engine@6";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 
