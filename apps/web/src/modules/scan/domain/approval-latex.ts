@@ -227,7 +227,9 @@ const PREFIX_SYMBOLS = new Set(["\\sim", "\\neg", "\\lnot"]);
  * e a formatação sai. Não é renderização; é o que cabe numa linha da árvore.
  */
 export function latexToPlain(latex: string): string {
-  let text = latex;
+  // O nome do ambiente não é texto: `\begin{cases}` deixava "cases", e seis sistemas do exercício
+  // 174 (p. 112) eram seis palavras que o PDF não tem — a conferência trocava o modelo pela camada.
+  let text = latex.replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, " ");
   for (let i = 0; i < 5; i++) {
     const next = text.replace(/\\(?:textbf|textit|emph|text|mathrm|mathbf|operatorname)\s*\{([^{}]*)\}/g, "$1");
     if (next === text) break;

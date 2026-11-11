@@ -6,7 +6,7 @@ import {
 import { kindsWhere, SCAN_KIND_TRAITS } from "@modules/scan/domain/proposal";
 import { buildLines } from "@modules/scan/domain/page";
 import { chunkBoxes, textInside, type ChunkLine } from "@modules/scan/domain/recognition-chunks";
-import { chunkAgrees, driftDiagnostic, layerLatex, recognitionDrift } from "@modules/scan/domain/recognition-drift";
+import { chunkAgrees, driftDiagnostic, keepsModel, layerLatex, recognitionDrift } from "@modules/scan/domain/recognition-drift";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
 import type { NormalizedBox } from "@/shared/geometry/normalized-box";
@@ -151,7 +151,7 @@ export async function recognizeItem(
         não tem (p. 18 do vol. 1), uma página inteira sobre outro assunto (p. 46), a pergunta do
         exercício trocada (exercício 51). Uma vez, de novo, em metades — o recorte menor é o que o
         modelo lê melhor. Se ainda não concorda, fica o texto da camada do PDF: perde o símbolo
-        que ela não lê, mas não inventa.
+        que ela não lê, mas não inventa — salvo quando é a camada que lê mal (`keepsModel`).
       */
       const expected = textInside(chunk, lines, masks);
       // Sem camada de texto no pedaço — a página escaneada —, o modelo é a única leitura.
@@ -161,7 +161,7 @@ export async function recognizeItem(
         for (const half of halves.length > 1 ? halves : [chunk]) {
           const part = await recognizeChunk(half);
           const own = textInside(half, lines, masks);
-          retried.push(!hasLayer(half, lines) || chunkAgrees(own, part) ? part : layerLatex(own));
+          retried.push(!hasLayer(half, lines) || keepsModel(own, part) ? part : layerLatex(own));
         }
         piece = retried.filter((part) => part !== "").join("\n\n");
       }

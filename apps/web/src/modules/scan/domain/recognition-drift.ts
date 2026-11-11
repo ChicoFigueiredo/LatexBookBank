@@ -87,14 +87,39 @@ const wordsOf = (text: string): string[] =>
  * palavras do PDF, trazer muitas que ele não tem, ou trazer número que ele não tem.
  */
 export function chunkAgrees(text: string, latex: string): boolean {
-  if (inventedTokens(text, latex).length > 2) return false;
+  return inventedTokens(text, latex).length <= 2 && wordsAgree(text, latex);
+}
+
+/**
+ * Palavras que o modelo pode trazer a mais onde a camada de texto quase não tem palavra — os
+ * rótulos de um diagrama. Mais que isso é frase que a página não tem: entre os diagramas do
+ * exercício 142 (p. 91), a camada lia "a) c) A B A B" e o modelo escreveu a área do trapézio.
+ */
+const FEW_WORDS_EXTRA = 6;
+
+function wordsAgree(text: string, latex: string): boolean {
   const layer = wordsOf(text);
-  if (layer.length < 5) return true;
   const model = wordsOf(latexToPlain(latex));
+  if (layer.length < 5) return minus(model, layer).length <= FEW_WORDS_EXTRA;
   const recall = minus(layer, model).length / layer.length;
   const extra = model.length === 0 ? 1 : minus(model, layer).length / model.length;
   return recall <= 0.4 && extra <= 0.5;
 }
+
+/**
+ * O pedaço que não concorda nem refeito: fica a leitura do modelo, ou o texto da camada?
+ *
+ * A camada, em regra — perde o símbolo, mas não inventa. Menos quando ela mesma tem buraco no
+ * lugar do símbolo e as palavras batem: aí a divergência é de número, e é a camada que lê mal. O
+ * sistema de duas equações do exercício 174 (p. 112) sai dela como "5xx  yy  15", com os dígitos
+ * das duas linhas embaralhados; o modelo lia o sistema. O item fica *suspeito* pelo diagnóstico de
+ * números, e quem revisa decide.
+ */
+export function keepsModel(text: string, latex: string): boolean {
+  return chunkAgrees(text, latex) || (UNREADABLE_IN_LAYER.test(text) && wordsAgree(text, latex));
+}
+
+const UNREADABLE_IN_LAYER = /[-\u0000-\u0008\u000B\u000C\u000E-\u001F]/;
 
 /**
  * O texto da camada do PDF, em LaTeX, para o pedaço em que o modelo não é confiável: sem o
