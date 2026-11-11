@@ -151,6 +151,23 @@ describe("PreviewPane", () => {
     render(<PreviewPane source={{ ...source, statementLatex: "\\includegraphics{g.png}" }} />);
     expect(screen.getByText(/figura: g\.png/)).toBeTruthy();
   });
+
+  it("com o endereço da figura, mostra a imagem — o recorte do PDF em PNG (questão 352)", () => {
+    const latex =
+      "\\begin{figure}[H]\n\\includegraphics[width=0.44\\textwidth]{figura-p410-4cba19e1.pdf}\n\\end{figure}";
+    render(
+      <PreviewPane
+        source={{ ...source, statementLatex: latex }}
+        figureSrc={(path) => `/fig/${path}`}
+      />,
+    );
+    const imagem = screen.getByRole("img", {
+      name: /figura-p410-4cba19e1\.pdf/,
+    }) as HTMLImageElement;
+    expect(imagem.getAttribute("src")).toBe("/fig/figura-p410-4cba19e1.pdf");
+    // O "[H]" do posicionamento não é texto do enunciado.
+    expect(screen.queryByText(/\[H\]/)).toBeNull();
+  });
 });
 
 /**

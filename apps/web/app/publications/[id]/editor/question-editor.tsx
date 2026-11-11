@@ -47,6 +47,7 @@ import type { DiagnosticTarget } from "@modules/rendering/ui/RenderPanel";
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 import { PreviewPane, type PreviewField } from "@modules/preview/ui/PreviewPane";
+import { publicationFigureSource } from "@modules/preview/ui/figure-source";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
 import type { RenderAudience } from "@modules/rendering/domain/render-audience";
 import { useRender } from "@modules/rendering/ui/use-render";
@@ -653,6 +654,7 @@ export function QuestionEditor({
                         : null
                     }
                     onPick={goToPreviewBlock}
+                    figureSrc={publicationFigureSource(publicationId)}
                   />
                 ) : (
                   <RenderPanel

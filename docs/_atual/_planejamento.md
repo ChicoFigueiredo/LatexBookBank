@@ -1622,6 +1622,24 @@ para outros livros. O que a conferência mostrou virou regra:
   — zonas, itens, respostas, tabelas e as linhas fora de qualquer item. O guia é
   `docs/_atual/perfil-de-captura.md`.
 
+#### D79 — O preview rápido mostra a figura, em PNG
+
+Pedido do autor em 2026-11-11: no preview rápido, a figura do `\includegraphics` era só a moldura
+com o nome ("figura: figura-p410-4cba19e1.pdf"). Agora ela aparece:
+
+- **Pelo nome citado.** O nome que `assetLatexName` escreve carrega o começo do sha256; a rota
+  `GET /api/publications/:id/figures/:name` acha o asset no workspace da publicação, confere o
+  nome inteiro (a mesma regra de `citedAssets` na compilação) e devolve a imagem.
+- **Em PNG.** O recorte do scan é PDF — vetorial, para o LaTeX —, e `<img>` não abre PDF: a
+  primeira página vira PNG a 200 dpi, pelo mesmo leitor pdf.js do scan. PNG e JPEG vão como
+  estão; SVG não, porque aberto como documento executaria script (#257).
+- **Com cache imutável.** O nome muda quando o conteúdo muda, então o navegador guarda a imagem
+  para sempre (`private, immutable`), e o servidor guarda as últimas 256.
+- **Sem HTML injetado.** É `<img>` com endereço do próprio app, num fundo de papel
+  (`--surface-paper`) — o recorte é transparente e sumiria no tema escuro. Sem endereço, ou se a
+  imagem não vem, fica a moldura com o nome.
+- O posicionamento do ambiente (`\begin{figure}[H]`) deixou de aparecer como texto.
+
 ---
 
 ## 4. Arquitetura

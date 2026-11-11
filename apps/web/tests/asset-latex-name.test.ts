@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assetLatexName,
+  latexNameHash,
   latexExtensionFor,
   type AssetForLatex,
 } from "@modules/assets/domain/asset-latex-name";
@@ -84,5 +85,22 @@ describe("o nome do asset no LaTeX", () => {
     const name = assetLatexName(asset({ originalFilename: `${"a".repeat(300)}.png` }));
 
     expect(name.length).toBeLessThan(60);
+  });
+});
+
+/**
+ * O caminho de volta: do nome citado no `\includegraphics` ao asset. O preview rápido mostra a
+ * figura pelo nome, e o nome carrega o começo do sha256 — é por ele que se acha o arquivo.
+ */
+describe("o hash dentro do nome", () => {
+  it("é o pedaço de oito dígitos antes da extensão", () => {
+    expect(latexNameHash(assetLatexName(asset()))).toBe("aabbccdd");
+    expect(latexNameHash("figura-p410-4cba19e1.pdf")).toBe("4cba19e1");
+  });
+
+  it("nome que não veio de um asset não tem hash", () => {
+    for (const nome of ["grafico.png", "figura-p410.pdf", "../etc/passwd", "a-4CBA19E1.pdf"]) {
+      expect(latexNameHash(nome)).toBeNull();
+    }
   });
 });

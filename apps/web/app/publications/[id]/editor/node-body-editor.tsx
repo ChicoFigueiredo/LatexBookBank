@@ -6,6 +6,7 @@ import { Badge, Banner, Button, Divider, Tabs, useStoredState } from "@/design-s
 import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 import { LatexEditor, type LatexEditorApi } from "@modules/latex/ui/LatexEditor";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
+import { publicationFigureSource } from "@modules/preview/ui/figure-source";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
 import { useRender } from "@modules/rendering/ui/use-render";
 import { SourcePdfViewer } from "@modules/scan/ui/SourcePdfViewer";
@@ -288,6 +289,7 @@ export function NodeBodyEditor({
                 // O corpo é um campo só: o cursor está sempre no "enunciado" do modelo.
                 cursor={{ field: "statement", offset: cursorOffset }}
                 onPick={(_field, offset) => editor.current?.goToOffset(offset)}
+                figureSrc={publicationFigureSource(publicationId)}
               />
             ) : rightTab === "render" ? (
               <RenderPanel

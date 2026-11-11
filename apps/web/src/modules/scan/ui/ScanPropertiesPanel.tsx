@@ -5,10 +5,16 @@ import { useState } from "react";
 import { Badge, Banner, Button, Field, Input, Select, injectCss } from "@/design-system";
 import { ANCHOR_ROLES, type AnchorRole } from "@modules/assets/domain/node-anchors";
 import { PreviewPane } from "@modules/preview/ui/PreviewPane";
+import { publicationFigureSource } from "@modules/preview/ui/figure-source";
 import type { ScanKind } from "@modules/scan/domain/proposal";
 import type { ReviewOperation } from "@modules/scan/domain/review";
 import { effectiveLatex, effectiveText, type ScanItem } from "@modules/scan/domain/scan-item";
-import { DIAGNOSTIC_LABELS, KIND_LABELS, rowLabel, STATE_LABELS } from "@modules/scan/domain/review-view";
+import {
+  DIAGNOSTIC_LABELS,
+  KIND_LABELS,
+  rowLabel,
+  STATE_LABELS,
+} from "@modules/scan/domain/review-view";
 
 /**
  * As propriedades do item escolhido (§34, área da direita) e as operações de revisão (§36).
@@ -64,7 +70,12 @@ export function ScanPropertiesPanel(props: ScanPropertiesPanelProps) {
   injectCss("lbb-scan-props", CSS);
   const { item } = props;
   // O formulário é da versão do item que chegou; trocar de item (ou a versão mudar) recomeça.
-  return <PanelBody key={`${item.id}:${item.reviewedText ?? ""}:${item.reviewedLatex ?? ""}:${item.mathResult?.recognizedAt ?? ""}`} {...props} />;
+  return (
+    <PanelBody
+      key={`${item.id}:${item.reviewedText ?? ""}:${item.reviewedLatex ?? ""}:${item.mathResult?.recognizedAt ?? ""}`}
+      {...props}
+    />
+  );
 }
 
 function PanelBody({
@@ -89,7 +100,9 @@ function PanelBody({
   const [latex, setLatex] = useState(effectiveLatex(item) ?? "");
 
   const locked = item.documentNodeId !== null;
-  const parents = items.filter((candidate) => candidate.id !== item.id && candidate.kind !== "CONTENT");
+  const parents = items.filter(
+    (candidate) => candidate.id !== item.id && candidate.kind !== "CONTENT",
+  );
   const parent = items.find((candidate) => candidate.key === item.parentKey) ?? null;
   const markedIds = [...marked].filter((id) => id !== item.id);
   const parts = Object.entries(item.confidenceParts);
@@ -99,8 +112,14 @@ function PanelBody({
       <div>
         <div className="lbb-scan-props-row">
           <Badge tone="accent">{KIND_LABELS[item.kind]}</Badge>
-          {locked ? <Badge tone="ok">no acervo</Badge> : <Badge tone="neutral">{STATE_LABELS[item.reviewState]}</Badge>}
-          <Badge tone={item.confidence < 0.7 ? "warn" : "neutral"}>confiança {Math.round(item.confidence * 100)}%</Badge>
+          {locked ? (
+            <Badge tone="ok">no acervo</Badge>
+          ) : (
+            <Badge tone="neutral">{STATE_LABELS[item.reviewState]}</Badge>
+          )}
+          <Badge tone={item.confidence < 0.7 ? "warn" : "neutral"}>
+            confiança {Math.round(item.confidence * 100)}%
+          </Badge>
           {item.origin !== "SCAN" && <Badge tone="warm">{item.origin.toLowerCase()}</Badge>}
         </div>
         <h3 style={{ marginTop: 8 }}>{rowLabel(item)}</h3>
@@ -115,7 +134,11 @@ function PanelBody({
           tone="ok"
           title="Já está no acervo"
           actions={
-            <Button size="sm" variant="secondary" href={`/publications/${publicationId}/editor?node=${item.documentNodeId}`}>
+            <Button
+              size="sm"
+              variant="secondary"
+              href={`/publications/${publicationId}/editor?node=${item.documentNodeId}`}
+            >
               Abrir no editor
             </Button>
           }
@@ -125,14 +148,31 @@ function PanelBody({
       )}
 
       <div className="lbb-scan-props-row">
-        <Button size="sm" variant="primary" icon="check" disabled={locked || busy || item.reviewState === "APPROVED"} onClick={() => onOperation({ type: "accept", itemIds: [item.id] })}>
+        <Button
+          size="sm"
+          variant="primary"
+          icon="check"
+          disabled={locked || busy || item.reviewState === "APPROVED"}
+          onClick={() => onOperation({ type: "accept", itemIds: [item.id] })}
+        >
           Aceitar
         </Button>
-        <Button size="sm" variant="danger" icon="x" disabled={locked || busy || item.reviewState === "REJECTED"} onClick={() => onOperation({ type: "reject", itemIds: [item.id] })}>
+        <Button
+          size="sm"
+          variant="danger"
+          icon="x"
+          disabled={locked || busy || item.reviewState === "REJECTED"}
+          onClick={() => onOperation({ type: "reject", itemIds: [item.id] })}
+        >
           Rejeitar
         </Button>
         {(item.reviewState === "APPROVED" || item.reviewState === "REJECTED") && !locked && (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => onOperation({ type: "reopen", itemIds: [item.id] })}>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => onOperation({ type: "reopen", itemIds: [item.id] })}
+          >
             Reabrir
           </Button>
         )}
@@ -144,7 +184,9 @@ function PanelBody({
           <Select
             value={item.kind}
             disabled={locked || busy}
-            onChange={(event) => onOperation({ type: "setKind", itemId: item.id, kind: event.target.value })}
+            onChange={(event) =>
+              onOperation({ type: "setKind", itemId: item.id, kind: event.target.value })
+            }
           >
             {kinds.map((kind) => (
               <option key={kind} value={kind}>
@@ -159,7 +201,10 @@ function PanelBody({
               value={label}
               disabled={locked || busy}
               onChange={(event) => setLabel(event.target.value)}
-              onBlur={() => label !== (item.originalLabel ?? "") && onOperation({ type: "setLabel", itemId: item.id, label })}
+              onBlur={() =>
+                label !== (item.originalLabel ?? "") &&
+                onOperation({ type: "setLabel", itemId: item.id, label })
+              }
             />
           </Field>
           <Field label="Título">
@@ -167,7 +212,10 @@ function PanelBody({
               value={title}
               disabled={locked || busy}
               onChange={(event) => setTitle(event.target.value)}
-              onBlur={() => title !== (item.title ?? "") && onOperation({ type: "setTitle", itemId: item.id, title })}
+              onBlur={() =>
+                title !== (item.title ?? "") &&
+                onOperation({ type: "setTitle", itemId: item.id, title })
+              }
             />
           </Field>
         </div>
@@ -175,7 +223,13 @@ function PanelBody({
           <Select
             value={parent?.id ?? ""}
             disabled={locked || busy}
-            onChange={(event) => onOperation({ type: "reparent", itemId: item.id, parentId: event.target.value || null })}
+            onChange={(event) =>
+              onOperation({
+                type: "reparent",
+                itemId: item.id,
+                parentId: event.target.value || null,
+              })
+            }
           >
             <option value="">(raiz do livro)</option>
             {parents.map((candidate) => (
@@ -186,10 +240,20 @@ function PanelBody({
           </Select>
         </Field>
         <div className="lbb-scan-props-row">
-          <Button size="sm" variant="secondary" disabled={locked || busy || !parent} onClick={() => onOperation({ type: "promote", itemId: item.id })}>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={locked || busy || !parent}
+            onClick={() => onOperation({ type: "promote", itemId: item.id })}
+          >
             Promover
           </Button>
-          <Button size="sm" variant="secondary" disabled={locked || busy} onClick={() => onOperation({ type: "demote", itemId: item.id })}>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={locked || busy}
+            onClick={() => onOperation({ type: "demote", itemId: item.id })}
+          >
             Rebaixar
           </Button>
           <Button
@@ -209,14 +273,22 @@ function PanelBody({
         {item.regions.map((region, index) => (
           <div key={index} className="lbb-scan-region" data-current={index === regionIndex}>
             <button type="button" className="link" onClick={() => onRegion(index)}>
-              {index + 1}. p. {region.pageNumber} · y {Math.round(region.box.y * 100)}–{Math.round((region.box.y + region.box.height) * 100)}%
+              {index + 1}. p. {region.pageNumber} · y {Math.round(region.box.y * 100)}–
+              {Math.round((region.box.y + region.box.height) * 100)}%
             </button>
             <Select
               size="sm"
               value={region.role}
               disabled={locked || busy}
               aria-label="Papel da âncora"
-              onChange={(event) => onOperation({ type: "setRegionRole", itemId: item.id, regionIndex: index, role: event.target.value })}
+              onChange={(event) =>
+                onOperation({
+                  type: "setRegionRole",
+                  itemId: item.id,
+                  regionIndex: index,
+                  role: event.target.value,
+                })
+              }
             >
               {ANCHOR_ROLES.map((role) => (
                 <option key={role} value={role}>
@@ -224,34 +296,72 @@ function PanelBody({
                 </option>
               ))}
             </Select>
-            <Button size="sm" variant="ghost" disabled={locked || busy || index === 0} onClick={() => onOperation({ type: "moveRegion", itemId: item.id, from: index, to: index - 1 })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={locked || busy || index === 0}
+              onClick={() =>
+                onOperation({ type: "moveRegion", itemId: item.id, from: index, to: index - 1 })
+              }
+            >
               ↑
             </Button>
-            <Button size="sm" variant="ghost" disabled={locked || busy || index === item.regions.length - 1} onClick={() => onOperation({ type: "moveRegion", itemId: item.id, from: index, to: index + 1 })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={locked || busy || index === item.regions.length - 1}
+              onClick={() =>
+                onOperation({ type: "moveRegion", itemId: item.id, from: index, to: index + 1 })
+              }
+            >
               ↓
             </Button>
             {index > 0 && (
-              <Button size="sm" variant="ghost" disabled={locked || busy} title="Separar: desta âncora em diante vira outro item" onClick={() => onOperation({ type: "split", itemId: item.id, regionIndex: index })}>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={locked || busy}
+                title="Separar: desta âncora em diante vira outro item"
+                onClick={() => onOperation({ type: "split", itemId: item.id, regionIndex: index })}
+              >
                 ✂
               </Button>
             )}
-            <Button size="sm" variant="ghost" disabled={locked || busy || item.regions.length === 1} aria-label="Retirar âncora" onClick={() => onOperation({ type: "removeRegion", itemId: item.id, regionIndex: index })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={locked || busy || item.regions.length === 1}
+              aria-label="Retirar âncora"
+              onClick={() =>
+                onOperation({ type: "removeRegion", itemId: item.id, regionIndex: index })
+              }
+            >
               ✕
             </Button>
           </div>
         ))}
         <div className="lbb-scan-props-row">
-          <Button size="sm" variant={drawing ? "primary" : "secondary"} icon="plus" disabled={locked || busy} onClick={onToggleDraw}>
+          <Button
+            size="sm"
+            variant={drawing ? "primary" : "secondary"}
+            icon="plus"
+            disabled={locked || busy}
+            onClick={onToggleDraw}
+          >
             {drawing ? "Desenhe no PDF…" : "Acrescentar âncora"}
           </Button>
-          <span style={{ color: "var(--text-muted)" }}>Arraste as alças da âncora marcada para ajustar.</span>
+          <span style={{ color: "var(--text-muted)" }}>
+            Arraste as alças da âncora marcada para ajustar.
+          </span>
         </div>
       </div>
 
       {item.diagnostic && (
         <div className="lbb-scan-props-section">
           <strong>Diagnóstico do item</strong>
-          <Badge tone={item.diagnostic.status === "complete" ? "ok" : "warn"}>{DIAGNOSTIC_LABELS[item.diagnostic.status]}</Badge>
+          <Badge tone={item.diagnostic.status === "complete" ? "ok" : "warn"}>
+            {DIAGNOSTIC_LABELS[item.diagnostic.status]}
+          </Badge>
           {item.diagnostic.reasons.length > 0 && (
             <ul>
               {item.diagnostic.reasons.map((reason) => (
@@ -264,13 +374,28 @@ function PanelBody({
 
       <div className="lbb-scan-props-section">
         <strong>Texto</strong>
-        <textarea value={text} disabled={locked || busy} onChange={(event) => setText(event.target.value)} aria-label="Texto do item" />
+        <textarea
+          value={text}
+          disabled={locked || busy}
+          onChange={(event) => setText(event.target.value)}
+          aria-label="Texto do item"
+        />
         <div className="lbb-scan-props-row">
-          <Button size="sm" variant="secondary" disabled={locked || busy || text === effectiveText(item)} onClick={() => onOperation({ type: "editText", itemId: item.id, text })}>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={locked || busy || text === effectiveText(item)}
+            onClick={() => onOperation({ type: "editText", itemId: item.id, text })}
+          >
             Guardar texto
           </Button>
           {item.reviewedText !== null && (
-            <Button size="sm" variant="ghost" disabled={locked || busy} onClick={() => onOperation({ type: "editText", itemId: item.id, text: null })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={locked || busy}
+              onClick={() => onOperation({ type: "editText", itemId: item.id, text: null })}
+            >
               Voltar ao lido
             </Button>
           )}
@@ -283,31 +408,67 @@ function PanelBody({
         {item.mathResult && (
           <span style={{ color: "var(--text-muted)" }}>
             reconhecido por {item.mathResult.model} ({item.mathResult.providerId})
-            {item.mathResult.confidence !== null ? ` · confiança ${Math.round(item.mathResult.confidence * 100)}%` : ""} ·{" "}
-            {item.mathResult.durationMs} ms
+            {item.mathResult.confidence !== null
+              ? ` · confiança ${Math.round(item.mathResult.confidence * 100)}%`
+              : ""}{" "}
+            · {item.mathResult.durationMs} ms
           </span>
         )}
-        {item.kind === "FIGURE" && <FigurePanel item={item} locked={locked} busy={busy} onReprocess={onReprocess} />}
-        {item.needsMath && !item.mathResult && item.reviewedLatex === null && (
-          <span style={{ color: "var(--warn-text)" }}>Tem matemática que o texto do PDF não representa: reconheça ou escreva.</span>
+        {item.kind === "FIGURE" && (
+          <FigurePanel item={item} locked={locked} busy={busy} onReprocess={onReprocess} />
         )}
-        <textarea value={latex} disabled={locked || busy} onChange={(event) => setLatex(event.target.value)} aria-label="LaTeX do item" />
+        {item.needsMath && !item.mathResult && item.reviewedLatex === null && (
+          <span style={{ color: "var(--warn-text)" }}>
+            Tem matemática que o texto do PDF não representa: reconheça ou escreva.
+          </span>
+        )}
+        <textarea
+          value={latex}
+          disabled={locked || busy}
+          onChange={(event) => setLatex(event.target.value)}
+          aria-label="LaTeX do item"
+        />
         <div className="lbb-scan-props-row">
-          <Button size="sm" variant="secondary" disabled={locked || busy || latex === (effectiveLatex(item) ?? "")} onClick={() => onOperation({ type: "editLatex", itemId: item.id, latex })}>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={locked || busy || latex === (effectiveLatex(item) ?? "")}
+            onClick={() => onOperation({ type: "editLatex", itemId: item.id, latex })}
+          >
             Guardar LaTeX
           </Button>
           {item.reviewedLatex !== null && (
-            <Button size="sm" variant="ghost" disabled={locked || busy} onClick={() => onOperation({ type: "editLatex", itemId: item.id, latex: null })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={locked || busy}
+              onClick={() => onOperation({ type: "editLatex", itemId: item.id, latex: null })}
+            >
               Descartar revisão
             </Button>
           )}
-          <Button size="sm" variant="secondary" icon="scan-text" disabled={locked || busy || !mathAvailable} title={mathAvailable ? undefined : "Defina AI_VISION_MODEL"} onClick={() => onReprocess("math")}>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="scan-text"
+            disabled={locked || busy || !mathAvailable}
+            title={mathAvailable ? undefined : "Defina AI_VISION_MODEL"}
+            onClick={() => onReprocess("math")}
+          >
             Reprocessar matemática
           </Button>
         </div>
         {latex.trim() !== "" && (
           <div className="lbb-scan-preview">
-            <PreviewPane source={{ statementLatex: latex, solutionLatex: "", complementLatex: "", options: [] }} />
+            <PreviewPane
+              source={{
+                statementLatex: latex,
+                solutionLatex: "",
+                complementLatex: "",
+                options: [],
+              }}
+              figureSrc={publicationFigureSource(publicationId)}
+            />
           </div>
         )}
       </div>
@@ -320,19 +481,31 @@ function PanelBody({
           ))}
         </ul>
         {parts.length > 0 && (
-          <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          <span
+            style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 11 }}
+          >
             {parts.map(([name, value]) => `${name} ${Math.round(Number(value) * 100)}`).join(" · ")}
           </span>
         )}
         {item.aiDecision && (
           <span>
-            IA ({item.aiDecision.model}): {KIND_LABELS[item.aiDecision.previousKind]} → {KIND_LABELS[item.aiDecision.kind]} — {item.aiDecision.reason}
+            IA ({item.aiDecision.model}): {KIND_LABELS[item.aiDecision.previousKind]} →{" "}
+            {KIND_LABELS[item.aiDecision.kind]} — {item.aiDecision.reason}
           </span>
         )}
         {item.proposed.kind !== item.kind && (
-          <span style={{ color: "var(--text-muted)" }}>O scan propôs {KIND_LABELS[item.proposed.kind]}.</span>
+          <span style={{ color: "var(--text-muted)" }}>
+            O scan propôs {KIND_LABELS[item.proposed.kind]}.
+          </span>
         )}
-        <Button size="sm" variant="secondary" icon="sparkles" disabled={locked || busy || !aiAvailable} title={aiAvailable ? undefined : "Defina AI_BASE_URL e AI_MODEL"} onClick={() => onReprocess("ai")}>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon="sparkles"
+          disabled={locked || busy || !aiAvailable}
+          title={aiAvailable ? undefined : "Defina AI_BASE_URL e AI_MODEL"}
+          onClick={() => onReprocess("ai")}
+        >
           Perguntar à IA
         </Button>
       </div>
@@ -384,11 +557,21 @@ function FigurePanel({
         </span>
       )}
       <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>
-        {kind === "raster" ? "bitmap, em PNG" : kind === "mixed" ? "traço e bitmap, em PDF" : "vetorial, em PDF"}
+        {kind === "raster"
+          ? "bitmap, em PNG"
+          : kind === "mixed"
+            ? "traço e bitmap, em PDF"
+            : "vetorial, em PDF"}
         {Number.isFinite(fraction) ? ` · ${Math.round(fraction * 100)}% da coluna` : ""}
       </span>
       <div className="lbb-scan-props-row">
-        <Button size="sm" variant="secondary" icon="image" disabled={locked || busy} onClick={() => onReprocess("figure")}>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon="image"
+          disabled={locked || busy}
+          onClick={() => onReprocess("figure")}
+        >
           Recortar de novo
         </Button>
         <span style={{ color: "var(--text-muted)", fontSize: "var(--text-meta)" }}>
