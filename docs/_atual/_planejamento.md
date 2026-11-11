@@ -1640,6 +1640,39 @@ com o nome ("figura: figura-p410-4cba19e1.pdf"). Agora ela aparece:
   imagem não vem, fica a moldura com o nome.
 - O posicionamento do ambiente (`\begin{figure}[H]`) deixou de aparecer como texto.
 
+#### D80 — Os outros dez volumes do Fundamentos, e o que eles ensinaram ao motor
+
+Em 2026-11-11 os vols. 2 a 11 passaram pelo perfil do vol. 1 (`book-fme-v1`, agora versão 2), um
+volume por vez no modelo local, com inspeção por amostragem a cada entrega. O que a inspeção e a
+compilação acharam virou regra do motor ou da compilação, e não conserto de volume:
+
+- **O perfil, versão 2.** A resposta com o número colado ("145.a) 3") também abre; a zona de
+  respostas começa na página do título grande, sem o cabeçalho corrente (vol. 11); e o título
+  "Significado das siglas de vestibulares" é casado inteiro — com `startsWith`, a linha do
+  sumário abria a zona, e o livro inteiro virava siglas (a aceitação do corpus pegou).
+- **`scan-engine@7`**: o ASCII que a fonte MathematicalPi entrega no lugar do símbolo ("5" no
+  lugar de "=") vira símbolo ilegível, e o item vai ao modelo. Nos vols. 3 a 8 e 10, milhares de
+  contas saíam trocadas, e o vol. 7 aprovado foi apagado e refeito.
+- **`scan-engine@8`**: o expoente e a fração em fonte de texto — corpo até 85% do da linha, fora
+  da linha de base — contam como matemática. No gabarito do vol. 5, "5¹⁰" saía "510".
+- **`scan-engine@9`**: o recorte do item fecha antes do vizinho na mesma altura. Na grade de
+  exercícios (vol. 8, p. 137) e na linha com duas respostas (vol. 6, p. 214), o recorte da coluna
+  inteira levava os dois itens ao modelo: 68 itens do vol. 6 e 58 do vol. 8.
+- **O preâmbulo declara o que o acervo traz cru**: os operadores da notação brasileira (`\sen`,
+  `\tg`, `\cotg`…, que o modelo escreve como o livro imprime) e os caracteres Unicode que o
+  pdflatex não conhece (a seta ➞ dos limites, ∆, ∫, ∑, ⩾…). Vale para o que já foi aprovado:
+  o vol. 8 passou de 604 para 669 de 682 documentos compilando sem aprovar de novo.
+- **A aprovação conserta mais LaTeX do modelo**: a palavra acentuada e o º dentro da conta, o
+  circunflexo combinado do ângulo, `\choose`, o `#` solto, a matriz solta e a linha de conta solta
+  num parágrafo misto. O texto da camada leva índice e expoente em Unicode ("log₃") à matemática.
+- **Refazer sem pagar o modelo de novo.** Um volume refeito devolve a cada item o reconhecimento
+  da execução anterior — mesma chave, mesmo texto e **mesmo recorte**: o que o motor novo recorta
+  diferente é o que o modelo leu diferente, e vai de novo a ele.
+- **Limites conhecidos**, sem regra ainda: a fração no corpo do texto com a barra desenhada sai
+  achatada ("L 2") quando o item não vai ao modelo; o limite com "lim" empilhado, na grade de
+  itens de um exercício, discorda da camada embaralhada e cai nela; o intervalo "]a; b[" às vezes
+  volta como "[a; b]".
+
 ---
 
 ## 4. Arquitetura
