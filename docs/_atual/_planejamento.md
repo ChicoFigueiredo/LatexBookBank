@@ -1519,6 +1519,28 @@ descartava como pedaço de palavra. Foram 73 das 159 subseções do volume.
   aprovação, para o corpo continuar *a revisar*. Idempotente. Ensaiado numa cópia do acervo; no
   acervo, quem roda é o autor.
 
+#### D77 — A Resposta da questão, e os gabaritos do livro que a preenchem
+
+Decidido com o autor em 2026-11-11, ao pedir o livro inteiro em LaTeX. O *Fundamentos* imprime
+dois gabaritos — o dos exercícios (p. 278–320 no vol. 1) e o dos vestibulares (p. 412–420) — que
+o scan pulava desde a ADR 0009.
+
+- **A questão ganha a Resposta** (`answerLatex`): o resultado final, sem o caminho ("círculo de
+  centro 0 e raio 2r", "F, V, V, V e F"). Não é o gabarito, que é das alternativas, nem a
+  resolução, que é o caminho (CONTEXT.md). Aba própria no editor, seção no preview, e o gabarito
+  da avaliação a mostra na questão sem alternativas. Coluna nova com `ALTER TABLE ADD COLUMN`.
+- **A zona de gabarito diz de quem são as respostas** (`answersTo`: exercícios ou questões), e o
+  perfil diz onde uma resposta começa e o que a fecha. Cada "135." vira um item `ANSWER`, com
+  texto, regiões, matemática e figuras como qualquer outro.
+- **A aprovação leva a resposta à questão do mesmo número desta execução.** A letra sozinha
+  ("36. d") marca a alternativa; o resto — soma, V/F, aberta, discursiva — vai à Resposta, com as
+  figuras. Questão de outra importação não recebe: apagar esta importação não desfaria.
+- **As colunas da página de respostas vêm das respostas.** A detecção genérica pede linhas dos dois
+  lados, e a coluna de gráficos tem quatro ou cinco: a calha é o começo de resposta que nenhuma
+  linha atravessa. Várias respostas na mesma linha ("90. a  91. a  92. b") viram uma linha cada.
+- `scan-engine@4`. No vol. 1: 450 respostas de exercícios e 360 de vestibulares, todas com alvo;
+  o que falta o livro não imprime.
+
 ---
 
 ## 4. Arquitetura
