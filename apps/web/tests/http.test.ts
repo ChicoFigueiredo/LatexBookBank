@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { InvalidBundleError } from "@latexbookbank/render-contract";
 
 import { InvalidSortKeyError } from "@/shared/ordering/fractional-index";
 import { OptionFromAnotherQuestionError } from "@modules/agents/application/apply-question-patch";
@@ -61,6 +62,14 @@ describe("a tabela única de erro para HTTP", () => {
       new RendererUnavailableError("sem resposta"),
       503,
       { error: "renderer_unavailable" },
+    ],
+    [
+      // O nó sem corpo — a seção só com título, o grupo de exercícios — não tem o que compilar,
+      // e isso não é erro interno: o 500 apareceu ao compilar a recaptura do Fundamentos (D78).
+      "nó sem nada para compilar",
+      new InvalidBundleError("`sourceLatex` está vazio — não há o que compilar."),
+      422,
+      { error: "nothing_to_render", message: "`sourceLatex` está vazio — não há o que compilar." },
     ],
     [
       "questão de outra publicação",
