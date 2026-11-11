@@ -193,7 +193,11 @@ describe("reconhecimento matemático na varredura", () => {
       ...["Assim, a tabela-verdade", "de f apresenta só", "a coluna de f."].map((t, i) => linha(t, 170 + i * 14)),
     ];
     const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, text: "Seja f…", regions: [{ pageNumber: 18, role: "PRIMARY", box: { x: 0.05, y: 0.1, width: 0.9, height: 0.12 } }] });
-    const respostas = ["Seja f. Tabela: V V F F V F F V", "Seja $f$ uma proposição.", "Assim, a tabela-verdade de $f$."];
+    const respostas = [
+      "Seja f. Tabela: V V F F V F F V",
+      "Seja $f$ uma proposição. Dizemos que $f$ é falsa. independentemente de $p$.",
+      "Assim, a tabela-verdade de $f$ apresenta só a coluna de $f$.",
+    ];
     const recognizer: MathRecognitionProvider = {
       id: "fake-vision",
       recognize: async () => ({ latex: respostas.shift() ?? "", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
@@ -214,7 +218,37 @@ describe("reconhecimento matemático na varredura", () => {
     });
 
     const [gravado] = saved.flatMap((changes) => changes.upserts);
-    expect(gravado?.mathResult?.latex).toBe("Seja $f$ uma proposição.\n\nAssim, a tabela-verdade de $f$.");
+    expect(gravado?.mathResult?.latex).toBe(
+      "Seja $f$ uma proposição. Dizemos que $f$ é falsa. independentemente de $p$.\n\nAssim, a tabela-verdade de $f$ apresenta só a coluna de $f$.",
+    );
+  });
+
+  it("se a metade ainda inventa, fica o texto da camada do PDF, que não inventa (D78)", async () => {
+    // A LEITURA da p. 46 saiu como uma página sobre "Aplicações da Integral Definida".
+    const linha = (text: string, y: number) => ({ text, x0: 60, x1: 400, baseline: y + 8, size: 10, fontName: "X", endsLine: true });
+    const spans = ["A natureza do infinito é uma questão antiga", "e controversa, que Arquimedes já discutia."].map((t, i) => linha(t, 100 + i * 14));
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, text: "A natureza…", regions: [{ pageNumber: 46, role: "PRIMARY", box: { x: 0.05, y: 0.1, width: 0.9, height: 0.05 } }] });
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: "Aplicações da Integral Definida: cálculo de área sob o gráfico.", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const saved: ScanItemChanges[] = [];
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      pdf: {
+        renderRegion: async () => new Uint8Array([0x89]),
+        readPage: async (pageNumber: number) => ({ pageNumber, width: 595, height: 842, spans, graphics: [] }),
+      } as unknown as OpenedPdf,
+      policy: "auto",
+      save: async (changes) => {
+        saved.push(changes);
+      },
+      cancelled: never,
+    });
+
+    const [gravado] = saved.flatMap((changes) => changes.upserts);
+    expect(gravado?.mathResult?.latex).toBe("A natureza do infinito é uma questão antiga e controversa, que Arquimedes já discutia.");
   });
 
   it("a figura que é item próprio sai em branco do recorte do texto em volta (D78)", async () => {

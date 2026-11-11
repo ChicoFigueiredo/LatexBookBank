@@ -6,7 +6,7 @@ import {
 import { kindsWhere, SCAN_KIND_TRAITS } from "@modules/scan/domain/proposal";
 import { buildLines } from "@modules/scan/domain/page";
 import { chunkBoxes, textInside, type ChunkLine } from "@modules/scan/domain/recognition-chunks";
-import { driftDiagnostic, inventedTokens, recognitionDrift } from "@modules/scan/domain/recognition-drift";
+import { chunkAgrees, driftDiagnostic, layerLatex, recognitionDrift } from "@modules/scan/domain/recognition-drift";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
 import type { NormalizedBox } from "@/shared/geometry/normalized-box";
@@ -43,13 +43,47 @@ async function linesOf(pdf: OpenedPdf, pageNumber: number): Promise<ChunkLine[]>
   }));
 }
 
-/** Mais de dois números ou V/F que a camada de texto do pedaço não tem: o modelo inventou. */
-const invented = (text: string, latex: string): boolean => inventedTokens(text, latex).length > 2;
 
 /** Espaço de sobra: metade da altura típica de uma linha — mais que a entrelinha de um parágrafo. */
 function minGapOf(lines: readonly ChunkLine[]): number {
   const heights = lines.map((line) => line.y1 - line.y0).sort((a, b) => a - b);
   return (heights[Math.floor(heights.length / 2)] ?? 0.012) * 0.5;
+}
+
+/** O pedaço tem alguma linha da camada de texto — mascarada ou não. */
+const hasLayer = (chunk: NormalizedBox, lines: readonly ChunkLine[]): boolean =>
+  lines.some((line) => {
+    const y = (line.y0 + line.y1) / 2;
+    return y >= chunk.y && y <= chunk.y + chunk.height;
+  });
+
+/**
+ * A máscara sem as linhas de texto que só encostam na figura (D78): a linha cujo meio está fora
+ * da figura é do texto, e não rótulo dela. No exercício 54 do vol. 1, a máscara do diagrama de
+ * Venn ao lado apagava o fim de "representados abaixo, e sabendo que".
+ */
+function carve(masks: readonly NormalizedBox[], lines: readonly ChunkLine[]): NormalizedBox[] {
+  return masks.flatMap((mask) => {
+    const inside = (x: number, y: number) => x >= mask.x && x <= mask.x + mask.width && y >= mask.y && y <= mask.y + mask.height;
+    const kept = lines.filter((line) => {
+      const touches = line.y0 < mask.y + mask.height && line.y1 > mask.y && (line.x0 ?? 0) < mask.x + mask.width && (line.x1 ?? 1) > mask.x;
+      return touches && !inside(((line.x0 ?? 0) + (line.x1 ?? 1)) / 2, (line.y0 + line.y1) / 2);
+    });
+    // O que sobra da máscara entre as faixas dessas linhas.
+    let pieces: NormalizedBox[] = [mask];
+    for (const line of kept) {
+      pieces = pieces.flatMap((piece) => {
+        const top = piece.y;
+        const bottom = piece.y + piece.height;
+        if (line.y1 <= top || line.y0 >= bottom) return [piece];
+        return [
+          ...(line.y0 > top ? [{ ...piece, height: line.y0 - top }] : []),
+          ...(line.y1 < bottom ? [{ ...piece, y: line.y1, height: bottom - line.y1 }] : []),
+        ];
+      });
+    }
+    return pieces;
+  });
 }
 
 const overlaps = (a: NormalizedBox, b: NormalizedBox): boolean =>
@@ -93,12 +127,15 @@ export async function recognizeItem(
   const pageLines = new Map<number, ChunkLine[]>();
 
   for (const region of item.regions) {
-    const masks = figures.flatMap((figure) =>
-      figure.regions.filter((mask) => mask.pageNumber === region.pageNumber && overlaps(mask.box, region.box)).map((mask) => mask.box),
-    );
     // Em pedaços de poucas linhas: o modelo perde o detalhe num recorte grande (D78).
     if (!pageLines.has(region.pageNumber)) pageLines.set(region.pageNumber, await linesOf(pdf, region.pageNumber));
     const lines = pageLines.get(region.pageNumber)!;
+    const masks = carve(
+      figures.flatMap((figure) =>
+        figure.regions.filter((mask) => mask.pageNumber === region.pageNumber && overlaps(mask.box, region.box)).map((mask) => mask.box),
+      ),
+      lines,
+    );
     const chunks = chunkBoxes(region.box, lines, { maxHeight: MAX_CHUNK_HEIGHT, minGap: minGapOf(lines) });
     const latex: string[] = [];
     let last: Awaited<ReturnType<MathRecognitionProvider["recognize"]>> | null = null;
@@ -110,17 +147,23 @@ export async function recognizeItem(
     for (const chunk of chunks) {
       let piece = await recognizeChunk(chunk);
       /*
-        O pedaço que traz número ou V/F que não está nele é invenção: na p. 18 do vol. 1, o modelo
-        escreveu uma tabela-verdade inteira que o livro não tem, entre duas frases verdadeiras.
-        Uma vez, de novo, em metades — o recorte menor é o que o modelo lê melhor.
+        O pedaço que não concorda com a camada de texto é invenção: uma tabela-verdade que o livro
+        não tem (p. 18 do vol. 1), uma página inteira sobre outro assunto (p. 46), a pergunta do
+        exercício trocada (exercício 51). Uma vez, de novo, em metades — o recorte menor é o que o
+        modelo lê melhor. Se ainda não concorda, fica o texto da camada do PDF: perde o símbolo
+        que ela não lê, mas não inventa.
       */
-      if (invented(textInside(chunk, lines, masks), piece)) {
+      const expected = textInside(chunk, lines, masks);
+      // Sem camada de texto no pedaço — a página escaneada —, o modelo é a única leitura.
+      if (hasLayer(chunk, lines) && !chunkAgrees(expected, piece)) {
         const halves = chunkBoxes(chunk, lines, { maxHeight: chunk.height / 2, minGap: minGapOf(lines) });
-        if (halves.length > 1) {
-          const retried: string[] = [];
-          for (const half of halves) retried.push(await recognizeChunk(half));
-          piece = retried.filter((part) => part !== "").join("\n\n");
+        const retried: string[] = [];
+        for (const half of halves.length > 1 ? halves : [chunk]) {
+          const part = await recognizeChunk(half);
+          const own = textInside(half, lines, masks);
+          retried.push(!hasLayer(half, lines) || chunkAgrees(own, part) ? part : layerLatex(own));
         }
+        piece = retried.filter((part) => part !== "").join("\n\n");
       }
       latex.push(piece);
     }

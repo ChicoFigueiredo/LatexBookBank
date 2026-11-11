@@ -1,4 +1,6 @@
-import { latexToPlain } from "./approval-latex";
+import { escapeLatexText } from "@modules/latex/domain/latex-escape";
+
+import { joinLines, latexToPlain } from "./approval-latex";
 import type { Diagnostic } from "./proposal";
 
 /**
@@ -65,4 +67,39 @@ export function driftDiagnostic(drift: RecognitionDrift): Diagnostic {
     reasons: [`o reconhecimento difere do PDF nos números: falta ${list(drift.missing)}; sobra ${list(drift.extra)}`],
     facts: { missing: [...drift.missing], extra: [...drift.extra] },
   };
+}
+
+/** As palavras de três letras ou mais, sem acento e em minúsculas — a hifenização do PDF desfeita. */
+const wordsOf = (text: string): string[] =>
+  text
+    .replace(/-\s*\n\s*/g, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .match(/[a-z]{3,}/g) ?? [];
+
+/**
+ * O pedaço reconhecido concorda com o que a camada de texto tem dentro dele (D78)?
+ *
+ * O modelo inventa de dois jeitos: com número — a tabela-verdade que o livro não tem — e com
+ * frase — a LEITURA da p. 46 saiu como uma página sobre "Aplicações da Integral Definida". A
+ * camada de texto lê cada palavra; o que ela não lê é o símbolo. Discordar é perder boa parte das
+ * palavras do PDF, trazer muitas que ele não tem, ou trazer número que ele não tem.
+ */
+export function chunkAgrees(text: string, latex: string): boolean {
+  if (inventedTokens(text, latex).length > 2) return false;
+  const layer = wordsOf(text);
+  if (layer.length < 5) return true;
+  const model = wordsOf(latexToPlain(latex));
+  const recall = minus(layer, model).length / layer.length;
+  const extra = model.length === 0 ? 1 : minus(model, layer).length / model.length;
+  return recall <= 0.4 && extra <= 0.5;
+}
+
+/**
+ * O texto da camada do PDF, em LaTeX, para o pedaço em que o modelo não é confiável: sem o
+ * símbolo que ela não lê — que sai como a caixa de símbolo ilegível —, mas sem inventar nada.
+ */
+export function layerLatex(text: string): string {
+  return escapeLatexText(joinLines(text.split("\n")));
 }
