@@ -4,6 +4,8 @@ import {
 } from "@shared/ports/math-recognition";
 
 import { kindsWhere, SCAN_KIND_TRAITS } from "@modules/scan/domain/proposal";
+import { buildLines } from "@modules/scan/domain/page";
+import { chunkBoxes, type ChunkLine } from "@modules/scan/domain/recognition-chunks";
 import { driftDiagnostic, recognitionDrift } from "@modules/scan/domain/recognition-drift";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
@@ -25,6 +27,21 @@ import type { MathPass } from "./run-scan";
 
 const RECOGNIZED_KINDS = kindsWhere((traits) => traits.recognizesMath);
 const DPI = 200;
+
+/** A altura máxima de um pedaço, na fração da página: umas oito linhas do corpo do livro. */
+const MAX_CHUNK_HEIGHT = 0.12;
+
+/** As linhas de texto da página, na fração da página: é entre elas que o recorte se corta. */
+async function linesOf(pdf: OpenedPdf, pageNumber: number): Promise<ChunkLine[]> {
+  const page = buildLines(await pdf.readPage(pageNumber));
+  return page.lines.map((line) => ({ y0: line.y0 / page.height, y1: line.y1 / page.height }));
+}
+
+/** Espaço de sobra: metade da altura típica de uma linha — mais que a entrelinha de um parágrafo. */
+function minGapOf(lines: readonly ChunkLine[]): number {
+  const heights = lines.map((line) => line.y1 - line.y0).sort((a, b) => a - b);
+  return (heights[Math.floor(heights.length / 2)] ?? 0.012) * 0.5;
+}
 
 const overlaps = (a: NormalizedBox, b: NormalizedBox): boolean =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
@@ -64,13 +81,24 @@ export async function recognizeItem(
   figures: readonly Pick<ScanItem, "regions">[] = [],
 ): Promise<MathResult> {
   const parts: MathResult[] = [];
+  const pageLines = new Map<number, ChunkLine[]>();
 
   for (const region of item.regions) {
     const masks = figures.flatMap((figure) =>
       figure.regions.filter((mask) => mask.pageNumber === region.pageNumber && overlaps(mask.box, region.box)).map((mask) => mask.box),
     );
-    const image = await pdf.renderRegion(region.pageNumber, region.box, DPI, masks);
-    const result = await recognizer.recognize({ image, mimeType: "image/png", mode: "mixed" });
+    // Em pedaços de poucas linhas: o modelo perde o detalhe num recorte grande (D78).
+    if (!pageLines.has(region.pageNumber)) pageLines.set(region.pageNumber, await linesOf(pdf, region.pageNumber));
+    const lines = pageLines.get(region.pageNumber)!;
+    const chunks = chunkBoxes(region.box, lines, { maxHeight: MAX_CHUNK_HEIGHT, minGap: minGapOf(lines) });
+    const latex: string[] = [];
+    let last: Awaited<ReturnType<MathRecognitionProvider["recognize"]>> | null = null;
+    for (const chunk of chunks) {
+      const image = await pdf.renderRegion(region.pageNumber, chunk, DPI, masks);
+      last = await recognizer.recognize({ image, mimeType: "image/png", mode: "mixed" });
+      latex.push(last.latex.trim());
+    }
+    const result = { ...last!, latex: latex.filter((piece) => piece !== "").join("\n\n") };
     parts.push({
       latex: result.latex,
       confidence: result.confidence,

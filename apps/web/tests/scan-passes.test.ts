@@ -111,6 +111,9 @@ describe("desempate pela IA", () => {
   });
 });
 
+/** A página sem texto: o recorte vai inteiro, sem pedaços. */
+const paginaVazia = async (pageNumber: number) => ({ pageNumber, width: 595, height: 842, spans: [], graphics: [] });
+
 describe("reconhecimento matemático na varredura", () => {
   it("o item sugerido que recebe LaTeX do modelo volta a pedir revisão (SPG-07)", async () => {
     // O mesmo que o reprocessar à mão já fazia: a saída do modelo é candidata, não conteúdo.
@@ -135,6 +138,7 @@ describe("reconhecimento matemático na varredura", () => {
     };
     const pdf = {
       renderRegion: async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+      readPage: paginaVazia,
     } as unknown as OpenedPdf;
     const saved: ScanItemChanges[] = [];
 
@@ -165,7 +169,7 @@ describe("reconhecimento matemático na varredura", () => {
     await createMathPass(recognizer, "m").run({
       run,
       items: [texto],
-      pdf: { renderRegion: async () => new Uint8Array([0x89]) } as unknown as OpenedPdf,
+      pdf: { renderRegion: async () => new Uint8Array([0x89]), readPage: paginaVazia } as unknown as OpenedPdf,
       policy: "auto",
       save: async (changes) => {
         saved.push(changes);
@@ -200,6 +204,7 @@ describe("reconhecimento matemático na varredura", () => {
         masks.push(...given);
         return new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
       },
+      readPage: paginaVazia,
     } as unknown as OpenedPdf;
 
     await createMathPass(recognizer, "m").run({
