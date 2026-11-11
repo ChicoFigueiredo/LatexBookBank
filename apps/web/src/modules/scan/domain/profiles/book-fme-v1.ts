@@ -57,6 +57,10 @@ const VESTIBULAR = /^(\d{1,3})\s*\.\s*\(([^)]{2,40})\)\s*(.*)$/;
 const ITEM = /^\(?([a-z])\)\s/;
 const ANSWER_START = /^(\d{1,3})\s*\.(?:\s|$)/;
 
+const SIGLAS = "siglas das bancas";
+/** "UF-RJ — Universidade Federal do Rio de Janeiro": a sigla, o travessão, o nome. */
+const SIGLA = /^\S[^—]{0,40}\s—\s\S/;
+
 /** O cabeçalho corrente que anuncia cada zona, na forma em que o extrator o entrega. */
 const ZONE_MARKERS: readonly { readonly header: string; readonly zone: Omit<DocumentZone, "from"> }[] = [
   // Os dois gabaritos não têm estrutura, têm respostas: cada uma vai à questão do mesmo número (D77).
@@ -72,6 +76,8 @@ const ZONE_MARKERS: readonly { readonly header: string; readonly zone: Omit<Docu
     header: "QUESTOES DE VESTIBULARES",
     zone: { label: "questões de vestibulares", questionType: "MULTIPLE_CHOICE" },
   },
+  // A lista das bancas, depois do gabarito dos vestibulares: em duas colunas, ao contrário do livro.
+  { header: "SIGNIFICADO DAS SIGLAS DE VESTIBULARES E OLIMPIADAS", zone: { label: SIGLAS, columns: true } },
 ];
 
 const fold = (line: TextLine) => stripAccents(line.text).trim();
@@ -207,6 +213,38 @@ function classify(context: WalkContext): AnchorMatch | null {
         evidence: ["tema das questões de vestibulares", `corpo ${prefixRatio(line, style).toFixed(2)}× o do livro`],
       };
     }
+  }
+
+  /*
+    A lista das bancas: o título é um capítulo sem número, e cada sigla, uma nota — um parágrafo
+    no corpo dele, e não as 80 siglas emendadas numa linha só.
+  */
+  if (context.zone?.label === SIGLAS) {
+    if (line.bold && ratio >= 1.2) {
+      return {
+        kind: "CHAPTER",
+        label: line.text.trim(),
+        number: null,
+        title: line.text.trim(),
+        extent: "heading",
+        lines: 1,
+        confidence: { pattern: 0.85, typography: 0.9 },
+        evidence: ["título da lista de siglas", `corpo ${ratio.toFixed(2)}× o do livro`],
+      };
+    }
+    if (SIGLA.test(line.text.trim())) {
+      return {
+        kind: "NOTE",
+        label: null,
+        number: null,
+        title: null,
+        extent: "until-boundary",
+        lines: 1,
+        confidence: { pattern: 0.9, layout: 0.9 },
+        evidence: ["sigla, travessão e o nome da banca"],
+      };
+    }
+    return null;
   }
 
   // CAPÍTULO I — o rótulo numa linha, o nome do capítulo na seguinte, em corpo ainda maior.
@@ -482,6 +520,12 @@ export const bookFmeV1: CaptureProfile = {
     for (const marker of ZONE_MARKERS) {
       const from = found.get(marker.header);
       if (from !== undefined) zones.push({ ...marker.zone, from });
+    }
+    // Depois das siglas vem a contracapa — a coleção, os volumes —, que não é conteúdo do livro.
+    const siglas = pages.filter((page) => page.lines.some((line) => upper(line) === "SIGNIFICADO DAS SIGLAS DE VESTIBULARES E OLIMPIADAS"));
+    const ultima = siglas.at(-1)?.pageNumber;
+    if (ultima !== undefined && pages.some((page) => page.pageNumber > ultima)) {
+      zones.push({ label: "contracapa", from: ultima + 1, skip: true });
     }
     return zones.sort((a, b) => a.from - b.from);
   },

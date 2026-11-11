@@ -160,6 +160,9 @@ function bookSection(measured: Measured): string {
   ].join("\n");
 }
 
+/** As bancas que a p. 418 do vol. 1 lista. */
+const SIGLAS_DO_VOLUME = 44;
+
 describe.skipIf(entries.length === 0)("corpus real do scan", () => {
   const results: Measured[] = [];
 
@@ -228,7 +231,14 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
       "Equações irracionais",
       "Inequações irracionais",
       "Questões de vestibulares",
+      "Significado das siglas de vestibulares e olimpíadas",
     ]);
+    // A lista das bancas, em duas colunas: uma nota por sigla, lidas coluna a coluna.
+    const siglas = capitulos.find((item) => item.title?.startsWith("Significado das siglas"));
+    const notas = items.filter((item) => item.kind === "NOTE" && item.parentKey === siglas?.key);
+    expect(notas.length, "siglas das bancas").toBe(SIGLAS_DO_VOLUME);
+    expect(notas[0]?.text.startsWith("Enem-MEC"), "a primeira sigla da primeira coluna").toBe(true);
+    expect(notas.findIndex((nota) => nota.text.startsWith("UE-RJ")), "a coluna da direita depois das 19 da esquerda").toBe(19);
     // A seção sem número dentro do capítulo: o apêndice do cap. III e as seis LEITURAS de história.
     const semNumero = items.filter((item) => item.kind === "SECTION" && item.number === null);
     expect(semNumero.map((item) => `${item.originalLabel}: ${item.title}`), "seções sem número").toEqual([
@@ -269,7 +279,7 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
       zona fosse calculada errado, um carimbo errado concordaria com ela e o teste passaria.
     */
     const ordenadas = [...fme.zones].sort((a, b) => a.from - b.from);
-    const gabaritos = ordenadas.filter((zone) => zone.skip === true);
+    const gabaritos = ordenadas.filter((zone) => zone.skip === true && zone.answersTo !== undefined);
     expect(gabaritos.length, "as duas zonas de gabarito").toBe(2);
     const respostas = items.filter((item) => item.kind === "ANSWER");
     const daResposta = new Set(respostas.map((item) => item.key));

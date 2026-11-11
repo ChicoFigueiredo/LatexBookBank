@@ -41,6 +41,11 @@ export interface DocumentZone {
    * leva à questão do mesmo número entre os itens deste tipo. Só vale numa zona com `skip`.
    */
   readonly answersTo?: "EXERCISE" | "QUESTION";
+  /**
+   * A zona é diagramada em colunas, num documento que o perfil declara de uma coluna
+   * (`singleColumn`): a lista de siglas do fim do *Fundamentos*. Só nela as colunas são detectadas.
+   */
+  readonly columns?: boolean;
   /** O tipo com que as questões desta zona nascem; sem ele, vale o padrão do perfil. */
   readonly questionType?: QuestionType;
 }

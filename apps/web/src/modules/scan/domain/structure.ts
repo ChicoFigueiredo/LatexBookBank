@@ -24,6 +24,7 @@ import {
   type Proposal,
   type ScanKind,
 } from "./proposal";
+import { detectColumns } from "./layout";
 import { indexBySlot, segmentsBetween, segmentsOfLines, type Segment } from "./regions";
 import { foldText } from "./text";
 import { normalizeNumber } from "./toc";
@@ -58,7 +59,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const walked = zones.length === 0 ? pages : pages.filter((page) => zoneOfPage(zones, page.pageNumber)?.skip !== true);
   const zoneWarnings = zones
     .filter((zone) => zone.skip === true && zone.answersTo === undefined)
-    .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida: é gabarito, não estrutura.`);
+    .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida.`);
 
   // Só as páginas que a varredura de fato olha: avisar que falta texto numa página pulada seria
   // pedir reconhecimento para um gabarito que ninguém vai ler.
@@ -82,6 +83,16 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
     ...(profile.singleColumn ? { singleColumn: true } : {}),
+    // A zona que declara colunas tem as dela, mesmo num documento de uma coluna só.
+    ...(zones.some((zone) => zone.columns)
+      ? {
+          pageDividers: (lines: readonly TextLine[]) => {
+            const page = lines[0]?.pageNumber;
+            if (page === undefined || !zoneOfPage(zones, page)?.columns) return null;
+            return detectColumns(lines).slice(1).map((column) => column.x0);
+          },
+        }
+      : {}),
   });
   const { doc, figures } = withoutFigures(full, profile);
 
