@@ -4,6 +4,7 @@ import {
 } from "@shared/ports/math-recognition";
 
 import { kindsWhere, SCAN_KIND_TRAITS } from "@modules/scan/domain/proposal";
+import { driftDiagnostic, recognitionDrift } from "@modules/scan/domain/recognition-drift";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
 import type { NormalizedBox } from "@/shared/geometry/normalized-box";
@@ -35,6 +36,22 @@ const overlaps = (a: NormalizedBox, b: NormalizedBox): boolean =>
  */
 const figuresAround = (item: ScanItem, all: readonly ScanItem[]): ScanItem[] =>
   all.filter((other) => other.kind === "FIGURE" && other.key !== item.key && other.reviewState !== "REJECTED");
+
+/**
+ * O diagnóstico depois do reconhecimento: o que o perfil disse, e — quando o modelo diverge do PDF
+ * nos números — o porquê de conferir (D78). Reconhecer de novo sem divergência tira o aviso.
+ * A tabela fica de fora: as células dela já vêm da camada de texto.
+ */
+function diagnosticAfter(item: ScanItem, latex: string): ScanItem["diagnostic"] {
+  const previous = item.diagnostic?.reasons.some((reason) => reason.startsWith(DRIFT)) ? null : item.diagnostic;
+  const drift = item.kind === "FIGURE" ? null : recognitionDrift(item.text, latex);
+  if (drift === null) return previous;
+  const found = driftDiagnostic(drift);
+  return previous === null || previous.status === "complete"
+    ? found
+    : { ...previous, reasons: [...previous.reasons, ...found.reasons], facts: { ...previous.facts, ...found.facts } };
+}
+const DRIFT = "o reconhecimento difere do PDF";
 
 /** A figura que é tabela (D78): o reconhecimento preenche só a célula que a camada de texto não lê. */
 const isTable = (item: ScanItem): boolean => item.kind === "FIGURE" && Array.isArray(item.metadata["tableRows"]);
@@ -111,7 +128,7 @@ export function createMathPass(recognizer: MathRecognitionProvider, model: strin
           // sugerido volta a pedir revisão, a mesma regra do reprocessar à mão (#250, SPG-07).
           // Sem isto, "Aprovar com sugeridos" levava ao acervo LaTeX que ninguém abriu.
           const reviewState = item.reviewState === "AUTO_ACCEPTABLE" ? "NEEDS_REVIEW" : item.reviewState;
-          await save({ upserts: [{ ...item, mathResult, reviewState }], deletedIds: [] });
+          await save({ upserts: [{ ...item, mathResult, reviewState, diagnostic: diagnosticAfter(item, mathResult.latex) }], deletedIds: [] });
         } catch (error) {
           if (!(error instanceof MathRecognitionError)) throw error;
           calls += 1;

@@ -154,6 +154,32 @@ describe("reconhecimento matemático na varredura", () => {
     expect(gravado?.reviewState).toBe("NEEDS_REVIEW");
   });
 
+  it("o reconhecimento que muda número deixa o item suspeito, com o porquê (D78)", async () => {
+    // p. 16 do Fundamentos: o livro diz "3/2 = 6/4", e o modelo escreveu "3/2 = 6".
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, text: "2º) p: 3 2  6 4" });
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: "$2^{\\circ}$) p: $\\frac{3}{2} = 6$", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const saved: ScanItemChanges[] = [];
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      pdf: { renderRegion: async () => new Uint8Array([0x89]) } as unknown as OpenedPdf,
+      policy: "auto",
+      save: async (changes) => {
+        saved.push(changes);
+      },
+      cancelled: never,
+    });
+
+    const [gravado] = saved.flatMap((changes) => changes.upserts);
+    expect(gravado?.diagnostic).toMatchObject({
+      status: "suspicious",
+      reasons: ["o reconhecimento difere do PDF nos números: falta 4; sobra —"],
+    });
+  });
+
   it("a figura que é item próprio sai em branco do recorte do texto em volta (D78)", async () => {
     // A tabela-verdade da p. 17 do Fundamentos ia ao modelo junto do texto, e saía duas vezes:
     // no corpo, transcrita, e na figura.
