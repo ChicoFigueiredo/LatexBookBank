@@ -202,7 +202,7 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     no sumário, os itens de teoria vão de 1 a 159 e os exercícios de 1 a 568. O que se afirma aqui
     é o que o `book-v1` não conseguia — ele achava 0 exercícios, 0 exemplos e 453 falsas seções.
   */
-  it("o Fundamentos: a estrutura do livro, e nada vindo dos gabaritos", () => {
+  it("o Fundamentos: a estrutura do livro, e só respostas vindas dos gabaritos", () => {
     /*
       O `return` é para a máquina que não tem este PDF — o corpus é pessoal e fica fora do git.
       Mas se o manifesto **pede** o perfil e o arquivo está lá, o aceite tem de rodar: sem esta
@@ -243,7 +243,8 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     expect(items.filter((item) => item.kind === "EXERCISE").some((item) => item.metadata["questionType"] !== undefined)).toBe(false);
 
     /*
-      Os dois gabaritos não entram: 300 das 453 falsas seções do `book-v1` vinham dali.
+      Dos dois gabaritos só saem Respostas — e as figuras delas —, e nenhuma estrutura: 300 das 453
+      falsas seções do `book-v1` vinham dali (D77).
 
       A asserção é pelo **número da página**, e não por um carimbo que o próprio motor pôs: se a
       zona fosse calculada errado, um carimbo errado concordaria com ela e o teste passaria.
@@ -251,12 +252,27 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     const ordenadas = [...fme.zones].sort((a, b) => a.from - b.from);
     const gabaritos = ordenadas.filter((zone) => zone.skip === true);
     expect(gabaritos.length, "as duas zonas de gabarito").toBe(2);
+    const respostas = items.filter((item) => item.kind === "ANSWER");
+    const daResposta = new Set(respostas.map((item) => item.key));
     for (const zone of gabaritos) {
       const fim = ordenadas.find((outra) => outra.from > zone.from)?.from ?? Number.POSITIVE_INFINITY;
       const dentro = items.filter((item) => item.pageNumber >= zone.from && item.pageNumber < fim);
-      expect(dentro.map((item) => `${item.kind} p.${item.pageNumber}`), `zona ${zone.label}`).toEqual([]);
+      const estrutura = dentro.filter((item) => item.kind !== "ANSWER" && !daResposta.has(item.parentKey ?? ""));
+      expect(estrutura.map((item) => `${item.kind} p.${item.pageNumber}`), `zona ${zone.label}`).toEqual([]);
     }
-    expect(fme.proposal!.warnings.some((warning) => warning.includes("não foi varrida"))).toBe(true);
+
+    /*
+      As respostas, medidas: 450 dos exercícios e 360 dos vestibulares. O que falta o livro não
+      imprime — a demonstração, o exercício de construir — e nenhuma resposta impressa se perde:
+      as páginas de gráfico da p. 291 e as linhas "90. a  91. a  92. b" da p. 413 perdiam 87.
+    */
+    const deExercicio = respostas.filter((item) => item.metadata["answersTo"] === "EXERCISE");
+    const deQuestao = respostas.filter((item) => item.metadata["answersTo"] === "QUESTION");
+    expect(deExercicio.length, "respostas dos exercícios").toBe(450);
+    expect(deQuestao.length, "respostas dos vestibulares").toBe(360);
+    const alvos = (kind: string) => new Set(items.filter((item) => item.kind === kind).map((item) => item.number));
+    expect(deExercicio.filter((item) => !alvos("EXERCISE").has(item.number)), "resposta de exercício sem exercício").toEqual([]);
+    expect(deQuestao.filter((item) => !alvos("QUESTION").has(item.number)), "resposta de questão sem questão").toEqual([]);
   });
 
   it("grava o relatório quando pedido", () => {

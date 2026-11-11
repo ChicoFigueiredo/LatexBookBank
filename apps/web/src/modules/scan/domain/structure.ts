@@ -13,7 +13,8 @@ import {
 import { assembleDocument, positionOf, type DocLine, type ScanDocument } from "./document";
 import { findFigures, type Figure } from "./figures";
 import { toNormalizedBox } from "@/shared/geometry/normalized-box";
-import type { PageModel } from "./page";
+import { splitLine, type PageModel, type TextLine } from "./page";
+import { measureStyle, type PublicationStyle } from "./typography";
 import {
   combineConfidence,
   kindsWhere,
@@ -56,7 +57,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const zones = profile.zones?.(pages) ?? [];
   const walked = zones.length === 0 ? pages : pages.filter((page) => zoneOfPage(zones, page.pageNumber)?.skip !== true);
   const zoneWarnings = zones
-    .filter((zone) => zone.skip === true)
+    .filter((zone) => zone.skip === true && zone.answersTo === undefined)
     .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida: é gabarito, não estrutura.`);
 
   // Só as páginas que a varredura de fato olha: avisar que falta texto numa página pulada seria
@@ -82,7 +83,29 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
     ...(profile.singleColumn ? { singleColumn: true } : {}),
   });
+  const { doc, figures } = withoutFigures(full, profile);
 
+  const records = walk(doc, profile, zones);
+  const linesBySlot = indexBySlot(doc.lines);
+  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
+  const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
+  const items = [
+    ...checked.map((draft) => withZoneType(finalize(draft, profile, doc, offset), zones)),
+    ...answerItems(pages, zones, profile),
+  ];
+
+  return {
+    items,
+    warnings: [...scanWarnings, ...tocWarnings, ...zoneWarnings],
+    metrics: measure(items, pages.length, scannedPages),
+    pageOffset: offset,
+  };
+}
+
+/**
+ * As figuras saem do fluxo antes da caminhada, e as linhas que elas engolem saem junto.
+ */
+function withoutFigures(full: ScanDocument, profile: CaptureProfile): { doc: ScanDocument; figures: readonly Figure[] } {
   /*
     As figuras saem do fluxo antes da caminhada (D58, ADR 0005).
 
@@ -113,19 +136,130 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     : [];
   const hidden = new Set(figures.flatMap((figure) => [...figure.absorbedLineIds, ...figure.captionLineIds]));
   const doc: ScanDocument = hidden.size === 0 ? full : { ...full, lines: full.lines.filter((line) => !hidden.has(line.id)) };
+  return { doc, figures };
+}
 
-  const records = walk(doc, profile, zones);
-  const linesBySlot = indexBySlot(doc.lines);
-  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
-  const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
-  const items = checked.map((draft) => withZoneType(finalize(draft, profile, doc, offset), zones));
+/**
+ * As respostas das zonas de respostas (D77).
+ *
+ * A zona não tem estrutura — "Capítulo I" ali é só o agrupamento das respostas —, então ela não
+ * passa pela caminhada dos títulos: cada "135." abre uma Resposta, que vai até a próxima ou até o
+ * que o perfil diz que a fecha. O resto é o mesmo de qualquer item: regiões que atravessam coluna
+ * e página, texto, matemática, figuras.
+ *
+ * A página de respostas tem as colunas que o corpo do livro pode não ter: o `singleColumn` do
+ * perfil não vale aqui.
+ */
+function answerItems(pages: readonly PageModel[], zones: readonly DocumentZone[], profile: CaptureProfile): ProposedItem[] {
+  if (!profile.answerStart) return [];
+  const items: ProposedItem[] = [];
+  for (const zone of zones) {
+    if (zone.skip !== true || zone.answersTo === undefined) continue;
+    const within = pages.filter((page) => zoneOfPage(zones, page.pageNumber) === zone);
+    if (within.length === 0) continue;
+    // Várias respostas na mesma linha — "90. a  91. a  92. b" — viram uma linha cada.
+    const style = measureStyle(within.flatMap((page) => page.lines));
+    const zonePages = within.map((page) => ({
+      ...page,
+      lines: page.lines.flatMap((line) => splitLine(line, (rest) => profile.answerStart?.(rest, style) != null)),
+    }));
 
-  return {
-    items,
-    warnings: [...scanWarnings, ...tocWarnings, ...zoneWarnings],
-    metrics: measure(items, pages.length, scannedPages),
-    pageOffset: offset,
+    const full = assembleDocument(zonePages, {
+      ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
+      pageDividers: (lines, style) => answerDividers(lines, style, profile),
+    });
+    const { doc, figures } = withoutFigures(full, profile);
+    const records = walkAnswers(doc, profile, zone.answersTo);
+    const linesBySlot = indexBySlot(doc.lines);
+    const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
+    items.push(...drafts.map((draft) => finalize(draft, profile, doc)));
+  }
+  return items;
+}
+
+/**
+ * Onde as colunas de uma página de respostas começam, pelas próprias respostas (D77).
+ *
+ * A detecção genérica pede linhas dos dois lados, e a coluna de respostas em gráfico tem quatro ou
+ * cinco linhas de texto: a página 291 do *Fundamentos* vol. 1 saía numa coluna só, o "354." da
+ * direita entrava antes do "331." da esquerda, e 23 respostas sumiam como número que não avança.
+ *
+ * Os números e os títulos de capítulo começam na margem de cada coluna — e também no meio dela,
+ * na última célula de uma grade de respostas curtas ("103. c" ao lado de "100. e 101. a 102. d").
+ * A calha é o começo que nenhuma linha atravessa: a linha longa da coluna da esquerda atravessa o
+ * meio da grade, e não a calha.
+ */
+function answerDividers(
+  lines: readonly TextLine[],
+  style: PublicationStyle,
+  profile: CaptureProfile,
+): readonly number[] | null {
+  const starts = lines
+    .filter((line) => profile.answerStart?.(line, style) || profile.answerBoundary?.(line, style))
+    .map((line) => line.x0);
+  if (starts.length < 2) return null;
+  const margin = Math.min(...starts);
+  const candidates = [...new Set(starts.filter((x) => x - margin > style.bodySize * 4).map(Math.round))];
+
+  let best: { readonly divider: number; readonly crossing: number } | null = null;
+  for (const x of candidates) {
+    const divider = x - 3;
+    const crossing = lines.filter((line) => line.x0 < divider - 8 && line.x1 > divider + 8).length;
+    if (!best || crossing < best.crossing || (crossing === best.crossing && divider < best.divider)) best = { divider, crossing };
+  }
+  return best && best.crossing <= Math.max(1, lines.length * 0.05) ? [best.divider] : null;
+}
+
+function walkAnswers(doc: ScanDocument, profile: CaptureProfile, answersTo: "EXERCISE" | "QUESTION"): OpenRecord[] {
+  const records: OpenRecord[] = [];
+  let open: OpenRecord | null = null;
+  let last = 0;
+  const close = (stopIndex: number) => {
+    if (open) open.stopIndex = stopIndex;
+    open = null;
   };
+
+  doc.lines.forEach((line, index) => {
+    if (profile.answerBoundary?.(line, doc.style)) return close(index);
+    const start = profile.answerStart?.(line, doc.style) ?? null;
+    const number = start ? Number.parseInt(start.number, 10) : Number.NaN;
+    // Número que não avança é texto da resposta aberta: "2." dentro da resposta do 135.
+    if (start === null || !(number > last)) return;
+
+    close(index);
+    const continuity = last === 0 ? 0.8 : number === last + 1 ? 0.97 : 0.85;
+    const metadata = { answersTo };
+    const record: OpenRecord = {
+      key: `ANSWER:${line.pageNumber}:${line.id}`,
+      parentKey: null,
+      kind: "ANSWER",
+      match: {
+        kind: "ANSWER",
+        label: start.label,
+        number: start.number,
+        title: null,
+        extent: "until-boundary",
+        lines: 1,
+        confidence: { pattern: 0.9, continuity },
+        evidence: [
+          `resposta do ${answersTo === "EXERCISE" ? "exercício" : "questão"} ${start.number}`,
+          last === 0 ? "primeira da zona" : `segue a ${last}`,
+        ],
+        metadata,
+      },
+      anchorLines: [line],
+      startIndex: index,
+      stopIndex: null,
+      extent: "until-boundary",
+      element: { kind: "ANSWER", number: start.number, anchor: line, metadata },
+      lastChild: new Map(),
+    };
+    records.push(record);
+    open = record;
+    last = number;
+  });
+  close(doc.lines.length);
+  return records;
 }
 
 /**

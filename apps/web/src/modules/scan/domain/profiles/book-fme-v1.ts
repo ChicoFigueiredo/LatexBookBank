@@ -54,14 +54,19 @@ const NUMBER_LINE = /^(\d{1,3})\.\s*(.*)$/;
 /** `1. (UF-RS) …` — a banca entre parênteses é o que marca a questão de vestibular. */
 const VESTIBULAR = /^(\d{1,3})\s*\.\s*\(([^)]{2,40})\)\s*(.*)$/;
 const ITEM = /^\(?([a-z])\)\s/;
+const ANSWER_START = /^(\d{1,3})\s*\.(?:\s|$)/;
 
 /** O cabeçalho corrente que anuncia cada zona, na forma em que o extrator o entrega. */
 const ZONE_MARKERS: readonly { readonly header: string; readonly zone: Omit<DocumentZone, "from"> }[] = [
+  // Os dois gabaritos não têm estrutura, têm respostas: cada uma vai à questão do mesmo número (D77).
   {
     header: "RESPOSTAS DAS QUESTOES DE VESTIBULARES",
-    zone: { label: "respostas dos vestibulares", skip: true },
+    zone: { label: "respostas dos vestibulares", skip: true, answersTo: "QUESTION" },
   },
-  { header: "RESPOSTAS DOS EXERCICIOS", zone: { label: "respostas dos exercícios", skip: true } },
+  {
+    header: "RESPOSTAS DOS EXERCICIOS",
+    zone: { label: "respostas dos exercícios", skip: true, answersTo: "EXERCISE" },
+  },
   {
     header: "QUESTOES DE VESTIBULARES",
     zone: { label: "questões de vestibulares", questionType: "MULTIPLE_CHOICE" },
@@ -97,7 +102,9 @@ function prefixRatio(line: TextLine, style: PublicationStyle): number {
 const prefixBold = (line: TextLine): boolean => line.spans[0]?.bold ?? line.bold;
 
 const CONTAINS: Readonly<Record<string, readonly ScanKind[]>> = {
-  ROOT: ["CHAPTER", "SECTION", "EXERCISE_GROUP", "QUESTION", "FIGURE"],
+  ROOT: ["CHAPTER", "SECTION", "EXERCISE_GROUP", "QUESTION", "FIGURE", "ANSWER"],
+  // A resposta em gráfico: "21." e o desenho logo abaixo.
+  ANSWER: ["FIGURE"],
   CHAPTER: ["SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
   SECTION: ["SUBSECTION", "CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
   SUBSECTION: ["CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
@@ -347,8 +354,8 @@ export const bookFmeV1: CaptureProfile = {
   label: "Fundamentos de Matemática Elementar",
   documentKind: "BOOK",
   description:
-    "A coleção do Iezzi, onze volumes: capítulo em romano, seções I–X, itens de teoria numerados, blocos E X E R C Í C I O S, questões de vestibular no fim e dois gabaritos, que não são varridos.",
-  kinds: ["CHAPTER", "SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "EXERCISE", "QUESTION", "ITEM", "NOTE", "FIGURE"],
+    "A coleção do Iezzi, onze volumes: capítulo em romano, seções I–X, itens de teoria numerados, blocos E X E R C Í C I O S, questões de vestibular no fim e dois gabaritos, cujas respostas vão às questões.",
+  kinds: ["CHAPTER", "SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "EXERCISE", "QUESTION", "ITEM", "NOTE", "FIGURE", "ANSWER"],
   /*
     A coleção é diagramada em uma coluna. O que parece coluna dupla é a grade dos itens curtos —
     `a)` e `b)` lado a lado, `c)` e `d)` embaixo —, e a detecção de colunas a lia como duas
@@ -393,6 +400,22 @@ export const bookFmeV1: CaptureProfile = {
     Dois sinais que praticamente só esta coleção tem: o banner com as letras separadas e a seção
     numerada em romano em corpo de título. Um livro que traga os dois é um Fundamentos.
   */
+  /*
+    As respostas: "135. a) {9, 6, 3}" no gabarito dos exercícios, "36. d" no dos vestibulares.
+
+    O número vem no começo da linha, seguido de ponto e de espaço — "2.5" é número, não resposta.
+    O motor descarta o número que não avança, que é o "2." de dentro de uma resposta.
+  */
+  answerStart(line) {
+    const match = ANSWER_START.exec(line.text.trim());
+    return match ? { number: match[1]!, label: `${match[1]}.` } : null;
+  },
+
+  // "Capítulo II" (13 pt) e o título de abertura da zona (31,5 pt) fecham a resposta aberta.
+  answerBoundary(line, style) {
+    return relativeSize(line, style) >= 1.2 && !/^\d/.test(line.text.trim());
+  },
+
   score(sample) {
     const paginas = Math.max(1, sample.length);
     const style = measureStyle(sample.flatMap((page) => page.lines));

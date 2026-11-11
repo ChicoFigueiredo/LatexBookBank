@@ -87,6 +87,7 @@ export class PrismaScanApproval implements ScanApprovalWriter {
           reusedNodes: 0,
           bodyAppends: 0,
           statementAppends: 0,
+          answers: 0,
           anchors: 0,
           alreadyInCollection: 0,
           materializedItems: 0,
@@ -338,6 +339,46 @@ export class PrismaScanApproval implements ScanApprovalWriter {
               }
               await appendAnchors(targetId, step);
               summary.statementAppends++;
+              await mark(step.itemIds, targetId);
+              break;
+            }
+
+            case "setAnswer": {
+              // A resposta do livro (D77): a letra marca a alternativa; o resto vai à Resposta.
+              const targetId = resolve(step.target);
+              if (!targetId) break;
+              const node = await tx.documentNode.findUniqueOrThrow({
+                where: { id: targetId },
+                select: {
+                  question: {
+                    select: { id: true, options: { orderBy: { sortKey: "asc" }, select: { id: true } } },
+                  },
+                },
+              });
+              if (!node.question) throw new Error(`O nó ${targetId} não tem questão para receber a resposta.`);
+              const questionId = node.question.id;
+
+              const option =
+                step.correctLetter === null ? undefined : node.question.options[step.correctLetter.charCodeAt(0) - 97];
+              if (option) {
+                // Uma correta só: a resposta do livro é o gabarito inteiro da questão.
+                await tx.questionOption.updateMany({ where: { questionId }, data: { isCorrect: false } });
+                await tx.questionOption.update({ where: { id: option.id }, data: { isCorrect: true } });
+              } else {
+                // Sem a alternativa da letra — a questão rebaixada a discursiva —, a letra é a resposta.
+                await tx.question.update({
+                  where: { id: questionId },
+                  data: { answerLatex: step.correctLetter ?? step.answerLatex },
+                });
+              }
+              if (step.cropAssetIds.length > 0) {
+                await tx.asset.updateMany({
+                  where: { id: { in: [...step.cropAssetIds] }, questionId: null },
+                  data: { questionId },
+                });
+              }
+              await appendAnchors(targetId, { ...step, cropAssetId: null });
+              summary.answers++;
               await mark(step.itemIds, targetId);
               break;
             }

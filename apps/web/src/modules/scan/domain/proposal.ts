@@ -23,6 +23,8 @@ export const SCAN_KINDS = [
   "SUBITEM",
   "FIGURE",
   "NOTE",
+  // A resposta que o livro imprime nas páginas de respostas (D77): vai à questão do mesmo número.
+  "ANSWER",
 ] as const;
 
 export type ScanKind = (typeof SCAN_KINDS)[number];
@@ -50,14 +52,14 @@ export interface ScanKindTraits {
    * O que a aprovação faz dele (ADR 0002): vira nó da árvore, vira questão, entra no corpo do nó
    * de cima, ou é dobrado no enunciado da questão que o contém.
    */
-  readonly approvesAs: "node" | "question" | "body" | "folded";
+  readonly approvesAs: "node" | "question" | "body" | "folded" | "answer";
   /** O tipo do nó, quando a aprovação o faz nó. */
   readonly nodeKind: NodeKind | null;
   /**
    * A família entre cujos tipos o texto revisado ainda faz sentido ao trocar de perfil (#250): o
    * LaTeX corrigido de um parágrafo, posto como título de uma seção, é texto no lugar errado.
    */
-  readonly family: "título" | "texto" | "questão" | "item" | "figura";
+  readonly family: "título" | "texto" | "questão" | "item" | "figura" | "resposta";
   /**
    * Vai ao reconhecimento de matemática. Item e subitem ficam de fora: o exercício que os contém
    * já os reconhece inteiros.
@@ -214,6 +216,18 @@ export const SCAN_KIND_TRAITS: Readonly<Record<ScanKind, ScanKindTraits>> = {
     recognizesMath: true,
     reclassifiable: true,
     withSnippet: false,
+  },
+  ANSWER: {
+    label: "Resposta",
+    heading: false,
+    inToc: false,
+    approvesAs: "answer",
+    nodeKind: null,
+    family: "resposta",
+    // A página de respostas é a que mais tem símbolo que a camada de texto não lê.
+    recognizesMath: true,
+    reclassifiable: false,
+    withSnippet: true,
   },
 };
 

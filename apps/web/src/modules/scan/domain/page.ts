@@ -298,6 +298,36 @@ function continuesToTheRight(line: Rect, span: TextSpan): boolean {
   return symbolic && span.x0 >= line.x0 && span.x1 <= line.x1 + 1;
 }
 
+/**
+ * Parte a linha antes de cada trecho em que `starts` reconhece o começo de outra coisa (D77).
+ *
+ * A página de respostas imprime várias numa linha só — "90. a  91. a  92. b" —, e a camada de
+ * texto as entrega como uma linha. Só parte onde há espaço antes do trecho: "2.5" colado não é
+ * começo de nada. O primeiro pedaço fica com o id da linha; os outros, com o id e um sufixo.
+ */
+export function splitLine(line: TextLine, starts: (rest: TextLine) => boolean): readonly TextLine[] {
+  const spans = [...line.spans].sort((a, b) => a.x0 - b.x0);
+  const lineOf = (group: readonly TextSpan[]) => makeLine(line.pageNumber, 0, group, boundsOf(group));
+  const groups: TextSpan[][] = [[]];
+  spans.forEach((span, index) => {
+    const previous = spans[index - 1];
+    const gap = previous ? span.x0 - previous.x1 : 0;
+    if (previous && gap >= span.size * 0.8 && starts(lineOf(spans.slice(index)))) groups.push([]);
+    groups.at(-1)!.push(span);
+  });
+  if (groups.length === 1) return [line];
+  return groups.map((group, index) => ({ ...lineOf(group), id: index === 0 ? line.id : `${line.id}~${index}` }));
+}
+
+function boundsOf(spans: readonly TextSpan[]): Rect {
+  return {
+    x0: Math.min(...spans.map((span) => span.x0)),
+    y0: Math.min(...spans.map((span) => span.y0)),
+    x1: Math.max(...spans.map((span) => span.x1)),
+    y1: Math.max(...spans.map((span) => span.y1)),
+  };
+}
+
 function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[], box: Rect): TextLine {
   // O acento solto fica em cima da letra, com o x um pouco à direita do começo dela: ordenado pelo
   // x puro, ele cairia depois da letra que acentua.

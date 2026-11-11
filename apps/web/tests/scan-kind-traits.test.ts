@@ -40,6 +40,8 @@ describe("SCAN_KIND_TRAITS", () => {
     expect(sorted(kindsWhere((t) => t.approvesAs === "folded"))).toEqual(
       sorted(["ITEM", "SUBITEM"]),
     );
+    // A resposta do gabarito do livro vai à questão do mesmo número (D77).
+    expect(sorted(kindsWhere((t) => t.approvesAs === "answer"))).toEqual(sorted(["ANSWER"]));
     // approval-plan.ts: o nó de cada tipo que vira nó.
     expect(
       Object.fromEntries(
@@ -56,16 +58,17 @@ describe("SCAN_KIND_TRAITS", () => {
       EXERCISE_GROUP: "QUESTION_GROUP",
       EXAMPLE: "EXAMPLE",
     });
-    // math-recognition.ts. A subseção entrou pelo título com símbolo ilegível (D76).
+    // math-recognition.ts. A subseção entrou pelo título com símbolo ilegível (D76), e a resposta
+    // porque a página de respostas é a que mais tem símbolo que a camada de texto não lê (D77).
     expect(sorted(kindsWhere((t) => t.recognizesMath))).toEqual(
-      sorted(["EXERCISE", "QUESTION", "EXAMPLE", "CONTENT", "NOTE", "SUBSECTION"]),
+      sorted(["EXERCISE", "QUESTION", "EXAMPLE", "CONTENT", "NOTE", "SUBSECTION", "ANSWER"]),
     );
     expect(sorted(kindsWhere((t) => t.reclassifiable))).toEqual(
       sorted(["CONTENT", "EXAMPLE", "EXERCISE", "NOTE", "SECTION", "SUBSECTION"]),
     );
     // review-view.ts: o rótulo com o começo do texto.
     expect(sorted(kindsWhere((t) => t.withSnippet))).toEqual(
-      sorted(["EXERCISE", "QUESTION", "ITEM", "SUBITEM", "EXAMPLE"]),
+      sorted(["EXERCISE", "QUESTION", "ITEM", "SUBITEM", "EXAMPLE", "ANSWER"]),
     );
   });
 

@@ -68,8 +68,11 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  *
  * `@3`: o parágrafo que emenda num título sem nome vai para o texto, e o texto guarda o negrito
  * (D76). O item de teoria "1. Chama-se proposição…" perdia a primeira frase.
+ *
+ * `@4`: as zonas de respostas deixam de ser puladas — cada resposta vira um item, que a aprovação
+ * leva à questão do mesmo número (D77).
  */
-export const ENGINE_VERSION = "scan-engine@3";
+export const ENGINE_VERSION = "scan-engine@4";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 

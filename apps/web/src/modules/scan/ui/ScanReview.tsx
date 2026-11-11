@@ -439,7 +439,7 @@ export function ScanReview({
         >
           {approval.summary.createdNodes} nós criados ({approval.summary.createdQuestions} questões a revisar),{" "}
           {approval.summary.reusedNodes} reaproveitados, {approval.summary.bodyAppends} trechos de teoria,{" "}
-          {approval.summary.statementAppends} figuras nos enunciados,{" "}
+          {approval.summary.statementAppends} figuras nos enunciados, {approval.summary.answers} respostas nas questões,{" "}
           {approval.summary.alreadyInCollection} já estavam no acervo, {approval.summary.anchors} âncoras.
           {approval.skipped.length > 0 && ` ${approval.skipped.length} ficaram de fora: ${[...new Set(approval.skipped.map((s) => s.reason))].join("; ")}.`}
         </Banner>

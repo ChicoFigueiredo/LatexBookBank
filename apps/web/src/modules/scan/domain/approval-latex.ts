@@ -117,6 +117,35 @@ function markBold(latex: string, phrases: readonly string[], toLatex: (phrase: s
   return result;
 }
 
+/**
+ * A Resposta que o livro imprime, em LaTeX (D77): sem o número — que é o da questão — e com as
+ * figuras dela logo abaixo, na ordem do livro. Cada linha do gabarito é um item da resposta
+ * ("a) …", "b) …"), e por isso as linhas viram parágrafos, e não uma frase corrida.
+ */
+export function answerLatex(item: ScanItem, figures: readonly ScanItem[]): string {
+  const recognized = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  const text =
+    recognized !== null
+      ? withoutLeadLabel(withLatexSymbols(recognized).trim(), item.originalLabel)
+      : textOf(item)
+          .split("\n")
+          .map((line, index) => escapeLatexText(index === 0 ? withoutLeadLabel(line, item.originalLabel) : line).trim())
+          .filter((line) => line !== "")
+          .join("\n\n");
+  return [text.trim(), ...figures.map(figureLatex)].filter((piece) => piece !== "").join("\n\n");
+}
+
+/**
+ * A letra da alternativa correta, quando a resposta é só ela: "d", "d)", "(d)" (D77).
+ *
+ * "a) 1, 2, 3 e 4." começa com letra e não é alternativa: é uma resposta com itens.
+ */
+export function answerLetter(item: ScanItem): string | null {
+  const plain = withoutLeadLabel((item.reviewedText ?? item.text).replace(/\s+/g, " ").trim(), item.originalLabel).trim();
+  const match = /^\(?([a-e])\)?\.?$/i.exec(plain);
+  return match ? match[1]!.toLowerCase() : null;
+}
+
 /** Onde a frase acaba: ponto ou dois-pontos, seguido de espaço ou do fim. */
 const SENTENCE_END = /[.:](?=\s|$)/;
 

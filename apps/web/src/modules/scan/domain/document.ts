@@ -64,6 +64,19 @@ export interface AssembleOptions {
   readonly columnHints?: (lines: readonly TextLine[]) => readonly number[];
   /** O perfil sabe que o documento é de uma coluna: nenhuma página é dividida. */
   readonly singleColumn?: boolean;
+  /**
+   * Os divisores de coluna de uma página, quando quem monta sabe mais que a detecção: as âncoras
+   * das respostas dizem onde cada coluna começa (D77). `null` deixa a detecção decidir.
+   */
+  readonly pageDividers?: (lines: readonly TextLine[], style: PublicationStyle) => readonly number[] | null;
+}
+
+/** As colunas entre os divisores dados, da margem esquerda à direita das linhas da página. */
+function columnsAt(lines: readonly TextLine[], dividers: readonly number[]): Column[] {
+  const left = Math.min(...lines.map((line) => line.x0));
+  const right = Math.max(...lines.map((line) => line.x1));
+  const edges = [left, ...[...dividers].filter((x) => x > left && x < right).sort((a, b) => a - b), right];
+  return edges.slice(1).map((x1, index) => ({ x0: edges[index]!, x1 }));
 }
 
 export function assembleDocument(pages: readonly PageModel[], options: AssembleOptions = {}): ScanDocument {
@@ -95,7 +108,13 @@ export function assembleDocument(pages: readonly PageModel[], options: AssembleO
     const extent: Rect[] = [...pageLines, ...pageGraphics];
     if (extent.length === 0) continue;
 
-    const columns = options.singleColumn ? [] : detectColumns(pageLines, { hints });
+    const forced = options.pageDividers?.(pageLines, style) ?? null;
+    const columns =
+      forced !== null && forced.length > 0
+        ? columnsAt(pageLines, forced)
+        : options.singleColumn
+          ? []
+          : detectColumns(pageLines, { hints });
     const effective = columns.length > 0 ? columns : [bounds(extent)];
     const box = bounds(extent);
     const first = slots.length;
