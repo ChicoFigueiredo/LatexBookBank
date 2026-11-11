@@ -27,6 +27,16 @@ describe("o pedaço concorda com a camada de texto?", () => {
     expect(chunkAgrees(camada, `174. Resolva analítica e graficamente os sistemas de equações. ${sistemas}`)).toBe(true);
   });
 
+  it("o nome do operador não é palavra: o limite concorda, com o x colado no lim (vol. 8, exercício 96)", () => {
+    // A camada lê "xlim" e "lim" — o "x" de baixo colado no operador —, e o \\lim do modelo não
+    // vira texto: quatro das cinco palavras "faltavam", e a leitura certa ia embora pela camada.
+    const camada =
+      "96. Calcule:\na) xlim➞ 3 22x2 \u0001 3x  1\nc) xlim➞ 0 e x \u0001 1\n3x  2\nb) x ➞lim\u00012 3x2  6x  2\nd) x ➞lim\u00012 10\n4x2  6x \u0001 2\n3x  4";
+    const modelo =
+      "96. Calcule:\n\na) $\\lim_{x \\to 3} 2x^2 - 3x + 1$\n\nb) $\\lim_{x \\to -2} 3x^2 + 6x + 2$\n\nc) $\\lim_{x \\to 0} \\frac{3x + 2}{x - 1}$\n\nd) $\\lim_{x \\to -2} \\frac{4x^2 + 6x - 2}{3x + 4}$";
+    expect(chunkAgrees(camada, modelo)).toBe(true);
+  });
+
   it("não concorda quando o modelo escreve outra página (p. 46)", () => {
     const camada = "A natureza do infinito é uma questão antiga e controversa. Arquimedes já fazia distinção entre infinito potencial e infinito atual.";
     expect(chunkAgrees(camada, "Aplicações da Integral Definida: o cálculo de áreas entre curvas e o volume de sólidos de revolução.")).toBe(false);

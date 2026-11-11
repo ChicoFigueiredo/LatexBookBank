@@ -69,14 +69,25 @@ export function driftDiagnostic(drift: RecognitionDrift): Diagnostic {
   };
 }
 
+/**
+ * O nome do operador não é palavra (vol. 8, exercício 96). A camada lê o "lim" — e o "xlim", com a
+ * variável de baixo colada nele —, e o `\lim` do modelo não vira texto: num exercício de limites,
+ * quatro das cinco palavras da camada "faltavam" no modelo, e a leitura certa ia embora pela
+ * camada embaralhada. Fora dos dois lados, como o nome do ambiente.
+ */
+const OPERATOR =
+  /^[a-z]?(?:lim|sen|sin|cos|tg|tan|cotg|cot|sec|cossec|cosec|csc|log|ln|exp|arcsen|arcsin|arccos|arctg|arctan|senh|cosh|tgh|mdc|mmc|max|min|det)$/;
+
 /** As palavras de três letras ou mais, sem acento e em minúsculas — a hifenização do PDF desfeita. */
 const wordsOf = (text: string): string[] =>
-  text
-    .replace(/-\s*\n\s*/g, "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .match(/[a-z]{3,}/g) ?? [];
+  (
+    text
+      .replace(/-\s*\n\s*/g, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .match(/[a-z]{3,}/g) ?? []
+  ).filter((word) => !OPERATOR.test(word));
 
 /**
  * O pedaço reconhecido concorda com o que a camada de texto tem dentro dele (D78)?
