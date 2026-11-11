@@ -184,6 +184,39 @@ describe("reconhecimento matemático na varredura", () => {
     });
   });
 
+  it("o pedaço que inventa número ou V/F é reconhecido de novo, em metades (D78)", async () => {
+    // p. 18 do Fundamentos: o modelo escreveu uma tabela-verdade que o livro não tem.
+    const linha = (text: string, y: number) => ({ text, x0: 60, x1: 400, baseline: y + 8, size: 10, fontName: "X", endsLine: true });
+    // Dois parágrafos de três linhas, separados por um espaço de sobra: um pedaço só, que se parte em dois.
+    const spans = [
+      ...["Seja f uma proposição.", "Dizemos que f é falsa.", "independentemente de p."].map((t, i) => linha(t, 100 + i * 14)),
+      ...["Assim, a tabela-verdade", "de f apresenta só", "a coluna de f."].map((t, i) => linha(t, 170 + i * 14)),
+    ];
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, text: "Seja f…", regions: [{ pageNumber: 18, role: "PRIMARY", box: { x: 0.05, y: 0.1, width: 0.9, height: 0.12 } }] });
+    const respostas = ["Seja f. Tabela: V V F F V F F V", "Seja $f$ uma proposição.", "Assim, a tabela-verdade de $f$."];
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: respostas.shift() ?? "", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const saved: ScanItemChanges[] = [];
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      pdf: {
+        renderRegion: async () => new Uint8Array([0x89]),
+        readPage: async (pageNumber: number) => ({ pageNumber, width: 595, height: 842, spans, graphics: [] }),
+      } as unknown as OpenedPdf,
+      policy: "auto",
+      save: async (changes) => {
+        saved.push(changes);
+      },
+      cancelled: never,
+    });
+
+    const [gravado] = saved.flatMap((changes) => changes.upserts);
+    expect(gravado?.mathResult?.latex).toBe("Seja $f$ uma proposição.\n\nAssim, a tabela-verdade de $f$.");
+  });
+
   it("a figura que é item próprio sai em branco do recorte do texto em volta (D78)", async () => {
     // A tabela-verdade da p. 17 do Fundamentos ia ao modelo junto do texto, e saía duas vezes:
     // no corpo, transcrita, e na figura.

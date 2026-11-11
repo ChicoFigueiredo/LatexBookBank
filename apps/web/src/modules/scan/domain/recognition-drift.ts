@@ -37,11 +37,21 @@ export interface RecognitionDrift {
   readonly extra: readonly string[];
 }
 
+const modelTokens = (latex: string): string[] =>
+  tokensOf(latexToPlain(latex.replace(/\}\s*\{/g, "} {").replace(/[\^_]\{?/g, " ")));
+
+/**
+ * Os números e V/F que o reconhecimento trouxe e o PDF não tem — mesmo quando o PDF não tem
+ * número nenhum, que é onde a invenção mais aparece.
+ */
+export function inventedTokens(text: string, latex: string): string[] {
+  return minus(modelTokens(latex), tokensOf(text.replace(UNREADABLE, " ")));
+}
+
 export function recognitionDrift(text: string, latex: string): RecognitionDrift | null {
   const layer = tokensOf(text.replace(UNREADABLE, " "));
-  if (layer.length === 0) return null;
-  const plain = latexToPlain(latex.replace(/\}\s*\{/g, "} {").replace(/[\^_]\{?/g, " "));
-  const model = tokensOf(plain);
+  const model = modelTokens(latex);
+  if (layer.length === 0 && model.length === 0) return null;
   const missing = minus(layer, model);
   const extra = minus(model, layer);
   return missing.length === 0 && extra.length === 0 ? null : { missing, extra };

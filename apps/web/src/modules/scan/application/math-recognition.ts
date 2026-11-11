@@ -5,8 +5,8 @@ import {
 
 import { kindsWhere, SCAN_KIND_TRAITS } from "@modules/scan/domain/proposal";
 import { buildLines } from "@modules/scan/domain/page";
-import { chunkBoxes, type ChunkLine } from "@modules/scan/domain/recognition-chunks";
-import { driftDiagnostic, recognitionDrift } from "@modules/scan/domain/recognition-drift";
+import { chunkBoxes, textInside, type ChunkLine } from "@modules/scan/domain/recognition-chunks";
+import { driftDiagnostic, inventedTokens, recognitionDrift } from "@modules/scan/domain/recognition-drift";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
 import type { NormalizedBox } from "@/shared/geometry/normalized-box";
@@ -34,8 +34,17 @@ const MAX_CHUNK_HEIGHT = 0.12;
 /** As linhas de texto da página, na fração da página: é entre elas que o recorte se corta. */
 async function linesOf(pdf: OpenedPdf, pageNumber: number): Promise<ChunkLine[]> {
   const page = buildLines(await pdf.readPage(pageNumber));
-  return page.lines.map((line) => ({ y0: line.y0 / page.height, y1: line.y1 / page.height }));
+  return page.lines.map((line) => ({
+    y0: line.y0 / page.height,
+    y1: line.y1 / page.height,
+    x0: line.x0 / page.width,
+    x1: line.x1 / page.width,
+    text: line.text,
+  }));
 }
+
+/** Mais de dois números ou V/F que a camada de texto do pedaço não tem: o modelo inventou. */
+const invented = (text: string, latex: string): boolean => inventedTokens(text, latex).length > 2;
 
 /** Espaço de sobra: metade da altura típica de uma linha — mais que a entrelinha de um parágrafo. */
 function minGapOf(lines: readonly ChunkLine[]): number {
@@ -93,10 +102,27 @@ export async function recognizeItem(
     const chunks = chunkBoxes(region.box, lines, { maxHeight: MAX_CHUNK_HEIGHT, minGap: minGapOf(lines) });
     const latex: string[] = [];
     let last: Awaited<ReturnType<MathRecognitionProvider["recognize"]>> | null = null;
-    for (const chunk of chunks) {
+    const recognizeChunk = async (chunk: NormalizedBox) => {
       const image = await pdf.renderRegion(region.pageNumber, chunk, DPI, masks);
       last = await recognizer.recognize({ image, mimeType: "image/png", mode: "mixed" });
-      latex.push(last.latex.trim());
+      return last.latex.trim();
+    };
+    for (const chunk of chunks) {
+      let piece = await recognizeChunk(chunk);
+      /*
+        O pedaço que traz número ou V/F que não está nele é invenção: na p. 18 do vol. 1, o modelo
+        escreveu uma tabela-verdade inteira que o livro não tem, entre duas frases verdadeiras.
+        Uma vez, de novo, em metades — o recorte menor é o que o modelo lê melhor.
+      */
+      if (invented(textInside(chunk, lines, masks), piece)) {
+        const halves = chunkBoxes(chunk, lines, { maxHeight: chunk.height / 2, minGap: minGapOf(lines) });
+        if (halves.length > 1) {
+          const retried: string[] = [];
+          for (const half of halves) retried.push(await recognizeChunk(half));
+          piece = retried.filter((part) => part !== "").join("\n\n");
+        }
+      }
+      latex.push(piece);
     }
     const result = { ...last!, latex: latex.filter((piece) => piece !== "").join("\n\n") };
     parts.push({

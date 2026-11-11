@@ -16,6 +16,26 @@ import type { NormalizedBox } from "@/shared/geometry/normalized-box";
 export interface ChunkLine {
   readonly y0: number;
   readonly y1: number;
+  readonly x0?: number;
+  readonly x1?: number;
+  /** O texto da camada do PDF — é contra ele que o pedaço reconhecido é conferido. */
+  readonly text?: string;
+}
+
+/**
+ * O texto que a camada do PDF tem dentro do pedaço, sem o que está debaixo das máscaras (as
+ * figuras, que saem em branco do recorte).
+ */
+export function textInside(chunk: NormalizedBox, lines: readonly ChunkLine[], masks: readonly NormalizedBox[]): string {
+  const within = (x: number, y: number, box: NormalizedBox) => x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+  return lines
+    .filter((line) => {
+      const x = ((line.x0 ?? 0) + (line.x1 ?? 1)) / 2;
+      const y = (line.y0 + line.y1) / 2;
+      return within(x, y, chunk) && !masks.some((mask) => within(x, y, mask));
+    })
+    .map((line) => line.text ?? "")
+    .join("\n");
 }
 
 export function chunkBoxes(
