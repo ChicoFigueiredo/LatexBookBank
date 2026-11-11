@@ -22,6 +22,22 @@ describe("o LaTeX do modelo", () => {
     expect(modelLatex(`de acordo com a função\n\n${funcao}`)).toBe(`de acordo com a função\n\n\\[ ${funcao} \\]`);
   });
 
+  it("dois sistemas no mesmo parágrafo também (questão 553): o nome do ambiente não é palavra", () => {
+    const sistemas = "\\begin{cases}\nx^2 - 3x \\geq 0\n\\end{cases}\n\\Rightarrow\n\\begin{cases}\nx \\leq 0 \\text{ ou } x \\geq 3\n\\end{cases}";
+    expect(modelLatex(sistemas)).toBe(`\\[ ${sistemas} \\]`);
+  });
+
+  it("o array solto é conta, com a linha horizontal dentro (questão 403)", () => {
+    const tabela = "\\begin{array}{|c|c|} \\hline\nx & y^2 \\\\ \\hline\n\\end{array}";
+    expect(modelLatex(tabela)).toBe(`\\[ ${tabela} \\]`);
+  });
+
+  it("o $ sem par: fecha no fim, ou sai quando é ele que sobra (questão 39, subseção 53)", () => {
+    expect(modelLatex("Prove que $(A - B) \\subset A, \\forall A.")).toBe("Prove que $(A - B) \\subset A, \\forall A.$");
+    expect(modelLatex("$x \\leq 2$ é intervalo fechado à direita.$")).toBe("$x \\leq 2$ é intervalo fechado à direita.");
+    expect(modelLatex("custa R\\$ 5,00 e $x = 2$")).toBe("custa R\\$ 5,00 e $x = 2$");
+  });
+
   it("o rótulo em negrito fica fora da conta", () => {
     expect(modelLatex("\\textbf{Resolução.} |2x - 3| = \\begin{cases} 2x - 3 \\end{cases}")).toBe(
       "\\textbf{Resolução.} \\[ |2x - 3| = \\begin{cases} 2x - 3 \\end{cases} \\]",

@@ -64,14 +64,20 @@ export function modelLatex(latex: string): string {
 
 /** O que só existe em matemática: o comando de símbolo, o ambiente de casos, o expoente e o índice. */
 const MATH_ONLY =
-  /\\(?:d?frac|sqrt|cdot|times|in|notin|leq?|geq?|neq?|iff|implies|Rightarrow|Leftrightarrow|rightarrow|subset|supset|subseteq|supseteq|cup|cap|left|right|Delta|alpha|beta|gamma|theta|lambda|pi|forall|exists|circ|pm|infty|mathbb|overline)(?![A-Za-z])|\\begin\{cases\}|[\^_]/;
+  /\\(?:d?frac|sqrt|cdot|times|in|notin|leq?|geq?|neq?|iff|implies|Rightarrow|Leftrightarrow|rightarrow|subset|supset|subseteq|supseteq|cup|cap|left|right|Delta|alpha|beta|gamma|theta|lambda|pi|forall|exists|circ|pm|infty|mathbb|overline)(?![A-Za-z])|\\begin\{(?:cases|array)\}|[\^_]/;
 const DELIMITED = /\$|\\\(|\\\[|\\begin\{(?:equation|align|gather|multline)\*?\}/;
-const TEXT_STRUCTURE = /\\begin\{(?:tabular|array|itemize|enumerate|figure|center)\}|\\item(?![A-Za-z])|\\hline/;
+const TEXT_STRUCTURE = /\\begin\{(?:tabular|itemize|enumerate|figure|center)\}|\\item(?![A-Za-z])/;
 const LEADING_LABEL = /^\s*\\textbf\{[^{}]*\}\s*/;
 
 /** Palavras de frase — quatro letras ou mais —, fora dos comandos e do `\text{…}` de dentro da conta. */
 const proseWords = (block: string): number =>
-  (block.replace(/\\text\s*\{[^{}]*\}/g, " ").replace(/\\[A-Za-z]+/g, " ").match(/\p{L}{4,}/gu) ?? []).length;
+  (
+    block
+      .replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, " ")
+      .replace(/\\text\s*\{[^{}]*\}/g, " ")
+      .replace(/\\[A-Za-z]+/g, " ")
+      .match(/\p{L}{4,}/gu) ?? []
+  ).length;
 
 /**
  * O parágrafo que é só conta e veio sem delimitador vai para `\[ \]` (D78).
@@ -82,9 +88,25 @@ const proseWords = (block: string): number =>
  * palavras de frase; o rótulo em negrito do começo ("Resolução.") fica fora da conta. A frase com
  * conta solta no meio fica como está: adivinhar onde a conta começa erraria mais do que acerta.
  */
+/** O `$` de um parágrafo, sem o `\$` do dinheiro e sem o `$$`. */
+const SINGLE_DOLLAR = /(?<![\\$])\$(?!\$)/g;
+
+/**
+ * O parágrafo com um `$` sem par (D78): o modelo abre a conta e não fecha ("Prove que $(A - B)
+ * \subset A, \forall A."), ou fecha uma que não abriu ("… é intervalo fechado à direita.$"). Se o
+ * último `$` encerra o parágrafo, ele é o que sobra; senão, falta o de fechar, no fim.
+ */
+function balanceDollars(block: string): string {
+  if ((block.match(SINGLE_DOLLAR) ?? []).length % 2 === 0) return block;
+  const body = block.trimEnd();
+  const tail = block.slice(body.length);
+  return body.endsWith("$") && !body.endsWith("\\$") ? `${body.slice(0, -1)}${tail}` : `${body}$${tail}`;
+}
+
 function wrapBareMath(latex: string): string {
   return latex
     .split(/(\n\s*\n)/)
+    .map(balanceDollars)
     .map((block) => {
       if (block.trim() === "" || DELIMITED.test(block) || TEXT_STRUCTURE.test(block) || !MATH_ONLY.test(block)) return block;
       const label = LEADING_LABEL.exec(block)?.[0] ?? "";
