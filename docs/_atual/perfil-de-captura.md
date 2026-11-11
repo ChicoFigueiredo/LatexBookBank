@@ -62,4 +62,6 @@ Mudou a proposta, muda a versão: do perfil, quando a regra é dele; do motor (`
 - O modelo de visão de 12B erra o detalhe num recorte grande ("3/2 = 6" no lugar de "6/4") e acerta num recorte de três linhas; a resolução não ajuda. Também inventa: uma tabela-verdade inteira que o livro não tem. A camada de texto não lê o símbolo, mas lê cada dígito — é ela a conferência.
 - A figura é de quem começou antes dela, ou de quem começa ao lado — o gráfico à direita do "80." —, e não de quem começa logo abaixo: o diagrama da resposta 21 ia para a 22. Conferir o dono das figuras é comparar a proposta antes e depois de mexer no motor, figura a figura.
 - O fundo impresso atrás do texto (o rosa da LEITURA, o cinza da solução) não é figura. Quando virava, a máscara apagava o texto do reconhecimento — e a conferência não reclamava, porque a camada de texto também ficava atrás da máscara.
-- O modelo escreve negrito em Markdown (`**…**`) mesmo instruído a escrever LaTeX; a aprovação converte.
+- O modelo escreve negrito em Markdown (`**…**`) mesmo instruído a escrever LaTeX, e a linha de conta sem `$`; a aprovação converte.
+- A fonte pode entregar um símbolo como NUL, e o banco corta o texto nele: o motor troca o NUL por um caractere da área privada.
+- A última conferência é compilar cada documento do livro com o pdflatex. A medida de cobertura e a conferência por palavras não pegam LaTeX que não compila.

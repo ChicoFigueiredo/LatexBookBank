@@ -1598,6 +1598,20 @@ para outros livros. O que a conferência mostrou virou regra:
   porque a camada de texto ficava atrás da mesma máscara.
 - **O negrito em Markdown do modelo** (`**função constante**`) vira `\textbf` na aprovação, e o
   título do item de teoria guarda fração, letra grega e grau ("x = -b/a", e não "x = -ba").
+- **O NUL da fonte** (o "<" do vol. 1) vira um caractere da área privada (`scan-engine@6`): o
+  banco cortava o texto do item nele — 39 linhas em 12 páginas paravam no meio.
+- **A conferência afinada.** O nome do ambiente não é palavra (seis `\begin{cases}` eram seis
+  "cases" a mais, e o sistema do exercício 174 virava a camada embaralhada); onde a camada só tem
+  rótulos, o modelo pode trazer no máximo seis palavras a mais (a área do trapézio inventada no
+  exercício 142); e o pedaço que segue discordando fica com o modelo quando a camada tem buraco
+  no lugar do símbolo e as palavras batem — a divergência é de número, e o item fica suspeito.
+- **Compilar o livro inteiro, documento a documento**, é a última conferência: 83 de 1.120
+  falhavam. 71 eram a conta que o modelo escreve sem delimitador e o "R$" sem escape — na
+  aprovação, o parágrafo só de conta vai para `\[ \]` e o "R$" vira "R\$" —, e 9 eram √, ⋅, ⊥ e
+  letras gregas soltos no texto, que agora vão à matemática.
+- **Cada varredura recorta as figuras de novo**: o vol. 1 acumulou 15 mil assets, e a consulta das
+  figuras de uma questão, pelas âncoras, leva ~10 s com eles. A coleta dos recortes de execuções
+  apagadas fica como dívida.
 - **Na recaptura, a correção do dono da figura refez a aprovação sem refazer o reconhecimento**
   (horas de modelo local): a importação foi apagada e varrida de novo, e um script de trabalho,
   fora do produto, devolveu a cada item o reconhecimento da execução anterior pela mesma chave e
