@@ -105,6 +105,10 @@ describe("o que o vol. 5 trouxe", () => {
     expect(modelLatex("o número $#A = 3$ e o \\# certo")).toBe("o número $\\#A = 3$ e o \\# certo");
   });
 
+  it("o ∙ e o ▲ do vol. 11 também", () => {
+    expect(escapeLatexText("2 ∙ 3 ▲")).toBe("2 $\\cdot$ 3 $\\blacktriangle$");
+  });
+
   it("⩾, ⩽ e ≅ vão à matemática", () => {
     expect(escapeLatexText("x ⩾ 2, y ⩽ 3, ABC ≅ DEF")).toBe(
       "x $\\geqslant$ 2, y $\\leqslant$ 3, ABC $\\cong$ DEF",

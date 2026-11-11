@@ -143,6 +143,9 @@ export const UNICODE_MATH: Readonly<Record<string, string>> = {
   "⩾": "\\geqslant",
   "⩽": "\\leqslant",
   "≅": "\\cong",
+  // O ponto de produto e o triângulo de marcador do vol. 11.
+  "∙": "\\cdot",
+  "▲": "\\blacktriangle",
   // Índice e expoente em Unicode, da camada de texto ("log₃"): o pdflatex não os aceita. O ² e o ³
   // ficam de fora — o pdflatex os aceita no texto ("m²"), e é assim que o livro os escreve.
   ...Object.fromEntries([..."₀₁₂₃₄₅₆₇₈₉"].map((char, digit) => [char, `_{${digit}}`])),
