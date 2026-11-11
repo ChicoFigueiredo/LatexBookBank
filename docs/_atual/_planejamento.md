@@ -1658,6 +1658,13 @@ compilação acharam virou regra do motor ou da compilação, e não conserto de
 - **`scan-engine@9`**: o recorte do item fecha antes do vizinho na mesma altura. Na grade de
   exercícios (vol. 8, p. 137) e na linha com duas respostas (vol. 6, p. 214), o recorte da coluna
   inteira levava os dois itens ao modelo: 68 itens do vol. 6 e 58 do vol. 8.
+- **`scan-engine@10`**: a fração no corpo do texto com a barra desenhada — "L/2" na fonte e no
+  corpo do texto, um acima e outro abaixo de um traço — manda o item ao modelo. A camada lia
+  "L 2" (vol. 4, questão 73); no vol. 9, 175 itens a mais vão ao modelo.
+- **A conferência: o nome do operador não é palavra.** A camada lê "lim" — e "xlim", com a
+  variável de baixo colada —, "sen", "cos", "log"; o `\lim` e o `\sen` do modelo não viram texto.
+  A leitura certa era recusada e ficava a camada embaralhada: 64 itens do vol. 3 (trigonometria),
+  85 do vol. 8 (limites), 54 do vol. 2 (logaritmos).
 - **O preâmbulo declara o que o acervo traz cru**: os operadores da notação brasileira (`\sen`,
   `\tg`, `\cotg`…, que o modelo escreve como o livro imprime) e os caracteres Unicode que o
   pdflatex não conhece (a seta ➞ dos limites, ∆, ∫, ∑, ⩾…). Vale para o que já foi aprovado:
@@ -1668,10 +1675,8 @@ compilação acharam virou regra do motor ou da compilação, e não conserto de
 - **Refazer sem pagar o modelo de novo.** Um volume refeito devolve a cada item o reconhecimento
   da execução anterior — mesma chave, mesmo texto e **mesmo recorte**: o que o motor novo recorta
   diferente é o que o modelo leu diferente, e vai de novo a ele.
-- **Limites conhecidos**, sem regra ainda: a fração no corpo do texto com a barra desenhada sai
-  achatada ("L 2") quando o item não vai ao modelo; o limite com "lim" empilhado, na grade de
-  itens de um exercício, discorda da camada embaralhada e cai nela; o intervalo "]a; b[" às vezes
-  volta como "[a; b]".
+- **Limites conhecidos**, sem regra ainda: o intervalo "]a; b[" às vezes volta do modelo como
+  "[a; b]"; os rótulos de um gráfico podem entrar no enunciado (vol. 11, exercício 279).
 
 ---
 
