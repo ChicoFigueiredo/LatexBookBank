@@ -156,6 +156,14 @@ describe("o título do item de teoria", () => {
     );
   });
 
+  it("guarda a fração, a letra grega e o grau, como o livro imprime (vol. 1, itens 93, 117 e 123)", () => {
+    expect(latexToPlain("Considerando que $x = -\\frac{b}{a}$, zero da função afim")).toBe("Considerando que x = -b/a, zero da função afim");
+    expect(latexToPlain("O ponto $V(-\\frac{b}{2a}, -\\frac{\\Delta}{4a})$ é chamado")).toBe("O ponto V(-b/2a, -Δ/4a) é chamado");
+    expect(latexToPlain("Comparar o número real $\\alpha$ às raízes da equação do $2^{\\circ}$ grau")).toBe(
+      "Comparar o número real α às raízes da equação do 2° grau",
+    );
+  });
+
   /** Um título da proposta com o buraco que a camada de texto deixa — o caractere da área privada. */
   const comBuraco = (title: string, latex: string, label = "3.") => {
     const cabecalho = item({ id: "h", key: `S:${label}`, kind: "SUBSECTION", text: `${label} ${title}`, title, number: label.slice(0, -1), originalLabel: label, needsMath: true, mathResult: recognized(latex) });
@@ -219,6 +227,37 @@ describe("o título do item de teoria", () => {
     expect(node && "title" in node ? node.title : null).toBe("Chama-se proposição ou sentença toda oração declarativa.");
     expect(corpo && "latex" in corpo ? corpo.latex : null).toBe(
       "Chama-se \\textbf{proposição} ou \\textbf{sentença} toda oração declarativa.\n\nObservamos que…",
+    );
+  });
+
+  it("o negrito que o modelo escreve em Markdown vira \\textbf, no corpo e fora do título (vol. 1, item 80)", () => {
+    const cabecalho = item({ id: "h", key: "S:80", kind: "SUBSECTION", text: "80. Uma aplicação", number: "80", originalLabel: "80." });
+    const texto = item({
+      id: "c",
+      key: "C:80",
+      kind: "CONTENT",
+      parentKey: "S:80",
+      sortOrder: 1,
+      text: "80. Uma aplicação f recebe o nome de função constante.\nO gráfico é uma reta.",
+      needsMath: true,
+      metadata: { leadLabel: "80.", boldPhrases: ["função constante"] },
+      mathResult: recognized("Uma aplicação $f$ recebe o nome de **função constante**.\n\nO gráfico é uma **reta**."),
+    });
+
+    const plan = planApproval({
+      items: [cabecalho, texto],
+      profile: { id: "book-fme-v1", version: 1, defaultQuestionType: "DISCURSIVE" },
+      destinationId: "book",
+      includeSuggested: false,
+      existingNodes: [],
+      existingAnchors: [],
+    });
+
+    const node = plan.steps.find((step) => step.type === "createNode");
+    const corpo = plan.steps.find((step) => step.type === "appendBody");
+    expect(node && "title" in node ? node.title : null).toBe("Uma aplicação f recebe o nome de função constante.");
+    expect(corpo && "latex" in corpo ? corpo.latex : null).toBe(
+      "Uma aplicação $f$ recebe o nome de \\textbf{função constante}.\n\nO gráfico é uma \\textbf{reta}.",
     );
   });
 });

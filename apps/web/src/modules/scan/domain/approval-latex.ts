@@ -49,8 +49,23 @@ export function joinLines(lines: readonly string[]): string {
   return text;
 }
 
+/**
+ * O que o modelo escreve em Markdown apesar de instruído a escrever LaTeX: o negrito `**…**`. No
+ * vol. 1 do *Fundamentos*, "**função constante**" (item 80) saía com os asteriscos no PDF — e,
+ * somado ao negrito que a camada de texto marca, como `**\textbf{função constante}**`.
+ */
+export function modelLatex(latex: string): string {
+  return latex
+    .replace(/\*\*\s*(\\textbf\{[^{}]*\})\s*\*\*/g, "$1")
+    .replace(/\*\*(?=\S)([^*\n]+?)(?<=\S)\*\*/g, "\\textbf{$1}");
+}
+
+/** O LaTeX pronto do item: o revisado fica como a pessoa deixou; o do modelo passa por `modelLatex`. */
+const readyLatex = (item: ScanItem): string | null =>
+  item.reviewedLatex ?? (item.mathResult ? modelLatex(item.mathResult.latex) : null);
+
 const reviewedOrRecognized = (item: ScanItem): string | null => {
-  const ready = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  const ready = readyLatex(item);
   return ready === null ? null : withLatexSymbols(ready);
 };
 
@@ -123,7 +138,7 @@ function markBold(latex: string, phrases: readonly string[], toLatex: (phrase: s
  * ("a) …", "b) …"), e por isso as linhas viram parágrafos, e não uma frase corrida.
  */
 export function answerLatex(item: ScanItem, figures: readonly ScanItem[]): string {
-  const recognized = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  const recognized = readyLatex(item);
   const text =
     recognized !== null
       ? withoutLeadLabel(withLatexSymbols(recognized).trim(), item.originalLabel)
@@ -179,6 +194,29 @@ const LATEX_SYMBOLS: Readonly<Record<string, string>> = {
   "\\_": "_",
   "\\#": "#",
   "\\$": "$",
+  "\\ldots": "...",
+  "\\dots": "...",
+  "\\infty": "∞",
+  "\\pm": "±",
+  // As letras gregas: o "α" do item 123 e o "Δ" do vértice (item 117) sumiam do título.
+  "\\alpha": "α",
+  "\\beta": "β",
+  "\\gamma": "γ",
+  "\\delta": "δ",
+  "\\Delta": "Δ",
+  "\\epsilon": "ε",
+  "\\varepsilon": "ε",
+  "\\theta": "θ",
+  "\\lambda": "λ",
+  "\\mu": "μ",
+  "\\pi": "π",
+  "\\rho": "ρ",
+  "\\sigma": "σ",
+  "\\Sigma": "Σ",
+  "\\phi": "φ",
+  "\\varphi": "φ",
+  "\\omega": "ω",
+  "\\Omega": "Ω",
 };
 
 /** O operador que se escreve colado no que nega: "~p", e não "~ p". */
@@ -195,6 +233,14 @@ export function latexToPlain(latex: string): string {
     if (next === text) break;
     text = next;
   }
+  // A fração como o livro a escreve numa linha: "−b/2a". Sem isto, `\frac{b}{a}` virava "ba".
+  for (let i = 0; i < 5; i++) {
+    const next = text.replace(/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "$1/$2");
+    if (next === text) break;
+    text = next;
+  }
+  // O grau: "2^{\circ}" é "2°", e não "2∘".
+  text = text.replace(/\^\s*\{?\s*\\circ\s*\}?/g, "°");
   text = text.replace(/\\mathbb\s*\{([NZQRC])\}/g, (_, letter: string) => LATEX_SYMBOLS[`\\mathbb{${letter}}`] ?? letter);
   // A raiz, como a camada de texto do livro a escreve: "√f(x)", "3√f(x)".
   text = text.replace(/\\sqrt\s*(?:\[([^\]]*)\])?/g, (_, index: string | undefined) => `${index ?? ""}√`);
@@ -206,6 +252,7 @@ export function latexToPlain(latex: string): string {
   }
   return text
     .replace(/\$+|\\\(|\\\)|\\\[|\\\]/g, "")
+    .replace(/\*\*/g, "")
     .replace(/[{}^_]/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -226,7 +273,7 @@ export function headingTitle(item: ScanItem, leadPiece: string | null): string |
     const sentence = firstSentence(latexToPlain(leadPiece));
     return sentence === "" ? null : sentence;
   }
-  const recognized = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  const recognized = readyLatex(item);
   const editedByHand = item.title !== item.proposed.title;
   if (!hasUnreadableSymbol(item.title) || recognized === null || editedByHand) return item.title;
   return fillUnreadable(item.title, latexToPlain(withoutLeadLabel(recognized.trim(), item.originalLabel))) ?? item.title;
@@ -339,7 +386,7 @@ export function figureLatex(item: ScanItem): string {
  * não batem, não há como saber qual célula é qual, e a imagem é o que não mente.
  */
 function tableLatex(rows: readonly (readonly string[])[], item: ScanItem): string | null {
-  const recognized = recognizedTable(item.reviewedLatex ?? item.mathResult?.latex ?? null);
+  const recognized = recognizedTable(readyLatex(item));
   const width = rows[0]?.length ?? 0;
   // Mesma forma, linha por linha: é o que deixa dizer que a célula (r, c) é a mesma nas duas.
   if (recognized === null || recognized.length !== rows.length || recognized.some((row) => row.length !== width)) return null;
