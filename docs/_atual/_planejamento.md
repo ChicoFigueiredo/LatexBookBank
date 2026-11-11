@@ -1587,6 +1587,21 @@ para outros livros. O que a conferência mostrou virou regra:
 - **A máscara devolve a linha que só encosta na figura**: a linha cujo meio está fora dela é do
   texto, e não rótulo.
 - **Compilar nó sem corpo é 422**, e não erro interno.
+- **A figura é de quem começou antes dela, ou de quem começa ao lado** (`scan-engine@5`). Ia
+  para quem começava logo abaixo: o diagrama da resposta 21 caía na 22, os gráficos do exercício
+  144 na seção seguinte. Fica com o de baixo só a figura ao lado da primeira linha dele (o gráfico
+  à direita do "80.") e a arte acima do título do capítulo. 81 das 696 figuras mudaram de dono,
+  conferidas página a página.
+- **O fundo atrás do texto não é figura.** O retângulo com quatro parágrafos dentro, que não é
+  grade, sai antes de agrupar: o rosa da LEITURA da p. 211 e o cinza da solução da p. 111
+  viravam figura de meia página, e a máscara apagava o texto — sem a conferência perceber,
+  porque a camada de texto ficava atrás da mesma máscara.
+- **O negrito em Markdown do modelo** (`**função constante**`) vira `\textbf` na aprovação, e o
+  título do item de teoria guarda fração, letra grega e grau ("x = -b/a", e não "x = -ba").
+- **Na recaptura, a correção do dono da figura refez a aprovação sem refazer o reconhecimento**
+  (horas de modelo local): a importação foi apagada e varrida de novo, e um script de trabalho,
+  fora do produto, devolveu a cada item o reconhecimento da execução anterior pela mesma chave e
+  o mesmo texto. Só os itens cujo recorte mudou foram de novo ao modelo.
 - **O perfil de referência**: `scan:clone-profile` deriva um perfil novo do `book-fme-v1` (id,
   rótulo, versão 1, registro), e `scan:measure` mede um perfil contra um PDF sem banco nem modelo
   — zonas, itens, respostas, tabelas e as linhas fora de qualquer item. O guia é
