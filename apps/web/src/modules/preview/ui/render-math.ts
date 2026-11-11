@@ -5,6 +5,7 @@ import { mathjax } from "mathjax-full/js/mathjax.js";
 import { SVG } from "mathjax-full/js/output/svg.js";
 
 import { parseMathSvg, type MathSvg } from "@modules/preview/domain/math-svg";
+import { BRAZILIAN_OPERATORS } from "@modules/rendering/domain/latex-profile";
 
 /**
  * MathJax **do pacote local**, nunca de CDN.
@@ -52,7 +53,13 @@ function ensureEngine(): (latex: string, display: boolean) => string {
   RegisterHTMLHandler(adaptor);
 
   const document = mathjax.document("", {
-    InputJax: new TeX({ packages: PACKAGES }),
+    // Os operadores da notação brasileira (`\tg`, `\sen`), os mesmos do preâmbulo da compilação.
+    InputJax: new TeX({
+      packages: PACKAGES,
+      macros: Object.fromEntries(
+        BRAZILIAN_OPERATORS.map((name) => [name, `\\operatorname{${name}}`]),
+      ),
+    }),
     OutputJax: new SVG({ fontCache: "none" }),
   });
 

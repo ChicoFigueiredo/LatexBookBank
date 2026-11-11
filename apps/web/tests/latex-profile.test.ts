@@ -47,6 +47,17 @@ describe("perfis", () => {
     }
   });
 
+  it("os dois trazem os operadores da notação brasileira — \\sen, \\tg, \\cotg (vol. 7 do Fundamentos)", () => {
+    // O modelo escreve `\tg` e `\cotg`, e o pdflatex parava com "Undefined control sequence".
+    for (const profile of RENDER_PROFILES) {
+      for (const operador of ["sen", "tg", "cotg", "cossec", "arcsen", "arctg"]) {
+        expect(profile.preamble.join("\n")).toContain(
+          `\\providecommand{\\${operador}}{\\operatorname{${operador}}}`,
+        );
+      }
+    }
+  });
+
   it("`profileById` não inventa perfil", () => {
     expect(profileById("legacy-compatibility")).not.toBeNull();
     expect(profileById("inexistente")).toBeNull();

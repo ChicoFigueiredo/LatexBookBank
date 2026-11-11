@@ -12,18 +12,26 @@ import { modelLatex } from "@modules/scan/domain/approval-latex";
  */
 describe("o LaTeX do modelo", () => {
   it("a linha de conta sem delimitador vai para \\[ \\] (vol. 1, p. 116: S = {x ∈ ℝ | …})", () => {
-    expect(modelLatex("Como a inequação é $f(x) \\geq 0$, vem:\n\nS = \\{x \\in \\mathbb{R} | -\\frac{1}{2} \\leq x \\leq 2\\}")).toBe(
+    expect(
+      modelLatex(
+        "Como a inequação é $f(x) \\geq 0$, vem:\n\nS = \\{x \\in \\mathbb{R} | -\\frac{1}{2} \\leq x \\leq 2\\}",
+      ),
+    ).toBe(
       "Como a inequação é $f(x) \\geq 0$, vem:\n\n\\[ S = \\{x \\in \\mathbb{R} | -\\frac{1}{2} \\leq x \\leq 2\\} \\]",
     );
   });
 
   it("e o sistema em cases também, com o \\text de dentro (questão 294)", () => {
-    const funcao = "T(t) = \\begin{cases}\n\\frac{1}{5}t + 20, \\text{ para } 0 \\leq t < 100 \\\\\nt^2, \\text{ para } t \\geq 100\n\\end{cases}";
-    expect(modelLatex(`de acordo com a função\n\n${funcao}`)).toBe(`de acordo com a função\n\n\\[ ${funcao} \\]`);
+    const funcao =
+      "T(t) = \\begin{cases}\n\\frac{1}{5}t + 20, \\text{ para } 0 \\leq t < 100 \\\\\nt^2, \\text{ para } t \\geq 100\n\\end{cases}";
+    expect(modelLatex(`de acordo com a função\n\n${funcao}`)).toBe(
+      `de acordo com a função\n\n\\[ ${funcao} \\]`,
+    );
   });
 
   it("dois sistemas no mesmo parágrafo também (questão 553): o nome do ambiente não é palavra", () => {
-    const sistemas = "\\begin{cases}\nx^2 - 3x \\geq 0\n\\end{cases}\n\\Rightarrow\n\\begin{cases}\nx \\leq 0 \\text{ ou } x \\geq 3\n\\end{cases}";
+    const sistemas =
+      "\\begin{cases}\nx^2 - 3x \\geq 0\n\\end{cases}\n\\Rightarrow\n\\begin{cases}\nx \\leq 0 \\text{ ou } x \\geq 3\n\\end{cases}";
     expect(modelLatex(sistemas)).toBe(`\\[ ${sistemas} \\]`);
   });
 
@@ -33,9 +41,21 @@ describe("o LaTeX do modelo", () => {
   });
 
   it("o $ sem par: fecha no fim, ou sai quando é ele que sobra (questão 39, subseção 53)", () => {
-    expect(modelLatex("Prove que $(A - B) \\subset A, \\forall A.")).toBe("Prove que $(A - B) \\subset A, \\forall A.$");
-    expect(modelLatex("$x \\leq 2$ é intervalo fechado à direita.$")).toBe("$x \\leq 2$ é intervalo fechado à direita.");
+    expect(modelLatex("Prove que $(A - B) \\subset A, \\forall A.")).toBe(
+      "Prove que $(A - B) \\subset A, \\forall A.$",
+    );
+    expect(modelLatex("$x \\leq 2$ é intervalo fechado à direita.$")).toBe(
+      "$x \\leq 2$ é intervalo fechado à direita.",
+    );
     expect(modelLatex("custa R\\$ 5,00 e $x = 2$")).toBe("custa R\\$ 5,00 e $x = 2$");
+  });
+
+  it("a palavra acentuada dentro da conta vai para \\text, e o º vira grau (vol. 7)", () => {
+    // "Command \' invalid in math mode": o pdflatex não aceita "á" em modo matemático.
+    expect(modelLatex("Temos $área = b \\cdot h$ e $\\text{área} > 0$.")).toBe(
+      "Temos $\\text{área} = b \\cdot h$ e $\\text{área} > 0$.",
+    );
+    expect(modelLatex("o $1º$ caso")).toBe("o $1^{\\circ}$ caso");
   });
 
   it("o rótulo em negrito fica fora da conta", () => {
@@ -45,24 +65,42 @@ describe("o LaTeX do modelo", () => {
   });
 
   it("frase com conta solta não vira conta: fica como está", () => {
-    const frase = "Raciocínio análogo seria feito para a inequação com x^2 no lugar de x, e o resultado seria parecido.";
+    const frase =
+      "Raciocínio análogo seria feito para a inequação com x^2 no lugar de x, e o resultado seria parecido.";
     expect(modelLatex(frase)).toBe(frase);
   });
 
   it("o que já tem delimitador, tabela ou lista não é tocado", () => {
-    for (const bloco of ["$x^2 = 4$", "\\begin{tabular}{cc} x & y^2 \\end{tabular}", "\\begin{itemize}\n\\item $x^2$\n\\end{itemize}"]) {
+    for (const bloco of [
+      "$x^2 = 4$",
+      "\\begin{tabular}{cc} x & y^2 \\end{tabular}",
+      "\\begin{itemize}\n\\item $x^2$\n\\end{itemize}",
+    ]) {
       expect(modelLatex(bloco)).toBe(bloco);
     }
   });
 
   it("o R$ do dinheiro vira R\\$ (questão 238: R$ 700,00)", () => {
-    expect(modelLatex("o custo de R$ 700,00 corresponde a $x$ litros")).toBe("o custo de R\\$ 700,00 corresponde a $x$ litros");
+    expect(modelLatex("o custo de R$ 700,00 corresponde a $x$ litros")).toBe(
+      "o custo de R\\$ 700,00 corresponde a $x$ litros",
+    );
     expect(modelLatex("custa R\\$ 5,00")).toBe("custa R\\$ 5,00");
+  });
+});
+
+describe("o circunflexo combinado do ângulo (AB̂C, vol. 7)", () => {
+  it("vira \\hat, dentro e fora da conta", () => {
+    expect(modelLatex("o ângulo $AB̂C$ e o ângulo AB̂C")).toBe(
+      "o ângulo $A\\hat{B}C$ e o ângulo A$\\hat{B}$C",
+    );
+    expect(escapeLatexText("ângulo AB̂C")).toBe("ângulo A$\\hat{B}$C");
   });
 });
 
 describe("o texto da camada do PDF, em LaTeX", () => {
   it("leva √, ⋅, ⊥ e as letras gregas para a matemática — o pdflatex não os aceita no texto", () => {
-    expect(escapeLatexText("√3 ⋅ 2 ⊥ ζ α")).toBe("$\\surd$3 $\\cdot$ 2 $\\perp$ $\\zeta$ $\\alpha$");
+    expect(escapeLatexText("√3 ⋅ 2 ⊥ ζ α")).toBe(
+      "$\\surd$3 $\\cdot$ 2 $\\perp$ $\\zeta$ $\\alpha$",
+    );
   });
 });

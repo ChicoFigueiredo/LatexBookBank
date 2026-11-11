@@ -109,35 +109,35 @@ export const UNICODE_MATH: Readonly<Record<string, string>> = {
   "∞": "\\infty",
   "∘": "\\circ",
   "±": "\\pm",
-  "ℕ": "\\mathbb{N}",
-  "ℤ": "\\mathbb{Z}",
-  "ℚ": "\\mathbb{Q}",
-  "ℝ": "\\mathbb{R}",
-  "ℂ": "\\mathbb{C}",
+  ℕ: "\\mathbb{N}",
+  ℤ: "\\mathbb{Z}",
+  ℚ: "\\mathbb{Q}",
+  ℝ: "\\mathbb{R}",
+  ℂ: "\\mathbb{C}",
   // O pdflatex não aceita estes no texto ("Unicode character √ not set up"): a camada de texto do
   // *Fundamentos* entrega a raiz, o ponto de produto, o perpendicular e as letras gregas soltos.
   "√": "\\surd",
   "⋅": "\\cdot",
   "⊥": "\\perp",
-  "α": "\\alpha",
-  "β": "\\beta",
-  "γ": "\\gamma",
-  "δ": "\\delta",
-  "Δ": "\\Delta",
-  "ε": "\\varepsilon",
-  "ζ": "\\zeta",
-  "η": "\\eta",
-  "θ": "\\theta",
-  "λ": "\\lambda",
-  "μ": "\\mu",
-  "π": "\\pi",
-  "ρ": "\\rho",
-  "σ": "\\sigma",
-  "Σ": "\\Sigma",
-  "τ": "\\tau",
-  "φ": "\\varphi",
-  "ω": "\\omega",
-  "Ω": "\\Omega",
+  α: "\\alpha",
+  β: "\\beta",
+  γ: "\\gamma",
+  δ: "\\delta",
+  Δ: "\\Delta",
+  ε: "\\varepsilon",
+  ζ: "\\zeta",
+  η: "\\eta",
+  θ: "\\theta",
+  λ: "\\lambda",
+  μ: "\\mu",
+  π: "\\pi",
+  ρ: "\\rho",
+  σ: "\\sigma",
+  Σ: "\\Sigma",
+  τ: "\\tau",
+  φ: "\\varphi",
+  ω: "\\omega",
+  Ω: "\\Omega",
 };
 
 export const UNICODE_MATH_CHARS = new RegExp(`[${Object.keys(UNICODE_MATH).join("")}]`, "g");
@@ -146,7 +146,9 @@ export const escapeLatexText = (text: string): string =>
   text
     .replace(/[\\%$&#_{}~^]/g, (char) => ESCAPES[char] ?? char)
     .replace(UNREADABLE, UNREADABLE_MARK)
-    .replace(UNICODE_MATH_CHARS, (char) => `$${UNICODE_MATH[char]}$`);
+    .replace(UNICODE_MATH_CHARS, (char) => `$${UNICODE_MATH[char]}$`)
+    // O circunflexo combinado do ângulo — "AB̂C" —, que o pdflatex não aceita.
+    .replace(/([A-Za-z])̂/g, "$\\hat{$1}$");
 
 /**
  * O modo `text` é o único que escapa.

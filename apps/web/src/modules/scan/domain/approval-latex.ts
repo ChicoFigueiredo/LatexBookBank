@@ -17,7 +17,8 @@ import type { ScanItem } from "./scan-item";
  * reescrita.
  */
 
-const EXERCISE_LABEL = /^\s*(?:(?:exerc[ií]cio|problema|exercise|problem)\s+\d+(?:\.\d+)*\s*[.:)]?|\d{1,3}\s*[.)])\s*/i;
+const EXERCISE_LABEL =
+  /^\s*(?:(?:exerc[ií]cio|problema|exercise|problem)\s+\d+(?:\.\d+)*\s*[.:)]?|\d{1,3}\s*[.)])\s*/i;
 const QUESTION_HEADER = /^\s*QUEST[AÃ]O\s+\d{1,3}\s*$/i;
 const ITEM_LABEL = /^\s*\(?([a-z]|[ivx]{1,5})\)\s*/i;
 /**
@@ -59,7 +60,43 @@ export function modelLatex(latex: string): string {
     .replace(/\*\*\s*(\\textbf\{[^{}]*\})\s*\*\*/g, "$1")
     .replace(/\*\*(?=\S)([^*\n]+?)(?<=\S)\*\*/g, "\\textbf{$1}");
   // O "R$" do dinheiro: o "$" abria matemática e o resto do enunciado não compilava (R$ 700,00).
-  return wrapBareMath(bold.replace(/R\$(?=\s*\d)/g, "R\\$"));
+  return combiningHat(textInMath(wrapBareMath(bold.replace(/R\$(?=\s*\d)/g, "R\\$"))));
+}
+
+/**
+ * O circunflexo combinado do ângulo — "AB̂C", U+0302 depois da letra —, que o pdflatex recusa:
+ * `\hat{B}` dentro da conta, `$\hat{B}$` fora dela (vol. 7 do Fundamentos).
+ */
+function combiningHat(latex: string): string {
+  const masked = outsideMath(latex);
+  return latex.replace(/([A-Za-z])̂/g, (_, letter: string, at: number) =>
+    masked[at] === letter ? `$\\hat{${letter}}$` : `\\hat{${letter}}`,
+  );
+}
+
+/** Dentro da conta: o `\text{…}` que já está lá, a palavra acentuada, o º e o ª. */
+const IN_MATH =
+  /\\(?:text|textrm|textbf|textit|mathrm|operatorname|mbox)\s*\{[^{}]*\}|\p{L}*[À-ÖØ-öø-ÿ]\p{L}*|º|ª/gu;
+
+/**
+ * A palavra acentuada dentro da conta vai para `\text{…}`, e o º e o ª viram expoente (D78).
+ *
+ * O modelo escreve "$área = b \cdot h$" e "$1º$", e o pdflatex recusa a letra acentuada em modo
+ * matemático ("Command \' invalid in math mode") — no vol. 7 do Fundamentos, onde "área" e
+ * "distância" aparecem dentro das contas. O que já está em `\text{…}` fica como está.
+ */
+function textInMath(latex: string): string {
+  return latex.replace(MATH, (math) =>
+    math.replace(IN_MATH, (found) =>
+      found.startsWith("\\")
+        ? found
+        : found === "º"
+          ? "^{\\circ}"
+          : found === "ª"
+            ? "^{a}"
+            : `\\text{${found}}`,
+    ),
+  );
 }
 
 /** O que só existe em matemática: o comando de símbolo, o ambiente de casos, o expoente e o índice. */
@@ -100,7 +137,9 @@ function balanceDollars(block: string): string {
   if ((block.match(SINGLE_DOLLAR) ?? []).length % 2 === 0) return block;
   const body = block.trimEnd();
   const tail = block.slice(body.length);
-  return body.endsWith("$") && !body.endsWith("\\$") ? `${body.slice(0, -1)}${tail}` : `${body}$${tail}`;
+  return body.endsWith("$") && !body.endsWith("\\$")
+    ? `${body.slice(0, -1)}${tail}`
+    : `${body}$${tail}`;
 }
 
 function wrapBareMath(latex: string): string {
@@ -108,7 +147,13 @@ function wrapBareMath(latex: string): string {
     .split(/(\n\s*\n)/)
     .map(balanceDollars)
     .map((block) => {
-      if (block.trim() === "" || DELIMITED.test(block) || TEXT_STRUCTURE.test(block) || !MATH_ONLY.test(block)) return block;
+      if (
+        block.trim() === "" ||
+        DELIMITED.test(block) ||
+        TEXT_STRUCTURE.test(block) ||
+        !MATH_ONLY.test(block)
+      )
+        return block;
       const label = LEADING_LABEL.exec(block)?.[0] ?? "";
       const body = block.slice(label.length).trim();
       if (body === "" || proseWords(body) > 2) return block;
@@ -140,18 +185,26 @@ const LABEL_PREFIX = /^\s*\S+\s+\d+(?:\.\d+)*\s*[.:)]?\s*/;
  */
 export function contentLatex(item: ScanItem): string {
   if (item.reviewedLatex !== null) return withLatexSymbols(item.reviewedLatex).trim();
-  const leadLabel = typeof item.metadata["leadLabel"] === "string" ? item.metadata["leadLabel"] : null;
+  const leadLabel =
+    typeof item.metadata["leadLabel"] === "string" ? item.metadata["leadLabel"] : null;
   const recognized = reviewedOrRecognized(item);
-  if (recognized !== null) return markBold(withoutLeadLabel(recognized.trim(), leadLabel), boldPhrasesOf(item), (p) => p);
+  if (recognized !== null)
+    return markBold(withoutLeadLabel(recognized.trim(), leadLabel), boldPhrasesOf(item), (p) => p);
 
   const lines = textOf(item).split("\n");
   const first = leadLabel === null ? (lines[0] ?? "") : withoutLeadLabel(lines[0] ?? "", leadLabel);
-  return markBold(escapeLatexText(joinLines([first, ...lines.slice(1)])), boldPhrasesOf(item), escapeLatexText);
+  return markBold(
+    escapeLatexText(joinLines([first, ...lines.slice(1)])),
+    boldPhrasesOf(item),
+    escapeLatexText,
+  );
 }
 
 const boldPhrasesOf = (item: ScanItem): readonly string[] => {
   const phrases = item.metadata["boldPhrases"];
-  return Array.isArray(phrases) ? phrases.filter((phrase): phrase is string => typeof phrase === "string") : [];
+  return Array.isArray(phrases)
+    ? phrases.filter((phrase): phrase is string => typeof phrase === "string")
+    : [];
 };
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -159,7 +212,9 @@ const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&
 /** Tira o rótulo do começo — "1.", "\textbf{1.}", "{\bf 1.}" —, e só ele. */
 function withoutLeadLabel(text: string, label: string | null): string {
   if (label === null) return text;
-  const pattern = new RegExp(`^\\s*(?:\\\\textbf\\{\\s*|\\{\\\\bf\\s+)?${escapeRegExp(label)}\\s*\\}?\\s*`);
+  const pattern = new RegExp(
+    `^\\s*(?:\\\\textbf\\{\\s*|\\{\\\\bf\\s+)?${escapeRegExp(label)}\\s*\\}?\\s*`,
+  );
   return text.replace(pattern, "");
 }
 
@@ -169,7 +224,11 @@ function withoutLeadLabel(text: string, label: string | null): string {
  * Cada uma marca a **próxima** ocorrência depois da anterior, fora da matemática: "proposição" é
  * negrito na definição e não nas dez vezes em que o parágrafo volta a usá-la.
  */
-function markBold(latex: string, phrases: readonly string[], toLatex: (phrase: string) => string): string {
+function markBold(
+  latex: string,
+  phrases: readonly string[],
+  toLatex: (phrase: string) => string,
+): string {
   let result = latex;
   let cursor = 0;
   for (const phrase of phrases) {
@@ -201,7 +260,9 @@ export function answerLatex(item: ScanItem, figures: readonly ScanItem[]): strin
       ? withoutLeadLabel(withLatexSymbols(recognized).trim(), item.originalLabel)
       : textOf(item)
           .split("\n")
-          .map((line, index) => escapeLatexText(index === 0 ? withoutLeadLabel(line, item.originalLabel) : line).trim())
+          .map((line, index) =>
+            escapeLatexText(index === 0 ? withoutLeadLabel(line, item.originalLabel) : line).trim(),
+          )
           .filter((line) => line !== "")
           .join("\n\n");
   return [text.trim(), ...figures.map(figureLatex)].filter((piece) => piece !== "").join("\n\n");
@@ -213,7 +274,10 @@ export function answerLatex(item: ScanItem, figures: readonly ScanItem[]): strin
  * "a) 1, 2, 3 e 4." começa com letra e não é alternativa: é uma resposta com itens.
  */
 export function answerLetter(item: ScanItem): string | null {
-  const plain = withoutLeadLabel((item.reviewedText ?? item.text).replace(/\s+/g, " ").trim(), item.originalLabel).trim();
+  const plain = withoutLeadLabel(
+    (item.reviewedText ?? item.text).replace(/\s+/g, " ").trim(),
+    item.originalLabel,
+  ).trim();
   const match = /^\(?([a-e])\)?\.?$/i.exec(plain);
   return match ? match[1]!.toLowerCase() : null;
 }
@@ -288,7 +352,10 @@ export function latexToPlain(latex: string): string {
   // 174 (p. 112) eram seis palavras que o PDF não tem — a conferência trocava o modelo pela camada.
   let text = latex.replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, " ");
   for (let i = 0; i < 5; i++) {
-    const next = text.replace(/\\(?:textbf|textit|emph|text|mathrm|mathbf|operatorname)\s*\{([^{}]*)\}/g, "$1");
+    const next = text.replace(
+      /\\(?:textbf|textit|emph|text|mathrm|mathbf|operatorname)\s*\{([^{}]*)\}/g,
+      "$1",
+    );
     if (next === text) break;
     text = next;
   }
@@ -300,9 +367,15 @@ export function latexToPlain(latex: string): string {
   }
   // O grau: "2^{\circ}" é "2°", e não "2∘".
   text = text.replace(/\^\s*\{?\s*\\circ\s*\}?/g, "°");
-  text = text.replace(/\\mathbb\s*\{([NZQRC])\}/g, (_, letter: string) => LATEX_SYMBOLS[`\\mathbb{${letter}}`] ?? letter);
+  text = text.replace(
+    /\\mathbb\s*\{([NZQRC])\}/g,
+    (_, letter: string) => LATEX_SYMBOLS[`\\mathbb{${letter}}`] ?? letter,
+  );
   // A raiz, como a camada de texto do livro a escreve: "√f(x)", "3√f(x)".
-  text = text.replace(/\\sqrt\s*(?:\[([^\]]*)\])?/g, (_, index: string | undefined) => `${index ?? ""}√`);
+  text = text.replace(
+    /\\sqrt\s*(?:\[([^\]]*)\])?/g,
+    (_, index: string | undefined) => `${index ?? ""}√`,
+  );
   text = text.replace(/\\[A-Za-z]+|\\[%&_#$]/g, (command) => LATEX_SYMBOLS[command] ?? "");
   // O espaço que o comando deixava antes do argumento: "~ p" volta a ser "~p".
   for (const command of PREFIX_SYMBOLS) {
@@ -335,7 +408,12 @@ export function headingTitle(item: ScanItem, leadPiece: string | null): string |
   const recognized = readyLatex(item);
   const editedByHand = item.title !== item.proposed.title;
   if (!hasUnreadableSymbol(item.title) || recognized === null || editedByHand) return item.title;
-  return fillUnreadable(item.title, latexToPlain(withoutLeadLabel(recognized.trim(), item.originalLabel))) ?? item.title;
+  return (
+    fillUnreadable(
+      item.title,
+      latexToPlain(withoutLeadLabel(recognized.trim(), item.originalLabel)),
+    ) ?? item.title
+  );
 }
 
 /** O que pode ocupar um buraco: um símbolo curto, e nunca uma palavra. */
@@ -361,7 +439,10 @@ function fillUnreadable(title: string, recognized: string): string | null {
     if (at < 0) return null;
     if (index > 0) {
       // O que o modelo lê entre o vizinho anterior e este — ou, no fim do título, o próximo termo.
-      const between = anchor === "" ? (plain.slice(cursor).trim().split(" ")[0] ?? "") : plain.slice(cursor, at).trim();
+      const between =
+        anchor === ""
+          ? (plain.slice(cursor).trim().split(" ")[0] ?? "")
+          : plain.slice(cursor, at).trim();
       if (!SYMBOL_FILL.test(between)) return null;
       result += between;
     }
@@ -412,7 +493,13 @@ function stripLabel(text: string, item: ScanItem): string {
  */
 export function figureLatex(item: ScanItem): string {
   const rows = item.metadata["tableRows"];
-  const table = Array.isArray(rows) && rows.length > 0 ? tableLatex(rows.map((row) => String(row).split("\t")), item) : null;
+  const table =
+    Array.isArray(rows) && rows.length > 0
+      ? tableLatex(
+          rows.map((row) => String(row).split("\t")),
+          item,
+        )
+      : null;
   if (table !== null) return table;
   const name = item.metadata["figureLatexName"];
   const caption = (item.reviewedText ?? item.title ?? "").trim();
@@ -423,7 +510,8 @@ export function figureLatex(item: ScanItem): string {
   }
 
   const fraction = Number(item.metadata["widthFraction"]);
-  const width = Number.isFinite(fraction) && fraction > 0 ? Math.min(1, Math.max(0.15, fraction)) : 0.6;
+  const width =
+    Number.isFinite(fraction) && fraction > 0 ? Math.min(1, Math.max(0.15, fraction)) : 0.6;
 
   return [
     "\\begin{figure}[H]",
@@ -448,12 +536,19 @@ function tableLatex(rows: readonly (readonly string[])[], item: ScanItem): strin
   const recognized = recognizedTable(readyLatex(item));
   const width = rows[0]?.length ?? 0;
   // Mesma forma, linha por linha: é o que deixa dizer que a célula (r, c) é a mesma nas duas.
-  if (recognized === null || recognized.length !== rows.length || recognized.some((row) => row.length !== width)) return null;
+  if (
+    recognized === null ||
+    recognized.length !== rows.length ||
+    recognized.some((row) => row.length !== width)
+  )
+    return null;
 
   const merged = recognized.map((row, r) => {
     const text = rows[r]!;
     const complete = text.every((cell) => cell !== "");
-    return row.map((cell, c) => (complete && !hasUnreadableSymbol(text[c]!) ? escapeLatexText(text[c]!) : cell.trim()));
+    return row.map((cell, c) =>
+      complete && !hasUnreadableSymbol(text[c]!) ? escapeLatexText(text[c]!) : cell.trim(),
+    );
   });
   // As linhas incompletas no alto são o cabeçalho, que o livro separa com um fio.
   const head = rows.findIndex((row) => row.every((cell) => cell !== ""));
@@ -541,13 +636,19 @@ export function questionLatex(
 ): QuestionLatex {
   const originalLatex = item.proposed.latex ?? escapeLatexText(item.proposed.text);
   /** Corta a resolução do texto: o que vem depois do marcador não é enunciado nem alternativa. */
-  const splitSolution = (source: readonly string[]): { readonly statement: string[]; readonly solution: string[] } => {
+  const splitSolution = (
+    source: readonly string[],
+  ): { readonly statement: string[]; readonly solution: string[] } => {
     const at = source.findIndex((line) => SOLUTION_MARKER.test(line));
-    return at < 0 ? { statement: [...source], solution: [] } : { statement: source.slice(0, at), solution: source.slice(at + 1) };
+    return at < 0
+      ? { statement: [...source], solution: [] }
+      : { statement: source.slice(0, at), solution: source.slice(at + 1) };
   };
 
   // Os itens estão dentro do texto do exercício (a região dele os contém).
-  const items = children.filter((child) => child.kind === "ITEM" && child.reviewState !== "REJECTED");
+  const items = children.filter(
+    (child) => child.kind === "ITEM" && child.reviewState !== "REJECTED",
+  );
 
   /*
     O texto revisado ou reconhecido também é cortado.
@@ -602,7 +703,8 @@ export function questionLatex(
       .filter((line) => !QUESTION_HEADER.test(line)),
   );
   let lines = cortado.statement;
-  const solutionLatex = cortado.solution.length === 0 ? "" : escapeLatexText(joinLines(cortado.solution));
+  const solutionLatex =
+    cortado.solution.length === 0 ? "" : escapeLatexText(joinLines(cortado.solution));
   if (lines[0]) lines[0] = lines[0].replace(EXERCISE_LABEL, "");
 
   // O enunciado é o que vem antes do primeiro item, e cada item vira um `\item`.
@@ -640,13 +742,19 @@ export function questionLatex(
     const entries = items.map((child) => {
       const label = child.originalLabel ?? `${child.number ?? ""})`;
       const ready = reviewedOrRecognized(child);
-      const body = ready ?? escapeLatexText(joinLines(textOf(child).split("\n")).replace(ITEM_LABEL, ""));
+      const body =
+        ready ?? escapeLatexText(joinLines(textOf(child).split("\n")).replace(ITEM_LABEL, ""));
       return `  \\item[${label}] ${body.trim()}`;
     });
     statement = `${statement}\n\\begin{enumerate}\n${entries.join("\n")}\n\\end{enumerate}`;
   }
 
-  return { statementLatex: statement.trim(), options, solutionLatex: solutionLatex.trim(), originalLatex };
+  return {
+    statementLatex: statement.trim(),
+    options,
+    solutionLatex: solutionLatex.trim(),
+    originalLatex,
+  };
 }
 
 /*
@@ -815,6 +923,8 @@ function withLatexSymbols(latex: string): string {
   return latex.replace(UNICODE_MATH_CHARS, (char, index: number) => {
     const command = UNICODE_MATH[char] ?? char;
     if (masked[index] === char) return `$${command}$`;
-    return /^[A-Za-z]/.test(latex[index + 1] ?? "") && command.startsWith("\\") ? `${command} ` : command;
+    return /^[A-Za-z]/.test(latex[index + 1] ?? "") && command.startsWith("\\")
+      ? `${command} `
+      : command;
   });
 }
