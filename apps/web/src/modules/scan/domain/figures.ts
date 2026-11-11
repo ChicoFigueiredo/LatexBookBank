@@ -203,17 +203,20 @@ function cluster(graphics: readonly FigureGraphic[], gap: number): Cluster[] {
 const kindOf = (kinds: ReadonlySet<"drawing" | "image">): FigureKind =>
   kinds.size > 1 ? "mixed" : kinds.has("image") ? "raster" : "vector";
 
-/** Parágrafos dentro de um retângulo que fazem dele um fundo, e não um traço de figura. */
-const PANEL_TEXT_LINES = 4;
+/** Linhas de texto de verdade dentro de um retângulo que fazem dele um fundo — a mesma conta da moldura. */
+const PANEL_TEXT_LINES = FRAME_TEXT_LINES;
 
 /**
  * O fundo atrás do texto não é traço de figura (D78).
  *
- * A LEITURA do *Fundamentos* é impressa sobre um retângulo rosa. Na p. 211 do vol. 1 o retângulo
- * e o retrato de Boole formavam uma figura do tamanho de meia página: a máscara dela apagava o
- * texto do reconhecimento, a conferência não tinha o que comparar — a camada de texto também
- * ficava atrás da máscara —, e a abertura da LEITURA sumiu. O desenho com parágrafos dentro, e não
- * uma grade, é fundo; o retrato fica como figura sozinho.
+ * A LEITURA do *Fundamentos* é impressa sobre um retângulo rosa, e a solução de um exercício
+ * sobre um cinza. Na p. 211 do vol. 1 o retângulo e o retrato de Boole formavam uma figura de meia
+ * página, e na p. 60 a solução do exercício 81 virava imagem: a máscara da figura apagava o texto
+ * do reconhecimento, a conferência não tinha o que comparar — a camada de texto também ficava
+ * atrás da máscara —, e o texto sumia. A regra da moldura não pegava: o painel se juntava aos
+ * traços de dentro (o √ desenhado, o retrato) e passava de dois traços. O desenho com texto de
+ * verdade dentro, e não uma grade, é fundo, e sai antes de agrupar; o que estava sobre ele —
+ * o retrato, a tabela-verdade da p. 10, o gráfico da questão 120 — fica como figura sozinho.
  */
 function isPanel(graphic: FigureGraphic, lines: readonly FigureLine[], input: FigureInput): boolean {
   if (graphic.kind !== "drawing") return false;
