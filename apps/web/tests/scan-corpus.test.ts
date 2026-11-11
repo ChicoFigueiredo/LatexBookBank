@@ -220,12 +220,31 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     const capitulos = items.filter((item) => item.kind === "CHAPTER");
     expect(capitulos.filter((item) => item.number !== null).length, "capítulos numerados").toBe(10);
     // E a seção de vestibulares é um capítulo à parte, com os dez temas dentro dele.
-    const vestibulares = capitulos.find((item) => item.number === null);
+    const vestibulares = capitulos.find((item) => item.number === null && item.title === "Questões de vestibulares");
+    // Sem número: o prefácio, os dois apêndices — que abrem como capítulo, mas não são o capítulo
+    // I nem o II — e a seção de vestibulares.
+    expect(capitulos.filter((item) => item.number === null).map((item) => item.title), "capítulos sem número").toEqual([
+      "Apresentação",
+      "Equações irracionais",
+      "Inequações irracionais",
+      "Questões de vestibulares",
+    ]);
+    // A seção sem número dentro do capítulo: o apêndice do cap. III e as seis LEITURAS de história.
+    const semNumero = items.filter((item) => item.kind === "SECTION" && item.number === null);
+    expect(semNumero.map((item) => `${item.originalLabel}: ${item.title}`), "seções sem número").toEqual([
+      "Leitura: Cantor e a teoria dos conjuntos",
+      "Apêndice: Princípio da indução finita",
+      "Leitura: Eudóxio e os incomensuráveis",
+      "Leitura: Stevin e as frações decimais",
+      "Leitura: Dedekind e os números reais",
+      "Leitura: Boole e a álgebra do pensamento",
+      "Leitura: Bertrand Russell e o Logicismo",
+    ]);
     expect(vestibulares?.title, "abertura da zona de vestibulares").toBe("Questões de vestibulares");
     const temas = items.filter((item) => item.kind === "EXERCISE_GROUP" && item.parentKey === vestibulares?.key);
     expect(temas.map((tema) => tema.title), "temas de vestibular").toHaveLength(10);
 
-    expect(count("SECTION"), "seções romanas").toBe(83);
+    expect(items.filter((item) => item.kind === "SECTION" && item.number !== null).length, "seções romanas").toBe(83);
     expect(count("SUBSECTION"), "itens de teoria").toBe(159);
     // 1 a 568, sem buraco: o banner da p. 117 chega como "E X E R C ê C I O S" e escondia 188–193.
     expect(count("EXERCISE"), "exercícios discursivos").toBe(568);

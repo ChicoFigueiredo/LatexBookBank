@@ -36,7 +36,8 @@ import { semanticPrompt } from "./semantic-prompt";
  * parágrafo emenda logo depois do número.
  */
 
-const CHAPTER = /^CAPITULO\s+([IVXLC]+)\b\s*(.*)$/i;
+/** "CAPÍTULO I", e também "APÊNDICE I": o apêndice abre como capítulo, na mesma fonte e corpo. */
+const CHAPTER = /^(CAPITULO|APENDICE)\s+([IVXLC]+)\b\s*(.*)$/i;
 /** `IV. Conjunto universo` e `III.Conjunto unitário` — o livro às vezes come o espaço. */
 const SECTION_ROMAN = /^([IVXLC]{1,7})\s*\.\s*(\S.*)$/;
 /**
@@ -91,6 +92,53 @@ const ehSecaoRomana = (line: TextLine, style: PublicationStyle): boolean =>
 const ehCapitulo = (line: TextLine, style: PublicationStyle): boolean =>
   CHAPTER.test(fold(line)) && relativeSize(line, style) >= 2;
 const upper = (line: TextLine) => stripAccents(line.text).replace(/\s+/g, " ").trim().toUpperCase();
+
+/** Título de seção sem número: negrito, em corpo de título, sem número romano nem arábico. */
+const ehTituloDeSecao = (line: TextLine, style: PublicationStyle): boolean => {
+  const ratio = relativeSize(line, style);
+  const text = line.text.trim();
+  return (
+    line.bold &&
+    ratio >= 1.35 &&
+    ratio < 2 &&
+    text.length <= 60 &&
+    !/^\d/.test(text) &&
+    !SECTION_ROMAN.test(text) &&
+    !isBanner(line, style)
+  );
+};
+
+/** "LEITURA" e "APÊNDICE" em versal no livro; na árvore, como se escreve. */
+const rotulo = (text: string): string =>
+  text === text.toUpperCase() ? text.charAt(0) + text.slice(1).toLowerCase() : text;
+
+/**
+ * As linhas seguintes que continuam um título: negrito, em corpo de título — e no mesmo corpo,
+ * quando `size` é dado —, sem número na frente.
+ */
+function continuacaoDoTitulo(context: WalkContext, size: number): string[] {
+  const linhas: string[] = [];
+  for (let offset = 1; ; offset++) {
+    const next = context.peek(offset);
+    if (!next || !next.bold || /^\d/.test(next.text.trim()) || SECTION_ROMAN.test(next.text.trim())) break;
+    if (size > 0 ? Math.abs(next.size - size) > 0.5 : relativeSize(next, context.style) < 1.35) break;
+    if (next.pageNumber !== context.line.pageNumber) break;
+    linhas.push(next.text.trim());
+  }
+  return linhas;
+}
+
+/**
+ * O título de texto que não é capítulo numerado: "Apresentação", na fonte e no corpo do
+ * "CAPÍTULO I". O livro todo em LaTeX passa por ele — o prefácio se perdia, 33 linhas da p. 5.
+ * Uma palavra ou duas, sem número: o "1" de 51 pt da folha de rosto não é título.
+ */
+const ehTituloSemNumero = (line: TextLine, style: PublicationStyle): boolean =>
+  line.bold &&
+  relativeSize(line, style) >= 2.4 &&
+  /^Eurostile-BoldExtended/i.test(line.fontName) &&
+  !CHAPTER.test(fold(line)) &&
+  /^\p{L}[\p{L} ]{2,30}$/u.test(line.text.trim());
 
 /** O corpo do primeiro span, em múltiplos do corpo do livro. É ele que separa exercício de teoria. */
 function prefixRatio(line: TextLine, style: PublicationStyle): number {
@@ -175,29 +223,48 @@ function classify(context: WalkContext): AnchorMatch | null {
       if (!next || relativeSize(next, style) < 2) break;
       abaixo.push(next.text.trim());
     }
-    const title = abaixo.length > 0 ? abaixo.join(" ") : (chapter[2] ?? "").trim();
+    const title = abaixo.length > 0 ? abaixo.join(" ") : (chapter[3] ?? "").trim();
+    // O apêndice não tem número de capítulo: "APÊNDICE I" ao lado do "CAPÍTULO I" confundiria o
+    // sumário e a árvore. O rótulo do livro fica, e é por ele que a árvore o chama.
+    const appendix = /^APENDICE$/i.test(chapter[1] ?? "");
     return {
       kind: "CHAPTER",
       label: line.text.trim(),
-      number: chapter[1] ?? null,
+      number: appendix ? null : (chapter[2] ?? null),
       title: title || null,
       extent: "heading",
       lines: 1 + abaixo.length,
       confidence: { pattern: 0.97, typography: 0.98 },
-      evidence: ["CAPÍTULO em romano", `corpo ${ratio.toFixed(2)}× o do livro`],
+      evidence: [appendix ? "APÊNDICE em romano" : "CAPÍTULO em romano", `corpo ${ratio.toFixed(2)}× o do livro`],
+    };
+  }
+
+  if (ehTituloSemNumero(line, style)) {
+    return {
+      kind: "CHAPTER",
+      label: line.text.trim(),
+      number: null,
+      title: line.text.trim(),
+      extent: "heading",
+      lines: 1,
+      confidence: { pattern: 0.85, typography: 0.95 },
+      evidence: ["título na fonte do capítulo, sem número", `corpo ${ratio.toFixed(2)}× o do livro`],
     };
   }
 
   // IV. Conjunto universo — a seção, em romano e 1,5× o corpo.
   const roman = SECTION_ROMAN.exec(line.text.trim());
   if (roman && ehSecaoRomana(line, style)) {
+    // O título quebrado em duas linhas: "X. Informações que auxiliam a construção" / "do gráfico".
+    const resto = continuacaoDoTitulo(context, line.size);
+    const title = [(roman[2] ?? "").trim(), ...resto].join(" ").trim();
     return {
       kind: "SECTION",
       label: line.text.trim(),
       number: roman[1] ?? null,
-      title: (roman[2] ?? "").trim() || null,
+      title: title || null,
       extent: "heading",
-      lines: 1,
+      lines: 1 + resto.length,
       confidence: { pattern: 0.95, typography: 0.98 },
       evidence: ["seção numerada em romano", `corpo ${ratio.toFixed(2)}× o do livro`],
     };
@@ -220,6 +287,29 @@ function classify(context: WalkContext): AnchorMatch | null {
       lines: 1,
       confidence: { pattern: 0.98, typography: 0.98 },
       evidence: ["banner E X E R C Í C I O S", `corpo ${ratio.toFixed(2)}× o do livro`],
+    };
+  }
+
+  /*
+    A seção sem número, dentro de um capítulo: "Apêndice" / "Princípio da indução finita" (p. 65)
+    e as LEITURAS de história da Matemática — "LEITURA" / "Cantor e a teoria dos conjuntos".
+
+    Sem ela, o título virava texto da seção anterior, e a LEITURA inteira — com o retrato do
+    Cantor — entrava no enunciado do último exercício, que vai até a próxima fronteira. A primeira
+    linha, quando o título tem duas, é o rótulo; a seguinte, o título.
+  */
+  if (open.has("CHAPTER") && ehTituloDeSecao(line, style)) {
+    const resto = continuacaoDoTitulo(context, 0);
+    const [label, ...titulo] = resto.length > 0 ? [line.text.trim(), ...resto] : [null, line.text.trim()];
+    return {
+      kind: "SECTION",
+      label: label === null ? line.text.trim() : rotulo(label),
+      number: null,
+      title: titulo.join(" "),
+      extent: "heading",
+      lines: 1 + resto.length,
+      confidence: { pattern: 0.85, typography: 0.95 },
+      evidence: ["título de seção sem número, dentro do capítulo", `corpo ${ratio.toFixed(2)}× o do livro`],
     };
   }
 
@@ -453,7 +543,9 @@ export const bookFmeV1: CaptureProfile = {
       figura o engolir como se fosse rótulo do desenho. Foi o que aconteceu na primeira medição:
       dez capítulos existiam no PDF em 2,80× o corpo, e nenhum chegava à proposta.
     */
-    if (ehCapitulo(line, style) || isBanner(line, style) || ehSecaoRomana(line, style)) return true;
+    // A LEITURA da p. 211 tem o retrato do Boole logo acima, e o "LEITURA" era engolido como
+    // rótulo do desenho: a seção nascia sem o rótulo.
+    if (ehCapitulo(line, style) || isBanner(line, style) || ehSecaoRomana(line, style) || ehTituloDeSecao(line, style)) return true;
     return prefixBold(line) && NUMBER_SPAN.test(line.spans[0]?.text.trim() ?? "") && relativeSize(line, style) <= 1.5;
   },
 
