@@ -1561,8 +1561,12 @@ para outros livros. O que a conferência mostrou virou regra:
   seção em duas linhas, e a lista de siglas (zona em colunas, uma nota por sigla). A contracapa
   fica de fora. No vol. 1, sobram fora só folha de rosto, créditos e títulos de grupo das respostas.
 - **A letra desenhada não é figura.** O livro desenha ∧ e ∨ como traço; o motor os agrupava em
-  "figuras" com pedaços do enunciado dentro. Traço do tamanho de uma letra, sobre uma linha de
-  texto, sai antes de agrupar.
+  "figuras" com pedaços do enunciado dentro. Traço do tamanho de uma letra — e chave, colchete
+  ou barra de até 2,5 corpos —, sobre uma linha de texto, sai antes de agrupar.
+- **O desenho vale só dentro do recorte.** O Venn da p. 44 desenha os círculos maiores que a
+  figura e os corta com um *clip*; a caixa sem o recorte subia três exercícios, que iam no
+  arquivo da figura e sumiam do reconhecimento. O leitor acompanha o recorte em vigor, e o
+  caminho que não se pinta (`endPath`) não é desenho.
 - **A tabela na moldura é `tabular`.** Quando o que a figura engole — ou o que está dentro de uma
   moldura de dois traços — forma uma grade, a figura é tabela: o reconhecimento dá a forma e o
   cabeçalho que a camada de texto não lê, e a camada de texto dá as células, que o modelo troca
@@ -1573,10 +1577,15 @@ para outros livros. O que a conferência mostrou virou regra:
   sobra entre linhas). O `gemma3:12b` errava "3/2 = 6/4" e "4 ≤ 3" num recorte de página, a 200,
   300 e 400 dpi, e acertava num de três linhas. Era o único modelo de visão do Ollama local: o
   `gemma4` devolveu vazio, o `qwen3.5` não aceita imagem.
-- **O pedaço que inventa número é refeito em metades**, e **o item cujo reconhecimento difere do
-  PDF em números ou V/F fica *suspeito*** com o porquê ("falta 4; sobra —"). A camada de texto
-  não lê o símbolo, mas lê cada dígito. O expoente perdido ("3⁴" virou "34") não é pego: os
-  dígitos são os mesmos.
+- **Cada pedaço é conferido contra a camada de texto**, por número, V/F e palavras: o modelo
+  inventou uma tabela-verdade que o livro não tem (p. 18), escreveu uma página sobre "Aplicações
+  da Integral Definida" no lugar de uma LEITURA (p. 46), trocou a pergunta do exercício 51. O
+  pedaço que diverge vai de novo em metades; se ainda diverge, fica o texto da camada do PDF —
+  sem o símbolo que ela não lê, mas sem inventar. Na página escaneada, o modelo é a única leitura.
+- **O item cujo reconhecimento difere do PDF em números ou V/F fica *suspeito*** com o porquê
+  ("falta 4; sobra —"). O expoente perdido ("3⁴" virou "34") não é pego: os dígitos são os mesmos.
+- **A máscara devolve a linha que só encosta na figura**: a linha cujo meio está fora dela é do
+  texto, e não rótulo.
 - **Compilar nó sem corpo é 422**, e não erro interno.
 - **O perfil de referência**: `scan:clone-profile` deriva um perfil novo do `book-fme-v1` (id,
   rótulo, versão 1, registro), e `scan:measure` mede um perfil contra um PDF sem banco nem modelo
