@@ -300,6 +300,28 @@ function withZoneType(item: ProposedItem, zones: readonly DocumentZone[]): Propo
   return questionType === undefined ? item : { ...item, metadata: { ...item.metadata, questionType } };
 }
 
+/**
+ * O elemento que começa logo depois da figura, quando a figura é dele.
+ *
+ * - **Ao lado**: a primeira linha depois da figura abre um elemento e cai dentro da altura dela,
+ *   na mesma coluna. É o gráfico à direita do "80." — o topo do desenho fica acima do número —, a
+ *   vinheta com o "CAPÍTULO VI" por cima, o retrato ao lado do "LEITURA" (*Fundamentos* vol. 1,
+ *   p. 105 e 46).
+ * - **Abertura de capítulo**: o capítulo começa na mesma página, abaixo da figura — a arte que
+ *   abre as "Questões de vestibulares" (p. 321).
+ *
+ * Fora disso, quem começa abaixo da figura não é dono dela: o diagrama da resposta 21 ia para a
+ * 22, logo embaixo (p. 279), e os gráficos do exercício 144 para a seção seguinte (p. 92).
+ */
+function ownerAfter(figure: Figure, at: number, records: readonly OpenRecord[], doc: ScanDocument): OpenRecord | undefined {
+  const first = doc.lines[at];
+  const next = records.find((record) => record.startIndex === at);
+  if (!first || !next || first.pageNumber !== figure.pageNumber) return undefined;
+  const beside = first.slot === figure.slot && first.y0 < figure.box.y1;
+  const opensChapter = next.kind === "CHAPTER" || next.kind === "PART";
+  return beside || opensChapter ? next : undefined;
+}
+
 function withFigures(
   drafts: readonly DraftItem[],
   figures: readonly Figure[],
@@ -334,14 +356,22 @@ function withFigures(
 
       Não dá para procurar quem "cobre" a posição: um título fecha logo depois do próprio texto —
       `SECTION[2,3]` —, e o que ele contém vem da árvore, não do intervalo. Então pega-se o último
-      elemento que começou antes da figura e sobe-se por `parentKey` até alguém que aceite figura.
-      É o mesmo caminho que a pessoa faz com o olho: "esta figura é daquela seção ali em cima".
+      elemento que começou antes da figura — ou o que começa ao lado dela — e sobe-se por
+      `parentKey` até alguém que aceite figura. É o mesmo caminho que a pessoa faz com o olho:
+      "esta figura é daquela seção ali em cima".
+
+      O que fecha no fim do próprio bloco — o exemplo do Livro A — já fechou quando a figura vem
+      depois dele, e ela é de quem o contém. O exercício e a resposta vão até o próximo: a figura
+      entre um e outro é do de cima.
     */
     const previous = [...records]
-      .filter((record) => record.startIndex <= at)
+      .filter((record) => record.startIndex < at)
       .sort((a, b) => a.startIndex - b.startIndex)
       .at(-1);
-    let parent: OpenRecord | undefined = previous;
+    const closed = (record: OpenRecord) =>
+      (record.extent === "block" || record.extent === "paragraph") && record.stopIndex !== null && record.stopIndex <= at;
+    let parent: OpenRecord | undefined = ownerAfter(figure, at, records, doc) ?? previous;
+    if (parent && parent === previous && closed(parent)) parent = parent.parentKey ? byKey.get(parent.parentKey) : undefined;
     while (parent && !profile.canContain(parent.kind, "FIGURE")) {
       parent = parent.parentKey ? byKey.get(parent.parentKey) : undefined;
     }

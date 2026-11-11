@@ -99,6 +99,57 @@ describe("o motor nas páginas de respostas", () => {
   });
 });
 
+/**
+ * De quem é a figura. Nas páginas de respostas o desenho vem embaixo do número — o diagrama de
+ * Venn da resposta 21 do *Fundamentos* (p. 279) — e ia para a 22, que começa logo abaixo dele. No
+ * corpo, o gráfico ao lado do número é do item que começa ao lado; o de baixo é do de cima.
+ */
+describe("a figura é de quem está em cima, ou de quem começa ao lado", () => {
+  const desenho = (x0: number, y0: number, x1: number, y1: number) => ({ kind: "drawing" as const, x0, y0, x1, y1 });
+
+  it("na página de respostas, o desenho embaixo da resposta 1 é da 1, e não da 2", () => {
+    const pagina: RawPage = {
+      pageNumber: 2,
+      width: 595,
+      height: 842,
+      spans: [
+        span("RESPOSTAS DOS EXERCÍCIOS", RIGHT, 40, { size: 6.7 }),
+        ...row([["1.", LEFT, { fontName: "Times-Bold" }], ["a) V", LEFT + 18]], 100),
+        ...row([["2.", LEFT, { fontName: "Times-Bold" }], ["7", LEFT + 18]], 230),
+        ...row([["3.", RIGHT, { fontName: "Times-Bold" }], ["{1, 2}", RIGHT + 18]], 100),
+      ],
+      graphics: [desenho(LEFT + 18, 115, LEFT + 140, 210)],
+    };
+    const items = buildProposal([buildLines(bodyPage()), buildLines(pagina)], profile).items;
+    const figura = items.find((candidate) => candidate.kind === "FIGURE");
+    expect(items.find((candidate) => candidate.key === figura?.parentKey)?.number).toBe("1");
+  });
+
+  it("no corpo, o desenho embaixo do exercício 1 é do 1; o que começa ao lado do 3, do 3", () => {
+    const pagina: RawPage = {
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("E X E R C Í C I O S", LEFT + 100, 80, { size: 19, fontName: "Times-Bold" }),
+        number("1.", LEFT, 110),
+        span("Enunciado do exercício 1, com texto que ocupa a linha.", LEFT + 20, 110, { size: 10 }),
+        number("2.", LEFT, 230),
+        span("Enunciado do exercício 2, com texto que ocupa a linha.", LEFT + 20, 230, { size: 10 }),
+        number("3.", LEFT, 300),
+        span("Enunciado do exercício 3, ao lado do gráfico.", LEFT + 20, 300, { size: 10 }),
+        span("Continuação do exercício 3.", LEFT + 20, 314, { size: 10 }),
+      ],
+      graphics: [desenho(LEFT + 20, 125, LEFT + 160, 210), desenho(400, 280, 520, 380)],
+    };
+    const items = buildProposal([buildLines(pagina)], profile).items;
+    const donos = items
+      .filter((candidate) => candidate.kind === "FIGURE")
+      .map((figura) => items.find((candidate) => candidate.key === figura.parentKey)?.number);
+    expect(donos).toEqual(["1", "3"]);
+  });
+});
+
 function item(partial: Partial<ScanItem> & Pick<ScanItem, "id" | "key" | "kind">): ScanItem {
   const base = {
     parentKey: null,

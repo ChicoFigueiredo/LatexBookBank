@@ -71,8 +71,12 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  *
  * `@4`: as zonas de respostas deixam de ser puladas — cada resposta vira um item, que a aprovação
  * leva à questão do mesmo número (D77).
+ *
+ * `@5`: a figura é de quem começou antes dela, ou de quem começa ao lado — e não de quem começa
+ * logo abaixo. No vol. 1, 81 das 696 figuras mudam de dono: o diagrama da resposta 21 ia para a
+ * 22, os gráficos do exercício 144 para a seção seguinte.
  */
-export const ENGINE_VERSION = "scan-engine@4";
+export const ENGINE_VERSION = "scan-engine@5";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 
