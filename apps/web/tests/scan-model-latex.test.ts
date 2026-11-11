@@ -97,6 +97,21 @@ describe("o circunflexo combinado do ângulo (AB̂C, vol. 7)", () => {
   });
 });
 
+describe("o que o vol. 5 trouxe", () => {
+  it("o \\choose vira \\binom, e o # solto ganha escape", () => {
+    expect(modelLatex("$\\displaystyle {n \\choose p} = {n \\choose n-p}$")).toBe(
+      "$\\displaystyle \\binom{n}{p} = \\binom{n}{n-p}$",
+    );
+    expect(modelLatex("o número $#A = 3$ e o \\# certo")).toBe("o número $\\#A = 3$ e o \\# certo");
+  });
+
+  it("⩾, ⩽ e ≅ vão à matemática", () => {
+    expect(escapeLatexText("x ⩾ 2, y ⩽ 3, ABC ≅ DEF")).toBe(
+      "x $\\geqslant$ 2, y $\\leqslant$ 3, ABC $\\cong$ DEF",
+    );
+  });
+});
+
 describe("índice e expoente em Unicode (vol. 2: log₃)", () => {
   it("vão à matemática como _{…} e ^{…}; o ² e o ³ do texto ficam", () => {
     expect(escapeLatexText("log₃ 9 e xₐ e 10⁺ e ◊")).toBe(

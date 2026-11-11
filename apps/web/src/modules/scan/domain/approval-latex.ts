@@ -60,7 +60,15 @@ export function modelLatex(latex: string): string {
     .replace(/\*\*\s*(\\textbf\{[^{}]*\})\s*\*\*/g, "$1")
     .replace(/\*\*(?=\S)([^*\n]+?)(?<=\S)\*\*/g, "\\textbf{$1}");
   // O "R$" do dinheiro: o "$" abria matemática e o resto do enunciado não compilava (R$ 700,00).
-  return combiningHat(textInMath(wrapBareMath(bold.replace(/R\$(?=\s*\d)/g, "R\\$"))));
+  // `{n \choose p}`, que o amsmath recusa ("Foreign command \atopwithdelims"), e o `#` solto
+  // ("You can't use macro parameter character #") — os dois do vol. 5, de combinatória.
+  const fixed = bold
+    .replace(
+      /\{([^{}]*?)\\choose([^{}]*?)\}/g,
+      (_, top: string, bottom: string) => `\\binom{${top.trim()}}{${bottom.trim()}}`,
+    )
+    .replace(/(?<!\\)#/g, "\\#");
+  return combiningHat(textInMath(wrapBareMath(fixed.replace(/R\$(?=\s*\d)/g, "R\\$"))));
 }
 
 /**

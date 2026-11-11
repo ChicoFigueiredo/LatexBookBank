@@ -139,6 +139,10 @@ export const UNICODE_MATH: Readonly<Record<string, string>> = {
   ω: "\\omega",
   Ω: "\\Omega",
   "◊": "\\lozenge",
+  // O "maior ou igual" inclinado do vol. 5, e o congruente da geometria.
+  "⩾": "\\geqslant",
+  "⩽": "\\leqslant",
+  "≅": "\\cong",
   // Índice e expoente em Unicode, da camada de texto ("log₃"): o pdflatex não os aceita. O ² e o ³
   // ficam de fora — o pdflatex os aceita no texto ("m²"), e é assim que o livro os escreve.
   ...Object.fromEntries([..."₀₁₂₃₄₅₆₇₈₉"].map((char, digit) => [char, `_{${digit}}`])),
