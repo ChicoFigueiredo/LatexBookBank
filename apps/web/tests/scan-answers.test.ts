@@ -110,6 +110,33 @@ describe("o motor nas páginas de respostas", () => {
  * O que os outros volumes do Fundamentos trazem diferente do vol. 1 (medido nos vols. 2 a 11).
  */
 describe("os outros volumes do Fundamentos", () => {
+  it("a fração de barra desenhada no meio da frase manda o item ao modelo (vol. 4, questão 73: \"L/2\" saía \"L 2\")", () => {
+    const corpo = (comFracao: boolean): RawPage => ({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("E X E R C Í C I O S", LEFT + 100, 80, { size: 19, fontName: "Times-Bold" }),
+        number("1.", LEFT, 120),
+        span("Considere um triângulo isósceles de", LEFT + 16, 120, { endsLine: true }),
+        span("lados medindo L,", LEFT + 16, 140, { endsLine: false }),
+        // O "L" acima do traço e o "2" abaixo, na fonte e no corpo do texto.
+        span("L", 142.9, 134.6, { endsLine: false }),
+        span("2", 142.7, 147.4, { endsLine: false }),
+        span(", L centímetros. Determine L.", 152.7, 140),
+        number("2.", LEFT, 170),
+        span("Determine a medida do lado do quadrado inscrito.", LEFT + 16, 170),
+      ],
+      graphics: comFracao ? [{ kind: "drawing", x0: 142.6, y0: 137.8, x1: 148.3, y1: 138.3 }] : [],
+    });
+    const exercicios = (comFracao: boolean) =>
+      buildProposal([buildLines(corpo(comFracao))], profile).items.filter((item) => item.kind === "EXERCISE");
+
+    expect(exercicios(true).map((item) => [item.number, item.needsMath])).toEqual([["1", true], ["2", false]]);
+    // Sem o traço, o "L" e o "2" fora da linha não são fração: o item fica na camada.
+    expect(exercicios(false).map((item) => item.needsMath)).toEqual([false, false]);
+  });
+
   it("na grade de exercícios do corpo, o recorte de cada um fecha antes do vizinho (vol. 8, p. 137)", () => {
     // "122. f(x) = |x|" à esquerda, "127. f(x) = x·|x|" à direita: o modelo lia os dois no recorte
     // do 122, e o enunciado dele saía com o do 127.

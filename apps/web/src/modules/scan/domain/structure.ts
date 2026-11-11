@@ -14,7 +14,7 @@ import { assembleDocument, positionOf, type DocLine, type ScanDocument } from ".
 import { findFigures, type Figure } from "./figures";
 import { tableRows } from "./tables";
 import { toNormalizedBox } from "@/shared/geometry/normalized-box";
-import { splitLine, type PageModel, type TextLine } from "./page";
+import { splitLine, type PageModel, type TextLine, type TextSpan } from "./page";
 import { measureStyle, type PublicationStyle } from "./typography";
 import {
   combineConfidence,
@@ -665,6 +665,40 @@ function isBlockBreak(previous: DocLine | undefined, line: DocLine, doc: ScanDoc
   return white > style.bodySize * 0.55;
 }
 
+/**
+ * A fração no corpo do texto, com a barra desenhada (vol. 4, questão 73).
+ *
+ * "L/2" no meio da frase: o "L" e o "2" na fonte do texto, no mesmo corpo, um acima e outro abaixo
+ * de um traço — que não é texto, é desenho. A camada lê "L 2", nenhuma regra de fonte vê conta, e
+ * o item não ia ao modelo. O traço curto e fino com um trecho do item logo acima e outro logo
+ * abaixo, os dois sobre ele, é a fração.
+ */
+function hasDrawnFraction(lines: readonly DocLine[], doc: ScanDocument): boolean {
+  if (lines.length === 0) return false;
+  const pages = new Set(lines.map((line) => line.pageNumber));
+  const spans = lines.flatMap((line) =>
+    line.spans.filter((span) => span.text.trim() !== "").map((span) => ({ span, page: line.pageNumber })),
+  );
+  return doc.graphics.some((bar) => {
+    const width = bar.x1 - bar.x0;
+    if (bar.kind !== "drawing" || !pages.has(bar.pageNumber) || bar.y1 - bar.y0 > 1.2 || width < 2) return false;
+    const over = (span: TextSpan) =>
+      Math.min(span.x1, bar.x1) - Math.max(span.x0, bar.x0) >= 0.5 * Math.min(span.x1 - span.x0, width);
+    const fits = (span: TextSpan) => width <= span.size * 15;
+    const above = spans.some(
+      ({ span, page }) =>
+        page === bar.pageNumber && fits(span) && over(span) &&
+        bar.y0 - span.baseline >= span.size * 0.1 && bar.y0 - span.baseline <= span.size * 0.8,
+    );
+    const below = spans.some(
+      ({ span, page }) =>
+        page === bar.pageNumber && fits(span) && over(span) &&
+        span.baseline - bar.y1 >= span.size * 0.5 && span.baseline - bar.y1 <= span.size * 1.4,
+    );
+    return above && below;
+  });
+}
+
 function draftOf(
   record: OpenRecord,
   doc: ScanDocument,
@@ -709,7 +743,10 @@ function draftOf(
   // a fonte de símbolos do livro não parece matemática, e a camada de texto não a lê (importação do
   // Fundamentos, 2026-09-30).
   const needsMath =
-    mathChars / chars >= 0.05 || bodyLines.some((line) => line.mathRatio >= 0.5) || hasUnreadableSymbol(text);
+    mathChars / chars >= 0.05 ||
+    bodyLines.some((line) => line.mathRatio >= 0.5) ||
+    hasUnreadableSymbol(text) ||
+    hasDrawnFraction(bodyLines, doc);
   const match = record.match;
 
   return {

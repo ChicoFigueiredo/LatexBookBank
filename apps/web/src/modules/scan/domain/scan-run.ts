@@ -89,8 +89,11 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  * `@9`: o recorte do item fecha antes do vizinho na mesma altura. Na grade de exercícios (vol. 8,
  * p. 137) e na linha com duas respostas (vol. 6, p. 214), o recorte da coluna inteira levava os
  * dois itens ao modelo, e o 122 saía com o enunciado do 127.
+ *
+ * `@10`: a fração no corpo do texto com a barra desenhada manda o item ao modelo. "L/2" na fonte
+ * do texto saía "L 2" (vol. 4, questão 73); no vol. 9, 175 itens a mais vão ao modelo.
  */
-export const ENGINE_VERSION = "scan-engine@9";
+export const ENGINE_VERSION = "scan-engine@10";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 
