@@ -227,6 +227,9 @@ model Question {
 
   statementLatex  String  @default("")
   solutionLatex   String  @default("")
+  /// A resposta final, sem o caminho (CONTEXT.md, *Resposta*): o que o livro imprime nas páginas
+  /// de respostas. Na questão objetiva, quem responde é o gabarito das alternativas.
+  answerLatex     String  @default("")
   complementLatex String  @default("")
   /// LaTeX como veio da origem, preservado mesmo depois de editado.
   originalLatex   String?
