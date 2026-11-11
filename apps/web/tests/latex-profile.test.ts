@@ -47,6 +47,17 @@ describe("perfis", () => {
     }
   });
 
+  it("os dois declaram os caracteres Unicode que o acervo traz cru — a seta ➞ dos limites (vol. 8)", () => {
+    // 62 das 78 falhas de compilação do vol. 8 eram "Unicode character ➞ (U+279E)". Declarado no
+    // preâmbulo, vale para o que já foi aprovado, sem aprovar de novo.
+    for (const profile of RENDER_PROFILES) {
+      const preambulo = profile.preamble.join("\n");
+      for (const codigo of ["279E", "2206", "222B", "2211", "2A7E", "2245"]) {
+        expect(preambulo).toContain(`\\DeclareUnicodeCharacter{${codigo}}`);
+      }
+    }
+  });
+
   it("os dois trazem os operadores da notação brasileira — \\sen, \\tg, \\cotg (vol. 7 do Fundamentos)", () => {
     // O modelo escreve `\tg` e `\cotg`, e o pdflatex parava com "Undefined control sequence".
     for (const profile of RENDER_PROFILES) {

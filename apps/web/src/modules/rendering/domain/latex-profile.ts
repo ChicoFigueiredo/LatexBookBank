@@ -35,6 +35,53 @@ export const BRAZILIAN_OPERATORS = [
   "mmc",
 ] as const;
 
+/**
+ * Os caracteres Unicode que o acervo traz crus e o pdflatex não conhece ("Unicode character ➞
+ * (U+279E) not set up for use with LaTeX"): a seta dos limites do vol. 8 do Fundamentos (62 das 78
+ * falhas dele), o incremento ∆, a integral, o somatório, o ⩾ inclinado. No preâmbulo, e não só na
+ * aprovação: vale para o que já está no acervo, sem aprovar de novo.
+ */
+const UNICODE_CHARACTERS: readonly (readonly [string, string])[] = [
+  ["279E", "\\rightarrow"],
+  ["2794", "\\rightarrow"],
+  ["279C", "\\rightarrow"],
+  ["2192", "\\rightarrow"],
+  ["21D2", "\\Rightarrow"],
+  ["21D4", "\\Leftrightarrow"],
+  ["2206", "\\Delta"],
+  ["222B", "\\int"],
+  ["2211", "\\sum"],
+  ["220F", "\\prod"],
+  ["2A7E", "\\geqslant"],
+  ["2A7D", "\\leqslant"],
+  ["2264", "\\leq"],
+  ["2265", "\\geq"],
+  ["2260", "\\neq"],
+  ["2245", "\\cong"],
+  ["2248", "\\approx"],
+  ["2219", "\\cdot"],
+  ["22C5", "\\cdot"],
+  ["2212", "-"],
+  ["221A", "\\surd"],
+  ["221E", "\\infty"],
+  ["2208", "\\in"],
+  ["2209", "\\notin"],
+  ["2282", "\\subset"],
+  ["2283", "\\supset"],
+  ["222A", "\\cup"],
+  ["2229", "\\cap"],
+  ["2205", "\\emptyset"],
+  ["22A5", "\\perp"],
+  ["2200", "\\forall"],
+  ["2203", "\\exists"],
+  ["25B2", "\\blacktriangle"],
+  ["25CA", "\\lozenge"],
+];
+
+const unicodeCharacters = UNICODE_CHARACTERS.map(
+  ([code, command]) => `\\DeclareUnicodeCharacter{${code}}{\\ensuremath{${command}}}`,
+).join("");
+
 /** Numa linha só: é uma declaração, não treze packages. */
 const brazilianOperators = BRAZILIAN_OPERATORS.map(
   (name) => `\\providecommand{\\${name}}{\\operatorname{${name}}}`,
@@ -120,6 +167,7 @@ export const LEGACY_COMPATIBILITY_PROFILE: RenderProfile = {
     // `lipsum` e `inline-images` ficaram de fora: o primeiro só gera texto de exemplo, e o
     // segundo baixa imagem da internet — que o worker não tem, por decisão (D35).
     brazilianOperators,
+    unicodeCharacters,
     "\\pagestyle{empty}",
   ],
 };
@@ -162,6 +210,7 @@ export const QUESTION_PREVIEW_PROFILE: RenderProfile = {
     "\\usepackage{xcolor}",
     "\\newcommand\\colorcancel[2][black]{\\renewcommand\\CancelColor{\\color{#1}}\\cancel{#2}}",
     brazilianOperators,
+    unicodeCharacters,
   ],
 };
 
