@@ -136,6 +136,7 @@ function withoutFigures(full: ScanDocument, profile: CaptureProfile): { doc: Sca
   const protectedIds = profile.isProtected
     ? new Set(full.lines.filter((line) => profile.isProtected!(line, full.style)).map((line) => line.id))
     : null;
+  const lineById = new Map(full.lines.map((line) => [line.id, line]));
 
   const figures = profile.kinds.includes("FIGURE")
     ? findFigures({
@@ -144,6 +145,7 @@ function withoutFigures(full: ScanDocument, profile: CaptureProfile): { doc: Sca
         bodySize: full.style.bodySize,
         lineSpacing: full.style.lineSpacing,
         ...(protectedIds === null ? {} : { protect: (line: { readonly id: string }) => protectedIds.has(line.id) }),
+        isTable: (ids) => tableRows(ids.flatMap((id) => lineById.get(id) ?? [])) !== null,
       })
     : [];
   const hidden = new Set(figures.flatMap((figure) => [...figure.absorbedLineIds, ...figure.captionLineIds]));

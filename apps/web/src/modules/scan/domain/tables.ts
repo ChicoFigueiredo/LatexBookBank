@@ -10,8 +10,8 @@ import type { TextLine } from "./page";
  * com a posição: é dela a grade, e do reconhecimento só o que ela não lê (o ∧ do cabeçalho).
  */
 
-/** O que separa duas células na mesma linha, em múltiplos do corpo: mais que o espaço entre palavras. */
-const CELL_GAP = 1;
+/** O que separa duas células na mesma linha, em múltiplos do corpo: o dobro do espaço entre palavras (3 pt num corpo de 10). */
+const CELL_GAP = 0.6;
 /** Duas células com o centro mais perto que isto, em múltiplos do corpo, são da mesma coluna. */
 const COLUMN_GAP = 1.5;
 /** A grade tem de estar quase cheia: um diagrama com rótulos espalhados também tem linhas e colunas. */

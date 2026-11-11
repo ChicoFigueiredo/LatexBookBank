@@ -50,6 +50,11 @@ export interface FigureInput {
    * dez perdiam texto, num corpus de 735.
    */
   readonly protect?: (line: FigureLine) => boolean;
+  /**
+   * As linhas dentro de uma moldura formam uma tabela (D78)? Quem sabe ler a grade é a camada de
+   * texto, que esta função não vê: quem monta o documento responde, pelos ids.
+   */
+  readonly isTable?: (lineIds: readonly string[]) => boolean;
 }
 
 export interface Figure {
@@ -108,6 +113,8 @@ function distance(a: Rect, b: Rect): number {
 }
 
 /** Quanto da caixa `inner` está dentro de `outer`, de 0 a 1. */
+const intersects = (a: Rect, b: Rect): boolean => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
 function insideRatio(inner: Rect, outer: Rect): number {
   const w = Math.max(0, Math.min(inner.x1, outer.x1) - Math.max(inner.x0, outer.x0));
   const h = Math.max(0, Math.min(inner.y1, outer.y1) - Math.max(inner.y0, outer.y0));
@@ -198,13 +205,53 @@ export function findFigures(input: FigureInput): readonly Figure[] {
   const gap = input.bodySize * CLUSTER_GAP;
   const padding = input.bodySize * CROP_PADDING;
 
+  /*
+    A letra desenhada sai antes de agrupar (D78): o ∧ da linha logo acima da tabela-verdade da
+    p. 17 ficava a 16 pt da moldura, entrava no grupo dela e puxava a frase de cima para dentro
+    da caixa — e a grade deixava de ser grade. Traço do tamanho de uma letra, sobre uma linha de
+    texto, é texto.
+  */
+  const linesByPage = new Map<number, FigureLine[]>();
+  for (const line of input.lines) linesByPage.set(line.pageNumber, [...(linesByPage.get(line.pageNumber) ?? []), line]);
+  const strokes = input.graphics.filter(
+    (graphic) =>
+      graphic.kind !== "drawing" ||
+      Math.max(width(graphic), height(graphic)) > input.bodySize * GLYPH_SIZE ||
+      !(linesByPage.get(graphic.pageNumber) ?? []).some((line) => intersects(line, graphic)),
+  );
+
   const figures: Figure[] = [];
-  for (const group of cluster(input.graphics, gap)) {
+  for (const group of cluster(strokes, gap)) {
     if (isDecoration(group.box)) continue;
 
     const sameColumn = input.lines.filter(
       (line) => line.pageNumber === group.pageNumber && line.slot === group.slot,
     );
+
+    /*
+      A tabela na moldura (D78).
+
+      A tabela-verdade do *Fundamentos* é uma caixa com o fio do cabeçalho — dois traços — e
+      texto dentro, que a regra da moldura logo abaixo devolvia ao texto: o modelo de visão a
+      transcrevia, e trocava célula (a tautologia da p. 18 saía com F na última coluna). Quando o
+      que está dentro é uma grade, a moldura é tabela, e engole tudo o que tem dentro — o
+      cabeçalho também, que é longo demais para rótulo.
+    */
+    const insideFrame = sameColumn.filter((line) => insideRatio(line, group.box) >= 0.6);
+    if (insideFrame.length >= 3 && input.isTable?.(insideFrame.map((line) => line.id))) {
+      figures.push({
+        pageNumber: group.pageNumber,
+        slot: group.slot,
+        kind: kindOf(group.kinds),
+        box: group.box,
+        crop: { x0: group.box.x0 - padding, y0: group.box.y0 - padding, x1: group.box.x1 + padding, y1: group.box.y1 + padding },
+        absorbedLineIds: insideFrame.map((line) => line.id),
+        label: null,
+        caption: null,
+        captionLineIds: [],
+      });
+      continue;
+    }
 
     /*
       Letra desenhada não é figura.
