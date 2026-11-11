@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { act } from "react";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { renderToStaticMarkup, renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ContextMenu, Tree, type TreeCommand, type TreeNode } from "@/design-system";
@@ -185,6 +187,32 @@ describe("Tree — persistência", () => {
     render(<Tree nodes={NODES} storageKey="lbb:tree:teste" />);
 
     expect(screen.getByText("Seção 1.1")).toBeTruthy();
+  });
+
+  it("a hidratação não diverge do servidor quando há ramos abertos guardados", async () => {
+    // O servidor não tem localStorage e desenha tudo fechado; o navegador lia os abertos já no
+    // primeiro render, e o React acusava "Hydration failed" no editor de todo livro.
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<Tree nodes={NODES} storageKey="lbb:tree:teste" />);
+    document.body.appendChild(container);
+    window.localStorage.setItem("lbb:tree:teste", JSON.stringify({ expanded: ["cap-1"] }));
+
+    const errors: unknown[] = [];
+    let root: Root | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, <Tree nodes={NODES} storageKey="lbb:tree:teste" />, {
+          onRecoverableError: (error) => errors.push(error),
+        });
+      });
+
+      expect(errors).toEqual([]);
+      // E depois de hidratar, o que estava aberto volta aberto.
+      expect(container.textContent).toContain("Seção 1.1");
+    } finally {
+      await act(async () => root?.unmount());
+      container.remove();
+    }
   });
 
   it("localStorage corrompido não derruba a sidebar", () => {
