@@ -182,3 +182,50 @@ describe("a fonte MathematicalPi", () => {
     expect(page.lines[0]?.text.replace(/\s/g, "")).toBe("x∈(A");
   });
 });
+
+/**
+ * O expoente e a fração em fonte comum: no gabarito do vol. 5 do Fundamentos, "a) 5¹⁰ b) 6⁸" e
+ * "7/22" vêm em corpo menor e fora da linha, mas na fonte do texto. A camada de texto dava "510" e
+ * "227", a linha parecia texto, e a resposta ia ao acervo assim, sem passar pelo modelo.
+ */
+describe("o expoente e a fração em fonte comum", () => {
+  const span = (text: string, x0: number, baseline: number, size: number, endsLine = false) => ({
+    text,
+    x0,
+    x1: x0 + text.length * size * 0.5,
+    baseline,
+    size,
+    fontName: "VISXLK+FranklinGothic-Book",
+    endsLine,
+  });
+
+  it("o trecho menor e fora da linha conta como matemática", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("285.", 50, 100, 9),
+        span("a)", 70, 100, 9),
+        span("5", 82, 100, 9),
+        span("10", 87, 96, 6),
+        span("b)", 110, 100, 9),
+        span("6", 122, 100, 9),
+        span("8", 127, 96, 6, true),
+      ],
+      graphics: [],
+    });
+    expect(page.lines[0]?.mathRatio).toBeGreaterThan(0.2);
+  });
+
+  it("a linha de texto do mesmo corpo não", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [span("Quantos planos os pontos determinam?", 50, 100, 9, true)],
+      graphics: [],
+    });
+    expect(page.lines[0]?.mathRatio).toBe(0);
+  });
+});

@@ -82,8 +82,11 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  *
  * `@7`: o ASCII que a fonte MathematicalPi entrega ("5" no lugar de "=") vira símbolo ilegível, e
  * o item vai ao modelo. Nos vols. 3 a 8 e 10 do Fundamentos, milhares de contas saíam trocadas.
+ *
+ * `@8`: o expoente e a fração em fonte de texto — corpo menor, fora da linha — contam como
+ * matemática. No gabarito do vol. 5, "5¹⁰" saía "510" e a resposta não ia ao modelo.
  */
-export const ENGINE_VERSION = "scan-engine@7";
+export const ENGINE_VERSION = "scan-engine@8";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 

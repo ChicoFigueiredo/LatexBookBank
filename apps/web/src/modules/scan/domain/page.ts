@@ -389,8 +389,19 @@ function makeLine(
   // Operador, dígito e parêntese em fonte romana contam como matemática quando encostam num
   // trecho de matemática: o TeX compõe `+`, `=` e o expoente `2` em fonte de texto, e sem isto
   // `x^2 + y^2 = r^2` pesaria três caracteres de fórmula numa linha de quarenta.
+  // O expoente e a fração em fonte de texto: corpo menor e fora da linha. No gabarito do vol. 5 do
+  // Fundamentos, "5¹⁰" e "7/22" saíam "510" e "227", e a resposta não ia ao modelo.
+  const mainSize = Math.max(...sorted.map((span) => span.size));
+  const mainBaseline = median(
+    sorted.filter((span) => span.size >= mainSize * 0.95).map((span) => span.baseline),
+  );
+  const scripted = (span: TextSpan) =>
+    span.size <= mainSize * 0.85 &&
+    Math.abs(span.baseline - mainBaseline) >= mainSize * 0.15 &&
+    /[0-9A-Za-z]/.test(span.text);
+
   const mathy = sorted.map((span, i) => {
-    if (span.math) return true;
+    if (span.math || scripted(span)) return true;
     if (!SYMBOLIC.test(span.text.trim())) return false;
     return Boolean(sorted[i - 1]?.math || sorted[i + 1]?.math);
   });
