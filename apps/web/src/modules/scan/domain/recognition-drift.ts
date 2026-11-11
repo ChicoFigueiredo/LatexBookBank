@@ -118,6 +118,47 @@ function wordsAgree(text: string, latex: string): boolean {
 }
 
 /**
+ * O modelo que resolve o exercício em vez de transcrevê-lo (vol. 1, exercícios 181, 183 e 184).
+ *
+ * "Obtenha a equação da reta que passa pelo ponto (−2, 4)…" saía com a resolução embaixo — linhas
+ * de conta que o livro não tem, e no 183 errada. A conferência deixava passar: a camada tem buraco
+ * no lugar do "−", e aí o modelo fica (`keepsModel`). A cauda inventada se reconhece: vem depois
+ * de o modelo já ter dito as palavras da camada, não tem palavra nenhuma, traz número que a camada
+ * não tem — e são mais linhas do que a camada tem linhas sem palavra, que é onde a conta impressa
+ * do livro estaria.
+ */
+export function withoutInventedTail(text: string, latex: string): string {
+  // A figura que é tabela chega sem texto: as células vêm da camada, linha a linha.
+  if (!text) return latex;
+  const layer = new Set(wordsOf(text));
+  if (layer.size === 0 || inventedTokens(text, latex).length <= 2) return latex;
+  const lines = latex.split("\n");
+  const seen = new Set<string>();
+  let cut = -1;
+  for (const [index, line] of lines.entries()) {
+    for (const word of wordsOf(latexToPlain(line))) seen.add(word);
+    if ([...layer].filter((word) => seen.has(word)).length >= layer.size * 0.9) {
+      cut = index + 1;
+      break;
+    }
+  }
+  if (cut < 0 || cut >= lines.length) return latex;
+  const tail = lines.slice(cut).filter((line) => line.trim() !== "");
+  const bareLayerLines = text.split("\n").filter((line) => line.trim() !== "" && wordsOf(line).length === 0).length;
+  const head = lines.slice(0, cut).join("\n").trimEnd();
+  // O começo tem de manter os números do livro: no exercício 418 do vol. 3, o modelo inventou quatro
+  // equações e depois transcreveu as quatro de verdade — cortar ali levaria as duas.
+  const layerTokens = tokensOf(text.replace(UNREADABLE, " "));
+  const lost = minus(layerTokens, modelTokens(head)).length;
+  const invented =
+    tail.length > bareLayerLines &&
+    tail.every((line) => wordsOf(latexToPlain(line)).length === 0) &&
+    inventedTokens(text, head).length <= 2 &&
+    lost <= Math.max(2, layerTokens.length * 0.2);
+  return invented ? head : latex;
+}
+
+/**
  * O pedaço que não concorda nem refeito: fica a leitura do modelo, ou o texto da camada?
  *
  * A camada, em regra — perde o símbolo, mas não inventa. Menos quando ela mesma tem buraco no

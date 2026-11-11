@@ -6,7 +6,14 @@ import {
 import { kindsWhere, SCAN_KIND_TRAITS } from "@modules/scan/domain/proposal";
 import { buildLines } from "@modules/scan/domain/page";
 import { chunkBoxes, textInside, type ChunkLine } from "@modules/scan/domain/recognition-chunks";
-import { chunkAgrees, driftDiagnostic, keepsModel, layerLatex, recognitionDrift } from "@modules/scan/domain/recognition-drift";
+import {
+  chunkAgrees,
+  driftDiagnostic,
+  keepsModel,
+  layerLatex,
+  recognitionDrift,
+  withoutInventedTail,
+} from "@modules/scan/domain/recognition-drift";
 import type { MathResult, ScanItem } from "@modules/scan/domain/scan-item";
 
 import type { NormalizedBox } from "@/shared/geometry/normalized-box";
@@ -145,7 +152,9 @@ export async function recognizeItem(
       return last.latex.trim();
     };
     for (const chunk of chunks) {
-      let piece = await recognizeChunk(chunk);
+      const expected = textInside(chunk, lines, masks);
+      // O modelo às vezes resolve o exercício em vez de transcrevê-lo: a resolução sai antes da conferência.
+      let piece = withoutInventedTail(expected, await recognizeChunk(chunk));
       /*
         O pedaço que não concorda com a camada de texto é invenção: uma tabela-verdade que o livro
         não tem (p. 18 do vol. 1), uma página inteira sobre outro assunto (p. 46), a pergunta do
@@ -153,14 +162,13 @@ export async function recognizeItem(
         modelo lê melhor. Se ainda não concorda, fica o texto da camada do PDF: perde o símbolo
         que ela não lê, mas não inventa — salvo quando é a camada que lê mal (`keepsModel`).
       */
-      const expected = textInside(chunk, lines, masks);
       // Sem camada de texto no pedaço — a página escaneada —, o modelo é a única leitura.
       if (hasLayer(chunk, lines) && !chunkAgrees(expected, piece)) {
         const halves = chunkBoxes(chunk, lines, { maxHeight: chunk.height / 2, minGap: minGapOf(lines) });
         const retried: string[] = [];
         for (const half of halves.length > 1 ? halves : [chunk]) {
-          const part = await recognizeChunk(half);
           const own = textInside(half, lines, masks);
+          const part = withoutInventedTail(own, await recognizeChunk(half));
           retried.push(!hasLayer(half, lines) || keepsModel(own, part) ? part : layerLatex(own));
         }
         piece = retried.filter((part) => part !== "").join("\n\n");

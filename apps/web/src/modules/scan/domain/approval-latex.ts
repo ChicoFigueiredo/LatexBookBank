@@ -6,6 +6,7 @@ import {
   UNREADABLE_CHAR,
 } from "@modules/latex/domain/latex-escape";
 
+import { withoutInventedTail } from "./recognition-drift";
 import type { ScanItem } from "./scan-item";
 
 /**
@@ -204,9 +205,14 @@ function wrapBareLines(block: string): string {
     .join("\n");
 }
 
-/** O LaTeX pronto do item: o revisado fica como a pessoa deixou; o do modelo passa por `modelLatex`. */
+/**
+ * O LaTeX pronto do item: o revisado fica como a pessoa deixou; o do modelo perde a resolução que
+ * ele inventou (`withoutInventedTail`) e passa por `modelLatex` — na aprovação, para valer também
+ * para o que foi reconhecido antes da regra.
+ */
 const readyLatex = (item: ScanItem): string | null =>
-  item.reviewedLatex ?? (item.mathResult ? modelLatex(item.mathResult.latex) : null);
+  item.reviewedLatex ??
+  (item.mathResult ? modelLatex(withoutInventedTail(item.text, item.mathResult.latex)) : null);
 
 const reviewedOrRecognized = (item: ScanItem): string | null => {
   const ready = readyLatex(item);

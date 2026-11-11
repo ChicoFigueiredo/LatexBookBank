@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chunkAgrees, keepsModel, recognitionDrift } from "@modules/scan/domain/recognition-drift";
+import { chunkAgrees, keepsModel, recognitionDrift, withoutInventedTail } from "@modules/scan/domain/recognition-drift";
 
 /**
  * A conferência do reconhecimento contra a camada de texto do PDF (D78).
@@ -73,5 +73,42 @@ describe("quando não concorda, fica o modelo ou a camada?", () => {
 describe("o diagnóstico de números", () => {
   it("dígito a dígito: o expoente colado na camada não é divergência", () => {
     expect(recognitionDrift("22 = 4", "$2^{2} = 4$")).toBeNull();
+  });
+});
+
+describe("o modelo que resolve o exercício em vez de transcrevê-lo (vol. 1, exercícios 181 a 184)", () => {
+  const camada = "181. Obtenha a equação da reta que passa pelo ponto (\uE0322, 4) e tem coeficiente\nangular igual a \uE0323.";
+  const enunciado = "181. Obtenha a equação da reta que passa pelo ponto $(-2, 4)$ e tem coeficiente angular igual a $-3$.";
+
+  it("a resolução que o livro não tem sai, e o enunciado lido fica", () => {
+    const resolvido = `${enunciado}\n\n$y - y_1 = m(x - x_1)$\n\n$y - 4 = -3(x - (-2))$\n\n$y - 4 = -3x - 6$\n\n$y = -3x - 2$`;
+    expect(withoutInventedTail(camada, resolvido)).toBe(enunciado);
+    expect(chunkAgrees(camada, withoutInventedTail(camada, resolvido))).toBe(true);
+  });
+
+  it("e a resolução errada também (exercício 183)", () => {
+    const camada183 = "183. Obtenha a equação da reta que passa pelo ponto (\uE0322, 1) e tem coeficiente\nlinear igual a 4.";
+    const lido = "183. Obtenha a equação da reta que passa pelo ponto $(-2, 1)$ e tem coeficiente linear igual a 4.";
+    expect(withoutInventedTail(camada183, `${lido}\n\n$y = 4x + b$\n$1 = 4(-2) + b$\n$b = 9$\n$y = 4x + 9$`)).toBe(lido);
+  });
+
+  it("a conta que o livro imprime fica: a camada tem as linhas dela, mesmo sem palavra", () => {
+    const sistema = "Resolva o sistema de equações abaixo pelo método da adição:\nx \uF8FF y \uF8FF 5\nx \uF8FF y \uF8FF 1";
+    const lido = "Resolva o sistema de equações abaixo pelo método da adição:\n$x + y = 5$\n$x - y = 1$";
+    expect(withoutInventedTail(sistema, lido)).toBe(lido);
+  });
+
+  it("não corta quando o que sobra perde os números do livro (vol. 3, exercício 418)", () => {
+    // O modelo inventou quatro equações e depois transcreveu as quatro de verdade.
+    const camada418 = "418. Resolva, em I = [0, 2\u03C0], as seguintes equações:\na) 2 sen2 x \uF8FF 3 cos x \uF8FF 3 \uF8FF 0  c) 5 cos x \uF8FF 3 \uF8FF \uF8FF2 cos2 x\nb) 2 cos x \uF8FF 1 \uF8FF cos2 x  d) 4 cos x (cos x \uF8FF 2) \uF8FF \uF8FF3";
+    const lido =
+      "418. Resolva, em $I = [0, 2\\pi]$, as seguintes equações:\n\na) $2\\cos x + 1 = 0$\nb) $\\tan x = 1$\nc) $4\\cos^2 x - 3 = 0$\nd) $2\\sin^2 x + 2\\cos x - 3 = 0$\na) $2 \\sen^2 x - 3 \\cos x - 3 = 0$ c) $5 \\cos x - 3 = -2\\cos^2 x$\nb) $2\\cos x = 1 + \\cos^2 x$ d) $4 \\cos x(\\cos x - 2) = -3$";
+    expect(withoutInventedTail(camada418, lido)).toBe(lido);
+  });
+
+  it("o que segue com palavra do livro não é cauda inventada", () => {
+    const camada2 = "Calcule o valor de x na equação dada.\nEm seguida, verifique a resposta encontrada.";
+    const lido = "Calcule o valor de $x$ na equação dada.\n$2x + 3 = 11$\nEm seguida, verifique a resposta encontrada.";
+    expect(withoutInventedTail(camada2, lido)).toBe(lido);
   });
 });
