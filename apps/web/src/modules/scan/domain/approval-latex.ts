@@ -55,9 +55,44 @@ export function joinLines(lines: readonly string[]): string {
  * somado ao negrito que a camada de texto marca, como `**\textbf{função constante}**`.
  */
 export function modelLatex(latex: string): string {
-  return latex
+  const bold = latex
     .replace(/\*\*\s*(\\textbf\{[^{}]*\})\s*\*\*/g, "$1")
     .replace(/\*\*(?=\S)([^*\n]+?)(?<=\S)\*\*/g, "\\textbf{$1}");
+  // O "R$" do dinheiro: o "$" abria matemática e o resto do enunciado não compilava (R$ 700,00).
+  return wrapBareMath(bold.replace(/R\$(?=\s*\d)/g, "R\\$"));
+}
+
+/** O que só existe em matemática: o comando de símbolo, o ambiente de casos, o expoente e o índice. */
+const MATH_ONLY =
+  /\\(?:d?frac|sqrt|cdot|times|in|notin|leq?|geq?|neq?|iff|implies|Rightarrow|Leftrightarrow|rightarrow|subset|supset|subseteq|supseteq|cup|cap|left|right|Delta|alpha|beta|gamma|theta|lambda|pi|forall|exists|circ|pm|infty|mathbb|overline)(?![A-Za-z])|\\begin\{cases\}|[\^_]/;
+const DELIMITED = /\$|\\\(|\\\[|\\begin\{(?:equation|align|gather|multline)\*?\}/;
+const TEXT_STRUCTURE = /\\begin\{(?:tabular|array|itemize|enumerate|figure|center)\}|\\item(?![A-Za-z])|\\hline/;
+const LEADING_LABEL = /^\s*\\textbf\{[^{}]*\}\s*/;
+
+/** Palavras de frase — quatro letras ou mais —, fora dos comandos e do `\text{…}` de dentro da conta. */
+const proseWords = (block: string): number =>
+  (block.replace(/\\text\s*\{[^{}]*\}/g, " ").replace(/\\[A-Za-z]+/g, " ").match(/\p{L}{4,}/gu) ?? []).length;
+
+/**
+ * O parágrafo que é só conta e veio sem delimitador vai para `\[ \]` (D78).
+ *
+ * O modelo escreve a linha de conta solta — "S = \{x \in \mathbb{R} | …\}", o sistema em
+ * `cases` — e o documento não compila: no vol. 1, 71 de 1.120 documentos davam "Missing $
+ * inserted". Só o parágrafo sem delimitador nenhum, sem tabela nem lista, e com no máximo duas
+ * palavras de frase; o rótulo em negrito do começo ("Resolução.") fica fora da conta. A frase com
+ * conta solta no meio fica como está: adivinhar onde a conta começa erraria mais do que acerta.
+ */
+function wrapBareMath(latex: string): string {
+  return latex
+    .split(/(\n\s*\n)/)
+    .map((block) => {
+      if (block.trim() === "" || DELIMITED.test(block) || TEXT_STRUCTURE.test(block) || !MATH_ONLY.test(block)) return block;
+      const label = LEADING_LABEL.exec(block)?.[0] ?? "";
+      const body = block.slice(label.length).trim();
+      if (body === "" || proseWords(body) > 2) return block;
+      return `${label}\\[ ${body} \\]`;
+    })
+    .join("");
 }
 
 /** O LaTeX pronto do item: o revisado fica como a pessoa deixou; o do modelo passa por `modelLatex`. */

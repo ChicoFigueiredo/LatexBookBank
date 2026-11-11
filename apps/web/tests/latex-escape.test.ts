@@ -84,7 +84,8 @@ describe("símbolo que a camada de texto não leu", () => {
 
   it("o caractere de controle também é símbolo ilegível; tabulação e quebra de linha, não (D76)", () => {
     // A fonte do Fundamentos entrega às vezes U+0001 no lugar do ≥: "√f(x) \u0001 g(x)".
-    expect(escapeLatexText("√f(x) \u0001 g(x)")).toBe("√f(x) \\fbox{?} g(x)");
+    // E a raiz vai à matemática: solta no texto, o pdflatex parava (D78).
+    expect(escapeLatexText("√f(x) \u0001 g(x)")).toBe("$\\surd$f(x) \\fbox{?} g(x)");
     expect(hasUnreadableSymbol("√f(x) \u0001 g(x)")).toBe(true);
     expect(hasUnreadableSymbol("uma linha\toutra\nterceira")).toBe(false);
   });
