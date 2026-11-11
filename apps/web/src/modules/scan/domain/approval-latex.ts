@@ -109,7 +109,7 @@ function textInMath(latex: string): string {
 
 /** O que só existe em matemática: o comando de símbolo, o ambiente de casos, o expoente e o índice. */
 const MATH_ONLY =
-  /\\(?:d?frac|sqrt|cdot|times|in|notin|leq?|geq?|neq?|iff|implies|Rightarrow|Leftrightarrow|rightarrow|subset|supset|subseteq|supseteq|cup|cap|left|right|Delta|alpha|beta|gamma|theta|lambda|pi|forall|exists|circ|pm|infty|mathbb|overline)(?![A-Za-z])|\\begin\{(?:cases|array)\}|[\^_]/;
+  /\\(?:d?frac|sqrt|cdot|times|in|notin|leq?|geq?|neq?|iff|implies|Rightarrow|Leftrightarrow|rightarrow|subset|supset|subseteq|supseteq|cup|cap|left|right|Delta|alpha|beta|gamma|theta|lambda|pi|forall|exists|circ|pm|infty|mathbb|overline)(?![A-Za-z])|\\begin\{(?:cases|array|[bpvBV]?matrix|smallmatrix|aligned|gathered|split)\}|[\^_]/;
 const DELIMITED = /\$|\\\(|\\\[|\\begin\{(?:equation|align|gather|multline)\*?\}/;
 const TEXT_STRUCTURE = /\\begin\{(?:tabular|itemize|enumerate|figure|center)\}|\\item(?![A-Za-z])/;
 const LEADING_LABEL = /^\s*\\textbf\{[^{}]*\}\s*/;
@@ -155,19 +155,53 @@ function wrapBareMath(latex: string): string {
     .split(/(\n\s*\n)/)
     .map(balanceDollars)
     .map((block) => {
-      if (
-        block.trim() === "" ||
-        DELIMITED.test(block) ||
-        TEXT_STRUCTURE.test(block) ||
-        !MATH_ONLY.test(block)
-      )
-        return block;
+      if (block.trim() === "" || TEXT_STRUCTURE.test(block) || !MATH_ONLY.test(block)) return block;
+      if (DELIMITED.test(block)) return wrapBareLines(block);
       const label = LEADING_LABEL.exec(block)?.[0] ?? "";
       const body = block.slice(label.length).trim();
-      if (body === "" || proseWords(body) > 2) return block;
+      if (body === "" || proseWords(body) > 2) return wrapBareLines(block);
       return `${label}\\[ ${body} \\]`;
     })
     .join("");
+}
+
+/** O que abre e fecha conta ou ambiente numa linha: o `$`, o `$$`, o `\[ \]`, o `\begin` e o `\end`. */
+const OPENERS = /\\\$|\$\$|\$|\\\[|\\\]|\\begin\s*\{[^{}]*\}|\\end\s*\{[^{}]*\}/g;
+
+/**
+ * No parágrafo misto, a linha de conta solta (D78): o vol. 4 do Fundamentos trazia "a_2 = a_1 + r"
+ * numa linha e "$a_n$" na seguinte, e o parágrafo, por ter `$`, ficava como estava — 18 documentos
+ * sem compilar. Só a linha que começa e termina fora de conta e de ambiente aberto antes dela, e
+ * que é conta (o critério do parágrafo inteiro, numa linha só).
+ */
+function wrapBareLines(block: string): string {
+  let inMath = false;
+  let depth = 0;
+  return block
+    .split("\n")
+    .map((line) => {
+      const outsideBefore = !inMath && depth === 0;
+      for (const [token] of line.matchAll(OPENERS)) {
+        if (token === "\\$") continue;
+        if (token === "$" || token === "$$") inMath = !inMath;
+        else if (token === "\\[") inMath = true;
+        else if (token === "\\]") inMath = false;
+        else if (token.startsWith("\\begin")) depth++;
+        else depth = Math.max(0, depth - 1);
+      }
+      const body = line.trim();
+      const bare =
+        outsideBefore &&
+        !inMath &&
+        depth === 0 &&
+        body !== "" &&
+        !DELIMITED.test(line) &&
+        !TEXT_STRUCTURE.test(line) &&
+        MATH_ONLY.test(line) &&
+        proseWords(body) <= 2;
+      return bare ? `\\[ ${body} \\]` : line;
+    })
+    .join("\n");
 }
 
 /** O LaTeX pronto do item: o revisado fica como a pessoa deixou; o do modelo passa por `modelLatex`. */

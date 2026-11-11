@@ -97,6 +97,26 @@ describe("o circunflexo combinado do ângulo (AB̂C, vol. 7)", () => {
   });
 });
 
+describe("o que o vol. 4 trouxe (matrizes e sequências)", () => {
+  it("a matriz solta vai para \\[ \\]", () => {
+    const m = "A = \\begin{bmatrix} 5 & 1 & 4 \\\\ 0 & 5 & 0 \\end{bmatrix}";
+    expect(modelLatex(m)).toBe(`\\[ ${m} \\]`);
+  });
+
+  it("no parágrafo misto, a linha de conta solta vai para \\[ \\], e a que já tem $ fica", () => {
+    expect(modelLatex("Temos:\na_2 = a_1 + r\na_3 = a_2 + r\ne o termo geral é $a_n$.")).toBe(
+      "Temos:\n\\[ a_2 = a_1 + r \\]\n\\[ a_3 = a_2 + r \\]\ne o termo geral é $a_n$.",
+    );
+  });
+
+  it("a linha dentro de uma conta ou ambiente aberto antes não é tocada", () => {
+    const dentro = "Seja $f(x) = \\begin{cases}\nx^2 & x > 0\n\\end{cases}$ e $g$.";
+    expect(modelLatex(dentro)).toBe(dentro);
+    const exibida = "Veja:\n$$\na^2 + b^2\n$$\ne $c$.";
+    expect(modelLatex(exibida)).toBe(exibida);
+  });
+});
+
 describe("o que o vol. 5 trouxe", () => {
   it("o \\choose vira \\binom, e o # solto ganha escape", () => {
     expect(modelLatex("$\\displaystyle {n \\choose p} = {n \\choose n-p}$")).toBe(
