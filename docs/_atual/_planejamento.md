@@ -1675,8 +1675,31 @@ compilação acharam virou regra do motor ou da compilação, e não conserto de
 - **Refazer sem pagar o modelo de novo.** Um volume refeito devolve a cada item o reconhecimento
   da execução anterior — mesma chave, mesmo texto e **mesmo recorte**: o que o motor novo recorta
   diferente é o que o modelo leu diferente, e vai de novo a ele.
+- **A conferência corta a resolução que o modelo inventa**: "Obtenha a equação da reta…" saía com
+  a resolução embaixo (vol. 1, 181–184), ou com alternativas a) a e) num exercício aberto. A cauda
+  sem palavra, com número que a camada não tem, sai — no reconhecimento e na aprovação.
+- **Perfil `book-fme-v1@3`**: a zona de vestibulares é lida em colunas quando a maioria das
+  páginas dela não tem linha larga. Só o vol. 9 é assim (73 de 75 páginas); lida como uma coluna,
+  misturava as duas, e 58% das questões dele saíam graves. Refeito, ganhou 18 questões.
+- **A aprovação**: o ângulo com circunflexo da geometria ("$\widehat{BÂM}$", "\hat{B}" solto) e o
+  número que o modelo escreve dentro da conta da resposta ("$423.\frac{45}{4}$").
+- **A árvore de um livro com mais de 999 questões** abria com 500 (limite de parâmetros do
+  libSQL): as questões vêm em pedaços.
+
+**A revisão por agentes (12/11).** Cada questão dos 11 volumes — cerca de 9.500 — foi comparada
+com o recorte do PDF: o Haiku lê e o Sonnet confere o que foi marcado grave (cerca de 100 M de
+tokens). A amostra de 15 por volume escondia o tamanho do problema: 16% a 49% das questões tinham
+defeito que muda o sentido (fração e expoente achatados, sinal e relação trocados, rótulos de figura
+no enunciado, resolução inventada, vizinho junto). As correções verificadas foram aplicadas pela
+API — backup do banco antes, cada questão compilada e desfeita se não compilasse, antes e depois
+num diário —: cerca de 2.900 questões. Numa nova revisão de amostras das corrigidas, 75% a 80%
+saíram fiéis e 10% a 20% ainda graves (alternativa que faltava, correção parcial). As correções que
+os agentes escreveram como instrução ("enunciado: …", "trocar … por …") foram achadas e desfeitas.
+
 - **Limites conhecidos**, sem regra ainda: o intervalo "]a; b[" às vezes volta do modelo como
-  "[a; b]"; os rótulos de um gráfico podem entrar no enunciado (vol. 11, exercício 279).
+  "[a; b]"; os rótulos das figuras de geometria entram no enunciado; o modelo perde o sinal de
+  menos da fração do gabarito e o radical ("5 3 cm"); em algumas páginas o recorte do app falha no
+  canvas nativo ("Value is none of these types String, Path") e o item fica com a camada.
 
 ---
 
