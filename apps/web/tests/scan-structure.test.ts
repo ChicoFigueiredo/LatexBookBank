@@ -46,7 +46,7 @@ function outline(proposal: Proposal): string[] {
 describe("registro de perfis", () => {
   it("os quatro perfis estão registrados, com id e versão", () => {
     expect(registeredCaptureProfiles().map((p) => `${p.id}@${p.version}`).sort()).toEqual([
-      "book-fme-v1@2",
+      "book-fme-v1@3",
       "book-v1@1",
       "exam-enem-v1@1",
       "exam-v1@1",

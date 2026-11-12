@@ -95,6 +95,26 @@ function isSiglasHeader(header: string): boolean {
   return SIGLAS_TITLE.test(header);
 }
 
+/**
+ * A zona de vestibulares é diagramada em duas colunas neste volume?
+ *
+ * Nos vols. 1 a 8, 10 e 11 ela é de uma coluna, e o que parece coluna é a grade das alternativas.
+ * No vol. 9 ela é de duas colunas de verdade — 73 das 75 páginas sem nenhuma linha larga —, e lida
+ * como uma coluna só misturava as duas: o enunciado da 201 começava com o fim da 198, e as
+ * alternativas sumiam. A decisão é do volume, e não da página: uma página só de alternativas em
+ * grade também não tem linha larga, e lida em colunas trocaria a ordem delas.
+ */
+function inColumns(pages: readonly PageModel[], from: number, to: number): boolean {
+  const zonePages = pages.filter((page) => page.pageNumber > from && page.pageNumber < to - 1);
+  const narrow = zonePages.filter((page) => {
+    const lines = page.lines.filter((line) => line.y0 > 60 && line.y1 < page.height - 60 && line.text.length > 3);
+    if (lines.length < 8) return false;
+    const width = Math.max(...lines.map((line) => line.x1)) - Math.min(...lines.map((line) => line.x0));
+    return lines.filter((line) => line.x1 - line.x0 > width * 0.6).length <= 2;
+  });
+  return zonePages.length > 0 && narrow.length >= zonePages.length * 0.6;
+}
+
 /** O cabeçalho que a linha anuncia, se anuncia algum: igual ao da zona, ou o das siglas. */
 function markerOf(header: string): (typeof ZONE_MARKERS)[number] | undefined {
   return ZONE_MARKERS.find((candidate) => candidate.header === header || (candidate.header === SIGLAS_HEADER && isSiglasHeader(header)));
@@ -500,7 +520,7 @@ export const bookFmeV1: CaptureProfile = {
   id: "book-fme-v1",
   // 2: os vols. 2 a 11 — o número de resposta colado no texto, a página de abertura da zona, e
   // a lista de siglas sem "e olimpíadas".
-  version: 2,
+  version: 3,
   label: "Fundamentos de Matemática Elementar",
   documentKind: "BOOK",
   description:
@@ -563,7 +583,12 @@ export const bookFmeV1: CaptureProfile = {
     if (ultima !== undefined && pages.some((page) => page.pageNumber > ultima)) {
       zones.push({ label: "contracapa", from: ultima + 1, skip: true });
     }
-    return zones.sort((a, b) => a.from - b.from);
+    const sorted = zones.sort((a, b) => a.from - b.from);
+    return sorted.map((zone, index) =>
+      zone.label === "questões de vestibulares" && inColumns(pages, zone.from, sorted[index + 1]?.from ?? Infinity)
+        ? { ...zone, columns: true }
+        : zone,
+    );
   },
 
   /*

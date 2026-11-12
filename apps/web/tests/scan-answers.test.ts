@@ -212,6 +212,36 @@ describe("os outros volumes do Fundamentos", () => {
     expect((profile.zones?.(pages) ?? []).find((zona) => zona.columns)?.from).toBe(2);
   });
 
+  it("a zona de vestibulares em duas colunas é lida em colunas — só quando o volume é assim (vol. 9)", () => {
+    // No vol. 9 a zona é de duas colunas, e lida como uma só misturava as duas: o enunciado da 201
+    // começava com o fim da 198. Nos outros volumes ela é de uma coluna, e a grade das
+    // alternativas não pode virar coluna.
+    const linhas = (n: number) => Array.from({ length: 12 }, (_, i) => `${n}.${i} linha de enunciado da questão`);
+    const duasColunas = (pageNumber: number): RawPage => ({
+      pageNumber,
+      width: 595,
+      height: 842,
+      spans: [
+        span("QUESTÕES DE VESTIBULARES", RIGHT, 40, { size: 6.7 }),
+        ...linhas(pageNumber).map((text, i) => span(text, LEFT, 100 + i * 14, { size: 8 })),
+        ...linhas(pageNumber).map((text, i) => span(text, RIGHT + 10, 100 + i * 14, { size: 8 })),
+      ],
+      graphics: [],
+    });
+    const umaColuna = (pageNumber: number): RawPage =>
+      comCabecalho(pageNumber, "QUESTÕES DE VESTIBULARES", Array.from({ length: 12 }, (_, i) => `${i + 1}. (UF-PE) Um enunciado de questão que ocupa a largura inteira da página do livro.`));
+    const volume = (pagina: (n: number) => RawPage) => [
+      buildLines(bodyPage()),
+      ...[2, 3, 4, 5, 6].map((n) => buildLines(pagina(n))),
+      buildLines(comCabecalho(7, "RESPOSTAS DOS VESTIBULARES", ["1. a"])),
+    ];
+    const colunas = (pages: ReturnType<typeof volume>) =>
+      (profile.zones?.(pages) ?? []).find((zona) => zona.label === "questões de vestibulares")?.columns ?? false;
+
+    expect(colunas(volume(duasColunas))).toBe(true);
+    expect(colunas(volume(umaColuna))).toBe(false);
+  });
+
   it("a linha do sumário com o título das siglas não abre a zona", () => {
     // "Significado das siglas … ..... 418" no sumário: abria a zona na p. 8, e o livro inteiro
     // virava lista de siglas.
