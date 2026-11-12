@@ -89,6 +89,16 @@ describe("o motor nas páginas de respostas", () => {
     expect(answers[0]?.text).toBe("1. a) V\nb) F");
   });
 
+  it("o número que o modelo escreve dentro da conta sai da resposta (vol. 9: \"$423.\\frac{45}{4}$ cm\")", () => {
+    const answer = {
+      ...answers[1]!,
+      originalLabel: "423.",
+      mathResult: { latex: "$423.\\frac{45}{4}$ cm" } as never,
+      reviewedLatex: null,
+    } as unknown as ScanItem;
+    expect(answerLatex(answer, [])).toBe("$\\frac{45}{4}$ cm");
+  });
+
   it("duas respostas na mesma linha viram duas", () => {
     expect(answers.slice(3).map((answer) => answer.text)).toEqual(["4. c", "5. d"]);
   });

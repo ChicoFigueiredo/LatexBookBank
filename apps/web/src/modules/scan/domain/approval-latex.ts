@@ -304,7 +304,10 @@ function withoutLeadLabel(text: string, label: string | null): string {
   const pattern = new RegExp(
     `^\\s*(?:\\\\textbf\\{\\s*|\\{\\\\bf\\s+)?${escapeRegExp(label)}\\s*\\}?\\s*`,
   );
-  return text.replace(pattern, "");
+  // O modelo às vezes escreve o número dentro da conta — "$423.\frac{45}{4}$ cm" (vol. 9) —, e a
+  // resposta ia ao acervo como "423.45/4": o rótulo sai também logo depois do "$" que abre.
+  const insideMath = new RegExp(`^(\\s*\\$\\s*)${escapeRegExp(label)}\\s*`);
+  return text.replace(pattern, "").replace(insideMath, "$1");
 }
 
 /**
