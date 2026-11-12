@@ -34,8 +34,18 @@ export interface DocumentZone {
   readonly label: string;
   /** Primeira página da zona, na numeração do PDF. A zona vai até a véspera da próxima. */
   readonly from: number;
-  /** Não propor nada daqui: gabarito não tem estrutura, tem respostas. */
+  /** Não propor estrutura daqui: gabarito não tem estrutura, tem respostas. */
   readonly skip?: boolean;
+  /**
+   * As respostas impressas aqui são de quem (D77): cada "135." vira uma Resposta, que a aprovação
+   * leva à questão do mesmo número entre os itens deste tipo. Só vale numa zona com `skip`.
+   */
+  readonly answersTo?: "EXERCISE" | "QUESTION";
+  /**
+   * A zona é diagramada em colunas, num documento que o perfil declara de uma coluna
+   * (`singleColumn`): a lista de siglas do fim do *Fundamentos*. Só nela as colunas são detectadas.
+   */
+  readonly columns?: boolean;
   /** O tipo com que as questões desta zona nascem; sem ele, vale o padrão do perfil. */
   readonly questionType?: QuestionType;
 }
@@ -216,6 +226,13 @@ export interface CaptureProfile {
    * como uma zona só, que é o que sempre foi.
    */
   zones?(pages: readonly PageModel[]): readonly DocumentZone[];
+  /**
+   * A linha que abre uma resposta numa zona de respostas (D77): "135. a) {9, 6, 3}" dá o número
+   * 135. O motor só aceita número que avança — "2." depois do "135." é texto da resposta.
+   */
+  answerStart?(line: TextLine, style: PublicationStyle): { readonly number: string; readonly label: string } | null;
+  /** A linha que fecha a resposta aberta sem abrir outra: "Capítulo II", o título da zona. */
+  answerBoundary?(line: TextLine, style: PublicationStyle): boolean;
   learnStyle?(lines: readonly DocLine[], style: PublicationStyle): LearnedStyle;
   validateItem?(item: DraftItem, doc: ScanDocument): Diagnostic | null;
   /** Substitui o caminho genérico — para perfis que já têm o próprio segmentador (`exam-v1`). */

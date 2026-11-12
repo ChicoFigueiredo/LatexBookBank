@@ -61,3 +61,13 @@ export interface AssetForLatex {
 
 export const assetLatexName = (asset: AssetForLatex): string =>
   `${slug(asset.originalFilename ?? "figura")}-${asset.sha256.slice(0, HASH_CHARS)}.${latexExtensionFor(asset.mimeType)}`;
+
+/** O nome como `assetLatexName` o escreve: o slug, o começo do sha256 e a extensão. */
+const LATEX_NAME = new RegExp(`^[a-z0-9-]+-([0-9a-f]{${HASH_CHARS}})\\.[a-z0-9]+$`);
+
+/**
+ * O caminho de volta: do nome citado no `\includegraphics` ao começo do sha256 do asset. É por ele
+ * que o preview rápido acha a figura. `null` quando o nome não foi escrito por `assetLatexName` —
+ * o `grafico.png` digitado à mão, ou um caminho com `..`.
+ */
+export const latexNameHash = (name: string): string | null => LATEX_NAME.exec(name)?.[1] ?? null;

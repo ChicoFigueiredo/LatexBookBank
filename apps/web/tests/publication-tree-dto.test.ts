@@ -30,6 +30,7 @@ const questionNode: TreeNodeRecord = {
     type: "MULTIPLE_CHOICE",
     updatedAt: new Date("2026-08-07T12:00:00.000Z"),
     solutionLatex: "",
+    answerLatex: "R$ 1120",
     complementLatex: "",
     statementLatex: "Qual o montante?",
     difficulty: 2,
@@ -93,6 +94,11 @@ describe("o DTO não vaza infraestrutura", () => {
     const [dto] = await getPublicationTree(fake([questionNode]), "pub");
     // 0·2·5·7·10 é vocabulário interno; a UI não deveria precisar conhecê-lo.
     expect(dto?.question?.difficultyLabel).toBe("Fácil");
+  });
+
+  it("leva a resposta junto da resolução: é o que o editor abre na aba dela", async () => {
+    const [dto] = await getPublicationTree(fake([questionNode]), "pub");
+    expect(dto?.question?.answerLatex).toBe("R$ 1120");
   });
 
   it("compõe a origem a partir de banca e ano", async () => {

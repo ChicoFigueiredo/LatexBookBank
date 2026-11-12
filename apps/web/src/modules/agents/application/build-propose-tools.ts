@@ -134,7 +134,8 @@ export function buildProposeTools(
   return [
     asTool(
       "propose_question_patch",
-      "Propõe nova redação para enunciado, resolução, complemento ou apelido da questão aberta.",
+      "Propõe nova redação para enunciado, resolução, resposta, complemento ou apelido da " +
+        "questão aberta.",
       {
         type: "object",
         properties: {

@@ -215,6 +215,7 @@ export function toRuntime(
                   nickname: question.nickname,
                   statementLatex: question.statementLatex,
                   solutionLatex: question.solutionLatex,
+                  answerLatex: question.answerLatex,
                   complementLatex: question.complementLatex,
                   originalLatex: question.originalLatex,
                   difficulty: question.difficulty,

@@ -140,6 +140,8 @@ export async function reprocessItem(
     const result = await deps.math.run({
       run,
       items: [{ ...item, mathResult: null, reviewState: item.reviewState }],
+      // Sozinho, o item não sabe das figuras em volta, e o recorte as levaria ao modelo (D78).
+      figures: (await deps.store.listItems(runId)).filter((other) => other.kind === "FIGURE"),
       pdf,
       policy: "always",
       save: async (changes) => {

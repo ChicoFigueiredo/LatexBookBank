@@ -150,6 +150,7 @@ export interface RuntimeQuestion {
   readonly nickname: string | null;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly originalLatex: string | null;
   readonly difficulty: number;
@@ -425,6 +426,7 @@ function toQuestion(question: RuntimeQuestion, mint: RefMinter): PortableQuestio
     nickname: question.nickname,
     statementLatex: question.statementLatex,
     solutionLatex: question.solutionLatex,
+    answerLatex: question.answerLatex,
     complementLatex: question.complementLatex,
     originalLatex: question.originalLatex,
     difficulty: question.difficulty,

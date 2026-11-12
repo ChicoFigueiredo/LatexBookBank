@@ -21,6 +21,7 @@ const question = (over: Partial<TreeQuestionRecord> = {}): TreeQuestionRecord =>
   updatedAt: new Date(0),
   statementLatex: "",
   solutionLatex: "",
+  answerLatex: "",
   complementLatex: "",
   difficulty: 5,
   board: null,

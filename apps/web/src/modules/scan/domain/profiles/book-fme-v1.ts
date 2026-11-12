@@ -36,7 +36,8 @@ import { semanticPrompt } from "./semantic-prompt";
  * parágrafo emenda logo depois do número.
  */
 
-const CHAPTER = /^CAPITULO\s+([IVXLC]+)\b\s*(.*)$/i;
+/** "CAPÍTULO I", e também "APÊNDICE I": o apêndice abre como capítulo, na mesma fonte e corpo. */
+const CHAPTER = /^(CAPITULO|APENDICE)\s+([IVXLC]+)\b\s*(.*)$/i;
 /** `IV. Conjunto universo` e `III.Conjunto unitário` — o livro às vezes come o espaço. */
 const SECTION_ROMAN = /^([IVXLC]{1,7})\s*\.\s*(\S.*)$/;
 /**
@@ -54,19 +55,70 @@ const NUMBER_LINE = /^(\d{1,3})\.\s*(.*)$/;
 /** `1. (UF-RS) …` — a banca entre parênteses é o que marca a questão de vestibular. */
 const VESTIBULAR = /^(\d{1,3})\s*\.\s*\(([^)]{2,40})\)\s*(.*)$/;
 const ITEM = /^\(?([a-z])\)\s/;
+/**
+ * O número e o ponto no começo da linha. Com ou sem espaço depois: no vol. 1 vinha "21. todas", e
+ * do vol. 2 em diante a camada de texto cola o número no que segue ("145.a) 3", "150.6 561").
+ * O "2.5" de dentro de uma resposta não abre outra — o motor descarta o número que não avança.
+ */
+const ANSWER_START = /^(\d{1,3})\s*\.(?!\.)/;
+
+const SIGLAS = "siglas das bancas";
+const SIGLAS_HEADER = "SIGNIFICADO DAS SIGLAS DE VESTIBULARES";
+/** "UF-RJ — Universidade Federal do Rio de Janeiro": a sigla, o travessão, o nome. */
+const SIGLA = /^\S[^—]{0,40}\s—\s\S/;
 
 /** O cabeçalho corrente que anuncia cada zona, na forma em que o extrator o entrega. */
 const ZONE_MARKERS: readonly { readonly header: string; readonly zone: Omit<DocumentZone, "from"> }[] = [
+  // Os dois gabaritos não têm estrutura, têm respostas: cada uma vai à questão do mesmo número (D77).
   {
     header: "RESPOSTAS DAS QUESTOES DE VESTIBULARES",
-    zone: { label: "respostas dos vestibulares", skip: true },
+    zone: { label: "respostas dos vestibulares", skip: true, answersTo: "QUESTION" },
   },
-  { header: "RESPOSTAS DOS EXERCICIOS", zone: { label: "respostas dos exercícios", skip: true } },
+  {
+    header: "RESPOSTAS DOS EXERCICIOS",
+    zone: { label: "respostas dos exercícios", skip: true, answersTo: "EXERCISE" },
+  },
   {
     header: "QUESTOES DE VESTIBULARES",
     zone: { label: "questões de vestibulares", questionType: "MULTIPLE_CHOICE" },
   },
+  // A lista das bancas, depois do gabarito dos vestibulares: em duas colunas, ao contrário do livro.
+  { header: SIGLAS_HEADER, zone: { label: SIGLAS, columns: true } },
 ];
+
+/**
+ * O título da lista de siglas: com "e olimpíadas" no vol. 1, sem no vol. 7. A linha inteira, e não
+ * o começo: a do sumário ("… olimpíadas ..... 418") começa igual, e abria a zona na p. 8.
+ */
+const SIGLAS_TITLE = /^SIGNIFICADO DAS SIGLAS DE VESTIBULARES( E OLIMPIADAS)?$/;
+function isSiglasHeader(header: string): boolean {
+  return SIGLAS_TITLE.test(header);
+}
+
+/**
+ * A zona de vestibulares é diagramada em duas colunas neste volume?
+ *
+ * Nos vols. 1 a 8, 10 e 11 ela é de uma coluna, e o que parece coluna é a grade das alternativas.
+ * No vol. 9 ela é de duas colunas de verdade — 73 das 75 páginas sem nenhuma linha larga —, e lida
+ * como uma coluna só misturava as duas: o enunciado da 201 começava com o fim da 198, e as
+ * alternativas sumiam. A decisão é do volume, e não da página: uma página só de alternativas em
+ * grade também não tem linha larga, e lida em colunas trocaria a ordem delas.
+ */
+function inColumns(pages: readonly PageModel[], from: number, to: number): boolean {
+  const zonePages = pages.filter((page) => page.pageNumber > from && page.pageNumber < to - 1);
+  const narrow = zonePages.filter((page) => {
+    const lines = page.lines.filter((line) => line.y0 > 60 && line.y1 < page.height - 60 && line.text.length > 3);
+    if (lines.length < 8) return false;
+    const width = Math.max(...lines.map((line) => line.x1)) - Math.min(...lines.map((line) => line.x0));
+    return lines.filter((line) => line.x1 - line.x0 > width * 0.6).length <= 2;
+  });
+  return zonePages.length > 0 && narrow.length >= zonePages.length * 0.6;
+}
+
+/** O cabeçalho que a linha anuncia, se anuncia algum: igual ao da zona, ou o das siglas. */
+function markerOf(header: string): (typeof ZONE_MARKERS)[number] | undefined {
+  return ZONE_MARKERS.find((candidate) => candidate.header === header || (candidate.header === SIGLAS_HEADER && isSiglasHeader(header)));
+}
 
 const fold = (line: TextLine) => stripAccents(line.text).trim();
 
@@ -87,6 +139,53 @@ const ehCapitulo = (line: TextLine, style: PublicationStyle): boolean =>
   CHAPTER.test(fold(line)) && relativeSize(line, style) >= 2;
 const upper = (line: TextLine) => stripAccents(line.text).replace(/\s+/g, " ").trim().toUpperCase();
 
+/** Título de seção sem número: negrito, em corpo de título, sem número romano nem arábico. */
+const ehTituloDeSecao = (line: TextLine, style: PublicationStyle): boolean => {
+  const ratio = relativeSize(line, style);
+  const text = line.text.trim();
+  return (
+    line.bold &&
+    ratio >= 1.35 &&
+    ratio < 2 &&
+    text.length <= 60 &&
+    !/^\d/.test(text) &&
+    !SECTION_ROMAN.test(text) &&
+    !isBanner(line, style)
+  );
+};
+
+/** "LEITURA" e "APÊNDICE" em versal no livro; na árvore, como se escreve. */
+const rotulo = (text: string): string =>
+  text === text.toUpperCase() ? text.charAt(0) + text.slice(1).toLowerCase() : text;
+
+/**
+ * As linhas seguintes que continuam um título: negrito, em corpo de título — e no mesmo corpo,
+ * quando `size` é dado —, sem número na frente.
+ */
+function continuacaoDoTitulo(context: WalkContext, size: number): string[] {
+  const linhas: string[] = [];
+  for (let offset = 1; ; offset++) {
+    const next = context.peek(offset);
+    if (!next || !next.bold || /^\d/.test(next.text.trim()) || SECTION_ROMAN.test(next.text.trim())) break;
+    if (size > 0 ? Math.abs(next.size - size) > 0.5 : relativeSize(next, context.style) < 1.35) break;
+    if (next.pageNumber !== context.line.pageNumber) break;
+    linhas.push(next.text.trim());
+  }
+  return linhas;
+}
+
+/**
+ * O título de texto que não é capítulo numerado: "Apresentação", na fonte e no corpo do
+ * "CAPÍTULO I". O livro todo em LaTeX passa por ele — o prefácio se perdia, 33 linhas da p. 5.
+ * Uma palavra ou duas, sem número: o "1" de 51 pt da folha de rosto não é título.
+ */
+const ehTituloSemNumero = (line: TextLine, style: PublicationStyle): boolean =>
+  line.bold &&
+  relativeSize(line, style) >= 2.4 &&
+  /^Eurostile-BoldExtended/i.test(line.fontName) &&
+  !CHAPTER.test(fold(line)) &&
+  /^\p{L}[\p{L} ]{2,30}$/u.test(line.text.trim());
+
 /** O corpo do primeiro span, em múltiplos do corpo do livro. É ele que separa exercício de teoria. */
 function prefixRatio(line: TextLine, style: PublicationStyle): number {
   const first = line.spans[0];
@@ -97,7 +196,9 @@ function prefixRatio(line: TextLine, style: PublicationStyle): number {
 const prefixBold = (line: TextLine): boolean => line.spans[0]?.bold ?? line.bold;
 
 const CONTAINS: Readonly<Record<string, readonly ScanKind[]>> = {
-  ROOT: ["CHAPTER", "SECTION", "EXERCISE_GROUP", "QUESTION", "FIGURE"],
+  ROOT: ["CHAPTER", "SECTION", "EXERCISE_GROUP", "QUESTION", "FIGURE", "ANSWER"],
+  // A resposta em gráfico: "21." e o desenho logo abaixo.
+  ANSWER: ["FIGURE"],
   CHAPTER: ["SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
   SECTION: ["SUBSECTION", "CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
   SUBSECTION: ["CONTENT", "EXERCISE_GROUP", "NOTE", "FIGURE"],
@@ -154,6 +255,38 @@ function classify(context: WalkContext): AnchorMatch | null {
     }
   }
 
+  /*
+    A lista das bancas: o título é um capítulo sem número, e cada sigla, uma nota — um parágrafo
+    no corpo dele, e não as 80 siglas emendadas numa linha só.
+  */
+  if (context.zone?.label === SIGLAS) {
+    if (line.bold && ratio >= 1.2) {
+      return {
+        kind: "CHAPTER",
+        label: line.text.trim(),
+        number: null,
+        title: line.text.trim(),
+        extent: "heading",
+        lines: 1,
+        confidence: { pattern: 0.85, typography: 0.9 },
+        evidence: ["título da lista de siglas", `corpo ${ratio.toFixed(2)}× o do livro`],
+      };
+    }
+    if (SIGLA.test(line.text.trim())) {
+      return {
+        kind: "NOTE",
+        label: null,
+        number: null,
+        title: null,
+        extent: "until-boundary",
+        lines: 1,
+        confidence: { pattern: 0.9, layout: 0.9 },
+        evidence: ["sigla, travessão e o nome da banca"],
+      };
+    }
+    return null;
+  }
+
   // CAPÍTULO I — o rótulo numa linha, o nome do capítulo na seguinte, em corpo ainda maior.
   const chapter = CHAPTER.exec(text);
   if (chapter && ehCapitulo(line, style)) {
@@ -168,29 +301,48 @@ function classify(context: WalkContext): AnchorMatch | null {
       if (!next || relativeSize(next, style) < 2) break;
       abaixo.push(next.text.trim());
     }
-    const title = abaixo.length > 0 ? abaixo.join(" ") : (chapter[2] ?? "").trim();
+    const title = abaixo.length > 0 ? abaixo.join(" ") : (chapter[3] ?? "").trim();
+    // O apêndice não tem número de capítulo: "APÊNDICE I" ao lado do "CAPÍTULO I" confundiria o
+    // sumário e a árvore. O rótulo do livro fica, e é por ele que a árvore o chama.
+    const appendix = /^APENDICE$/i.test(chapter[1] ?? "");
     return {
       kind: "CHAPTER",
       label: line.text.trim(),
-      number: chapter[1] ?? null,
+      number: appendix ? null : (chapter[2] ?? null),
       title: title || null,
       extent: "heading",
       lines: 1 + abaixo.length,
       confidence: { pattern: 0.97, typography: 0.98 },
-      evidence: ["CAPÍTULO em romano", `corpo ${ratio.toFixed(2)}× o do livro`],
+      evidence: [appendix ? "APÊNDICE em romano" : "CAPÍTULO em romano", `corpo ${ratio.toFixed(2)}× o do livro`],
+    };
+  }
+
+  if (ehTituloSemNumero(line, style)) {
+    return {
+      kind: "CHAPTER",
+      label: line.text.trim(),
+      number: null,
+      title: line.text.trim(),
+      extent: "heading",
+      lines: 1,
+      confidence: { pattern: 0.85, typography: 0.95 },
+      evidence: ["título na fonte do capítulo, sem número", `corpo ${ratio.toFixed(2)}× o do livro`],
     };
   }
 
   // IV. Conjunto universo — a seção, em romano e 1,5× o corpo.
   const roman = SECTION_ROMAN.exec(line.text.trim());
   if (roman && ehSecaoRomana(line, style)) {
+    // O título quebrado em duas linhas: "X. Informações que auxiliam a construção" / "do gráfico".
+    const resto = continuacaoDoTitulo(context, line.size);
+    const title = [(roman[2] ?? "").trim(), ...resto].join(" ").trim();
     return {
       kind: "SECTION",
       label: line.text.trim(),
       number: roman[1] ?? null,
-      title: (roman[2] ?? "").trim() || null,
+      title: title || null,
       extent: "heading",
-      lines: 1,
+      lines: 1 + resto.length,
       confidence: { pattern: 0.95, typography: 0.98 },
       evidence: ["seção numerada em romano", `corpo ${ratio.toFixed(2)}× o do livro`],
     };
@@ -213,6 +365,29 @@ function classify(context: WalkContext): AnchorMatch | null {
       lines: 1,
       confidence: { pattern: 0.98, typography: 0.98 },
       evidence: ["banner E X E R C Í C I O S", `corpo ${ratio.toFixed(2)}× o do livro`],
+    };
+  }
+
+  /*
+    A seção sem número, dentro de um capítulo: "Apêndice" / "Princípio da indução finita" (p. 65)
+    e as LEITURAS de história da Matemática — "LEITURA" / "Cantor e a teoria dos conjuntos".
+
+    Sem ela, o título virava texto da seção anterior, e a LEITURA inteira — com o retrato do
+    Cantor — entrava no enunciado do último exercício, que vai até a próxima fronteira. A primeira
+    linha, quando o título tem duas, é o rótulo; a seguinte, o título.
+  */
+  if (open.has("CHAPTER") && ehTituloDeSecao(line, style)) {
+    const resto = continuacaoDoTitulo(context, 0);
+    const [label, ...titulo] = resto.length > 0 ? [line.text.trim(), ...resto] : [null, line.text.trim()];
+    return {
+      kind: "SECTION",
+      label: label === null ? line.text.trim() : rotulo(label),
+      number: null,
+      title: titulo.join(" "),
+      extent: "heading",
+      lines: 1 + resto.length,
+      confidence: { pattern: 0.85, typography: 0.95 },
+      evidence: ["título de seção sem número, dentro do capítulo", `corpo ${ratio.toFixed(2)}× o do livro`],
     };
   }
 
@@ -343,12 +518,14 @@ function classifyItem(context: WalkContext): AnchorMatch | null {
 
 export const bookFmeV1: CaptureProfile = {
   id: "book-fme-v1",
-  version: 1,
+  // 2: os vols. 2 a 11 — o número de resposta colado no texto, a página de abertura da zona, e
+  // a lista de siglas sem "e olimpíadas".
+  version: 3,
   label: "Fundamentos de Matemática Elementar",
   documentKind: "BOOK",
   description:
-    "A coleção do Iezzi, onze volumes: capítulo em romano, seções I–X, itens de teoria numerados, blocos E X E R C Í C I O S, questões de vestibular no fim e dois gabaritos, que não são varridos.",
-  kinds: ["CHAPTER", "SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "EXERCISE", "QUESTION", "ITEM", "NOTE", "FIGURE"],
+    "A coleção do Iezzi, onze volumes: capítulo em romano, seções I–X, itens de teoria numerados, blocos E X E R C Í C I O S, questões de vestibular no fim e dois gabaritos, cujas respostas vão às questões.",
+  kinds: ["CHAPTER", "SECTION", "SUBSECTION", "CONTENT", "EXERCISE_GROUP", "EXERCISE", "QUESTION", "ITEM", "NOTE", "FIGURE", "ANSWER"],
   /*
     A coleção é diagramada em uma coluna. O que parece coluna dupla é a grade dos itens curtos —
     `a)` e `b)` lado a lado, `c)` e `d)` embaixo —, e a detecção de colunas a lia como duas
@@ -370,29 +547,70 @@ export const bookFmeV1: CaptureProfile = {
     ("Respostas" / "dos exercícios") e só aparece uma vez, enquanto o cabeçalho aparece em todas.
     A comparação é por igualdade da linha inteira, o que descarta de graça a linha do sumário
     ("Respostas dos exercícios ..... 270"), que traz os pontinhos e o número da página.
+
+    Mas a página que abre a zona não tem o cabeçalho, só o título grande: no vol. 11, a abertura
+    das "Questões de / vestibulares" trazia as questões 1 a 3 e ficava na zona anterior, que não é
+    varrida. Se a página de antes da primeira com o cabeçalho tem o título grande da zona — as
+    linhas grandes, juntas, dizem o cabeçalho —, a zona começa nela.
   */
   zones(pages: readonly PageModel[]): readonly DocumentZone[] {
     const found = new Map<string, number>();
     for (const page of pages) {
       for (const line of page.lines) {
-        const header = upper(line);
-        const marker = ZONE_MARKERS.find((candidate) => candidate.header === header);
+        const marker = markerOf(upper(line));
         if (marker && !found.has(marker.header)) found.set(marker.header, page.pageNumber);
       }
     }
 
+    const style = measureStyle(pages.flatMap((page) => page.lines));
+    const titleOf = (page: PageModel | undefined) =>
+      (page?.lines ?? [])
+        .filter((line) => relativeSize(line, style) >= 2.5)
+        .map(upper)
+        .join(" ");
+    const byNumber = new Map(pages.map((page) => [page.pageNumber, page]));
+
     const zones: DocumentZone[] = [{ label: "corpo", from: 1 }];
     for (const marker of ZONE_MARKERS) {
-      const from = found.get(marker.header);
-      if (from !== undefined) zones.push({ ...marker.zone, from });
+      const first = found.get(marker.header);
+      if (first === undefined) continue;
+      const opens = titleOf(byNumber.get(first - 1)) === marker.header;
+      zones.push({ ...marker.zone, from: opens ? first - 1 : first });
     }
-    return zones.sort((a, b) => a.from - b.from);
+    // Depois das siglas vem a contracapa — a coleção, os volumes —, que não é conteúdo do livro.
+    const siglas = pages.filter((page) => page.lines.some((line) => isSiglasHeader(upper(line))));
+    const ultima = siglas.at(-1)?.pageNumber;
+    if (ultima !== undefined && pages.some((page) => page.pageNumber > ultima)) {
+      zones.push({ label: "contracapa", from: ultima + 1, skip: true });
+    }
+    const sorted = zones.sort((a, b) => a.from - b.from);
+    return sorted.map((zone, index) =>
+      zone.label === "questões de vestibulares" && inColumns(pages, zone.from, sorted[index + 1]?.from ?? Infinity)
+        ? { ...zone, columns: true }
+        : zone,
+    );
   },
 
   /*
     Dois sinais que praticamente só esta coleção tem: o banner com as letras separadas e a seção
     numerada em romano em corpo de título. Um livro que traga os dois é um Fundamentos.
   */
+  /*
+    As respostas: "135. a) {9, 6, 3}" no gabarito dos exercícios, "36. d" no dos vestibulares.
+
+    O número vem no começo da linha, seguido de ponto e de espaço — "2.5" é número, não resposta.
+    O motor descarta o número que não avança, que é o "2." de dentro de uma resposta.
+  */
+  answerStart(line) {
+    const match = ANSWER_START.exec(line.text.trim());
+    return match ? { number: match[1]!, label: `${match[1]}.` } : null;
+  },
+
+  // "Capítulo II" (13 pt) e o título de abertura da zona (31,5 pt) fecham a resposta aberta.
+  answerBoundary(line, style) {
+    return relativeSize(line, style) >= 1.2 && !/^\d/.test(line.text.trim());
+  },
+
   score(sample) {
     const paginas = Math.max(1, sample.length);
     const style = measureStyle(sample.flatMap((page) => page.lines));
@@ -430,7 +648,9 @@ export const bookFmeV1: CaptureProfile = {
       figura o engolir como se fosse rótulo do desenho. Foi o que aconteceu na primeira medição:
       dez capítulos existiam no PDF em 2,80× o corpo, e nenhum chegava à proposta.
     */
-    if (ehCapitulo(line, style) || isBanner(line, style) || ehSecaoRomana(line, style)) return true;
+    // A LEITURA da p. 211 tem o retrato do Boole logo acima, e o "LEITURA" era engolido como
+    // rótulo do desenho: a seção nascia sem o rótulo.
+    if (ehCapitulo(line, style) || isBanner(line, style) || ehSecaoRomana(line, style) || ehTituloDeSecao(line, style)) return true;
     return prefixBold(line) && NUMBER_SPAN.test(line.spans[0]?.text.trim() ?? "") && relativeSize(line, style) <= 1.5;
   },
 

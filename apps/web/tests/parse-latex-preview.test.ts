@@ -155,6 +155,15 @@ describe("imagens", () => {
   });
 });
 
+describe("figura", () => {
+  it("o posicionamento `[H]` da figura não vira texto", () => {
+    const blocks = parseLatexPreview(
+      "\\begin{figure}[H]\n\\centering\n\\includegraphics{f.pdf}\n\\end{figure}",
+    );
+    expect(blocks.map((block) => block.kind)).toEqual(["image"]);
+  });
+});
+
 describe("caixas", () => {
   it("`tcolorbox` vira caixa com os blocos de dentro", () => {
     const blocks = parseLatexPreview("\\begin{tcolorbox}Atenção\\end{tcolorbox}");

@@ -109,11 +109,56 @@ export const UNICODE_MATH: Readonly<Record<string, string>> = {
   "∞": "\\infty",
   "∘": "\\circ",
   "±": "\\pm",
-  "ℕ": "\\mathbb{N}",
-  "ℤ": "\\mathbb{Z}",
-  "ℚ": "\\mathbb{Q}",
-  "ℝ": "\\mathbb{R}",
-  "ℂ": "\\mathbb{C}",
+  ℕ: "\\mathbb{N}",
+  ℤ: "\\mathbb{Z}",
+  ℚ: "\\mathbb{Q}",
+  ℝ: "\\mathbb{R}",
+  ℂ: "\\mathbb{C}",
+  // O pdflatex não aceita estes no texto ("Unicode character √ not set up"): a camada de texto do
+  // *Fundamentos* entrega a raiz, o ponto de produto, o perpendicular e as letras gregas soltos.
+  "√": "\\surd",
+  "⋅": "\\cdot",
+  "⊥": "\\perp",
+  α: "\\alpha",
+  β: "\\beta",
+  γ: "\\gamma",
+  δ: "\\delta",
+  Δ: "\\Delta",
+  ε: "\\varepsilon",
+  ζ: "\\zeta",
+  η: "\\eta",
+  θ: "\\theta",
+  λ: "\\lambda",
+  μ: "\\mu",
+  π: "\\pi",
+  ρ: "\\rho",
+  σ: "\\sigma",
+  Σ: "\\Sigma",
+  τ: "\\tau",
+  φ: "\\varphi",
+  ω: "\\omega",
+  Ω: "\\Omega",
+  "◊": "\\lozenge",
+  // O "maior ou igual" inclinado do vol. 5, e o congruente da geometria.
+  "⩾": "\\geqslant",
+  "⩽": "\\leqslant",
+  "≅": "\\cong",
+  // O ponto de produto e o triângulo de marcador do vol. 11.
+  "∙": "\\cdot",
+  "▲": "\\blacktriangle",
+  // O somatório e o produtório soltos na camada de texto (vols. 4 e 6).
+  "∑": "\\sum",
+  "∏": "\\prod",
+  // Índice e expoente em Unicode, da camada de texto ("log₃"): o pdflatex não os aceita. O ² e o ³
+  // ficam de fora — o pdflatex os aceita no texto ("m²"), e é assim que o livro os escreve.
+  ...Object.fromEntries([..."₀₁₂₃₄₅₆₇₈₉"].map((char, digit) => [char, `_{${digit}}`])),
+  ₐ: "_{a}",
+  ₓ: "_{x}",
+  ₙ: "_{n}",
+  ...Object.fromEntries([..."⁰⁴⁵⁶⁷⁸⁹"].map((char, index) => [char, `^{${"0456789"[index]}}`])),
+  "⁺": "^{+}",
+  "⁻": "^{-}",
+  ⁿ: "^{n}",
 };
 
 export const UNICODE_MATH_CHARS = new RegExp(`[${Object.keys(UNICODE_MATH).join("")}]`, "g");
@@ -122,7 +167,9 @@ export const escapeLatexText = (text: string): string =>
   text
     .replace(/[\\%$&#_{}~^]/g, (char) => ESCAPES[char] ?? char)
     .replace(UNREADABLE, UNREADABLE_MARK)
-    .replace(UNICODE_MATH_CHARS, (char) => `$${UNICODE_MATH[char]}$`);
+    .replace(UNICODE_MATH_CHARS, (char) => `$${UNICODE_MATH[char]}$`)
+    // O circunflexo combinado do ângulo — "AB̂C" —, que o pdflatex não aceita.
+    .replace(/([A-Za-z])̂/g, "$\\hat{$1}$");
 
 /**
  * O modo `text` é o único que escapa.

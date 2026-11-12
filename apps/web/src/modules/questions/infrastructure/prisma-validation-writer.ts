@@ -69,6 +69,7 @@ export async function questionForValidation(questionId: string): Promise<Questio
       type: true,
       statementLatex: true,
       solutionLatex: true,
+      answerLatex: true,
       complementLatex: true,
       options: {
         orderBy: { sortKey: "asc" },
@@ -86,6 +87,7 @@ export async function questionForValidation(questionId: string): Promise<Questio
     type: row.type,
     statementLatex: row.statementLatex,
     solutionLatex: row.solutionLatex,
+    answerLatex: row.answerLatex,
     complementLatex: row.complementLatex,
     options: row.options,
   };

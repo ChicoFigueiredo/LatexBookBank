@@ -14,6 +14,8 @@ export interface SeedOption {
 export interface SeedQuestion {
   readonly type: string;
   readonly statement: string;
+  /** A resposta final (CONTEXT.md, *Resposta*). Ausente, a questão nasce sem ela. */
+  readonly answer?: string;
   readonly options?: readonly SeedOption[];
 }
 
@@ -36,6 +38,7 @@ export async function seedLibrary(slug: string) {
       data: {
         type: input.type,
         statementLatex: input.statement,
+        ...(input.answer === undefined ? {} : { answerLatex: input.answer }),
         options: {
           create: options.map((option, index) => ({
             sortKey: keys[index] ?? "a0",

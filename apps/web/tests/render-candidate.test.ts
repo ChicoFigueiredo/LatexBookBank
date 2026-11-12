@@ -23,6 +23,7 @@ const question: QuestionForRender = {
   type: "MULTIPLE_CHOICE",
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
+  answerLatex: "",
   complementLatex: "",
   options: [{ id: "o1", statementLatex: "1\\%", isCorrect: true }],
 };
@@ -114,6 +115,13 @@ describe("o que é compilado", () => {
     await toolFor(executor).execute({ field: "statementLatex", value: "b" });
 
     expect(calls[0]?.jobId).not.toBe(calls[1]?.jobId);
+  });
+
+  it("a resposta também se confere, e compila com o gabarito — que é onde ela sai", async () => {
+    const { executor, calls } = fakeExecutor();
+    await toolFor(executor).execute({ field: "answerLatex", value: "RESPOSTA NOVA" });
+
+    expect(calls[0]?.sourceLatex).toContain("\\textbf{Resposta.} RESPOSTA NOVA");
   });
 
   it("campo fora da lista é recusado", async () => {

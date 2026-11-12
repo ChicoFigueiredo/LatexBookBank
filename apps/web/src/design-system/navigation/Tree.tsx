@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 
 import { Icon, type IconName } from "../Icon";
@@ -86,20 +86,31 @@ function ancestorsOf(
   return [];
 }
 
+/** O último texto lido de cada chave e o que ele deu: o snapshot precisa ser o mesmo objeto. */
+const persistedCache = new Map<string, { readonly raw: string | null; readonly expanded: readonly string[] | null }>();
+
 function readPersisted(storageKey: string | null): readonly string[] | null {
   if (!storageKey || typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(storageKey);
-    if (raw == null) return null;
-    const parsed: unknown = JSON.parse(raw);
-    const expanded = (parsed as PersistedTreeState | null)?.expanded;
-    return Array.isArray(expanded) ? (expanded as readonly string[]) : null;
+    const cached = persistedCache.get(storageKey);
+    if (cached && cached.raw === raw) return cached.expanded;
+    let expanded: readonly string[] | null = null;
+    if (raw != null) {
+      const parsed = (JSON.parse(raw) as PersistedTreeState | null)?.expanded;
+      expanded = Array.isArray(parsed) ? (parsed as readonly string[]) : null;
+    }
+    persistedCache.set(storageKey, { raw, expanded });
+    return expanded;
   } catch {
     // localStorage indisponível (modo privado, quota, JSON corrompido). Perder a posição da
     // árvore é aceitável; derrubar a sidebar inteira por causa disso não é.
     return null;
   }
 }
+
+/** A árvore só lê o que guardou ao montar; quem muda os abertos depois é ela mesma. */
+const subscribeNever = () => () => undefined;
 
 function writePersisted(storageKey: string | null, state: PersistedTreeState): void {
   if (!storageKey || typeof window === "undefined") return;
@@ -235,10 +246,21 @@ export function Tree({
 }: TreeProps) {
   injectCss("lbb-tree-css", CSS);
 
-  const [expandedState, setExpandedState] = useState<readonly string[]>(
-    () => readPersisted(storageKey) ?? defaultExpanded,
+  /*
+    Os abertos de uma sessão anterior entram **depois** da hidratação.
+
+    O servidor não tem localStorage e desenha a árvore fechada. Ler o guardado já no primeiro
+    render fazia o navegador desenhar outra árvore, e o React acusava "Hydration failed" no editor
+    de todo livro. `useSyncExternalStore` hidrata com o snapshot do servidor e troca logo depois —
+    o mesmo que `useStoredState` faz.
+  */
+  const persisted = useSyncExternalStore(
+    subscribeNever,
+    () => readPersisted(storageKey),
+    () => null,
   );
-  const expanded = expandedProp ?? expandedState;
+  const [expandedState, setExpandedState] = useState<readonly string[] | null>(null);
+  const expanded = expandedProp ?? expandedState ?? persisted ?? defaultExpanded;
 
   // Foco por mapa de refs, não por `querySelector` com o id no seletor: `legacyId` e UUID podem
   // começar com dígito, e um seletor de atributo com id não escapado falha em silêncio — a tecla

@@ -160,6 +160,9 @@ function bookSection(measured: Measured): string {
   ].join("\n");
 }
 
+/** As bancas que a p. 418 do vol. 1 lista. */
+const SIGLAS_DO_VOLUME = 44;
+
 describe.skipIf(entries.length === 0)("corpus real do scan", () => {
   const results: Measured[] = [];
 
@@ -202,7 +205,7 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     no sumário, os itens de teoria vão de 1 a 159 e os exercícios de 1 a 568. O que se afirma aqui
     é o que o `book-v1` não conseguia — ele achava 0 exercícios, 0 exemplos e 453 falsas seções.
   */
-  it("o Fundamentos: a estrutura do livro, e nada vindo dos gabaritos", () => {
+  it("o Fundamentos: a estrutura do livro, e só respostas vindas dos gabaritos", () => {
     /*
       O `return` é para a máquina que não tem este PDF — o corpus é pessoal e fica fora do git.
       Mas se o manifesto **pede** o perfil e o arquivo está lá, o aceite tem de rodar: sem esta
@@ -220,12 +223,38 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     const capitulos = items.filter((item) => item.kind === "CHAPTER");
     expect(capitulos.filter((item) => item.number !== null).length, "capítulos numerados").toBe(10);
     // E a seção de vestibulares é um capítulo à parte, com os dez temas dentro dele.
-    const vestibulares = capitulos.find((item) => item.number === null);
+    const vestibulares = capitulos.find((item) => item.number === null && item.title === "Questões de vestibulares");
+    // Sem número: o prefácio, os dois apêndices — que abrem como capítulo, mas não são o capítulo
+    // I nem o II — e a seção de vestibulares.
+    expect(capitulos.filter((item) => item.number === null).map((item) => item.title), "capítulos sem número").toEqual([
+      "Apresentação",
+      "Equações irracionais",
+      "Inequações irracionais",
+      "Questões de vestibulares",
+      "Significado das siglas de vestibulares e olimpíadas",
+    ]);
+    // A lista das bancas, em duas colunas: uma nota por sigla, lidas coluna a coluna.
+    const siglas = capitulos.find((item) => item.title?.startsWith("Significado das siglas"));
+    const notas = items.filter((item) => item.kind === "NOTE" && item.parentKey === siglas?.key);
+    expect(notas.length, "siglas das bancas").toBe(SIGLAS_DO_VOLUME);
+    expect(notas[0]?.text.startsWith("Enem-MEC"), "a primeira sigla da primeira coluna").toBe(true);
+    expect(notas.findIndex((nota) => nota.text.startsWith("UE-RJ")), "a coluna da direita depois das 19 da esquerda").toBe(19);
+    // A seção sem número dentro do capítulo: o apêndice do cap. III e as seis LEITURAS de história.
+    const semNumero = items.filter((item) => item.kind === "SECTION" && item.number === null);
+    expect(semNumero.map((item) => `${item.originalLabel}: ${item.title}`), "seções sem número").toEqual([
+      "Leitura: Cantor e a teoria dos conjuntos",
+      "Apêndice: Princípio da indução finita",
+      "Leitura: Eudóxio e os incomensuráveis",
+      "Leitura: Stevin e as frações decimais",
+      "Leitura: Dedekind e os números reais",
+      "Leitura: Boole e a álgebra do pensamento",
+      "Leitura: Bertrand Russell e o Logicismo",
+    ]);
     expect(vestibulares?.title, "abertura da zona de vestibulares").toBe("Questões de vestibulares");
     const temas = items.filter((item) => item.kind === "EXERCISE_GROUP" && item.parentKey === vestibulares?.key);
     expect(temas.map((tema) => tema.title), "temas de vestibular").toHaveLength(10);
 
-    expect(count("SECTION"), "seções romanas").toBe(83);
+    expect(items.filter((item) => item.kind === "SECTION" && item.number !== null).length, "seções romanas").toBe(83);
     expect(count("SUBSECTION"), "itens de teoria").toBe(159);
     // 1 a 568, sem buraco: o banner da p. 117 chega como "E X E R C ê C I O S" e escondia 188–193.
     expect(count("EXERCISE"), "exercícios discursivos").toBe(568);
@@ -243,20 +272,37 @@ describe.skipIf(entries.length === 0)("corpus real do scan", () => {
     expect(items.filter((item) => item.kind === "EXERCISE").some((item) => item.metadata["questionType"] !== undefined)).toBe(false);
 
     /*
-      Os dois gabaritos não entram: 300 das 453 falsas seções do `book-v1` vinham dali.
+      Dos dois gabaritos só saem Respostas — e as figuras delas —, e nenhuma estrutura: 300 das 453
+      falsas seções do `book-v1` vinham dali (D77).
 
       A asserção é pelo **número da página**, e não por um carimbo que o próprio motor pôs: se a
       zona fosse calculada errado, um carimbo errado concordaria com ela e o teste passaria.
     */
     const ordenadas = [...fme.zones].sort((a, b) => a.from - b.from);
-    const gabaritos = ordenadas.filter((zone) => zone.skip === true);
+    const gabaritos = ordenadas.filter((zone) => zone.skip === true && zone.answersTo !== undefined);
     expect(gabaritos.length, "as duas zonas de gabarito").toBe(2);
+    const respostas = items.filter((item) => item.kind === "ANSWER");
+    const daResposta = new Set(respostas.map((item) => item.key));
     for (const zone of gabaritos) {
       const fim = ordenadas.find((outra) => outra.from > zone.from)?.from ?? Number.POSITIVE_INFINITY;
       const dentro = items.filter((item) => item.pageNumber >= zone.from && item.pageNumber < fim);
-      expect(dentro.map((item) => `${item.kind} p.${item.pageNumber}`), `zona ${zone.label}`).toEqual([]);
+      const estrutura = dentro.filter((item) => item.kind !== "ANSWER" && !daResposta.has(item.parentKey ?? ""));
+      expect(estrutura.map((item) => `${item.kind} p.${item.pageNumber}`), `zona ${zone.label}`).toEqual([]);
     }
-    expect(fme.proposal!.warnings.some((warning) => warning.includes("não foi varrida"))).toBe(true);
+
+    /*
+      As respostas, medidas: 451 dos exercícios e 360 dos vestibulares. O que falta o livro não
+      imprime — a demonstração, o exercício de construir — e nenhuma resposta impressa se perde:
+      as páginas de gráfico da p. 291 e as linhas "90. a  91. a  92. b" da p. 413 perdiam 87, e a
+      534, com o número colado no símbolo ("534.≡aa"), se perdia até o número sem espaço valer.
+    */
+    const deExercicio = respostas.filter((item) => item.metadata["answersTo"] === "EXERCISE");
+    const deQuestao = respostas.filter((item) => item.metadata["answersTo"] === "QUESTION");
+    expect(deExercicio.length, "respostas dos exercícios").toBe(451);
+    expect(deQuestao.length, "respostas dos vestibulares").toBe(360);
+    const alvos = (kind: string) => new Set(items.filter((item) => item.kind === kind).map((item) => item.number));
+    expect(deExercicio.filter((item) => !alvos("EXERCISE").has(item.number)), "resposta de exercício sem exercício").toEqual([]);
+    expect(deQuestao.filter((item) => !alvos("QUESTION").has(item.number)), "resposta de questão sem questão").toEqual([]);
   });
 
   it("grava o relatório quando pedido", () => {

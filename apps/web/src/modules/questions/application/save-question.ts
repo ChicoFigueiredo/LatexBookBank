@@ -45,6 +45,7 @@ function changedFields(current: QuestionSnapshot, edit: QuestionEdit): (keyof Qu
   const keys: (keyof QuestionEdit)[] = [
     "statementLatex",
     "solutionLatex",
+    "answerLatex",
     "complementLatex",
     "nickname",
     "difficulty",

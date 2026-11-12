@@ -47,6 +47,7 @@ import type { DiagnosticTarget } from "@modules/rendering/ui/RenderPanel";
 import { withSelectionInFirstPlaceholder } from "@modules/latex-knowledge/domain/snippet-completion";
 import { SymbolPalette } from "@modules/latex-knowledge/ui/SymbolPalette";
 import { PreviewPane, type PreviewField } from "@modules/preview/ui/PreviewPane";
+import { publicationFigureSource } from "@modules/preview/ui/figure-source";
 import { RenderPanel } from "@modules/rendering/ui/RenderPanel";
 import type { RenderAudience } from "@modules/rendering/domain/render-audience";
 import { useRender } from "@modules/rendering/ui/use-render";
@@ -74,12 +75,14 @@ type RightTab = "rapido" | "render" | "validacao" | "historico" | "origem";
 const PREVIEW_FIELD: Readonly<Record<QuestionFieldId, PreviewField>> = {
   statementLatex: "statement",
   solutionLatex: "solution",
+  answerLatex: "answer",
   complementLatex: "complement",
 };
 
 const FIELD_OF_PREVIEW: Readonly<Record<PreviewField, QuestionFieldId>> = {
   statement: "statementLatex",
   solution: "solutionLatex",
+  answer: "answerLatex",
   complement: "complementLatex",
 };
 
@@ -637,6 +640,7 @@ export function QuestionEditor({
                     source={{
                       statementLatex: draft.statementLatex,
                       solutionLatex: draft.solutionLatex,
+                      answerLatex: draft.answerLatex,
                       complementLatex: draft.complementLatex,
                       // A discursiva guarda as alternativas de quando foi escolha simples; o
                       // preview mostra as do tipo, como o PDF (ARQ-05).
@@ -650,6 +654,7 @@ export function QuestionEditor({
                         : null
                     }
                     onPick={goToPreviewBlock}
+                    figureSrc={publicationFigureSource(publicationId)}
                   />
                 ) : (
                   <RenderPanel

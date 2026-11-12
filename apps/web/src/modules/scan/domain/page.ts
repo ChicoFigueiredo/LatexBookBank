@@ -98,9 +98,30 @@ const MAX_GAP_IN_LINE = 2.5;
 const EXTENSION_FONT = /extension|^cmex/i;
 const EXTENSION_DESCENT = 2.6;
 
+/**
+ * O NUL que a fonte entrega no lugar de um símbolo — o "<" do *Fundamentos* vol. 1 — vira um
+ * caractere da área privada: continua ilegível para o motor (`UNREADABLE_CHAR`), e o banco não corta
+ * o texto nele. Com o NUL, o item da p. 272 guardava só até "g(x) ".
+ */
+const NUL = /\u0000/g;
+const NUL_STAND_IN = "";
+
+/**
+ * A fonte de símbolos que entrega o glifo com o código de uma letra ou dígito. No vol. 7 do
+ * *Fundamentos*, a MathematicalPi-One dava "=" como "5", "−" como "2" e "+" como "1": "P(t) =
+ * 2(1 − t) + 8t" saía "P(t) 5 2(1 2 t) 1 8t", o texto parecia legível, e o item não ia ao modelo.
+ * Fonte de símbolos não tem dígito de verdade: o ASCII dela é símbolo ilegível, como o NUL. O que
+ * ela já entrega em Unicode ("∈") fica. A `Symbol` não entra — nela "(", "+" e "=" são os de verdade.
+ */
+const SYMBOL_PI_FONT = /MathematicalPi/i;
+const ASCII = /[!-~]/g;
+
 export function toTextSpan(raw: RawSpan): TextSpan {
   const traits = fontTraits(raw.fontName);
-  const text = raw.text.normalize("NFC");
+  const normalized = raw.text.normalize("NFC").replace(NUL, NUL_STAND_IN);
+  const text = SYMBOL_PI_FONT.test(raw.fontName)
+    ? normalized.replace(ASCII, NUL_STAND_IN)
+    : normalized;
   const hanging = EXTENSION_FONT.test(traits.family);
 
   return {
@@ -167,9 +188,11 @@ export function buildLines(page: RawPage): PageModel {
       // "para trás", e isso não é outra linha.
       const afterAccent =
         overlapsVertically(bounds, span) &&
-        ((lastSpan !== null && endsWithSpacingAccent(lastSpan.text)) || isSpacingAccent(span.text.trim().charAt(0)));
+        ((lastSpan !== null && endsWithSpacingAccent(lastSpan.text)) ||
+          isSpacingAccent(span.text.trim().charAt(0)));
       const continues =
-        afterAccent || (pendingBreak ? continuesToTheRight(bounds, span) : continuesLine(bounds, span));
+        afterAccent ||
+        (pendingBreak ? continuesToTheRight(bounds, span) : continuesLine(bounds, span));
       if (!continues) close();
     }
     pendingBreak = false;
@@ -223,7 +246,11 @@ const FRAGMENT_MAX_CHARS = 20;
 
 function isFragment(line: TextLine): boolean {
   if (line.text.length > FRAGMENT_MAX_CHARS) return false;
-  return line.mathRatio >= 0.3 || Boolean(line.spans[0]?.math) || SYMBOLIC.test(line.text.replace(/\s/g, ""));
+  return (
+    line.mathRatio >= 0.3 ||
+    Boolean(line.spans[0]?.math) ||
+    SYMBOLIC.test(line.text.replace(/\s/g, ""))
+  );
 }
 
 /**
@@ -298,10 +325,53 @@ function continuesToTheRight(line: Rect, span: TextSpan): boolean {
   return symbolic && span.x0 >= line.x0 && span.x1 <= line.x1 + 1;
 }
 
-function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[], box: Rect): TextLine {
+/**
+ * Parte a linha antes de cada trecho em que `starts` reconhece o começo de outra coisa (D77).
+ *
+ * A página de respostas imprime várias numa linha só — "90. a  91. a  92. b" —, e a camada de
+ * texto as entrega como uma linha. Só parte onde há espaço antes do trecho: "2.5" colado não é
+ * começo de nada. O primeiro pedaço fica com o id da linha; os outros, com o id e um sufixo.
+ */
+export function splitLine(
+  line: TextLine,
+  starts: (rest: TextLine) => boolean,
+): readonly TextLine[] {
+  const spans = [...line.spans].sort((a, b) => a.x0 - b.x0);
+  const lineOf = (group: readonly TextSpan[]) =>
+    makeLine(line.pageNumber, 0, group, boundsOf(group));
+  const groups: TextSpan[][] = [[]];
+  spans.forEach((span, index) => {
+    const previous = spans[index - 1];
+    const gap = previous ? span.x0 - previous.x1 : 0;
+    if (previous && gap >= span.size * 0.8 && starts(lineOf(spans.slice(index)))) groups.push([]);
+    groups.at(-1)!.push(span);
+  });
+  if (groups.length === 1) return [line];
+  return groups.map((group, index) => ({
+    ...lineOf(group),
+    id: index === 0 ? line.id : `${line.id}~${index}`,
+  }));
+}
+
+function boundsOf(spans: readonly TextSpan[]): Rect {
+  return {
+    x0: Math.min(...spans.map((span) => span.x0)),
+    y0: Math.min(...spans.map((span) => span.y0)),
+    x1: Math.max(...spans.map((span) => span.x1)),
+    y1: Math.max(...spans.map((span) => span.y1)),
+  };
+}
+
+function makeLine(
+  pageNumber: number,
+  index: number,
+  spans: readonly TextSpan[],
+  box: Rect,
+): TextLine {
   // O acento solto fica em cima da letra, com o x um pouco à direita do começo dela: ordenado pelo
   // x puro, ele cairia depois da letra que acentua.
-  const key = (span: TextSpan) => (isSpacingAccent(span.text.trim()) ? span.x0 - span.size * 0.6 : span.x0);
+  const key = (span: TextSpan) =>
+    isSpacingAccent(span.text.trim()) ? span.x0 - span.size * 0.6 : span.x0;
   const sorted = [...spans].sort((a, b) => key(a) - key(b));
 
   let text = "";
@@ -319,8 +389,19 @@ function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[],
   // Operador, dígito e parêntese em fonte romana contam como matemática quando encostam num
   // trecho de matemática: o TeX compõe `+`, `=` e o expoente `2` em fonte de texto, e sem isto
   // `x^2 + y^2 = r^2` pesaria três caracteres de fórmula numa linha de quarenta.
+  // O expoente e a fração em fonte de texto: corpo menor e fora da linha. No gabarito do vol. 5 do
+  // Fundamentos, "5¹⁰" e "7/22" saíam "510" e "227", e a resposta não ia ao modelo.
+  const mainSize = Math.max(...sorted.map((span) => span.size));
+  const mainBaseline = median(
+    sorted.filter((span) => span.size >= mainSize * 0.95).map((span) => span.baseline),
+  );
+  const scripted = (span: TextSpan) =>
+    span.size <= mainSize * 0.85 &&
+    Math.abs(span.baseline - mainBaseline) >= mainSize * 0.15 &&
+    /[0-9A-Za-z]/.test(span.text);
+
   const mathy = sorted.map((span, i) => {
-    if (span.math) return true;
+    if (span.math || scripted(span)) return true;
     if (!SYMBOLIC.test(span.text.trim())) return false;
     return Boolean(sorted[i - 1]?.math || sorted[i + 1]?.math);
   });
@@ -339,7 +420,8 @@ function makeLine(pageNumber: number, index: number, spans: readonly TextSpan[],
   );
 
   const byFont = new Map<string, number>();
-  for (const span of spans) byFont.set(span.fontName, (byFont.get(span.fontName) ?? 0) + weight(span));
+  for (const span of spans)
+    byFont.set(span.fontName, (byFont.get(span.fontName) ?? 0) + weight(span));
   const fontName = [...byFont.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
 
   return {

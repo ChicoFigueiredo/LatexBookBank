@@ -78,6 +78,27 @@ describe("achar figuras", () => {
     expect(protegida[0]?.captionLineIds).toEqual([]);
   });
 
+  it("letra desenhada como traço, na altura do texto, não é figura (vol. 1, p. 20)", () => {
+    // "p ∧ q ⇔ q ∧ p": o ∧ do Fundamentos é traço, e não texto. Quatro ∧ em duas linhas seguidas
+    // viravam uma "figura" que engolia as linhas como rótulo.
+    const linhas = [line("l1", "p q q p", [60, 100, 160, 110]), line("l2", "(p q) r p (q r)", [60, 114, 200, 124])];
+    const conectivos = [
+      drawing([70, 101, 76, 109]),
+      drawing([120, 101, 126, 109]),
+      drawing([80, 115, 86, 123]),
+      drawing([150, 115, 156, 123]),
+    ];
+
+    expect(findFigures(input({ graphics: conectivos, lines: linhas }))).toEqual([]);
+  });
+
+  it("mas o desenho com um traço grande continua figura, mesmo com letras miúdas", () => {
+    // O diagrama de Venn: o círculo é grande; as letras de dentro são rótulo.
+    const circulo = drawing([60, 100, 160, 200]);
+    const letra = drawing([100, 140, 106, 148]);
+    expect(findFigures(input({ graphics: [circulo, letra], lines: [line("a", "A", [90, 150, 96, 158])] }))).toHaveLength(1);
+  });
+
   it("junta os traços vizinhos numa figura só", () => {
     // Um diagrama de Venn: dois círculos e o retângulo do universo, desenhados em traços separados.
     const figuras = findFigures(
@@ -159,6 +180,27 @@ describe("achar figuras", () => {
     const tarja = drawing([70, 100, 440, 143]);
     const titulo = line("t", "E X E R C Í C I O S", [80, 108, 430, 132]);
     expect(findFigures(input({ graphics: [tarja], lines: [titulo] }))).toEqual([]);
+  });
+
+  it("o fundo com parágrafos dentro não é figura: o retrato sobre ele é (vol. 1, p. 211)", () => {
+    // A LEITURA impressa sobre um retângulo rosa, com o retrato de Boole dentro: antes, os dois
+    // viravam uma figura de meia página, e a máscara apagava o texto do reconhecimento.
+    const fundo = drawing([70, 200, 520, 780]);
+    const retrato = drawing([300, 560, 440, 720], "image");
+    const texto = [0, 1, 2, 3, 4].map((n) =>
+      line(`p${n}`, "A lógica como ciência remonta a Aristóteles, seu criador.", [80, 220 + n * 14, 500, 231 + n * 14]),
+    );
+    const figuras = findFigures(input({ graphics: [fundo, retrato], lines: texto }));
+    expect(figuras).toHaveLength(1);
+    expect(figuras[0]?.box).toMatchObject({ x0: 300, y0: 560, x1: 440, y1: 720 });
+    expect(figuras[0]?.kind).toBe("raster");
+  });
+
+  it("mas a moldura com uma grade dentro continua tabela, mesmo com linhas compridas", () => {
+    const moldura = drawing([70, 200, 440, 300]);
+    const linhas = [0, 1, 2, 3, 4].map((n) => line(`r${n}`, "V      F      V      V      F      V", [80, 205 + n * 18, 430, 216 + n * 18]));
+    const figuras = findFigures(input({ graphics: [moldura], lines: linhas, isTable: () => true }));
+    expect(figuras).toHaveLength(1);
   });
 
   it("mas o diagrama com rótulos continua sendo figura", () => {

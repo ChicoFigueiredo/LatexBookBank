@@ -43,6 +43,9 @@ const MATH_ENVIRONMENTS = new Set([
   "multline*",
 ]);
 
+/** Os ambientes flutuantes, que levam o posicionamento ("[H]", "[htbp]") antes do conteúdo. */
+const FLOAT_ENVIRONMENTS = new Set(["figure", "figure*", "table", "table*"]);
+
 /** Ambientes que viram caixa. */
 const BOX_ENVIRONMENTS = new Set([
   "tcolorbox",
@@ -593,6 +596,17 @@ function blocksForEnvironment(
       return parsed.length === 0 ? [] : [{ blocks: parsed }];
     });
     return items.length === 0 ? [] : [{ kind: "list", ordered, items }];
+  }
+
+  // O posicionamento da figura — `\begin{figure}[H]` — não é conteúdo: desembrulhado, o "[H]"
+  // aparecia como texto antes da imagem.
+  if (FLOAT_ENVIRONMENTS.has(name)) {
+    const trimmed = body.length - body.trimStart().length;
+    const placement = readOptional(body.trimStart(), 0);
+    if (placement) {
+      const skip = trimmed + placement.next;
+      return parseBlocks(body.slice(skip), inside + skip, at);
+    }
   }
 
   // Ambiente desconhecido — `center`, `figure`, `minipage` — desembrulha. É a mesma regra dos

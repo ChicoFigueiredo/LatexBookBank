@@ -68,8 +68,32 @@ export const SCAN_RUN_LABELS: Readonly<Record<ScanRunState, string>> = {
  *
  * `@3`: o parágrafo que emenda num título sem nome vai para o texto, e o texto guarda o negrito
  * (D76). O item de teoria "1. Chama-se proposição…" perdia a primeira frase.
+ *
+ * `@4`: as zonas de respostas deixam de ser puladas — cada resposta vira um item, que a aprovação
+ * leva à questão do mesmo número (D77).
+ *
+ * `@5`: a figura é de quem começou antes dela, ou de quem começa ao lado — e não de quem começa
+ * logo abaixo. No vol. 1, 81 das 696 figuras mudam de dono: o diagrama da resposta 21 ia para a
+ * 22, os gráficos do exercício 144 para a seção seguinte. E o fundo com parágrafos dentro deixa de
+ * ser traço de figura: a LEITURA da p. 211 e a solução da p. 111 voltam a ser texto.
+ *
+ * `@6`: o NUL que a fonte entrega no lugar do "<" vira um caractere da área privada. O banco
+ * cortava o texto do item no NUL: 39 linhas de 12 páginas do vol. 1 paravam no meio.
+ *
+ * `@7`: o ASCII que a fonte MathematicalPi entrega ("5" no lugar de "=") vira símbolo ilegível, e
+ * o item vai ao modelo. Nos vols. 3 a 8 e 10 do Fundamentos, milhares de contas saíam trocadas.
+ *
+ * `@8`: o expoente e a fração em fonte de texto — corpo menor, fora da linha — contam como
+ * matemática. No gabarito do vol. 5, "5¹⁰" saía "510" e a resposta não ia ao modelo.
+ *
+ * `@9`: o recorte do item fecha antes do vizinho na mesma altura. Na grade de exercícios (vol. 8,
+ * p. 137) e na linha com duas respostas (vol. 6, p. 214), o recorte da coluna inteira levava os
+ * dois itens ao modelo, e o 122 saía com o enunciado do 127.
+ *
+ * `@10`: a fração no corpo do texto com a barra desenhada manda o item ao modelo. "L/2" na fonte
+ * do texto saía "L 2" (vol. 4, questão 73); no vol. 9, 175 itens a mais vão ao modelo.
  */
-export const ENGINE_VERSION = "scan-engine@3";
+export const ENGINE_VERSION = "scan-engine@10";
 
 export type MathRecognitionPolicy = "never" | "auto" | "always";
 

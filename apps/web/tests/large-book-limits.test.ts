@@ -115,6 +115,31 @@ describe("livro grande", () => {
     expect(await prisma.documentNode.count({ where: { deletedAt: { not: null } } })).toBe(0);
   });
 
+  it("a árvore de um livro com mais de mil questões abre (vol. 9 do Fundamentos: 1.366)", async () => {
+    // A relação nó → questão vinha numa consulta só, com um parâmetro por questão: "The query
+    // parameter limit supported by your database is exceeded", e a árvore do livro inteiro dava 500.
+    const { PrismaDocumentTreeRepository } =
+      await import("@modules/document-tree/infrastructure/prisma-document-tree-repository");
+    const { prisma, publication } = await seedBookWithSource("book-b.pdf", "grande-arvore");
+    const { generateNKeysBetween } = await import("@/shared/ordering/fractional-index");
+
+    const keys = generateNKeysBetween(null, null, MUITOS);
+    for (const [index, sortKey] of keys.entries()) {
+      const question = await prisma.question.create({
+        data: { type: "DISCURSIVE", statementLatex: `Árvore ${index}` },
+        select: { id: true },
+      });
+      await prisma.documentNode.create({
+        data: { publicationId: publication.id, kind: "QUESTION", sortKey, questionId: question.id },
+      });
+    }
+
+    const nodes = await new PrismaDocumentTreeRepository().listByPublication(publication.id);
+    expect(nodes).toHaveLength(MUITOS);
+    expect(nodes.every((node) => node.question !== null)).toBe(true);
+    expect(nodes[MUITOS - 1]?.question?.statementLatex).toBe(`Árvore ${MUITOS - 1}`);
+  });
+
   it("excluir um livro com mais de mil questões e recortes apaga tudo, e só os arquivos dele", async () => {
     const { deletePublication } =
       await import("@modules/publications/application/manage-publications");

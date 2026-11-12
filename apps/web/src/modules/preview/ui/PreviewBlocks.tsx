@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 import { injectCss } from "@/design-system";
 import { maskUrlFor } from "@shared/css-mask";
@@ -44,6 +51,13 @@ interface BlockLink {
 
 const NO_LINK: BlockLink = { active: null, onPick: null };
 const LinkContext = createContext<BlockLink>(NO_LINK);
+
+/**
+ * Onde buscar a figura que o `\includegraphics` cita — o endereço do PNG dela —, ou `null` quando
+ * quem mostra o preview não sabe resolver nomes (aí fica a moldura com o nome).
+ */
+export type FigureSource = (path: string) => string | null;
+export const FigureSourceContext = createContext<FigureSource | null>(null);
 
 export function PreviewBlocks({
   blocks,
@@ -118,6 +132,66 @@ function Located({
   );
 }
 
+/**
+ * A figura do `\includegraphics`: a imagem, quando quem mostra o preview sabe onde ela está — o
+ * recorte do PDF, em PNG —, e a moldura com o nome quando não sabe, ou quando a imagem não veio.
+ * Sumir com a figura em silêncio faria o preview parecer completo quando não está.
+ *
+ * `<img>` com endereço do próprio app, e não HTML: imagem não executa script (ver o topo).
+ */
+function Figure({
+  path,
+  widthFraction,
+}: {
+  readonly path: string;
+  readonly widthFraction: number | null;
+}) {
+  const source = useContext(FigureSourceContext);
+  const src = source?.(path) ?? null;
+  const [failed, setFailed] = useState(false);
+  const width =
+    widthFraction !== null
+      ? { width: `${Math.round(widthFraction * 100)}%`, marginInline: "auto" }
+      : {};
+
+  if (src !== null && !failed) {
+    return (
+      <figure style={{ margin: "var(--space-4) 0", textAlign: "center", ...width }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- PNG gerado pelo app, sem otimização a fazer */}
+        <img
+          src={src}
+          alt={`figura: ${path}`}
+          onError={() => setFailed(true)}
+          // Fundo de papel: o recorte vem transparente, e no tema escuro o eixo preto sumiria.
+          style={{
+            maxWidth: "100%",
+            height: "auto",
+            background: "var(--surface-paper)",
+            borderRadius: "var(--radius-sm)",
+          }}
+        />
+      </figure>
+    );
+  }
+
+  return (
+    <figure
+      style={{
+        margin: "var(--space-4) 0",
+        padding: "var(--space-4)",
+        border: "1px dashed var(--border-default)",
+        borderRadius: "var(--radius-md)",
+        textAlign: "center",
+        color: "var(--text-secondary)",
+        fontSize: "var(--text-body-sm)",
+        ...width,
+      }}
+    >
+      figura: {path}
+    </figure>
+  );
+}
+
 function Block({ block }: { readonly block: PreviewBlock }) {
   switch (block.kind) {
     case "paragraph":
@@ -148,27 +222,7 @@ function Block({ block }: { readonly block: PreviewBlock }) {
     }
 
     case "image":
-      // O caminho vem do LaTeX e ainda não resolve para lugar nenhum: os arquivos do acervo
-      // entram como Asset na Fase 11. Mostrar a moldura com o nome é honesto — some com a
-      // figura, mas não finge que ela não estava lá.
-      return (
-        <figure
-          style={{
-            margin: "var(--space-4) 0",
-            padding: "var(--space-4)",
-            border: "1px dashed var(--border-default)",
-            borderRadius: "var(--radius-md)",
-            textAlign: "center",
-            color: "var(--text-secondary)",
-            fontSize: "var(--text-body-sm)",
-            ...(block.widthFraction !== null
-              ? { width: `${Math.round(block.widthFraction * 100)}%`, marginInline: "auto" }
-              : {}),
-          }}
-        >
-          figura: {block.path}
-        </figure>
-      );
+      return <Figure path={block.path} widthFraction={block.widthFraction} />;
 
     case "box":
       return (

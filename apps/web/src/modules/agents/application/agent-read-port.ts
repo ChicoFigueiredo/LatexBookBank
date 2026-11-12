@@ -17,6 +17,7 @@ export interface AgentQuestionView {
   readonly nickname: string | null;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly status: string;
   readonly validationStatus: ValidationStatus;

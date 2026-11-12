@@ -17,6 +17,7 @@ export interface ScanApprovalResponse {
     readonly reusedNodes: number;
     readonly bodyAppends: number;
     readonly statementAppends: number;
+    readonly answers: number;
     readonly anchors: number;
     readonly alreadyInCollection: number;
     readonly materializedItems: number;

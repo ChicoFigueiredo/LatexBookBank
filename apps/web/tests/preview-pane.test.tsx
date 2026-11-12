@@ -99,6 +99,24 @@ describe("PreviewPane", () => {
     expect(screen.getByRole("heading", { name: "Complemento" })).toBeTruthy();
   });
 
+  it("mostra a resposta numa seção própria, depois da resolução", () => {
+    render(
+      <PreviewPane
+        source={{ ...source, solutionLatex: "porque sim", answerLatex: "$\\{9, 6, 3, 0\\}$" }}
+      />,
+    );
+
+    const titulos = screen.getAllByRole("heading").map((heading) => heading.textContent);
+    expect(titulos).toEqual(["Resolução", "Resposta"]);
+  });
+
+  it("só a resposta já tira o preview do vazio", () => {
+    render(<PreviewPane source={{ ...source, answerLatex: "F, V, V, V e F" }} />);
+
+    expect(screen.queryByText(/aparece aqui conforme você escreve/i)).toBeNull();
+    expect(screen.getByRole("heading", { name: "Resposta" })).toBeTruthy();
+  });
+
   it("omite a seção vazia em vez de deixar um título órfão", () => {
     render(<PreviewPane source={{ ...source, statementLatex: "só o enunciado" }} />);
     expect(screen.queryByRole("heading", { name: "Resolução" })).toBeNull();
@@ -132,6 +150,23 @@ describe("PreviewPane", () => {
     // preview parecer completo quando não está.
     render(<PreviewPane source={{ ...source, statementLatex: "\\includegraphics{g.png}" }} />);
     expect(screen.getByText(/figura: g\.png/)).toBeTruthy();
+  });
+
+  it("com o endereço da figura, mostra a imagem — o recorte do PDF em PNG (questão 352)", () => {
+    const latex =
+      "\\begin{figure}[H]\n\\includegraphics[width=0.44\\textwidth]{figura-p410-4cba19e1.pdf}\n\\end{figure}";
+    render(
+      <PreviewPane
+        source={{ ...source, statementLatex: latex }}
+        figureSrc={(path) => `/fig/${path}`}
+      />,
+    );
+    const imagem = screen.getByRole("img", {
+      name: /figura-p410-4cba19e1\.pdf/,
+    }) as HTMLImageElement;
+    expect(imagem.getAttribute("src")).toBe("/fig/figura-p410-4cba19e1.pdf");
+    // O "[H]" do posicionamento não é texto do enunciado.
+    expect(screen.queryByText(/\[H\]/)).toBeNull();
   });
 });
 
@@ -184,6 +219,24 @@ describe("PreviewPane: cursor e clique", () => {
       />,
     );
     expect(aceso()).toBe("A resposta.");
+  });
+
+  it("o cursor na resposta acende o bloco dela, e o clique devolve o campo da resposta", () => {
+    const picks: [string, number][] = [];
+    render(
+      <PreviewPane
+        source={{ ...source, statementLatex: texto, answerLatex: "A final." }}
+        cursor={{ field: "answer", offset: 2 }}
+        onPick={(field, offset) => picks.push([field, offset])}
+      />,
+    );
+    expect(aceso()).toBe("A final.");
+
+    const bloco = [...document.querySelectorAll(".lbb-pv-src")].find(
+      (element) => element.textContent === "A final.",
+    );
+    fireEvent.click(bloco!);
+    expect(picks).toEqual([["answer", 0]]);
   });
 
   it("clicar num bloco devolve o campo e onde ele começa", () => {

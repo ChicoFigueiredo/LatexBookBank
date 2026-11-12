@@ -19,6 +19,7 @@ import type { QuestionState } from "@modules/agents/domain/patch-diff";
 const snapshot = (over: Partial<RevisionSnapshot> = {}): RevisionSnapshot => ({
   statementLatex: "Qual é a taxa?",
   solutionLatex: "",
+  answerLatex: "",
   complementLatex: "",
   nickname: null,
   options: [
@@ -51,6 +52,24 @@ describe("o que mudou entre duas revisões", () => {
       label: "Enunciado",
       before: "Qual é a taxa?",
       after: "Outra pergunta?",
+      latex: true,
+    });
+  });
+
+  it("a resposta é linha própria, com o nome da aba, depois da resolução", () => {
+    const changes = diffSnapshots(
+      snapshot(),
+      snapshot({ solutionLatex: "M = C(1+it)", answerLatex: "2\\%" }),
+    );
+
+    expect(changes.map((change) => change.id)).toEqual([
+      "field:solutionLatex",
+      "field:answerLatex",
+    ]);
+    expect(changes[1]).toMatchObject({
+      label: "Resposta",
+      before: "(vazio)",
+      after: "2\\%",
       latex: true,
     });
   });
@@ -135,6 +154,7 @@ describe("restaurar devolve o estado exato", () => {
       snapshot({
         statementLatex: "Um capital de \\SI{1000}{\\real} à taxa de 2\\%",
         solutionLatex: "M = C(1+it)",
+        answerLatex: "\\SI{1020}{\\real}",
         complementLatex: "",
         nickname: "Juros — 1",
         metadata: { board: "Cesgranrio", year: 2014, difficulty: 5, videoUrl: null },
@@ -166,6 +186,16 @@ describe("restaurar devolve o estado exato", () => {
     expect(antiga.options).toEqual([]);
     expect(antiga.tags).toEqual([]);
     expect(antiga.nickname).toBeNull();
+  });
+
+  it("revisão de antes da resposta lê a resposta vazia", () => {
+    // As revisões gravadas antes de a Resposta existir não têm o campo: a questão não tinha
+    // resposta nenhuma, e é isso que o diff e a restauração precisam ver.
+    const antiga = parseSnapshot(
+      JSON.stringify({ snapshotVersion: 2, statementLatex: "só isto", solutionLatex: "x" }),
+    );
+
+    expect(antiga.answerLatex).toBe("");
   });
 
   it("o gabarito sobrevive à restauração", () => {

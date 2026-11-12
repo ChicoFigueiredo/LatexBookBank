@@ -82,6 +82,13 @@ O texto que explica como chegar à resposta. Diferente do gabarito, que só diz 
 da aba no editor e da seção no preview rápido.
 _Avoid_: solução, resposta
 
+**Resposta** (`answerLatex`):
+O resultado final de uma questão, sem o caminho — "{9, 6, 3, 0}", "círculo de centro 0 e raio
+2r", "F, V, V, V e F". É o que o livro imprime nas páginas de respostas, e o que o gabarito de uma
+avaliação mostra para a questão que não tem alternativas. Na questão objetiva, quem diz a resposta
+é o gabarito.
+_Avoid_: gabarito (é das alternativas), resolução (é o caminho), solução
+
 **Tag**:
 Rótulo livre que classifica uma questão dentro de uma biblioteca, para filtrar na árvore e na
 busca.

@@ -111,6 +111,9 @@ describe("desempate pela IA", () => {
   });
 });
 
+/** A página sem texto: o recorte vai inteiro, sem pedaços. */
+const paginaVazia = async (pageNumber: number) => ({ pageNumber, width: 595, height: 842, spans: [], graphics: [] });
+
 describe("reconhecimento matemático na varredura", () => {
   it("o item sugerido que recebe LaTeX do modelo volta a pedir revisão (SPG-07)", async () => {
     // O mesmo que o reprocessar à mão já fazia: a saída do modelo é candidata, não conteúdo.
@@ -135,6 +138,7 @@ describe("reconhecimento matemático na varredura", () => {
     };
     const pdf = {
       renderRegion: async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+      readPage: paginaVazia,
     } as unknown as OpenedPdf;
     const saved: ScanItemChanges[] = [];
 
@@ -152,5 +156,134 @@ describe("reconhecimento matemático na varredura", () => {
     const [gravado] = saved.flatMap((changes) => changes.upserts);
     expect(gravado?.mathResult?.latex).toBe("$x \\pm 1$");
     expect(gravado?.reviewState).toBe("NEEDS_REVIEW");
+  });
+
+  it("o reconhecimento que muda número deixa o item suspeito, com o porquê (D78)", async () => {
+    // p. 16 do Fundamentos: o livro diz "3/2 = 6/4", e o modelo escreveu "3/2 = 6".
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, text: "2º) p: 3 2  6 4" });
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: "$2^{\\circ}$) p: $\\frac{3}{2} = 6$", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const saved: ScanItemChanges[] = [];
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      pdf: { renderRegion: async () => new Uint8Array([0x89]), readPage: paginaVazia } as unknown as OpenedPdf,
+      policy: "auto",
+      save: async (changes) => {
+        saved.push(changes);
+      },
+      cancelled: never,
+    });
+
+    const [gravado] = saved.flatMap((changes) => changes.upserts);
+    expect(gravado?.diagnostic).toMatchObject({
+      status: "suspicious",
+      reasons: ["o reconhecimento difere do PDF nos números: falta 4; sobra —"],
+    });
+  });
+
+  it("o pedaço que inventa número ou V/F é reconhecido de novo, em metades (D78)", async () => {
+    // p. 18 do Fundamentos: o modelo escreveu uma tabela-verdade que o livro não tem.
+    const linha = (text: string, y: number) => ({ text, x0: 60, x1: 400, baseline: y + 8, size: 10, fontName: "X", endsLine: true });
+    // Dois parágrafos de três linhas, separados por um espaço de sobra: um pedaço só, que se parte em dois.
+    const spans = [
+      ...["Seja f uma proposição.", "Dizemos que f é falsa.", "independentemente de p."].map((t, i) => linha(t, 100 + i * 14)),
+      ...["Assim, a tabela-verdade", "de f apresenta só", "a coluna de f."].map((t, i) => linha(t, 170 + i * 14)),
+    ];
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, text: "Seja f…", regions: [{ pageNumber: 18, role: "PRIMARY", box: { x: 0.05, y: 0.1, width: 0.9, height: 0.12 } }] });
+    const respostas = [
+      "Seja f. Tabela: V V F F V F F V",
+      "Seja $f$ uma proposição. Dizemos que $f$ é falsa. independentemente de $p$.",
+      "Assim, a tabela-verdade de $f$ apresenta só a coluna de $f$.",
+    ];
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: respostas.shift() ?? "", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const saved: ScanItemChanges[] = [];
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      pdf: {
+        renderRegion: async () => new Uint8Array([0x89]),
+        readPage: async (pageNumber: number) => ({ pageNumber, width: 595, height: 842, spans, graphics: [] }),
+      } as unknown as OpenedPdf,
+      policy: "auto",
+      save: async (changes) => {
+        saved.push(changes);
+      },
+      cancelled: never,
+    });
+
+    const [gravado] = saved.flatMap((changes) => changes.upserts);
+    expect(gravado?.mathResult?.latex).toBe(
+      "Seja $f$ uma proposição. Dizemos que $f$ é falsa. independentemente de $p$.\n\nAssim, a tabela-verdade de $f$ apresenta só a coluna de $f$.",
+    );
+  });
+
+  it("se a metade ainda inventa, fica o texto da camada do PDF, que não inventa (D78)", async () => {
+    // A LEITURA da p. 46 saiu como uma página sobre "Aplicações da Integral Definida".
+    const linha = (text: string, y: number) => ({ text, x0: 60, x1: 400, baseline: y + 8, size: 10, fontName: "X", endsLine: true });
+    const spans = ["A natureza do infinito é uma questão antiga", "e controversa, que Arquimedes já discutia."].map((t, i) => linha(t, 100 + i * 14));
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, text: "A natureza…", regions: [{ pageNumber: 46, role: "PRIMARY", box: { x: 0.05, y: 0.1, width: 0.9, height: 0.05 } }] });
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: "Aplicações da Integral Definida: cálculo de área sob o gráfico.", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const saved: ScanItemChanges[] = [];
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      pdf: {
+        renderRegion: async () => new Uint8Array([0x89]),
+        readPage: async (pageNumber: number) => ({ pageNumber, width: 595, height: 842, spans, graphics: [] }),
+      } as unknown as OpenedPdf,
+      policy: "auto",
+      save: async (changes) => {
+        saved.push(changes);
+      },
+      cancelled: never,
+    });
+
+    const [gravado] = saved.flatMap((changes) => changes.upserts);
+    expect(gravado?.mathResult?.latex).toBe("A natureza do infinito é uma questão antiga e controversa, que Arquimedes já discutia.");
+  });
+
+  it("a figura que é item próprio sai em branco do recorte do texto em volta (D78)", async () => {
+    // A tabela-verdade da p. 17 do Fundamentos ia ao modelo junto do texto, e saía duas vezes:
+    // no corpo, transcrita, e na figura.
+    const regiao = (pageNumber: number, x: number, y: number) => [
+      { pageNumber, role: "PRIMARY" as const, box: { x, y, width: 0.3, height: 0.1 } },
+    ];
+    const texto = item({ id: "t", key: "T", kind: "CONTENT", needsMath: true, regions: [{ pageNumber: 17, role: "PRIMARY", box: { x: 0.1, y: 0.1, width: 0.8, height: 0.6 } }] });
+    const tabela = item({ id: "f", key: "F", kind: "FIGURE", regions: regiao(17, 0.2, 0.5) });
+    const longe = item({ id: "g", key: "G", kind: "FIGURE", regions: regiao(17, 0.2, 0.85) });
+    const outraPagina = item({ id: "h", key: "H", kind: "FIGURE", regions: regiao(18, 0.2, 0.5) });
+    const recognizer: MathRecognitionProvider = {
+      id: "fake-vision",
+      recognize: async () => ({ latex: "x", confidence: 0.9, alternatives: [], providerId: "fake-vision", model: "m", durationMs: 1 }),
+    };
+    const masks: unknown[] = [];
+    const pdf = {
+      renderRegion: async (_page: number, _box: unknown, _dpi: number, given: readonly unknown[] = []) => {
+        masks.push(...given);
+        return new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+      },
+      readPage: paginaVazia,
+    } as unknown as OpenedPdf;
+
+    await createMathPass(recognizer, "m").run({
+      run,
+      items: [texto],
+      figures: [tabela, longe, outraPagina],
+      pdf,
+      policy: "auto",
+      save: async () => undefined,
+      cancelled: never,
+    });
+
+    expect(masks).toEqual([tabela.regions[0]!.box]);
   });
 });

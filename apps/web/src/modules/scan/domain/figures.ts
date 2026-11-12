@@ -50,6 +50,11 @@ export interface FigureInput {
    * dez perdiam texto, num corpus de 735.
    */
   readonly protect?: (line: FigureLine) => boolean;
+  /**
+   * As linhas dentro de uma moldura formam uma tabela (D78)? Quem sabe ler a grade é a camada de
+   * texto, que esta função não vê: quem monta o documento responde, pelos ids.
+   */
+  readonly isTable?: (lineIds: readonly string[]) => boolean;
 }
 
 export interface Figure {
@@ -108,6 +113,8 @@ function distance(a: Rect, b: Rect): number {
 }
 
 /** Quanto da caixa `inner` está dentro de `outer`, de 0 a 1. */
+const intersects = (a: Rect, b: Rect): boolean => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
 function insideRatio(inner: Rect, outer: Rect): number {
   const w = Math.max(0, Math.min(inner.x1, outer.x1) - Math.max(inner.x0, outer.x0));
   const h = Math.max(0, Math.min(inner.y1, outer.y1) - Math.max(inner.y0, outer.y0));
@@ -133,6 +140,10 @@ const isDecoration = (rect: Rect): boolean => {
  * O que separa moldura de desenho é a densidade: um diagrama tem muitos traços e pouco texto;
  * uma moldura tem um traço e um parágrafo dentro.
  */
+/** O maior traço de uma letra desenhada, em múltiplos do corpo do texto. */
+const GLYPH_SIZE = 1.5;
+/** O maior sinal desenhado sobre uma linha de texto — chave, colchete, barra —, em múltiplos do corpo. */
+const SIGN_SIZE = 2.5;
 const FRAME_TEXT_COVERAGE = 0.12;
 const FRAME_MAX_STROKES = 2;
 /** Duas linhas de texto de verdade — não rótulos — já denunciam uma moldura. */
@@ -142,6 +153,8 @@ interface Cluster {
   box: Rect;
   kinds: Set<"drawing" | "image">;
   strokes: number;
+  /** O maior lado do maior traço: é o que separa um desenho de uma letra desenhada. */
+  largest: number;
   readonly pageNumber: number;
   readonly slot: number;
 }
@@ -163,6 +176,7 @@ function cluster(graphics: readonly FigureGraphic[], gap: number): Cluster[] {
         box: { x0: graphic.x0, y0: graphic.y0, x1: graphic.x1, y1: graphic.y1 },
         kinds: new Set([graphic.kind]),
         strokes: 1,
+        largest: Math.max(width(graphic), height(graphic)),
         pageNumber: graphic.pageNumber,
         slot: graphic.slot,
       });
@@ -173,9 +187,11 @@ function cluster(graphics: readonly FigureGraphic[], gap: number): Cluster[] {
     first.box = merge(first.box, graphic);
     first.kinds.add(graphic.kind);
     first.strokes += 1;
+    first.largest = Math.max(first.largest, width(graphic), height(graphic));
     for (const other of reached.slice(1)) {
       first.box = merge(first.box, other.box);
       first.strokes += other.strokes;
+      first.largest = Math.max(first.largest, other.largest);
       for (const kind of other.kinds) first.kinds.add(kind);
       clusters.splice(clusters.indexOf(other), 1);
     }
@@ -187,17 +203,99 @@ function cluster(graphics: readonly FigureGraphic[], gap: number): Cluster[] {
 const kindOf = (kinds: ReadonlySet<"drawing" | "image">): FigureKind =>
   kinds.size > 1 ? "mixed" : kinds.has("image") ? "raster" : "vector";
 
+/** Linhas de texto de verdade dentro de um retângulo que fazem dele um fundo — a mesma conta da moldura. */
+const PANEL_TEXT_LINES = FRAME_TEXT_LINES;
+
+/**
+ * O fundo atrás do texto não é traço de figura (D78).
+ *
+ * A LEITURA do *Fundamentos* é impressa sobre um retângulo rosa, e a solução de um exercício
+ * sobre um cinza. Na p. 211 do vol. 1 o retângulo e o retrato de Boole formavam uma figura de meia
+ * página, e na p. 60 a solução do exercício 81 virava imagem: a máscara da figura apagava o texto
+ * do reconhecimento, a conferência não tinha o que comparar — a camada de texto também ficava
+ * atrás da máscara —, e o texto sumia. A regra da moldura não pegava: o painel se juntava aos
+ * traços de dentro (o √ desenhado, o retrato) e passava de dois traços. O desenho com texto de
+ * verdade dentro, e não uma grade, é fundo, e sai antes de agrupar; o que estava sobre ele —
+ * o retrato, a tabela-verdade da p. 10, o gráfico da questão 120 — fica como figura sozinho.
+ */
+function isPanel(graphic: FigureGraphic, lines: readonly FigureLine[], input: FigureInput): boolean {
+  if (graphic.kind !== "drawing") return false;
+  const inside = lines.filter((line) => line.slot === graphic.slot && insideRatio(line, graphic) >= 0.6);
+  const paragraphs = inside.filter((line) => line.text.trim().length > LABEL_CHARS);
+  return paragraphs.length >= PANEL_TEXT_LINES && !input.isTable?.(inside.map((line) => line.id));
+}
+
 export function findFigures(input: FigureInput): readonly Figure[] {
   const gap = input.bodySize * CLUSTER_GAP;
   const padding = input.bodySize * CROP_PADDING;
 
+  /*
+    A letra desenhada sai antes de agrupar (D78): o ∧ da linha logo acima da tabela-verdade da
+    p. 17 ficava a 16 pt da moldura, entrava no grupo dela e puxava a frase de cima para dentro
+    da caixa — e a grade deixava de ser grade. Traço do tamanho de uma letra, sobre uma linha de
+    texto, é texto. E a chave, o colchete e a barra desenhados também: no exercício 51 da p. 44,
+    o "{3n | n ∈ ℕ}" ligava o diagrama de Venn, três exercícios abaixo, a tudo o que ficava entre
+    eles — e a máscara da figura apagava esse texto do reconhecimento.
+  */
+  const linesByPage = new Map<number, FigureLine[]>();
+  for (const line of input.lines) linesByPage.set(line.pageNumber, [...(linesByPage.get(line.pageNumber) ?? []), line]);
+  const strokes = input.graphics.filter(
+    (graphic) =>
+      (graphic.kind !== "drawing" ||
+        Math.max(width(graphic), height(graphic)) > input.bodySize * SIGN_SIZE ||
+        !(linesByPage.get(graphic.pageNumber) ?? []).some((line) => intersects(line, graphic))) &&
+      !isPanel(graphic, linesByPage.get(graphic.pageNumber) ?? [], input),
+  );
+
   const figures: Figure[] = [];
-  for (const group of cluster(input.graphics, gap)) {
+  for (const group of cluster(strokes, gap)) {
     if (isDecoration(group.box)) continue;
 
     const sameColumn = input.lines.filter(
       (line) => line.pageNumber === group.pageNumber && line.slot === group.slot,
     );
+
+    /*
+      A tabela na moldura (D78).
+
+      A tabela-verdade do *Fundamentos* é uma caixa com o fio do cabeçalho — dois traços — e
+      texto dentro, que a regra da moldura logo abaixo devolvia ao texto: o modelo de visão a
+      transcrevia, e trocava célula (a tautologia da p. 18 saía com F na última coluna). Quando o
+      que está dentro é uma grade, a moldura é tabela, e engole tudo o que tem dentro — o
+      cabeçalho também, que é longo demais para rótulo.
+    */
+    const insideFrame = sameColumn.filter((line) => insideRatio(line, group.box) >= 0.6);
+    if (insideFrame.length >= 3 && input.isTable?.(insideFrame.map((line) => line.id))) {
+      figures.push({
+        pageNumber: group.pageNumber,
+        slot: group.slot,
+        kind: kindOf(group.kinds),
+        box: group.box,
+        crop: { x0: group.box.x0 - padding, y0: group.box.y0 - padding, x1: group.box.x1 + padding, y1: group.box.y1 + padding },
+        absorbedLineIds: insideFrame.map((line) => line.id),
+        label: null,
+        caption: null,
+        captionLineIds: [],
+      });
+      continue;
+    }
+
+    /*
+      Letra desenhada não é figura.
+
+      O *Fundamentos* desenha ∧ e ∨ como traço, e não como texto: os conectivos do exercício 7
+      (vol. 1, p. 20) viravam quatro "figuras" com pedaços do enunciado dentro, e as linhas que
+      elas engoliam como rótulo sumiam do texto. Um desenho tem pelo menos um traço maior que uma
+      letra — o eixo, o círculo, a moldura da tabela —; um grupo de traços miúdos na altura de
+      linhas de texto é texto.
+    */
+    if (
+      !group.kinds.has("image") &&
+      group.largest <= input.bodySize * GLYPH_SIZE &&
+      sameColumn.some((line) => line.y0 < group.box.y1 && line.y1 > group.box.y0)
+    ) {
+      continue;
+    }
 
     // Moldura em volta de texto não é figura: o que está dentro dela é texto do livro, e continua
     // sendo texto. Só o desenho com poucos traços é suspeito — um diagrama tem dezenas.

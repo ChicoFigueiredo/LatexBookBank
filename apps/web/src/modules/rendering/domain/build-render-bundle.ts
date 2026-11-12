@@ -70,7 +70,8 @@ export type RenderSourceField = QuestionLatexSpan["origin"];
  *
  * Deliberadamente literal, e deliberadamente igual ao que existia antes da #165: o acervo legado
  * tem tipos que ainda não têm plugin, e para eles o produto precisa continuar compilando algo
- * razoável. "Razoável" aqui é enunciado, alternativas e — quando pedido — resposta e complemento.
+ * razoável. "Razoável" aqui é enunciado, alternativas e — quando pedido — resolução, resposta e
+ * complemento.
  */
 function fallbackBlocks(input: BuildBundleInput): QuestionLatexBlock[] {
   const { question } = input;
@@ -90,10 +91,20 @@ function fallbackBlocks(input: BuildBundleInput): QuestionLatexBlock[] {
     });
   }
 
+  // "Resolução" e "Resposta" são dois campos (CONTEXT.md), e cada um sai com o próprio nome.
   if (withSolution && question.solutionLatex.trim() !== "") {
     blocks.push({
       origin: "solutionLatex",
-      lines: ["", "\\medskip", "\\textbf{Resposta.} " + question.solutionLatex],
+      lines: ["", "\\medskip", "\\textbf{Resolução.} " + question.solutionLatex],
+      prefixLines: 2,
+    });
+  }
+
+  if (withSolution && question.answerLatex.trim() !== "") {
+    blocks.push({
+      origin: "answerLatex",
+      // Linha a linha, como em `answerBlock`: o mapa conta as linhas do bloco.
+      lines: ["", "\\medskip", ...("\\textbf{Resposta.} " + question.answerLatex).split("\n")],
       prefixLines: 2,
     });
   }

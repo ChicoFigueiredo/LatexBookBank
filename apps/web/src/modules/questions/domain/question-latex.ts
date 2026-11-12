@@ -26,7 +26,7 @@
  * devolver um número de linha que não existe.
  */
 export type QuestionLatexOrigin =
-  "statementLatex" | "solutionLatex" | "complementLatex" | "options";
+  "statementLatex" | "solutionLatex" | "answerLatex" | "complementLatex" | "options";
 
 export interface QuestionLatexBlock {
   readonly origin: QuestionLatexOrigin;

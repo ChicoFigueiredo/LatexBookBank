@@ -6,7 +6,16 @@ import "@modules/questions/domain/plugins";
 import { isQuestionType, type QuestionType } from "@modules/questions/domain/question-type";
 import { optionsOf, pluginFor } from "@modules/questions/domain/question-type-plugin";
 
-import { bodyPieceLatex, contentLatex, exampleBody, exampleTitle, headingTitle, questionLatex } from "./approval-latex";
+import {
+  answerLatex,
+  answerLetter,
+  bodyPieceLatex,
+  contentLatex,
+  exampleBody,
+  exampleTitle,
+  headingTitle,
+  questionLatex,
+} from "./approval-latex";
 import { boxRect } from "@/shared/geometry/normalized-box";
 import { intersectionOverUnion } from "./geometry";
 import { kindsWhere, SCAN_KIND_TRAITS, SCAN_KINDS, type ProposedRegion, type ScanKind } from "./proposal";
@@ -113,7 +122,23 @@ export type ApprovalStep =
       /** Como no `appendBody`: o que já está no enunciado e vem depois deste trecho no livro. */
       readonly followedBy: readonly string[];
     }
-  | { readonly type: "alreadyInCollection"; readonly itemIds: readonly string[]; readonly nodeId: string };
+  | { readonly type: "alreadyInCollection"; readonly itemIds: readonly string[]; readonly nodeId: string }
+  | {
+      /**
+       * A resposta que o livro imprime nas páginas de respostas (D77), na questão do mesmo número.
+       * Com a letra, marca a alternativa correta; sem ela — ou sem alternativas —, vai à Resposta.
+       */
+      readonly type: "setAnswer";
+      readonly itemIds: readonly string[];
+      /** O nó da questão — criado nesta aprovação ou numa rodada anterior da mesma execução. */
+      readonly target: NodeRef;
+      readonly answerLatex: string;
+      readonly correctLetter: string | null;
+      readonly anchors: readonly ProposedRegion[];
+      readonly sourceText: string;
+      /** Os recortes das figuras da resposta, que passam a ser da questão. */
+      readonly cropAssetIds: readonly string[];
+    };
 
 export interface ApprovalPlan {
   readonly steps: readonly ApprovalStep[];
@@ -164,6 +189,7 @@ const NODE_KIND: Partial<Record<ScanKind, NodeKind>> = Object.fromEntries(
 const BODY_KINDS = kindsWhere((traits) => traits.approvesAs === "body");
 const QUESTION_KINDS = kindsWhere((traits) => traits.approvesAs === "question");
 const FOLDED_KINDS = kindsWhere((traits) => traits.approvesAs === "folded");
+const ANSWER_KINDS = kindsWhere((traits) => traits.approvesAs === "answer");
 
 /** O item está no mesmo lugar da âncora: mesma página, e interseção sobre união acima do limite. */
 const coincides = (item: ScanItem, anchor: ExistingAnchor): boolean =>
@@ -325,6 +351,42 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     );
     return lead ? contentLatex(lead) : null;
   };
+  /*
+    A resposta vai à questão do mesmo número, entre os itens do tipo que a zona diz (D77).
+
+    Só a questão desta execução, e que já tem nó — aprovada agora ou numa rodada anterior. A que
+    a varredura achou já no acervo é de outra importação: escrever nela é o que apagar esta
+    importação não desfaria.
+  */
+  const answerStep = (
+    item: ScanItem,
+    figures: readonly ScanItem[],
+  ): Extract<ApprovalStep, { type: "setAnswer" }> | { readonly reason: string } => {
+    const kind = item.metadata["answersTo"];
+    const what = kind === "QUESTION" ? "questão" : "exercício";
+    const targets = items.filter(
+      (candidate) => candidate.kind === kind && candidate.number === item.number && candidate.reviewState !== "REJECTED",
+    );
+    if (targets.length === 0) return { reason: `não há ${what} ${item.number} nesta varredura` };
+    if (targets.length > 1) return { reason: `há ${targets.length} itens ${what} ${item.number} nesta varredura` };
+    const target = resolved.get(targets[0]!.key);
+    if (!target || target.type === "root") return { reason: `o ${what} ${item.number} ainda não foi aprovado` };
+    if (foreign.has(targets[0]!.key)) return { reason: `o ${what} ${item.number} é de outra importação` };
+
+    const correctLetter = kind === "QUESTION" ? answerLetter(item) : null;
+    return {
+      type: "setAnswer",
+      itemIds: [item.id, ...figures.map((figure) => figure.id)],
+      target,
+      answerLatex: correctLetter === null ? answerLatex(item, figures) : "",
+      correctLetter,
+      anchors: item.regions.map((region) => ({ ...region, role: "ANSWER" as AnchorRole })),
+      sourceText: item.text,
+      cropAssetIds: figures.flatMap((figure) =>
+        typeof figure.metadata["figureAsset"] === "string" ? [figure.metadata["figureAsset"]] : [],
+      ),
+    };
+  };
   /** O irmão já posto que precede o item no livro, e o que o segue. */
   const neighbors = (container: NodeRef, sortOrder: number) => {
     const siblings = placedNodes.get(refKey(container)) ?? [];
@@ -356,8 +418,24 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
   };
   for (const item of [...items].sort((a, b) => a.sortOrder - b.sortOrder)) enqueue(item);
 
+  /** As figuras que vão com a resposta, e não ao corpo de alguém. */
+  const answered = new Set<string>();
+  /** Os itens que acharam o próprio nó em outra importação (`alreadyInCollection`). */
+  const foreign = new Set<string>();
+
   for (const item of order) {
-    if (!eligible(item) || FOLDED_KINDS.has(item.kind)) continue;
+    if (!eligible(item) || FOLDED_KINDS.has(item.kind) || answered.has(item.key)) continue;
+
+    if (ANSWER_KINDS.has(item.kind)) {
+      const figures = items.filter(
+        (child) => child.parentKey === item.key && child.kind === "FIGURE" && child.reviewState !== "REJECTED",
+      );
+      figures.forEach((figure) => answered.add(figure.key));
+      const outcome = answerStep(item, figures);
+      if ("reason" in outcome) skipped.push({ itemId: item.id, reason: outcome.reason });
+      else steps.push(outcome);
+      continue;
+    }
 
     const container = containerFor(item);
     if (container === null) {
@@ -413,6 +491,7 @@ export function planApproval(input: ApprovalInput): ApprovalPlan {
     if (duplicate) {
       steps.push({ type: "alreadyInCollection", itemIds: [item.id], nodeId: duplicate });
       resolved.set(item.key, { type: "existing", id: duplicate });
+      foreign.add(item.key);
       // A questão que já está no acervo também é vizinha; o escritor confere se ela mora neste pai.
       if (QUESTION_KINDS.has(item.kind)) placeNode(container, item.sortOrder, { type: "existing", id: duplicate });
       continue;

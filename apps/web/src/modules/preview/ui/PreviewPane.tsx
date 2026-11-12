@@ -11,7 +11,7 @@ import {
   type SourceRange,
 } from "@modules/preview/domain/preview-model";
 
-import { PreviewBlocks } from "./PreviewBlocks";
+import { FigureSourceContext, PreviewBlocks, type FigureSource } from "./PreviewBlocks";
 
 /**
  * O preview rápido (spec §11).
@@ -27,7 +27,7 @@ import { PreviewBlocks } from "./PreviewBlocks";
  */
 
 /** Os campos que o editor edita — e que, por isso, o cursor pode estar visitando. */
-export type PreviewField = "statement" | "solution" | "complement";
+export type PreviewField = "statement" | "solution" | "answer" | "complement";
 
 export interface PreviewPaneProps {
   readonly source: PreviewSource;
@@ -35,6 +35,8 @@ export interface PreviewPaneProps {
   readonly cursor?: { readonly field: PreviewField; readonly offset: number } | null;
   /** Clicar num bloco leva o cursor até o trecho que o gerou. */
   readonly onPick?: (field: PreviewField, offset: number) => void;
+  /** O endereço do PNG da figura citada; sem ele, a figura aparece como moldura com o nome. */
+  readonly figureSrc?: FigureSource;
 }
 
 /**
@@ -69,7 +71,7 @@ function blockAt(blocks: readonly PreviewBlock[], offset: number): SourceRange |
   return best ?? before;
 }
 
-export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps) {
+export function PreviewPane({ source, cursor = null, onPick, figureSrc }: PreviewPaneProps) {
   // O valor adiado é a fonte inteira: adiar campo a campo faria o preview mostrar um enunciado
   // novo com alternativas velhas por um instante, que é pior do que mostrar tudo velho.
   const deferred = useDeferredValue(source);
@@ -79,13 +81,7 @@ export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps)
 
   const active = useMemo(() => {
     if (!cursor) return null;
-    const blocks =
-      cursor.field === "statement"
-        ? model.statement
-        : cursor.field === "solution"
-          ? model.solution
-          : model.complement;
-    return blockAt(blocks, cursor.offset);
+    return blockAt(model[cursor.field], cursor.offset);
   }, [cursor, model]);
 
   /*
@@ -108,122 +104,133 @@ export function PreviewPane({ source, cursor = null, onPick }: PreviewPaneProps)
     model.statement.length === 0 &&
     model.options.length === 0 &&
     model.solution.length === 0 &&
+    model.answer.length === 0 &&
     model.complement.length === 0;
 
   return (
-    <section
-      aria-label="Preview rápido"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        minHeight: 0,
-        background: "var(--surface)",
-      }}
-    >
-      <header
+    <FigureSourceContext.Provider value={figureSrc ?? null}>
+      <section
+        aria-label="Preview rápido"
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: "var(--space-2)",
-          padding: "var(--space-2) var(--space-4)",
-          borderBottom: "1px solid var(--border-default)",
-          color: "var(--text-secondary)",
-          fontSize: "var(--text-micro)",
-        }}
-      >
-        {/* O aviso da §11 é permanente, e é permanente de propósito: o HTML não é fonte de
-            verdade para compatibilidade de LaTeX, e quem confiar nele vai se surpreender no PDF. */}
-        <span>{PREVIEW_DISCLAIMER}</span>
-        {/* `aria-live` para quem não vê o selo: a informação é que o que está na tela ainda não
-            reflete a última tecla. Sem isso, o preview parece simplesmente errado. */}
-        <span aria-live="polite" style={{ marginLeft: "auto" }}>
-          {stale ? <Badge tone="info">atualizando…</Badge> : null}
-        </span>
-      </header>
-
-      <div
-        ref={body}
-        style={{
-          flex: 1,
+          flexDirection: "column",
+          height: "100%",
           minHeight: 0,
-          overflowY: "auto",
-          padding: "var(--space-5)",
-          fontFamily: "var(--font-ui)",
-          fontSize: "var(--text-body)",
-          color: "var(--text-primary)",
-          // Enquanto o valor está desatualizado, o conteúdo esmaece em vez de sumir: uma tela em
-          // branco a cada tecla seria pior do que uma tela um instante atrasada.
-          opacity: stale ? 0.6 : 1,
-          transition: "opacity var(--motion-fast) var(--ease-standard)",
+          background: "var(--surface)",
         }}
       >
-        {empty ? (
-          <p style={{ color: "var(--text-secondary)" }}>
-            O preview aparece aqui conforme você escreve o enunciado.
-          </p>
-        ) : (
-          <>
-            <PreviewBlocks
-              blocks={model.statement}
-              active={cursor?.field === "statement" ? active : null}
-              {...(onPick
-                ? { onPick: (range: SourceRange) => onPick("statement", range.from) }
-                : {})}
-            />
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-2)",
+            padding: "var(--space-2) var(--space-4)",
+            borderBottom: "1px solid var(--border-default)",
+            color: "var(--text-secondary)",
+            fontSize: "var(--text-micro)",
+          }}
+        >
+          {/* O aviso da §11 é permanente, e é permanente de propósito: o HTML não é fonte de
+            verdade para compatibilidade de LaTeX, e quem confiar nele vai se surpreender no PDF. */}
+          <span>{PREVIEW_DISCLAIMER}</span>
+          {/* `aria-live` para quem não vê o selo: a informação é que o que está na tela ainda não
+            reflete a última tecla. Sem isso, o preview parece simplesmente errado. */}
+          <span aria-live="polite" style={{ marginLeft: "auto" }}>
+            {stale ? <Badge tone="info">atualizando…</Badge> : null}
+          </span>
+        </header>
 
-            {model.options.length > 0 && (
-              <ol
-                style={{
-                  listStyle: "none",
-                  margin: "var(--space-4) 0 0",
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-2)",
-                }}
-              >
-                {model.options.map((option) => (
-                  <li key={option.letter} style={{ display: "flex", gap: "var(--space-2)" }}>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        color: option.isCorrect ? "var(--ok)" : "var(--text-secondary)",
-                        fontWeight: option.isCorrect
-                          ? "var(--weight-medium)"
-                          : "var(--weight-regular)",
-                      }}
-                    >
-                      {option.letter})
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <PreviewBlocks blocks={option.blocks} />
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
+        <div
+          ref={body}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            padding: "var(--space-5)",
+            fontFamily: "var(--font-ui)",
+            fontSize: "var(--text-body)",
+            color: "var(--text-primary)",
+            // Enquanto o valor está desatualizado, o conteúdo esmaece em vez de sumir: uma tela em
+            // branco a cada tecla seria pior do que uma tela um instante atrasada.
+            opacity: stale ? 0.6 : 1,
+            transition: "opacity var(--motion-fast) var(--ease-standard)",
+          }}
+        >
+          {empty ? (
+            <p style={{ color: "var(--text-secondary)" }}>
+              O preview aparece aqui conforme você escreve o enunciado.
+            </p>
+          ) : (
+            <>
+              <PreviewBlocks
+                blocks={model.statement}
+                active={cursor?.field === "statement" ? active : null}
+                {...(onPick
+                  ? { onPick: (range: SourceRange) => onPick("statement", range.from) }
+                  : {})}
+              />
 
-            <Section
-              title={QUESTION_FIELD_LABELS.solutionLatex}
-              blocks={model.solution}
-              active={cursor?.field === "solution" ? active : null}
-              {...(onPick
-                ? { onPick: (range: SourceRange) => onPick("solution", range.from) }
-                : {})}
-            />
-            <Section
-              title={QUESTION_FIELD_LABELS.complementLatex}
-              blocks={model.complement}
-              active={cursor?.field === "complement" ? active : null}
-              {...(onPick
-                ? { onPick: (range: SourceRange) => onPick("complement", range.from) }
-                : {})}
-            />
-          </>
-        )}
-      </div>
-    </section>
+              {model.options.length > 0 && (
+                <ol
+                  style={{
+                    listStyle: "none",
+                    margin: "var(--space-4) 0 0",
+                    padding: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--space-2)",
+                  }}
+                >
+                  {model.options.map((option) => (
+                    <li key={option.letter} style={{ display: "flex", gap: "var(--space-2)" }}>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          color: option.isCorrect ? "var(--ok)" : "var(--text-secondary)",
+                          fontWeight: option.isCorrect
+                            ? "var(--weight-medium)"
+                            : "var(--weight-regular)",
+                        }}
+                      >
+                        {option.letter})
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <PreviewBlocks blocks={option.blocks} />
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+
+              <Section
+                title={QUESTION_FIELD_LABELS.solutionLatex}
+                blocks={model.solution}
+                active={cursor?.field === "solution" ? active : null}
+                {...(onPick
+                  ? { onPick: (range: SourceRange) => onPick("solution", range.from) }
+                  : {})}
+              />
+              <Section
+                title={QUESTION_FIELD_LABELS.answerLatex}
+                blocks={model.answer}
+                active={cursor?.field === "answer" ? active : null}
+                {...(onPick
+                  ? { onPick: (range: SourceRange) => onPick("answer", range.from) }
+                  : {})}
+              />
+              <Section
+                title={QUESTION_FIELD_LABELS.complementLatex}
+                blocks={model.complement}
+                active={cursor?.field === "complement" ? active : null}
+                {...(onPick
+                  ? { onPick: (range: SourceRange) => onPick("complement", range.from) }
+                  : {})}
+              />
+            </>
+          )}
+        </div>
+      </section>
+    </FigureSourceContext.Provider>
   );
 }
 

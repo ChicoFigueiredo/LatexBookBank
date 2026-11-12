@@ -167,6 +167,9 @@ export async function PATCH(
           ...(parseLatex(body["solutionLatex"], "solutionLatex") !== undefined
             ? { solutionLatex: parseLatex(body["solutionLatex"], "solutionLatex") as string }
             : {}),
+          ...(parseLatex(body["answerLatex"], "answerLatex") !== undefined
+            ? { answerLatex: parseLatex(body["answerLatex"], "answerLatex") as string }
+            : {}),
           ...(parseLatex(body["complementLatex"], "complementLatex") !== undefined
             ? { complementLatex: parseLatex(body["complementLatex"], "complementLatex") as string }
             : {}),

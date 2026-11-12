@@ -1519,6 +1519,188 @@ descartava como pedaço de palavra. Foram 73 das 159 subseções do volume.
   aprovação, para o corpo continuar *a revisar*. Idempotente. Ensaiado numa cópia do acervo; no
   acervo, quem roda é o autor.
 
+#### D77 — A Resposta da questão, e os gabaritos do livro que a preenchem
+
+Decidido com o autor em 2026-11-11, ao pedir o livro inteiro em LaTeX. O *Fundamentos* imprime
+dois gabaritos — o dos exercícios (p. 278–320 no vol. 1) e o dos vestibulares (p. 412–420) — que
+o scan pulava desde a ADR 0009.
+
+- **A questão ganha a Resposta** (`answerLatex`): o resultado final, sem o caminho ("círculo de
+  centro 0 e raio 2r", "F, V, V, V e F"). Não é o gabarito, que é das alternativas, nem a
+  resolução, que é o caminho (CONTEXT.md). Aba própria no editor, seção no preview, e o gabarito
+  da avaliação a mostra na questão sem alternativas. Coluna nova com `ALTER TABLE ADD COLUMN`.
+- **A zona de gabarito diz de quem são as respostas** (`answersTo`: exercícios ou questões), e o
+  perfil diz onde uma resposta começa e o que a fecha. Cada "135." vira um item `ANSWER`, com
+  texto, regiões, matemática e figuras como qualquer outro.
+- **A aprovação leva a resposta à questão do mesmo número desta execução.** A letra sozinha
+  ("36. d") marca a alternativa; o resto — soma, V/F, aberta, discursiva — vai à Resposta, com as
+  figuras. Questão de outra importação não recebe: apagar esta importação não desfaria.
+- **As colunas da página de respostas vêm das respostas.** A detecção genérica pede linhas dos dois
+  lados, e a coluna de gráficos tem quatro ou cinco: a calha é o começo de resposta que nenhuma
+  linha atravessa. Várias respostas na mesma linha ("90. a  91. a  92. b") viram uma linha cada.
+- `scan-engine@4`. No vol. 1: 450 respostas de exercícios e 360 de vestibulares, todas com alvo;
+  o que falta o livro não imprime.
+- **No PDF da questão**, a Resposta sai em todo tipo, só na saída de professor, depois da
+  Resolução. A Resolução da discursiva saía com o rótulo "Resposta." e passa a sair "Resolução.":
+  com os dois campos, eram dois blocos "Resposta".
+- **No gabarito da avaliação**, a Resposta só aparece na questão sem alternativas; havendo alguma,
+  a tabela ganha coluna de parágrafo. A versão do professor da avaliação ainda não a mostra.
+- O `.lbb` v3 sem o campo abre com `""` — a versão do formato não sobe. O snapshot de revisão da
+  questão passa à v3, e o snapshot antigo restaura a Resposta vazia.
+
+#### D78 — A recaptura do Fundamentos vol. 1, e o perfil que serve de base para outros
+
+Decidido com o autor em 2026-11-11: apagar a importação do vol. 1 e capturá-lo do zero, em lotes
+de páginas, conferindo cada lote contra o PDF — e deixar o `book-fme-v1` pronto para ser clonado
+para outros livros. O que a conferência mostrou virou regra:
+
+- **Cobertura, linha a linha.** A medida que importa é a linha do PDF que não cai em item nenhum.
+  Ela pegou o que as contagens não mostravam: a Apresentação (capítulo sem número), os dois
+  APÊNDICES (capítulo com o rótulo do livro e sem número), o apêndice do cap. III e as seis
+  LEITURAS (seção sem número — a LEITURA entrava no enunciado do último exercício), o título de
+  seção em duas linhas, e a lista de siglas (zona em colunas, uma nota por sigla). A contracapa
+  fica de fora. No vol. 1, sobram fora só folha de rosto, créditos e títulos de grupo das respostas.
+- **A letra desenhada não é figura.** O livro desenha ∧ e ∨ como traço; o motor os agrupava em
+  "figuras" com pedaços do enunciado dentro. Traço do tamanho de uma letra — e chave, colchete
+  ou barra de até 2,5 corpos —, sobre uma linha de texto, sai antes de agrupar.
+- **O desenho vale só dentro do recorte.** O Venn da p. 44 desenha os círculos maiores que a
+  figura e os corta com um *clip*; a caixa sem o recorte subia três exercícios, que iam no
+  arquivo da figura e sumiam do reconhecimento. O leitor acompanha o recorte em vigor, e o
+  caminho que não se pinta (`endPath`) não é desenho.
+- **A tabela na moldura é `tabular`.** Quando o que a figura engole — ou o que está dentro de uma
+  moldura de dois traços — forma uma grade, a figura é tabela: o reconhecimento dá a forma e o
+  cabeçalho que a camada de texto não lê, e a camada de texto dá as células, que o modelo troca
+  (um V por F na p. 17). Se as grades não batem, fica a imagem. No vol. 1: 42 tabelas.
+- **O recorte do texto não leva as figuras.** Elas saem em branco do recorte que vai ao
+  reconhecimento; senão, a tabela saía duas vezes e o gráfico deixava os rótulos como texto.
+- **O reconhecimento vai em pedaços de poucas linhas** (até ~100 pt, cortados só no espaço de
+  sobra entre linhas). O `gemma3:12b` errava "3/2 = 6/4" e "4 ≤ 3" num recorte de página, a 200,
+  300 e 400 dpi, e acertava num de três linhas. Era o único modelo de visão do Ollama local: o
+  `gemma4` devolveu vazio, o `qwen3.5` não aceita imagem.
+- **Cada pedaço é conferido contra a camada de texto**, por número, V/F e palavras: o modelo
+  inventou uma tabela-verdade que o livro não tem (p. 18), escreveu uma página sobre "Aplicações
+  da Integral Definida" no lugar de uma LEITURA (p. 46), trocou a pergunta do exercício 51. O
+  pedaço que diverge vai de novo em metades; se ainda diverge, fica o texto da camada do PDF —
+  sem o símbolo que ela não lê, mas sem inventar. Na página escaneada, o modelo é a única leitura.
+- **O item cujo reconhecimento difere do PDF em números ou V/F fica *suspeito*** com o porquê
+  ("falta 4; sobra —"). O expoente perdido ("3⁴" virou "34") não é pego: os dígitos são os mesmos.
+- **A máscara devolve a linha que só encosta na figura**: a linha cujo meio está fora dela é do
+  texto, e não rótulo.
+- **Compilar nó sem corpo é 422**, e não erro interno.
+- **A figura é de quem começou antes dela, ou de quem começa ao lado** (`scan-engine@5`). Ia
+  para quem começava logo abaixo: o diagrama da resposta 21 caía na 22, os gráficos do exercício
+  144 na seção seguinte. Fica com o de baixo só a figura ao lado da primeira linha dele (o gráfico
+  à direita do "80.") e a arte acima do título do capítulo. 81 das 696 figuras mudaram de dono,
+  conferidas página a página.
+- **O fundo atrás do texto não é figura.** O retângulo com quatro parágrafos dentro, que não é
+  grade, sai antes de agrupar: o rosa da LEITURA da p. 211 e o cinza da solução da p. 111
+  viravam figura de meia página, e a máscara apagava o texto — sem a conferência perceber,
+  porque a camada de texto ficava atrás da mesma máscara.
+- **O negrito em Markdown do modelo** (`**função constante**`) vira `\textbf` na aprovação, e o
+  título do item de teoria guarda fração, letra grega e grau ("x = -b/a", e não "x = -ba").
+- **O NUL da fonte** (o "<" do vol. 1) vira um caractere da área privada (`scan-engine@6`): o
+  banco cortava o texto do item nele — 39 linhas em 12 páginas paravam no meio.
+- **A conferência afinada.** O nome do ambiente não é palavra (seis `\begin{cases}` eram seis
+  "cases" a mais, e o sistema do exercício 174 virava a camada embaralhada); onde a camada só tem
+  rótulos, o modelo pode trazer no máximo seis palavras a mais (a área do trapézio inventada no
+  exercício 142); e o pedaço que segue discordando fica com o modelo quando a camada tem buraco
+  no lugar do símbolo e as palavras batem — a divergência é de número, e o item fica suspeito.
+- **Compilar o livro inteiro, documento a documento**, é a última conferência: 83 de 1.120
+  falhavam. 71 eram a conta que o modelo escreve sem delimitador e o "R$" sem escape — na
+  aprovação, o parágrafo só de conta vai para `\[ \]` e o "R$" vira "R\$" —, e 9 eram √, ⋅, ⊥ e
+  letras gregas soltos no texto, que agora vão à matemática.
+- **Cada varredura recorta as figuras de novo**: o vol. 1 acumulou 16 mil assets. Sem índice em
+  `source_anchors.cropAssetId` e `assets.questionId`, a busca das figuras de uma questão varria
+  todas as âncoras para cada asset, e compilar uma questão levava 3,7 min — o worker, 155 ms. Com
+  os índices, 91 ms. A coleta dos recortes de execuções apagadas fica como dívida.
+- **Na recaptura, a correção do dono da figura refez a aprovação sem refazer o reconhecimento**
+  (horas de modelo local): a importação foi apagada e varrida de novo, e um script de trabalho,
+  fora do produto, devolveu a cada item o reconhecimento da execução anterior pela mesma chave e
+  o mesmo texto. Só os itens cujo recorte mudou foram de novo ao modelo.
+- **O perfil de referência**: `scan:clone-profile` deriva um perfil novo do `book-fme-v1` (id,
+  rótulo, versão 1, registro), e `scan:measure` mede um perfil contra um PDF sem banco nem modelo
+  — zonas, itens, respostas, tabelas e as linhas fora de qualquer item. O guia é
+  `docs/_atual/perfil-de-captura.md`.
+
+#### D79 — O preview rápido mostra a figura, em PNG
+
+Pedido do autor em 2026-11-11: no preview rápido, a figura do `\includegraphics` era só a moldura
+com o nome ("figura: figura-p410-4cba19e1.pdf"). Agora ela aparece:
+
+- **Pelo nome citado.** O nome que `assetLatexName` escreve carrega o começo do sha256; a rota
+  `GET /api/publications/:id/figures/:name` acha o asset no workspace da publicação, confere o
+  nome inteiro (a mesma regra de `citedAssets` na compilação) e devolve a imagem.
+- **Em PNG.** O recorte do scan é PDF — vetorial, para o LaTeX —, e `<img>` não abre PDF: a
+  primeira página vira PNG a 200 dpi, pelo mesmo leitor pdf.js do scan. PNG e JPEG vão como
+  estão; SVG não, porque aberto como documento executaria script (#257).
+- **Com cache imutável.** O nome muda quando o conteúdo muda, então o navegador guarda a imagem
+  para sempre (`private, immutable`), e o servidor guarda as últimas 256.
+- **Sem HTML injetado.** É `<img>` com endereço do próprio app, num fundo de papel
+  (`--surface-paper`) — o recorte é transparente e sumiria no tema escuro. Sem endereço, ou se a
+  imagem não vem, fica a moldura com o nome.
+- O posicionamento do ambiente (`\begin{figure}[H]`) deixou de aparecer como texto.
+
+#### D80 — Os outros dez volumes do Fundamentos, e o que eles ensinaram ao motor
+
+Em 2026-11-11 os vols. 2 a 11 passaram pelo perfil do vol. 1 (`book-fme-v1`, agora versão 2), um
+volume por vez no modelo local, com inspeção por amostragem a cada entrega. O que a inspeção e a
+compilação acharam virou regra do motor ou da compilação, e não conserto de volume:
+
+- **O perfil, versão 2.** A resposta com o número colado ("145.a) 3") também abre; a zona de
+  respostas começa na página do título grande, sem o cabeçalho corrente (vol. 11); e o título
+  "Significado das siglas de vestibulares" é casado inteiro — com `startsWith`, a linha do
+  sumário abria a zona, e o livro inteiro virava siglas (a aceitação do corpus pegou).
+- **`scan-engine@7`**: o ASCII que a fonte MathematicalPi entrega no lugar do símbolo ("5" no
+  lugar de "=") vira símbolo ilegível, e o item vai ao modelo. Nos vols. 3 a 8 e 10, milhares de
+  contas saíam trocadas, e o vol. 7 aprovado foi apagado e refeito.
+- **`scan-engine@8`**: o expoente e a fração em fonte de texto — corpo até 85% do da linha, fora
+  da linha de base — contam como matemática. No gabarito do vol. 5, "5¹⁰" saía "510".
+- **`scan-engine@9`**: o recorte do item fecha antes do vizinho na mesma altura. Na grade de
+  exercícios (vol. 8, p. 137) e na linha com duas respostas (vol. 6, p. 214), o recorte da coluna
+  inteira levava os dois itens ao modelo: 68 itens do vol. 6 e 58 do vol. 8.
+- **`scan-engine@10`**: a fração no corpo do texto com a barra desenhada — "L/2" na fonte e no
+  corpo do texto, um acima e outro abaixo de um traço — manda o item ao modelo. A camada lia
+  "L 2" (vol. 4, questão 73); no vol. 9, 175 itens a mais vão ao modelo.
+- **A conferência: o nome do operador não é palavra.** A camada lê "lim" — e "xlim", com a
+  variável de baixo colada —, "sen", "cos", "log"; o `\lim` e o `\sen` do modelo não viram texto.
+  A leitura certa era recusada e ficava a camada embaralhada: 64 itens do vol. 3 (trigonometria),
+  85 do vol. 8 (limites), 54 do vol. 2 (logaritmos).
+- **O preâmbulo declara o que o acervo traz cru**: os operadores da notação brasileira (`\sen`,
+  `\tg`, `\cotg`…, que o modelo escreve como o livro imprime) e os caracteres Unicode que o
+  pdflatex não conhece (a seta ➞ dos limites, ∆, ∫, ∑, ⩾…). Vale para o que já foi aprovado:
+  o vol. 8 passou de 604 para 669 de 682 documentos compilando sem aprovar de novo.
+- **A aprovação conserta mais LaTeX do modelo**: a palavra acentuada e o º dentro da conta, o
+  circunflexo combinado do ângulo, `\choose`, o `#` solto, a matriz solta e a linha de conta solta
+  num parágrafo misto. O texto da camada leva índice e expoente em Unicode ("log₃") à matemática.
+- **Refazer sem pagar o modelo de novo.** Um volume refeito devolve a cada item o reconhecimento
+  da execução anterior — mesma chave, mesmo texto e **mesmo recorte**: o que o motor novo recorta
+  diferente é o que o modelo leu diferente, e vai de novo a ele.
+- **A conferência corta a resolução que o modelo inventa**: "Obtenha a equação da reta…" saía com
+  a resolução embaixo (vol. 1, 181–184), ou com alternativas a) a e) num exercício aberto. A cauda
+  sem palavra, com número que a camada não tem, sai — no reconhecimento e na aprovação.
+- **Perfil `book-fme-v1@3`**: a zona de vestibulares é lida em colunas quando a maioria das
+  páginas dela não tem linha larga. Só o vol. 9 é assim (73 de 75 páginas); lida como uma coluna,
+  misturava as duas, e 58% das questões dele saíam graves. Refeito, ganhou 18 questões.
+- **A aprovação**: o ângulo com circunflexo da geometria ("$\widehat{BÂM}$", "\hat{B}" solto) e o
+  número que o modelo escreve dentro da conta da resposta ("$423.\frac{45}{4}$").
+- **A árvore de um livro com mais de 999 questões** abria com 500 (limite de parâmetros do
+  libSQL): as questões vêm em pedaços.
+
+**A revisão por agentes (12/11).** Cada questão dos 11 volumes — cerca de 9.500 — foi comparada
+com o recorte do PDF: o Haiku lê e o Sonnet confere o que foi marcado grave (cerca de 100 M de
+tokens). A amostra de 15 por volume escondia o tamanho do problema: 16% a 49% das questões tinham
+defeito que muda o sentido (fração e expoente achatados, sinal e relação trocados, rótulos de figura
+no enunciado, resolução inventada, vizinho junto). As correções verificadas foram aplicadas pela
+API — backup do banco antes, cada questão compilada e desfeita se não compilasse, antes e depois
+num diário —: cerca de 2.900 questões. Numa nova revisão de amostras das corrigidas, 75% a 80%
+saíram fiéis e 10% a 20% ainda graves (alternativa que faltava, correção parcial). As correções que
+os agentes escreveram como instrução ("enunciado: …", "trocar … por …") foram achadas e desfeitas.
+
+- **Limites conhecidos**, sem regra ainda: o intervalo "]a; b[" às vezes volta do modelo como
+  "[a; b]"; os rótulos das figuras de geometria entram no enunciado; o modelo perde o sinal de
+  menos da fração do gabarito e o radical ("5 3 cm"); em algumas páginas o recorte do app falha no
+  canvas nativo ("Value is none of these types String, Path") e o item fica com a camada.
+
 ---
 
 ## 4. Arquitetura

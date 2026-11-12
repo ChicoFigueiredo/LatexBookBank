@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
+
 import type {
   DeletedNodeRecord,
   PlannedNode,
@@ -14,6 +16,38 @@ import { insertNode } from "@modules/document-tree/infrastructure/prisma-node-wr
 import { isAnchorRole } from "@modules/assets/domain/node-anchors";
 import { prisma } from "@infrastructure/database/sqlite/client";
 import { inChunks } from "@infrastructure/database/sqlite/in-chunks";
+
+/** O que a árvore mostra de cada questão — a mesma seleção, em pedaços de `inChunks`. */
+const QUESTION_SELECT = {
+  id: true,
+  type: true,
+  updatedAt: true,
+  statementLatex: true,
+  solutionLatex: true,
+  answerLatex: true,
+  complementLatex: true,
+  difficulty: true,
+  board: true,
+  year: true,
+  validationStatus: true,
+  status: true,
+  sourceAnchor: { select: { extractionMethod: true } },
+  // Só o **último** job, e só o estado: a árvore quer saber se o render quebrou, não
+  // quantas vezes. Trazer a lista faria a abertura da publicação pagar pelo histórico
+  // de compilação de cada questão.
+  renderJobs: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    select: { state: true },
+  },
+  options: {
+    orderBy: { sortKey: "asc" },
+    select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },
+  },
+  // Só o nome: é o que a árvore desenha e filtra. Trazer o id obrigaria a uma segunda
+  // consulta para descobrir o que mostrar.
+  tags: { select: { tag: { select: { name: true } } } },
+} satisfies Prisma.QuestionSelect;
 
 /**
  * Implementação Prisma de `DocumentTreeRepository`.
@@ -38,39 +72,23 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         originalLabel: true,
         // A âncora principal do nó: com a última revisão, responde se o corpo é *a revisar*.
         sourceAnchor: { select: { extractionMethod: true } },
-        question: {
-          select: {
-            id: true,
-            type: true,
-            updatedAt: true,
-            statementLatex: true,
-            solutionLatex: true,
-            complementLatex: true,
-            difficulty: true,
-            board: true,
-            year: true,
-            validationStatus: true,
-            status: true,
-            sourceAnchor: { select: { extractionMethod: true } },
-            // Só o **último** job, e só o estado: a árvore quer saber se o render quebrou, não
-            // quantas vezes. Trazer a lista faria a abertura da publicação pagar pelo histórico
-            // de compilação de cada questão.
-            renderJobs: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
-              select: { state: true },
-            },
-            options: {
-              orderBy: { sortKey: "asc" },
-              select: { id: true, sortKey: true, statementLatex: true, isCorrect: true },
-            },
-            // Só o nome: é o que a árvore desenha e filtra. Trazer o id obrigaria a uma segunda
-            // consulta para descobrir o que mostrar.
-            tags: { select: { tag: { select: { name: true } } } },
-          },
-        },
+        // A questão vem à parte, em pedaços: numa consulta só, a relação levava um parâmetro por
+        // questão, e o livro com mais de 999 (o vol. 9 do Fundamentos tem 1.366) dava 500.
+        questionId: true,
       },
     });
+    const questions = new Map<
+      string,
+      Prisma.QuestionGetPayload<{ select: typeof QUESTION_SELECT }>
+    >();
+    const questionIds = rows.flatMap((row) => (row.questionId === null ? [] : [row.questionId]));
+    for (const ids of inChunks(questionIds)) {
+      for (const question of await prisma.question.findMany({
+        where: { id: { in: ids } },
+        select: QUESTION_SELECT,
+      }))
+        questions.set(question.id, question);
+    }
 
     /*
       O corpo *a revisar* (#252) precisa de dois fatos que a linha do nó não traz: se o corpo tem
@@ -112,7 +130,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
         sortKey: row.sortKey,
         numberingStyle: row.numberingStyle,
         originalLabel: row.originalLabel,
-        question: row.question,
+        question: row.questionId === null ? null : (questions.get(row.questionId) ?? null),
         body: withBody.has(row.id)
           ? {
               hasBody: true,
@@ -299,6 +317,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
                 nickname: true,
                 statementLatex: true,
                 solutionLatex: true,
+                answerLatex: true,
                 complementLatex: true,
                 originalLatex: true,
                 difficulty: true,
@@ -347,6 +366,7 @@ export class PrismaDocumentTreeRepository implements DocumentTreeRepository, Doc
                   nickname: question.nickname,
                   statementLatex: question.statementLatex,
                   solutionLatex: question.solutionLatex,
+                  answerLatex: question.answerLatex,
                   complementLatex: question.complementLatex,
                   originalLatex: question.originalLatex,
                   difficulty: question.difficulty,

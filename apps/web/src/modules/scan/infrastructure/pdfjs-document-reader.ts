@@ -183,6 +183,7 @@ export class PdfjsDocumentReader implements PdfDocumentOpener {
       pageNumber: number,
       box: NormalizedBox,
       dpi: number,
+      masks: readonly NormalizedBox[] = [],
     ): Promise<Uint8Array> => {
       const page = await doc.getPage(pageNumber);
       const scale = dpi / 72;
@@ -207,6 +208,12 @@ export class PdfjsDocumentReader implements PdfDocumentOpener {
       }).promise;
       page.cleanup();
 
+      // As figuras que são itens próprios: em branco, para o modelo não as transcrever como texto.
+      context.fillStyle = "#ffffff";
+      for (const mask of masks) {
+        context.fillRect(mask.x * full.width - x, mask.y * full.height - y, mask.width * full.width, mask.height * full.height);
+      }
+
       return new Uint8Array(await canvas.encode("png"));
     };
 
@@ -229,18 +236,28 @@ function collectGraphics(
   const { OPS } = pdfjs;
   const images: Graphic[] = [];
   const drawings: Graphic[] = [];
-  const stack: Matrix[] = [];
+  /*
+    O recorte em vigor, junto da matriz: o que se pinta só aparece dentro dele (D78).
+
+    O diagrama de Venn da p. 44 do Fundamentos vol. 1 desenha os círculos maiores que a figura e
+    os corta com um recorte de 130 × 109; a caixa do círculo pintado, sem o recorte, subia até o
+    exercício 51 — e a figura levava três exercícios de texto no arquivo e na máscara.
+  */
+  type Box = { x0: number; y0: number; x1: number; y1: number };
+  const stack: { ctm: Matrix; clip: Box }[] = [];
   let ctm: Matrix = IDENTITY;
+  let clip: Box = { x0: 0, y0: 0, x1: pageWidth, y1: pageHeight };
+  let clipping = false;
   const pageArea = pageWidth * pageHeight;
 
   const push = (kind: Graphic["kind"], x0: number, y0: number, x1: number, y1: number) => {
     if (![x0, y0, x1, y1].every(Number.isFinite)) return;
     const box = applyToBox(multiply(base, ctm), x0, y0, x1, y1);
     const clipped = {
-      x0: Math.max(0, box.x0),
-      y0: Math.max(0, box.y0),
-      x1: Math.min(pageWidth, box.x1),
-      y1: Math.min(pageHeight, box.y1),
+      x0: Math.max(clip.x0, box.x0),
+      y0: Math.max(clip.y0, box.y0),
+      x1: Math.min(clip.x1, box.x1),
+      y1: Math.min(clip.y1, box.y1),
     };
     if (clipped.x1 < clipped.x0 || clipped.y1 < clipped.y0) return;
     const area = (clipped.x1 - clipped.x0) * (clipped.y1 - clipped.y0);
@@ -254,34 +271,48 @@ function collectGraphics(
 
     switch (fn) {
       case OPS.save:
-        stack.push(ctm);
+        stack.push({ ctm, clip });
         break;
-      case OPS.restore:
-        ctm = stack.pop() ?? IDENTITY;
+      case OPS.restore: {
+        const saved = stack.pop();
+        ctm = saved?.ctm ?? IDENTITY;
+        clip = saved?.clip ?? { x0: 0, y0: 0, x1: pageWidth, y1: pageHeight };
+        break;
+      }
+      case OPS.clip:
+      case OPS.eoClip:
+        // O caminho que vem a seguir é o recorte, e não um desenho.
+        clipping = true;
         break;
       case OPS.transform:
         ctm = multiply(ctm, args as number[]);
         break;
       case OPS.paintFormXObjectBegin: {
-        stack.push(ctm);
+        stack.push({ ctm, clip });
         const matrix = args[0];
         if (Array.isArray(matrix) || ArrayBuffer.isView(matrix)) {
           ctm = multiply(ctm, Array.from(matrix as ArrayLike<number>));
         }
         break;
       }
-      case OPS.paintFormXObjectEnd:
-        ctm = stack.pop() ?? IDENTITY;
+      case OPS.paintFormXObjectEnd: {
+        const saved = stack.pop();
+        ctm = saved?.ctm ?? IDENTITY;
+        clip = saved?.clip ?? clip;
         break;
+      }
       case OPS.beginGroup: {
-        stack.push(ctm);
+        stack.push({ ctm, clip });
         const group = args[0] as { matrix?: number[] } | undefined;
         if (group?.matrix) ctm = multiply(ctm, group.matrix);
         break;
       }
-      case OPS.endGroup:
-        ctm = stack.pop() ?? IDENTITY;
+      case OPS.endGroup: {
+        const saved = stack.pop();
+        ctm = saved?.ctm ?? IDENTITY;
+        clip = saved?.clip ?? clip;
         break;
+      }
       case OPS.paintImageXObject:
       case OPS.paintInlineImageXObject:
       case OPS.paintImageMaskXObject:
@@ -293,9 +324,19 @@ function collectGraphics(
         break;
       case OPS.constructPath: {
         const minMax = args[2] as ArrayLike<number> | null | undefined;
+        // No pdf.js 5 a pintura vem no próprio caminho: `endPath` é caminho que não se pinta.
+        const painted = args[0] !== OPS.endPath;
         if (minMax && minMax.length >= 4) {
-          push("drawing", minMax[0] ?? NaN, minMax[1] ?? NaN, minMax[2] ?? NaN, minMax[3] ?? NaN);
+          if (clipping) {
+            const box = applyToBox(multiply(base, ctm), minMax[0] ?? NaN, minMax[1] ?? NaN, minMax[2] ?? NaN, minMax[3] ?? NaN);
+            if ([box.x0, box.y0, box.x1, box.y1].every(Number.isFinite)) {
+              clip = { x0: Math.max(clip.x0, box.x0), y0: Math.max(clip.y0, box.y0), x1: Math.min(clip.x1, box.x1), y1: Math.min(clip.y1, box.y1) };
+            }
+          } else if (painted) {
+            push("drawing", minMax[0] ?? NaN, minMax[1] ?? NaN, minMax[2] ?? NaN, minMax[3] ?? NaN);
+          }
         }
+        clipping = false;
         break;
       }
       default:

@@ -16,6 +16,7 @@ export interface StoredQuestion {
   readonly type: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  readonly answerLatex: string;
   readonly options: readonly {
     readonly id: string;
     readonly statementLatex: string;
@@ -47,6 +48,7 @@ export function assessmentContentOf(
     questionId: question.id,
     statementLatex: question.statementLatex,
     solutionLatex: question.solutionLatex,
+    answerLatex: question.answerLatex,
     supported: plugin !== null,
     hasOptions: plugin?.options != null,
     options: Object.fromEntries(options.map((option) => [option.id, option.statementLatex])),

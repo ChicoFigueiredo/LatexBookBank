@@ -32,6 +32,8 @@ export interface ApprovalSummary {
   readonly bodyAppends: number;
   /** Texto que entrou no enunciado de uma questão — a figura do exercício (#246). */
   readonly statementAppends: number;
+  /** Respostas do livro que entraram nas questões (D77): a alternativa marcada, ou a Resposta. */
+  readonly answers: number;
   readonly anchors: number;
   readonly alreadyInCollection: number;
   readonly materializedItems: number;
@@ -119,7 +121,7 @@ export async function approveScan(
 
   const summary =
     plan.steps.length === 0
-      ? { createdNodes: 0, createdQuestions: 0, reusedNodes: 0, bodyAppends: 0, statementAppends: 0, anchors: 0, alreadyInCollection: 0, materializedItems: 0 }
+      ? { createdNodes: 0, createdQuestions: 0, reusedNodes: 0, bodyAppends: 0, statementAppends: 0, answers: 0, anchors: 0, alreadyInCollection: 0, materializedItems: 0 }
       : await deps.writer.execute({ run, profile, plan, items, now: deps.now?.() ?? new Date() });
 
   return { summary, skipped: plan.skipped };

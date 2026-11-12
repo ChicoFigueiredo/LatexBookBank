@@ -89,6 +89,8 @@ import {
 } from "@modules/workspaces/domain/library";
 import { QuestionOutOfScopeError } from "@/shared/authorization/question-out-of-scope";
 import { PayloadTooLargeError } from "@/shared/http/read-capped-body";
+import { InvalidBundleError } from "@latexbookbank/render-contract";
+
 import { logger } from "@/shared/observability/logger";
 import {
   AiCredentialMissingError,
@@ -290,6 +292,8 @@ const rules = (): readonly ErrorRule[] =>
 
     // Render: 503 e não 500 quando o worker não respondeu — é indisponibilidade, e o texto está salvo.
     on(RendererUnavailableError, 503, "renderer_unavailable"),
+    // O nó sem corpo não tem o que compilar — e isso é do pedido, não do servidor.
+    on(InvalidBundleError, 422, "nothing_to_render"),
     on(RendererNotConfiguredError, 503, "renderer_not_configured"),
     on(RenderArtifactNotFoundError, 404, "not_found"),
 

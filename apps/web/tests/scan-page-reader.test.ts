@@ -15,9 +15,7 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
  */
 
 const fixture = (name: string) =>
-  new Uint8Array(
-    readFileSync(fileURLToPath(new URL(`./fixtures/scan/${name}`, import.meta.url))),
-  );
+  new Uint8Array(readFileSync(fileURLToPath(new URL(`./fixtures/scan/${name}`, import.meta.url))));
 
 const reader = new PdfjsDocumentReader();
 const opened: OpenedPdf[] = [];
@@ -104,5 +102,130 @@ describe("renderizar um trecho", () => {
     expect([...png.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
     const view = new DataView(png.buffer, png.byteOffset);
     expect(view.getUint32(16)).toBe(Math.ceil(0.5 * 595.276));
+  });
+});
+
+/**
+ * O "<" que a fonte do *Fundamentos* entrega como NUL (vol. 1, p. 272: "g(x) < 0" sai como
+ * "g(x) \0 0"). O banco corta o texto no NUL, e o item da p. 272 guardava só até "g(x) ": a letra
+ * da resposta, o texto do item sem reconhecimento e a conferência liam metade.
+ */
+describe("o caractere NUL da fonte", () => {
+  it("vira o símbolo ilegível da área privada, e o resto da linha fica", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        {
+          text: "g(x) \u0000 0 e f(x) \u0004 0",
+          x0: 50,
+          x1: 200,
+          baseline: 100,
+          size: 10,
+          fontName: "Times-Roman",
+          endsLine: true,
+        },
+      ],
+      graphics: [],
+    });
+    const text = page.lines[0]?.text ?? "";
+    expect(text).not.toContain("\u0000");
+    expect(text).toBe("g(x)  0 e f(x) \u0004 0");
+  });
+});
+
+/**
+ * A fonte de símbolos que entrega o glifo com o código de um dígito: no vol. 7 do Fundamentos, a
+ * MathematicalPi-One dava "=" como "5", "−" como "2" e "+" como "1" — "P(t) = 2(1 − t) + 8t" saía
+ * "P(t) 5 2(1 2 t) 1 8t". O texto parecia legível, o item não ia ao modelo, e ia ao acervo assim.
+ */
+describe("a fonte MathematicalPi", () => {
+  const span = (text: string, fontName: string, x0: number) => ({
+    text,
+    x0,
+    x1: x0 + 6,
+    baseline: 100,
+    size: 9,
+    fontName,
+    endsLine: false,
+  });
+
+  it("o que ela entrega como letra ou dígito é símbolo ilegível; o resto da linha fica", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("P(t)", "VISXLK+FranklinGothic-Book", 50),
+        span("5", "WISXLK+MathematicalPi-One", 60),
+        { ...span("2(1", "VISXLK+FranklinGothic-Book", 70), endsLine: true },
+      ],
+      graphics: [],
+    });
+    expect(page.lines[0]?.text).toBe("P(t)  2(1");
+  });
+
+  it("o símbolo que ela já entrega em Unicode fica, e a fonte Symbol não é tocada", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("x", "Times-Roman", 50),
+        span("∈", "WISXLK+MathematicalPi-One", 60),
+        span("(", "Symbol", 70),
+        { ...span("A", "Times-Roman", 80), endsLine: true },
+      ],
+      graphics: [],
+    });
+    expect(page.lines[0]?.text.replace(/\s/g, "")).toBe("x∈(A");
+  });
+});
+
+/**
+ * O expoente e a fração em fonte comum: no gabarito do vol. 5 do Fundamentos, "a) 5¹⁰ b) 6⁸" e
+ * "7/22" vêm em corpo menor e fora da linha, mas na fonte do texto. A camada de texto dava "510" e
+ * "227", a linha parecia texto, e a resposta ia ao acervo assim, sem passar pelo modelo.
+ */
+describe("o expoente e a fração em fonte comum", () => {
+  const span = (text: string, x0: number, baseline: number, size: number, endsLine = false) => ({
+    text,
+    x0,
+    x1: x0 + text.length * size * 0.5,
+    baseline,
+    size,
+    fontName: "VISXLK+FranklinGothic-Book",
+    endsLine,
+  });
+
+  it("o trecho menor e fora da linha conta como matemática", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [
+        span("285.", 50, 100, 9),
+        span("a)", 70, 100, 9),
+        span("5", 82, 100, 9),
+        span("10", 87, 96, 6),
+        span("b)", 110, 100, 9),
+        span("6", 122, 100, 9),
+        span("8", 127, 96, 6, true),
+      ],
+      graphics: [],
+    });
+    expect(page.lines[0]?.mathRatio).toBeGreaterThan(0.2);
+  });
+
+  it("a linha de texto do mesmo corpo não", () => {
+    const page = buildLines({
+      pageNumber: 1,
+      width: 595,
+      height: 842,
+      spans: [span("Quantos planos os pontos determinam?", 50, 100, 9, true)],
+      graphics: [],
+    });
+    expect(page.lines[0]?.mathRatio).toBe(0);
   });
 });

@@ -19,6 +19,7 @@ const question = (over: Partial<QuestionForRender> = {}): QuestionForRender => (
   type: "MULTIPLE_CHOICE",
   statementLatex: "Quanto é $2+2$?",
   solutionLatex: "É $4$.",
+  answerLatex: "",
   complementLatex: "",
   options: [],
   ...over,
@@ -43,6 +44,28 @@ describe("perfis", () => {
     // `\colorcancel` aparece nas questões de álgebra; sem ela, elas param de compilar.
     for (const profile of RENDER_PROFILES) {
       expect(profile.preamble.some((line) => line.includes("colorcancel"))).toBe(true);
+    }
+  });
+
+  it("os dois declaram os caracteres Unicode que o acervo traz cru — a seta ➞ dos limites (vol. 8)", () => {
+    // 62 das 78 falhas de compilação do vol. 8 eram "Unicode character ➞ (U+279E)". Declarado no
+    // preâmbulo, vale para o que já foi aprovado, sem aprovar de novo.
+    for (const profile of RENDER_PROFILES) {
+      const preambulo = profile.preamble.join("\n");
+      for (const codigo of ["279E", "2206", "222B", "2211", "2A7E", "2245"]) {
+        expect(preambulo).toContain(`\\DeclareUnicodeCharacter{${codigo}}`);
+      }
+    }
+  });
+
+  it("os dois trazem os operadores da notação brasileira — \\sen, \\tg, \\cotg (vol. 7 do Fundamentos)", () => {
+    // O modelo escreve `\tg` e `\cotg`, e o pdflatex parava com "Undefined control sequence".
+    for (const profile of RENDER_PROFILES) {
+      for (const operador of ["sen", "tg", "cotg", "cossec", "arcsen", "arctg"]) {
+        expect(profile.preamble.join("\n")).toContain(
+          `\\providecommand{\\${operador}}{\\operatorname{${operador}}}`,
+        );
+      }
     }
   });
 
@@ -173,7 +196,8 @@ describe("buildRenderBundle", () => {
     });
 
     expect(bundle.sourceLatex).toContain("Quanto é $2+2$?");
-    expect(bundle.sourceLatex).toContain("\\textbf{Resposta.} É $4$.");
+    // "Resolução", e não "Resposta": a resposta é outro campo (CONTEXT.md).
+    expect(bundle.sourceLatex).toContain("\\textbf{Resolução.} É $4$.");
     expect(bundle.sourceLatex).not.toContain("Gabarito");
   });
 

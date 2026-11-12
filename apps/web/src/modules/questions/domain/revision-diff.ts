@@ -16,6 +16,8 @@ export interface RevisionSnapshot {
   readonly type?: string;
   readonly statementLatex: string;
   readonly solutionLatex: string;
+  /** Desde que a Resposta existe (snapshot versão 3). Revisão antiga a lê vazia. */
+  readonly answerLatex: string;
   readonly complementLatex: string;
   readonly nickname: string | null;
   readonly options: readonly {
@@ -42,6 +44,7 @@ const NO_VALUE = "(vazio)";
 const TEXT_FIELDS = [
   ["statementLatex", "Enunciado", true],
   ["solutionLatex", "Resolução", true],
+  ["answerLatex", "Resposta", true],
   ["complementLatex", "Complemento", true],
   ["nickname", "Apelido", false],
 ] as const;
@@ -176,6 +179,8 @@ export function parseSnapshot(json: string): RevisionSnapshot {
     ...(raw.type === undefined ? {} : { type: raw.type }),
     statementLatex: raw.statementLatex ?? "",
     solutionLatex: raw.solutionLatex ?? "",
+    // A revisão gravada antes de a Resposta existir: a questão não tinha resposta.
+    answerLatex: raw.answerLatex ?? "",
     complementLatex: raw.complementLatex ?? "",
     nickname: raw.nickname ?? null,
     options: raw.options ?? [],

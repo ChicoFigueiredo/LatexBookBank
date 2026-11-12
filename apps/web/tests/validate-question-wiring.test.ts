@@ -28,6 +28,7 @@ const multipleChoice = (over: Partial<QuestionForPlugin> = {}): QuestionForPlugi
   type: "MULTIPLE_CHOICE",
   statementLatex: "Quanto é $2+2$?",
   solutionLatex: "É $4$.",
+  answerLatex: "",
   complementLatex: "",
   options: [
     { id: "o1", statementLatex: "3", isCorrect: false },
@@ -49,6 +50,7 @@ describe("o registro de plugins está carregado no caminho de produção", () =>
       type: "DISCURSIVE",
       statementLatex: "Demonstre que o montante cresce linearmente.",
       solutionLatex: "Por definição, $M = C(1+in)$.",
+      answerLatex: "",
       complementLatex: "",
       options: [],
     });

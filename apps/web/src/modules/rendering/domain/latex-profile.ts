@@ -12,6 +12,82 @@ import type { RenderProfile } from "@latexbookbank/render-contract";
  */
 
 /**
+ * Os operadores da notação brasileira — `sen`, `tg`, `cotg` —, que o LaTeX não traz.
+ *
+ * O modelo de visão escreve `\tg x` e `\cotg x` ao ler o *Fundamentos*, como o livro imprime, e o
+ * pdflatex parava com "Undefined control sequence" (vol. 7, Geometria Analítica). `\providecommand`
+ * e não `\DeclareMathOperator`: se um package já define algum deles, o dele vale, e nada quebra.
+ * O preview rápido usa a mesma lista no MathJax.
+ */
+export const BRAZILIAN_OPERATORS = [
+  "sen",
+  "tg",
+  "cotg",
+  "cossec",
+  "cosec",
+  "arcsen",
+  "arctg",
+  "arccotg",
+  "senh",
+  "tgh",
+  "cotgh",
+  "mdc",
+  "mmc",
+] as const;
+
+/**
+ * Os caracteres Unicode que o acervo traz crus e o pdflatex não conhece ("Unicode character ➞
+ * (U+279E) not set up for use with LaTeX"): a seta dos limites do vol. 8 do Fundamentos (62 das 78
+ * falhas dele), o incremento ∆, a integral, o somatório, o ⩾ inclinado. No preâmbulo, e não só na
+ * aprovação: vale para o que já está no acervo, sem aprovar de novo.
+ */
+const UNICODE_CHARACTERS: readonly (readonly [string, string])[] = [
+  ["279E", "\\rightarrow"],
+  ["2794", "\\rightarrow"],
+  ["279C", "\\rightarrow"],
+  ["2192", "\\rightarrow"],
+  ["21D2", "\\Rightarrow"],
+  ["21D4", "\\Leftrightarrow"],
+  ["2206", "\\Delta"],
+  ["222B", "\\int"],
+  ["2211", "\\sum"],
+  ["220F", "\\prod"],
+  ["2A7E", "\\geqslant"],
+  ["2A7D", "\\leqslant"],
+  ["2264", "\\leq"],
+  ["2265", "\\geq"],
+  ["2260", "\\neq"],
+  ["2245", "\\cong"],
+  ["2248", "\\approx"],
+  ["2219", "\\cdot"],
+  ["22C5", "\\cdot"],
+  ["2212", "-"],
+  ["221A", "\\surd"],
+  ["221E", "\\infty"],
+  ["2208", "\\in"],
+  ["2209", "\\notin"],
+  ["2282", "\\subset"],
+  ["2283", "\\supset"],
+  ["222A", "\\cup"],
+  ["2229", "\\cap"],
+  ["2205", "\\emptyset"],
+  ["22A5", "\\perp"],
+  ["2200", "\\forall"],
+  ["2203", "\\exists"],
+  ["25B2", "\\blacktriangle"],
+  ["25CA", "\\lozenge"],
+];
+
+const unicodeCharacters = UNICODE_CHARACTERS.map(
+  ([code, command]) => `\\DeclareUnicodeCharacter{${code}}{\\ensuremath{${command}}}`,
+).join("");
+
+/** Numa linha só: é uma declaração, não treze packages. */
+const brazilianOperators = BRAZILIAN_OPERATORS.map(
+  (name) => `\\providecommand{\\${name}}{\\operatorname{${name}}}`,
+).join("");
+
+/**
  * **Legacy Compatibility** — o preâmbulo do `LatexRender5/latex-includes.tex`, o que compilou o
  * acervo por vinte anos.
  *
@@ -90,6 +166,8 @@ export const LEGACY_COMPATIBILITY_PROFILE: RenderProfile = {
     "\\newcommand\\ontop[1]{\\adjustbox{valign=t}{#1}\\qquad}",
     // `lipsum` e `inline-images` ficaram de fora: o primeiro só gera texto de exemplo, e o
     // segundo baixa imagem da internet — que o worker não tem, por decisão (D35).
+    brazilianOperators,
+    unicodeCharacters,
     "\\pagestyle{empty}",
   ],
 };
@@ -131,6 +209,8 @@ export const QUESTION_PREVIEW_PROFILE: RenderProfile = {
     "\\usepackage{xlop}",
     "\\usepackage{xcolor}",
     "\\newcommand\\colorcancel[2][black]{\\renewcommand\\CancelColor{\\color{#1}}\\cancel{#2}}",
+    brazilianOperators,
+    unicodeCharacters,
   ],
 };
 

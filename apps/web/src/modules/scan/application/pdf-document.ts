@@ -15,7 +15,11 @@ export interface OpenedPdf {
   readonly pageCount: number;
   readPage(pageNumber: number): Promise<RawPage>;
   /** PNG de um trecho da página, para o reconhecimento matemático e para o recorte (D52). */
-  renderRegion(pageNumber: number, box: NormalizedBox, dpi: number): Promise<Uint8Array>;
+  /**
+   * O trecho da página como imagem. As `masks` saem pintadas de branco: a figura que é item próprio
+   * não vai ao reconhecimento do texto em volta dela (D78).
+   */
+  renderRegion(pageNumber: number, box: NormalizedBox, dpi: number, masks?: readonly NormalizedBox[]): Promise<Uint8Array>;
   close(): Promise<void>;
 }
 

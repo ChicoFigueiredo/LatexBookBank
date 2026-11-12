@@ -149,6 +149,33 @@ describe("discursiva com alternativas guardadas", () => {
   });
 });
 
+describe("a resposta da questão sem alternativas", () => {
+  it("o gabarito mostra a resposta da discursiva, e só ele", async () => {
+    // O gabarito da questão sem alternativas é a resposta dela (CONTEXT.md, *Resposta*): sem isto
+    // a tabela dizia `---` para toda discursiva, mesmo com a resposta escrita.
+    const { sortear } = await prova(
+      "discursiva-resposta",
+      { ...DISCURSIVA_COM_SOBRA, answer: "Suponha finitos e multiplique todos." },
+      VARIAS,
+    );
+
+    const { body } = await sortear();
+
+    expect(body.latex.ANSWER_KEY).toContain("1 & Suponha finitos e multiplique todos. \\\\");
+    expect(body.latex.ANSWER_KEY).toContain("2 & b, d \\\\");
+    expect(body.latex.STUDENT).not.toContain("Suponha finitos");
+  });
+
+  it("na objetiva quem responde é o gabarito: a resposta escrita não troca as letras", async () => {
+    const { sortear } = await prova("objetiva-resposta", { ...VARIAS, answer: "5 e 7" });
+
+    const { body } = await sortear();
+
+    expect(body.latex.ANSWER_KEY).toContain("1 & b, d \\\\");
+    expect(body.latex.ANSWER_KEY).not.toContain("5 e 7");
+  });
+});
+
 describe("tipo que a avaliação não sabe imprimir", () => {
   it("o sorteio recusa com 409 e diz qual questão, em vez de imprimir um gabarito errado", async () => {
     const { ids, sortear } = await prova("tipo-sem-plugin", {

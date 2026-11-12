@@ -1,3 +1,4 @@
+import type { QuestionLatexBlock } from "../question-latex";
 import type { QuestionForPlugin, ValidationIssue } from "../question-type-plugin";
 
 /**
@@ -16,6 +17,26 @@ import type { QuestionForPlugin, ValidationIssue } from "../question-type-plugin
  * continua livre —, é onde o trabalho começa.
  */
 export const DEFAULT_OPTION_COUNT = 5;
+
+/**
+ * A resposta, depois da resolução: o resultado final, sem o caminho (CONTEXT.md, *Resposta*).
+ *
+ * Igual em todo tipo. Na objetiva quem responde é o gabarito, mas a aba Resposta existe em todo
+ * tipo, e o PDF do professor não esconde o que a pessoa escreveu nela. `null` sem resposta: um
+ * rótulo sem texto é um "Resposta." órfão no PDF. As duas primeiras linhas são estrutura, como no
+ * complemento.
+ *
+ * O texto entra **linha a linha**: o mapa conta as linhas do bloco, e uma resposta de duas linhas
+ * guardada numa entrada só mandaria o diagnóstico da segunda para o bloco seguinte.
+ */
+export function answerBlock(question: QuestionForPlugin): QuestionLatexBlock | null {
+  if (question.answerLatex.trim() === "") return null;
+  return {
+    origin: "answerLatex",
+    lines: ["", "\\medskip", ...`\\textbf{Resposta.} ${question.answerLatex}`.split("\n")],
+    prefixLines: 2,
+  };
+}
 
 /** Validações que valem para qualquer tipo. */
 export function validateCommon(question: QuestionForPlugin): ValidationIssue[] {

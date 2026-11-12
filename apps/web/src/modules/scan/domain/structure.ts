@@ -12,8 +12,10 @@ import {
 } from "./capture-profile";
 import { assembleDocument, positionOf, type DocLine, type ScanDocument } from "./document";
 import { findFigures, type Figure } from "./figures";
+import { tableRows } from "./tables";
 import { toNormalizedBox } from "@/shared/geometry/normalized-box";
-import type { PageModel } from "./page";
+import { splitLine, type PageModel, type TextLine, type TextSpan } from "./page";
+import { measureStyle, type PublicationStyle } from "./typography";
 import {
   combineConfidence,
   kindsWhere,
@@ -23,6 +25,7 @@ import {
   type Proposal,
   type ScanKind,
 } from "./proposal";
+import { detectColumns } from "./layout";
 import { indexBySlot, segmentsBetween, segmentsOfLines, type Segment } from "./regions";
 import { foldText } from "./text";
 import { normalizeNumber } from "./toc";
@@ -56,8 +59,8 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const zones = profile.zones?.(pages) ?? [];
   const walked = zones.length === 0 ? pages : pages.filter((page) => zoneOfPage(zones, page.pageNumber)?.skip !== true);
   const zoneWarnings = zones
-    .filter((zone) => zone.skip === true)
-    .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida: é gabarito, não estrutura.`);
+    .filter((zone) => zone.skip === true && zone.answersTo === undefined)
+    .map((zone) => `Zona "${zone.label}" (a partir da página ${zone.from}) não foi varrida.`);
 
   // Só as páginas que a varredura de fato olha: avisar que falta texto numa página pulada seria
   // pedir reconhecimento para um gabarito que ninguém vai ler.
@@ -81,8 +84,40 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
     ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
     ...(profile.columnHints ? { columnHints: profile.columnHints.bind(profile) } : {}),
     ...(profile.singleColumn ? { singleColumn: true } : {}),
+    // A zona que declara colunas tem as dela, mesmo num documento de uma coluna só.
+    ...(zones.some((zone) => zone.columns)
+      ? {
+          pageDividers: (lines: readonly TextLine[]) => {
+            const page = lines[0]?.pageNumber;
+            if (page === undefined || !zoneOfPage(zones, page)?.columns) return null;
+            return detectColumns(lines).slice(1).map((column) => column.x0);
+          },
+        }
+      : {}),
   });
+  const { doc, figures } = withoutFigures(full, profile);
 
+  const records = walk(doc, profile, zones);
+  const linesBySlot = indexBySlot(doc.lines);
+  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile, full.lines);
+  const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
+  const items = [
+    ...checked.map((draft) => withZoneType(finalize(draft, profile, doc, offset), zones)),
+    ...answerItems(pages, zones, profile),
+  ];
+
+  return {
+    items,
+    warnings: [...scanWarnings, ...tocWarnings, ...zoneWarnings],
+    metrics: measure(items, pages.length, scannedPages),
+    pageOffset: offset,
+  };
+}
+
+/**
+ * As figuras saem do fluxo antes da caminhada, e as linhas que elas engolem saem junto.
+ */
+function withoutFigures(full: ScanDocument, profile: CaptureProfile): { doc: ScanDocument; figures: readonly Figure[] } {
   /*
     As figuras saem do fluxo antes da caminhada (D58, ADR 0005).
 
@@ -101,6 +136,7 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
   const protectedIds = profile.isProtected
     ? new Set(full.lines.filter((line) => profile.isProtected!(line, full.style)).map((line) => line.id))
     : null;
+  const lineById = new Map(full.lines.map((line) => [line.id, line]));
 
   const figures = profile.kinds.includes("FIGURE")
     ? findFigures({
@@ -109,23 +145,135 @@ export function buildProposal(pages: readonly PageModel[], profile: CaptureProfi
         bodySize: full.style.bodySize,
         lineSpacing: full.style.lineSpacing,
         ...(protectedIds === null ? {} : { protect: (line: { readonly id: string }) => protectedIds.has(line.id) }),
+        isTable: (ids) => tableRows(ids.flatMap((id) => lineById.get(id) ?? [])) !== null,
       })
     : [];
   const hidden = new Set(figures.flatMap((figure) => [...figure.absorbedLineIds, ...figure.captionLineIds]));
   const doc: ScanDocument = hidden.size === 0 ? full : { ...full, lines: full.lines.filter((line) => !hidden.has(line.id)) };
+  return { doc, figures };
+}
 
-  const records = walk(doc, profile, zones);
-  const linesBySlot = indexBySlot(doc.lines);
-  const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile);
-  const { drafts: checked, warnings: tocWarnings, offset } = checkAgainstToc(drafts, doc);
-  const items = checked.map((draft) => withZoneType(finalize(draft, profile, doc, offset), zones));
+/**
+ * As respostas das zonas de respostas (D77).
+ *
+ * A zona não tem estrutura — "Capítulo I" ali é só o agrupamento das respostas —, então ela não
+ * passa pela caminhada dos títulos: cada "135." abre uma Resposta, que vai até a próxima ou até o
+ * que o perfil diz que a fecha. O resto é o mesmo de qualquer item: regiões que atravessam coluna
+ * e página, texto, matemática, figuras.
+ *
+ * A página de respostas tem as colunas que o corpo do livro pode não ter: o `singleColumn` do
+ * perfil não vale aqui.
+ */
+function answerItems(pages: readonly PageModel[], zones: readonly DocumentZone[], profile: CaptureProfile): ProposedItem[] {
+  if (!profile.answerStart) return [];
+  const items: ProposedItem[] = [];
+  for (const zone of zones) {
+    if (zone.skip !== true || zone.answersTo === undefined) continue;
+    const within = pages.filter((page) => zoneOfPage(zones, page.pageNumber) === zone);
+    if (within.length === 0) continue;
+    // Várias respostas na mesma linha — "90. a  91. a  92. b" — viram uma linha cada.
+    const style = measureStyle(within.flatMap((page) => page.lines));
+    const zonePages = within.map((page) => ({
+      ...page,
+      lines: page.lines.flatMap((line) => splitLine(line, (rest) => profile.answerStart?.(rest, style) != null)),
+    }));
 
-  return {
-    items,
-    warnings: [...scanWarnings, ...tocWarnings, ...zoneWarnings],
-    metrics: measure(items, pages.length, scannedPages),
-    pageOffset: offset,
+    const full = assembleDocument(zonePages, {
+      ...(profile.isProtected ? { protect: profile.isProtected.bind(profile) } : {}),
+      pageDividers: (lines, style) => answerDividers(lines, style, profile),
+    });
+    const { doc, figures } = withoutFigures(full, profile);
+    const records = walkAnswers(doc, profile, zone.answersTo);
+    const linesBySlot = indexBySlot(doc.lines);
+    const drafts = withFigures(records.map((record) => draftOf(record, doc, linesBySlot)), figures, records, doc, profile, full.lines);
+    items.push(...drafts.map((draft) => finalize(draft, profile, doc)));
+  }
+  return items;
+}
+
+/**
+ * Onde as colunas de uma página de respostas começam, pelas próprias respostas (D77).
+ *
+ * A detecção genérica pede linhas dos dois lados, e a coluna de respostas em gráfico tem quatro ou
+ * cinco linhas de texto: a página 291 do *Fundamentos* vol. 1 saía numa coluna só, o "354." da
+ * direita entrava antes do "331." da esquerda, e 23 respostas sumiam como número que não avança.
+ *
+ * Os números e os títulos de capítulo começam na margem de cada coluna — e também no meio dela,
+ * na última célula de uma grade de respostas curtas ("103. c" ao lado de "100. e 101. a 102. d").
+ * A calha é o começo que nenhuma linha atravessa: a linha longa da coluna da esquerda atravessa o
+ * meio da grade, e não a calha.
+ */
+function answerDividers(
+  lines: readonly TextLine[],
+  style: PublicationStyle,
+  profile: CaptureProfile,
+): readonly number[] | null {
+  const starts = lines
+    .filter((line) => profile.answerStart?.(line, style) || profile.answerBoundary?.(line, style))
+    .map((line) => line.x0);
+  if (starts.length < 2) return null;
+  const margin = Math.min(...starts);
+  const candidates = [...new Set(starts.filter((x) => x - margin > style.bodySize * 4).map(Math.round))];
+
+  let best: { readonly divider: number; readonly crossing: number } | null = null;
+  for (const x of candidates) {
+    const divider = x - 3;
+    const crossing = lines.filter((line) => line.x0 < divider - 8 && line.x1 > divider + 8).length;
+    if (!best || crossing < best.crossing || (crossing === best.crossing && divider < best.divider)) best = { divider, crossing };
+  }
+  return best && best.crossing <= Math.max(1, lines.length * 0.05) ? [best.divider] : null;
+}
+
+function walkAnswers(doc: ScanDocument, profile: CaptureProfile, answersTo: "EXERCISE" | "QUESTION"): OpenRecord[] {
+  const records: OpenRecord[] = [];
+  let open: OpenRecord | null = null;
+  let last = 0;
+  const close = (stopIndex: number) => {
+    if (open) open.stopIndex = stopIndex;
+    open = null;
   };
+
+  doc.lines.forEach((line, index) => {
+    if (profile.answerBoundary?.(line, doc.style)) return close(index);
+    const start = profile.answerStart?.(line, doc.style) ?? null;
+    const number = start ? Number.parseInt(start.number, 10) : Number.NaN;
+    // Número que não avança é texto da resposta aberta: "2." dentro da resposta do 135.
+    if (start === null || !(number > last)) return;
+
+    close(index);
+    const continuity = last === 0 ? 0.8 : number === last + 1 ? 0.97 : 0.85;
+    const metadata = { answersTo };
+    const record: OpenRecord = {
+      key: `ANSWER:${line.pageNumber}:${line.id}`,
+      parentKey: null,
+      kind: "ANSWER",
+      match: {
+        kind: "ANSWER",
+        label: start.label,
+        number: start.number,
+        title: null,
+        extent: "until-boundary",
+        lines: 1,
+        confidence: { pattern: 0.9, continuity },
+        evidence: [
+          `resposta do ${answersTo === "EXERCISE" ? "exercício" : "questão"} ${start.number}`,
+          last === 0 ? "primeira da zona" : `segue a ${last}`,
+        ],
+        metadata,
+      },
+      anchorLines: [line],
+      startIndex: index,
+      stopIndex: null,
+      extent: "until-boundary",
+      element: { kind: "ANSWER", number: start.number, anchor: line, metadata },
+      lastChild: new Map(),
+    };
+    records.push(record);
+    open = record;
+    last = number;
+  });
+  close(doc.lines.length);
+  return records;
 }
 
 /**
@@ -152,14 +300,38 @@ function withZoneType(item: ProposedItem, zones: readonly DocumentZone[]): Propo
   return questionType === undefined ? item : { ...item, metadata: { ...item.metadata, questionType } };
 }
 
+/**
+ * O elemento que começa logo depois da figura, quando a figura é dele.
+ *
+ * - **Ao lado**: a primeira linha depois da figura abre um elemento e cai dentro da altura dela,
+ *   na mesma coluna. É o gráfico à direita do "80." — o topo do desenho fica acima do número —, a
+ *   vinheta com o "CAPÍTULO VI" por cima, o retrato ao lado do "LEITURA" (*Fundamentos* vol. 1,
+ *   p. 105 e 46).
+ * - **Abertura de capítulo**: o capítulo começa na mesma página, abaixo da figura — a arte que
+ *   abre as "Questões de vestibulares" (p. 321).
+ *
+ * Fora disso, quem começa abaixo da figura não é dono dela: o diagrama da resposta 21 ia para a
+ * 22, logo embaixo (p. 279), e os gráficos do exercício 144 para a seção seguinte (p. 92).
+ */
+function ownerAfter(figure: Figure, at: number, records: readonly OpenRecord[], doc: ScanDocument): OpenRecord | undefined {
+  const first = doc.lines[at];
+  const next = records.find((record) => record.startIndex === at);
+  if (!first || !next || first.pageNumber !== figure.pageNumber) return undefined;
+  const beside = first.slot === figure.slot && first.y0 < figure.box.y1;
+  const opensChapter = next.kind === "CHAPTER" || next.kind === "PART";
+  return beside || opensChapter ? next : undefined;
+}
+
 function withFigures(
   drafts: readonly DraftItem[],
   figures: readonly Figure[],
   records: readonly OpenRecord[],
   doc: ScanDocument,
   profile: CaptureProfile,
+  allLines: readonly DocLine[],
 ): DraftItem[] {
   if (figures.length === 0) return [...drafts];
+  const lineById = new Map(allLines.map((line) => [line.id, line]));
 
   const pageSize = new Map(doc.pages.map((page) => [page.pageNumber, page]));
   const positions = new Map(drafts.map((draft, index) => [draft.key, records[index]?.startIndex ?? index]));
@@ -184,14 +356,22 @@ function withFigures(
 
       Não dá para procurar quem "cobre" a posição: um título fecha logo depois do próprio texto —
       `SECTION[2,3]` —, e o que ele contém vem da árvore, não do intervalo. Então pega-se o último
-      elemento que começou antes da figura e sobe-se por `parentKey` até alguém que aceite figura.
-      É o mesmo caminho que a pessoa faz com o olho: "esta figura é daquela seção ali em cima".
+      elemento que começou antes da figura — ou o que começa ao lado dela — e sobe-se por
+      `parentKey` até alguém que aceite figura. É o mesmo caminho que a pessoa faz com o olho:
+      "esta figura é daquela seção ali em cima".
+
+      O que fecha no fim do próprio bloco — o exemplo do Livro A — já fechou quando a figura vem
+      depois dele, e ela é de quem o contém. O exercício e a resposta vão até o próximo: a figura
+      entre um e outro é do de cima.
     */
     const previous = [...records]
-      .filter((record) => record.startIndex <= at)
+      .filter((record) => record.startIndex < at)
       .sort((a, b) => a.startIndex - b.startIndex)
       .at(-1);
-    let parent: OpenRecord | undefined = previous;
+    const closed = (record: OpenRecord) =>
+      (record.extent === "block" || record.extent === "paragraph") && record.stopIndex !== null && record.stopIndex <= at;
+    let parent: OpenRecord | undefined = ownerAfter(figure, at, records, doc) ?? previous;
+    if (parent && parent === previous && closed(parent)) parent = parent.parentKey ? byKey.get(parent.parentKey) : undefined;
     while (parent && !profile.canContain(parent.kind, "FIGURE")) {
       parent = parent.parentKey ? byKey.get(parent.parentKey) : undefined;
     }
@@ -203,6 +383,11 @@ function withFigures(
     const column = doc.slots[figure.slot]?.column;
     const columnWidth = column ? column.x1 - column.x0 : page.width;
     const fraction = Math.min(1, Math.max(0.15, (figure.box.x1 - figure.box.x0) / columnWidth));
+
+    // A figura que é uma tabela: o que ela engoliu forma uma grade, e a grade vai como texto (D78).
+    const absorbed = figure.absorbedLineIds.flatMap((id) => lineById.get(id) ?? []);
+    const table = tableRows(absorbed);
+    const tableText = table?.map((row) => row.join("\t")) ?? null;
 
     entries.push({
       // A fração precisa caber entre duas linhas: com um milésimo fixo, a 500ª figura de um livro
@@ -226,7 +411,8 @@ function withFigures(
         ],
         text: figure.caption ?? "",
         latex: null,
-        needsMath: false,
+        // A tabela vai ao reconhecimento: é dele a forma e o cabeçalho que a camada de texto não lê.
+        needsMath: tableText !== null,
         confidence: 0,
         confidenceParts: {
           layout: 0.9,
@@ -237,11 +423,13 @@ function withFigures(
           figure.kind === "raster" ? "imagem embutida na página" : "traços agrupados numa figura",
           ...(figure.caption === null ? [] : ["legenda logo abaixo"]),
           ...(figure.absorbedLineIds.length > 0 ? [`${figure.absorbedLineIds.length} rótulos dentro do desenho`] : []),
+          ...(table ? [`tabela: ${table.length} linhas × ${table[0]!.length} colunas`] : []),
         ],
         metadata: {
           figureKind: figure.kind,
           widthFraction: Math.round(fraction * 100) / 100,
           absorbedLines: figure.absorbedLineIds.length,
+          ...(tableText ? { tableRows: tableText } : {}),
         },
         lines: [],
       },
@@ -477,6 +665,40 @@ function isBlockBreak(previous: DocLine | undefined, line: DocLine, doc: ScanDoc
   return white > style.bodySize * 0.55;
 }
 
+/**
+ * A fração no corpo do texto, com a barra desenhada (vol. 4, questão 73).
+ *
+ * "L/2" no meio da frase: o "L" e o "2" na fonte do texto, no mesmo corpo, um acima e outro abaixo
+ * de um traço — que não é texto, é desenho. A camada lê "L 2", nenhuma regra de fonte vê conta, e
+ * o item não ia ao modelo. O traço curto e fino com um trecho do item logo acima e outro logo
+ * abaixo, os dois sobre ele, é a fração.
+ */
+function hasDrawnFraction(lines: readonly DocLine[], doc: ScanDocument): boolean {
+  if (lines.length === 0) return false;
+  const pages = new Set(lines.map((line) => line.pageNumber));
+  const spans = lines.flatMap((line) =>
+    line.spans.filter((span) => span.text.trim() !== "").map((span) => ({ span, page: line.pageNumber })),
+  );
+  return doc.graphics.some((bar) => {
+    const width = bar.x1 - bar.x0;
+    if (bar.kind !== "drawing" || !pages.has(bar.pageNumber) || bar.y1 - bar.y0 > 1.2 || width < 2) return false;
+    const over = (span: TextSpan) =>
+      Math.min(span.x1, bar.x1) - Math.max(span.x0, bar.x0) >= 0.5 * Math.min(span.x1 - span.x0, width);
+    const fits = (span: TextSpan) => width <= span.size * 15;
+    const above = spans.some(
+      ({ span, page }) =>
+        page === bar.pageNumber && fits(span) && over(span) &&
+        bar.y0 - span.baseline >= span.size * 0.1 && bar.y0 - span.baseline <= span.size * 0.8,
+    );
+    const below = spans.some(
+      ({ span, page }) =>
+        page === bar.pageNumber && fits(span) && over(span) &&
+        span.baseline - bar.y1 >= span.size * 0.5 && span.baseline - bar.y1 <= span.size * 1.4,
+    );
+    return above && below;
+  });
+}
+
 function draftOf(
   record: OpenRecord,
   doc: ScanDocument,
@@ -491,9 +713,10 @@ function draftOf(
     segments = segmentsOfLines(doc, record.anchorLines);
   } else {
     const stopLine = doc.lines[stopIndex];
-    segments = segmentsBetween(doc, positionOf(first), stopLine ? positionOf(stopLine) : null, linesBySlot);
+    const own = new Set((lines.length > 0 ? lines : [first]).map((line) => line.id));
+    segments = segmentsBetween(doc, positionOf(first), stopLine ? positionOf(stopLine) : null, linesBySlot, own);
     // Um elemento de uma linha colado no seguinte não abre faixa nenhuma: a caixa é a da linha.
-    if (segments.length === 0) segments = segmentsOfLines(doc, lines.length > 0 ? lines : [first]);
+    if (segments.length === 0) segments = segmentsOfLines(doc, lines.length > 0 ? lines : [first], linesBySlot);
   }
 
   const pageSize = new Map(doc.pages.map((page) => [page.pageNumber, page]));
@@ -520,7 +743,10 @@ function draftOf(
   // a fonte de símbolos do livro não parece matemática, e a camada de texto não a lê (importação do
   // Fundamentos, 2026-09-30).
   const needsMath =
-    mathChars / chars >= 0.05 || bodyLines.some((line) => line.mathRatio >= 0.5) || hasUnreadableSymbol(text);
+    mathChars / chars >= 0.05 ||
+    bodyLines.some((line) => line.mathRatio >= 0.5) ||
+    hasUnreadableSymbol(text) ||
+    hasDrawnFraction(bodyLines, doc);
   const match = record.match;
 
   return {

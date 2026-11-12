@@ -24,6 +24,11 @@ export interface AssessmentQuestionContent {
   readonly statementLatex: string;
   readonly solutionLatex: string;
   /**
+   * A resposta final (CONTEXT.md, *Resposta*). É o que o gabarito mostra para a questão sem
+   * alternativas; na objetiva quem responde são as letras, e ela não entra.
+   */
+  readonly answerLatex: string;
+  /**
    * As alternativas **que o tipo mostra**, por id.
    *
    * Vazio para tipo sem alternativas, mesmo que o banco guarde algumas: a discursiva que já foi
@@ -201,12 +206,16 @@ function questionsBody(
  *
  * Sai do **mapa da variante**, não de um novo sorteio — é a diferença entre conferir contra o que
  * foi impresso e torcer para dar o mesmo.
+ *
+ * A questão sem alternativas responde com a resposta dela, quando há uma (CONTEXT.md, *Resposta*);
+ * sem resposta, o traço de sempre.
  */
 function answerKeyBody(
   variant: Variant,
   content: Readonly<Record<string, AssessmentQuestionContent>>,
 ): string {
   const rows: string[] = [];
+  let anyAnswer = false;
 
   for (const [index, question] of variant.questions.entries()) {
     const item = content[question.questionId];
@@ -220,12 +229,18 @@ function answerKeyBody(
       .sort((a, b) => positionIn(question.optionIds, a) - positionIn(question.optionIds, b))
       .map((optionId) => question.labelByOptionId[optionId] ?? "?");
 
-    rows.push(`${index + 1} & ${letters.length === 0 ? "---" : letters.join(", ")} \\\\`);
+    const answer = item.hasOptions ? "" : item.answerLatex.trim();
+    if (answer !== "") anyAnswer = true;
+
+    const cell = answer !== "" ? answer : letters.length === 0 ? "---" : letters.join(", ");
+    rows.push(`${index + 1} & ${cell} \\\\`);
   }
 
   return [
     "\\begin{center}",
-    "\\begin{tabular}{|c|c|}",
+    // A resposta é texto corrido: numa coluna `c` ela não quebra linha e sai pela margem, e um
+    // parágrafo dentro dela nem compila. Só quando há uma — o gabarito só de letras fica como era.
+    anyAnswer ? "\\begin{tabular}{|c|p{0.75\\linewidth}|}" : "\\begin{tabular}{|c|c|}",
     "\\hline",
     "\\textbf{Questão} & \\textbf{Resposta} \\\\",
     "\\hline",

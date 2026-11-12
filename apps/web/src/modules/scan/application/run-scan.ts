@@ -48,6 +48,11 @@ export interface MathPass {
   run(input: {
     readonly run: ScanRun;
     readonly items: readonly ScanItem[];
+    /**
+     * As figuras da execução, para mascarar no recorte do texto em volta (D78). Sem elas, valem as
+     * figuras de `items` — que é o caso da varredura, e não o do item reprocessado sozinho.
+     */
+    readonly figures?: readonly ScanItem[];
     readonly pdf: OpenedPdf;
     readonly policy: MathRecognitionPolicy;
     readonly save: (changes: ScanItemChanges) => Promise<void>;

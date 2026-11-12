@@ -23,6 +23,7 @@ const question = (id: string, correct: string): AssessmentQuestionContent => ({
   questionId: id,
   statementLatex: `Enunciado de ${id}`,
   solutionLatex: "",
+  answerLatex: "",
   options: { [`${id}-o1`]: "um", [`${id}-o2`]: "dois", [`${id}-o3`]: "três" },
   correctOptionIds: [correct],
   hasOptions: true,

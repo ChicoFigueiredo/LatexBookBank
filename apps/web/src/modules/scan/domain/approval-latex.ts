@@ -6,6 +6,7 @@ import {
   UNREADABLE_CHAR,
 } from "@modules/latex/domain/latex-escape";
 
+import { withoutInventedTail } from "./recognition-drift";
 import type { ScanItem } from "./scan-item";
 
 /**
@@ -17,7 +18,8 @@ import type { ScanItem } from "./scan-item";
  * reescrita.
  */
 
-const EXERCISE_LABEL = /^\s*(?:(?:exerc[ií]cio|problema|exercise|problem)\s+\d+(?:\.\d+)*\s*[.:)]?|\d{1,3}\s*[.)])\s*/i;
+const EXERCISE_LABEL =
+  /^\s*(?:(?:exerc[ií]cio|problema|exercise|problem)\s+\d+(?:\.\d+)*\s*[.:)]?|\d{1,3}\s*[.)])\s*/i;
 const QUESTION_HEADER = /^\s*QUEST[AÃ]O\s+\d{1,3}\s*$/i;
 const ITEM_LABEL = /^\s*\(?([a-z]|[ivx]{1,5})\)\s*/i;
 /**
@@ -49,8 +51,212 @@ export function joinLines(lines: readonly string[]): string {
   return text;
 }
 
+/**
+ * O que o modelo escreve em Markdown apesar de instruído a escrever LaTeX: o negrito `**…**`. No
+ * vol. 1 do *Fundamentos*, "**função constante**" (item 80) saía com os asteriscos no PDF — e,
+ * somado ao negrito que a camada de texto marca, como `**\textbf{função constante}**`.
+ */
+export function modelLatex(latex: string): string {
+  const bold = latex
+    .replace(/\*\*\s*(\\textbf\{[^{}]*\})\s*\*\*/g, "$1")
+    .replace(/\*\*(?=\S)([^*\n]+?)(?<=\S)\*\*/g, "\\textbf{$1}");
+  // O "R$" do dinheiro: o "$" abria matemática e o resto do enunciado não compilava (R$ 700,00).
+  // `{n \choose p}`, que o amsmath recusa ("Foreign command \atopwithdelims"), e o `#` solto
+  // ("You can't use macro parameter character #") — os dois do vol. 5, de combinatória.
+  const fixed = bold
+    .replace(
+      /\{([^{}]*?)\\choose([^{}]*?)\}/g,
+      (_, top: string, bottom: string) => `\\binom{${top.trim()}}{${bottom.trim()}}`,
+    )
+    .replace(/(?<!\\)#/g, "\\#");
+  return combiningHat(
+    textInMath(angleHats(wrapBareMath(fixed.replace(/R\$(?=\s*\d)/g, "R\\$")))),
+  );
+}
+
+/**
+ * O circunflexo combinado do ângulo — "AB̂C", U+0302 depois da letra —, que o pdflatex recusa:
+ * `\hat{B}` dentro da conta, `$\hat{B}$` fora dela (vol. 7 do Fundamentos). E o `\hat` que o
+ * modelo deixa solto no texto — "o ângulo \hat{B}" — vai para a conta ("\hat allowed only in math
+ * mode", vol. 9).
+ */
+function combiningHat(latex: string): string {
+  const masked = outsideMath(latex);
+  const combined = latex.replace(/([A-Za-z])̂/g, (_, letter: string, at: number) =>
+    masked[at] === letter ? `$\\hat{${letter}}$` : `\\hat{${letter}}`,
+  );
+  const remasked = outsideMath(combined);
+  return combined.replace(/\\(?:hat|widehat)\{[^{}]*\}/g, (found: string, at: number) =>
+    remasked[at] === "\\" ? `$${found}$` : found,
+  );
+}
+
+/** A letra com circunflexo — o ângulo da geometria, "BÂM", "PĈM", "ê" — e a base dela. */
+const CIRCUMFLEXED = "ÂĈÊĜĤÎĴÔŜÛŴŶẐâĉêĝĥîĵôŝûŵŷẑ";
+const baseOf = (char: string): string => char.normalize("NFD").charAt(0);
+const LONE_CIRCUMFLEX = new RegExp(`(?<![a-zà-ÿ])[${CIRCUMFLEXED}](?![a-zà-ÿ])`, "g");
+const TEXT_GROUP = /(\\(?:text|textrm|textbf|textit|mathrm|operatorname|mbox)\s*\{[^{}]*\})/;
+
+/**
+ * O ângulo com circunflexo dentro da conta (vol. 9, geometria plana): o modelo escreve
+ * "$\widehat{BÂM}$", "$\hat{ê}$" e "$PÔP'$", e o pdflatex recusa a letra acentuada em modo
+ * matemático ("Command \^ invalid in math mode") — o Ĉ nem é latin-1. Dentro do `\hat` e do
+ * `\widehat`, a letra perde o circunflexo (o chapéu já está em cima); solta, vira `\hat`. Só a letra
+ * que não é parte de palavra: "ângulo" e "você" dentro da conta são da `textInMath`, e o
+ * `\text{…}` não é tocado.
+ */
+function angleHats(latex: string): string {
+  return latex.replace(MATH, (math) =>
+    math
+      .split(TEXT_GROUP)
+      .map((piece, index) =>
+        index % 2 === 1
+          ? piece
+          : piece
+              .replace(
+                /\\(widehat|hat)\{([^{}]*)\}/g,
+                (_, command: string, argument: string) =>
+                  `\\${command}{${[...argument].map((char) => (CIRCUMFLEXED.includes(char) ? baseOf(char) : char)).join("")}}`,
+              )
+              .replace(LONE_CIRCUMFLEX, (char) => `\\hat{${baseOf(char)}}`),
+      )
+      .join(""),
+  );
+}
+
+/** Dentro da conta: o `\text{…}` que já está lá, a palavra acentuada, o º e o ª. */
+const IN_MATH =
+  /\\(?:text|textrm|textbf|textit|mathrm|operatorname|mbox)\s*\{[^{}]*\}|\p{L}*[À-ÖØ-öø-ÿ]\p{L}*|º|ª/gu;
+
+/**
+ * A palavra acentuada dentro da conta vai para `\text{…}`, e o º e o ª viram expoente (D78).
+ *
+ * O modelo escreve "$área = b \cdot h$" e "$1º$", e o pdflatex recusa a letra acentuada em modo
+ * matemático ("Command \' invalid in math mode") — no vol. 7 do Fundamentos, onde "área" e
+ * "distância" aparecem dentro das contas. O que já está em `\text{…}` fica como está.
+ */
+function textInMath(latex: string): string {
+  return latex.replace(MATH, (math) =>
+    math.replace(IN_MATH, (found) =>
+      found.startsWith("\\")
+        ? found
+        : found === "º"
+          ? "^{\\circ}"
+          : found === "ª"
+            ? "^{a}"
+            : `\\text{${found}}`,
+    ),
+  );
+}
+
+/** O que só existe em matemática: o comando de símbolo, o ambiente de casos, o expoente e o índice. */
+const MATH_ONLY =
+  /\\(?:d?frac|sqrt|cdot|times|in|notin|leq?|geq?|neq?|iff|implies|Rightarrow|Leftrightarrow|rightarrow|subset|supset|subseteq|supseteq|cup|cap|left|right|Delta|alpha|beta|gamma|theta|lambda|pi|forall|exists|circ|pm|infty|mathbb|overline)(?![A-Za-z])|\\begin\{(?:cases|array|[bpvBV]?matrix|smallmatrix|aligned|gathered|split)\}|[\^_]/;
+const DELIMITED = /\$|\\\(|\\\[|\\begin\{(?:equation|align|gather|multline)\*?\}/;
+const TEXT_STRUCTURE = /\\begin\{(?:tabular|itemize|enumerate|figure|center)\}|\\item(?![A-Za-z])/;
+const LEADING_LABEL = /^\s*\\textbf\{[^{}]*\}\s*/;
+
+/** Palavras de frase — quatro letras ou mais —, fora dos comandos e do `\text{…}` de dentro da conta. */
+const proseWords = (block: string): number =>
+  (
+    block
+      .replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, " ")
+      .replace(/\\text\s*\{[^{}]*\}/g, " ")
+      .replace(/\\[A-Za-z]+/g, " ")
+      .match(/\p{L}{4,}/gu) ?? []
+  ).length;
+
+/**
+ * O parágrafo que é só conta e veio sem delimitador vai para `\[ \]` (D78).
+ *
+ * O modelo escreve a linha de conta solta — "S = \{x \in \mathbb{R} | …\}", o sistema em
+ * `cases` — e o documento não compila: no vol. 1, 71 de 1.120 documentos davam "Missing $
+ * inserted". Só o parágrafo sem delimitador nenhum, sem tabela nem lista, e com no máximo duas
+ * palavras de frase; o rótulo em negrito do começo ("Resolução.") fica fora da conta. A frase com
+ * conta solta no meio fica como está: adivinhar onde a conta começa erraria mais do que acerta.
+ */
+/** O `$` de um parágrafo, sem o `\$` do dinheiro e sem o `$$`. */
+const SINGLE_DOLLAR = /(?<![\\$])\$(?!\$)/g;
+
+/**
+ * O parágrafo com um `$` sem par (D78): o modelo abre a conta e não fecha ("Prove que $(A - B)
+ * \subset A, \forall A."), ou fecha uma que não abriu ("… é intervalo fechado à direita.$"). Se o
+ * último `$` encerra o parágrafo, ele é o que sobra; senão, falta o de fechar, no fim.
+ */
+function balanceDollars(block: string): string {
+  if ((block.match(SINGLE_DOLLAR) ?? []).length % 2 === 0) return block;
+  const body = block.trimEnd();
+  const tail = block.slice(body.length);
+  return body.endsWith("$") && !body.endsWith("\\$")
+    ? `${body.slice(0, -1)}${tail}`
+    : `${body}$${tail}`;
+}
+
+function wrapBareMath(latex: string): string {
+  return latex
+    .split(/(\n\s*\n)/)
+    .map(balanceDollars)
+    .map((block) => {
+      if (block.trim() === "" || TEXT_STRUCTURE.test(block) || !MATH_ONLY.test(block)) return block;
+      if (DELIMITED.test(block)) return wrapBareLines(block);
+      const label = LEADING_LABEL.exec(block)?.[0] ?? "";
+      const body = block.slice(label.length).trim();
+      if (body === "" || proseWords(body) > 2) return wrapBareLines(block);
+      return `${label}\\[ ${body} \\]`;
+    })
+    .join("");
+}
+
+/** O que abre e fecha conta ou ambiente numa linha: o `$`, o `$$`, o `\[ \]`, o `\begin` e o `\end`. */
+const OPENERS = /\\\$|\$\$|\$|\\\[|\\\]|\\begin\s*\{[^{}]*\}|\\end\s*\{[^{}]*\}/g;
+
+/**
+ * No parágrafo misto, a linha de conta solta (D78): o vol. 4 do Fundamentos trazia "a_2 = a_1 + r"
+ * numa linha e "$a_n$" na seguinte, e o parágrafo, por ter `$`, ficava como estava — 18 documentos
+ * sem compilar. Só a linha que começa e termina fora de conta e de ambiente aberto antes dela, e
+ * que é conta (o critério do parágrafo inteiro, numa linha só).
+ */
+function wrapBareLines(block: string): string {
+  let inMath = false;
+  let depth = 0;
+  return block
+    .split("\n")
+    .map((line) => {
+      const outsideBefore = !inMath && depth === 0;
+      for (const [token] of line.matchAll(OPENERS)) {
+        if (token === "\\$") continue;
+        if (token === "$" || token === "$$") inMath = !inMath;
+        else if (token === "\\[") inMath = true;
+        else if (token === "\\]") inMath = false;
+        else if (token.startsWith("\\begin")) depth++;
+        else depth = Math.max(0, depth - 1);
+      }
+      const body = line.trim();
+      const bare =
+        outsideBefore &&
+        !inMath &&
+        depth === 0 &&
+        body !== "" &&
+        !DELIMITED.test(line) &&
+        !TEXT_STRUCTURE.test(line) &&
+        MATH_ONLY.test(line) &&
+        proseWords(body) <= 2;
+      return bare ? `\\[ ${body} \\]` : line;
+    })
+    .join("\n");
+}
+
+/**
+ * O LaTeX pronto do item: o revisado fica como a pessoa deixou; o do modelo perde a resolução que
+ * ele inventou (`withoutInventedTail`) e passa por `modelLatex` — na aprovação, para valer também
+ * para o que foi reconhecido antes da regra.
+ */
+const readyLatex = (item: ScanItem): string | null =>
+  item.reviewedLatex ??
+  (item.mathResult ? modelLatex(withoutInventedTail(item.text, item.mathResult.latex)) : null);
+
 const reviewedOrRecognized = (item: ScanItem): string | null => {
-  const ready = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  const ready = readyLatex(item);
   return ready === null ? null : withLatexSymbols(ready);
 };
 
@@ -68,18 +274,26 @@ const LABEL_PREFIX = /^\s*\S+\s+\d+(?:\.\d+)*\s*[.:)]?\s*/;
  */
 export function contentLatex(item: ScanItem): string {
   if (item.reviewedLatex !== null) return withLatexSymbols(item.reviewedLatex).trim();
-  const leadLabel = typeof item.metadata["leadLabel"] === "string" ? item.metadata["leadLabel"] : null;
+  const leadLabel =
+    typeof item.metadata["leadLabel"] === "string" ? item.metadata["leadLabel"] : null;
   const recognized = reviewedOrRecognized(item);
-  if (recognized !== null) return markBold(withoutLeadLabel(recognized.trim(), leadLabel), boldPhrasesOf(item), (p) => p);
+  if (recognized !== null)
+    return markBold(withoutLeadLabel(recognized.trim(), leadLabel), boldPhrasesOf(item), (p) => p);
 
   const lines = textOf(item).split("\n");
   const first = leadLabel === null ? (lines[0] ?? "") : withoutLeadLabel(lines[0] ?? "", leadLabel);
-  return markBold(escapeLatexText(joinLines([first, ...lines.slice(1)])), boldPhrasesOf(item), escapeLatexText);
+  return markBold(
+    escapeLatexText(joinLines([first, ...lines.slice(1)])),
+    boldPhrasesOf(item),
+    escapeLatexText,
+  );
 }
 
 const boldPhrasesOf = (item: ScanItem): readonly string[] => {
   const phrases = item.metadata["boldPhrases"];
-  return Array.isArray(phrases) ? phrases.filter((phrase): phrase is string => typeof phrase === "string") : [];
+  return Array.isArray(phrases)
+    ? phrases.filter((phrase): phrase is string => typeof phrase === "string")
+    : [];
 };
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -87,8 +301,13 @@ const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&
 /** Tira o rótulo do começo — "1.", "\textbf{1.}", "{\bf 1.}" —, e só ele. */
 function withoutLeadLabel(text: string, label: string | null): string {
   if (label === null) return text;
-  const pattern = new RegExp(`^\\s*(?:\\\\textbf\\{\\s*|\\{\\\\bf\\s+)?${escapeRegExp(label)}\\s*\\}?\\s*`);
-  return text.replace(pattern, "");
+  const pattern = new RegExp(
+    `^\\s*(?:\\\\textbf\\{\\s*|\\{\\\\bf\\s+)?${escapeRegExp(label)}\\s*\\}?\\s*`,
+  );
+  // O modelo às vezes escreve o número dentro da conta — "$423.\frac{45}{4}$ cm" (vol. 9) —, e a
+  // resposta ia ao acervo como "423.45/4": o rótulo sai também logo depois do "$" que abre.
+  const insideMath = new RegExp(`^(\\s*\\$\\s*)${escapeRegExp(label)}\\s*`);
+  return text.replace(pattern, "").replace(insideMath, "$1");
 }
 
 /**
@@ -97,7 +316,11 @@ function withoutLeadLabel(text: string, label: string | null): string {
  * Cada uma marca a **próxima** ocorrência depois da anterior, fora da matemática: "proposição" é
  * negrito na definição e não nas dez vezes em que o parágrafo volta a usá-la.
  */
-function markBold(latex: string, phrases: readonly string[], toLatex: (phrase: string) => string): string {
+function markBold(
+  latex: string,
+  phrases: readonly string[],
+  toLatex: (phrase: string) => string,
+): string {
   let result = latex;
   let cursor = 0;
   for (const phrase of phrases) {
@@ -115,6 +338,40 @@ function markBold(latex: string, phrases: readonly string[], toLatex: (phrase: s
     cursor = at + needle.length + "\\textbf{}".length;
   }
   return result;
+}
+
+/**
+ * A Resposta que o livro imprime, em LaTeX (D77): sem o número — que é o da questão — e com as
+ * figuras dela logo abaixo, na ordem do livro. Cada linha do gabarito é um item da resposta
+ * ("a) …", "b) …"), e por isso as linhas viram parágrafos, e não uma frase corrida.
+ */
+export function answerLatex(item: ScanItem, figures: readonly ScanItem[]): string {
+  const recognized = readyLatex(item);
+  const text =
+    recognized !== null
+      ? withoutLeadLabel(withLatexSymbols(recognized).trim(), item.originalLabel)
+      : textOf(item)
+          .split("\n")
+          .map((line, index) =>
+            escapeLatexText(index === 0 ? withoutLeadLabel(line, item.originalLabel) : line).trim(),
+          )
+          .filter((line) => line !== "")
+          .join("\n\n");
+  return [text.trim(), ...figures.map(figureLatex)].filter((piece) => piece !== "").join("\n\n");
+}
+
+/**
+ * A letra da alternativa correta, quando a resposta é só ela: "d", "d)", "(d)" (D77).
+ *
+ * "a) 1, 2, 3 e 4." começa com letra e não é alternativa: é uma resposta com itens.
+ */
+export function answerLetter(item: ScanItem): string | null {
+  const plain = withoutLeadLabel(
+    (item.reviewedText ?? item.text).replace(/\s+/g, " ").trim(),
+    item.originalLabel,
+  ).trim();
+  const match = /^\(?([a-e])\)?\.?$/i.exec(plain);
+  return match ? match[1]!.toLowerCase() : null;
 }
 
 /** Onde a frase acaba: ponto ou dois-pontos, seguido de espaço ou do fim. */
@@ -150,6 +407,29 @@ const LATEX_SYMBOLS: Readonly<Record<string, string>> = {
   "\\_": "_",
   "\\#": "#",
   "\\$": "$",
+  "\\ldots": "...",
+  "\\dots": "...",
+  "\\infty": "∞",
+  "\\pm": "±",
+  // As letras gregas: o "α" do item 123 e o "Δ" do vértice (item 117) sumiam do título.
+  "\\alpha": "α",
+  "\\beta": "β",
+  "\\gamma": "γ",
+  "\\delta": "δ",
+  "\\Delta": "Δ",
+  "\\epsilon": "ε",
+  "\\varepsilon": "ε",
+  "\\theta": "θ",
+  "\\lambda": "λ",
+  "\\mu": "μ",
+  "\\pi": "π",
+  "\\rho": "ρ",
+  "\\sigma": "σ",
+  "\\Sigma": "Σ",
+  "\\phi": "φ",
+  "\\varphi": "φ",
+  "\\omega": "ω",
+  "\\Omega": "Ω",
 };
 
 /** O operador que se escreve colado no que nega: "~p", e não "~ p". */
@@ -160,15 +440,34 @@ const PREFIX_SYMBOLS = new Set(["\\sim", "\\neg", "\\lnot"]);
  * e a formatação sai. Não é renderização; é o que cabe numa linha da árvore.
  */
 export function latexToPlain(latex: string): string {
-  let text = latex;
+  // O nome do ambiente não é texto: `\begin{cases}` deixava "cases", e seis sistemas do exercício
+  // 174 (p. 112) eram seis palavras que o PDF não tem — a conferência trocava o modelo pela camada.
+  let text = latex.replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, " ");
   for (let i = 0; i < 5; i++) {
-    const next = text.replace(/\\(?:textbf|textit|emph|text|mathrm|mathbf|operatorname)\s*\{([^{}]*)\}/g, "$1");
+    const next = text.replace(
+      /\\(?:textbf|textit|emph|text|mathrm|mathbf|operatorname)\s*\{([^{}]*)\}/g,
+      "$1",
+    );
     if (next === text) break;
     text = next;
   }
-  text = text.replace(/\\mathbb\s*\{([NZQRC])\}/g, (_, letter: string) => LATEX_SYMBOLS[`\\mathbb{${letter}}`] ?? letter);
+  // A fração como o livro a escreve numa linha: "−b/2a". Sem isto, `\frac{b}{a}` virava "ba".
+  for (let i = 0; i < 5; i++) {
+    const next = text.replace(/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "$1/$2");
+    if (next === text) break;
+    text = next;
+  }
+  // O grau: "2^{\circ}" é "2°", e não "2∘".
+  text = text.replace(/\^\s*\{?\s*\\circ\s*\}?/g, "°");
+  text = text.replace(
+    /\\mathbb\s*\{([NZQRC])\}/g,
+    (_, letter: string) => LATEX_SYMBOLS[`\\mathbb{${letter}}`] ?? letter,
+  );
   // A raiz, como a camada de texto do livro a escreve: "√f(x)", "3√f(x)".
-  text = text.replace(/\\sqrt\s*(?:\[([^\]]*)\])?/g, (_, index: string | undefined) => `${index ?? ""}√`);
+  text = text.replace(
+    /\\sqrt\s*(?:\[([^\]]*)\])?/g,
+    (_, index: string | undefined) => `${index ?? ""}√`,
+  );
   text = text.replace(/\\[A-Za-z]+|\\[%&_#$]/g, (command) => LATEX_SYMBOLS[command] ?? "");
   // O espaço que o comando deixava antes do argumento: "~ p" volta a ser "~p".
   for (const command of PREFIX_SYMBOLS) {
@@ -177,6 +476,7 @@ export function latexToPlain(latex: string): string {
   }
   return text
     .replace(/\$+|\\\(|\\\)|\\\[|\\\]/g, "")
+    .replace(/\*\*/g, "")
     .replace(/[{}^_]/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -197,10 +497,15 @@ export function headingTitle(item: ScanItem, leadPiece: string | null): string |
     const sentence = firstSentence(latexToPlain(leadPiece));
     return sentence === "" ? null : sentence;
   }
-  const recognized = item.reviewedLatex ?? item.mathResult?.latex ?? null;
+  const recognized = readyLatex(item);
   const editedByHand = item.title !== item.proposed.title;
   if (!hasUnreadableSymbol(item.title) || recognized === null || editedByHand) return item.title;
-  return fillUnreadable(item.title, latexToPlain(withoutLeadLabel(recognized.trim(), item.originalLabel))) ?? item.title;
+  return (
+    fillUnreadable(
+      item.title,
+      latexToPlain(withoutLeadLabel(recognized.trim(), item.originalLabel)),
+    ) ?? item.title
+  );
 }
 
 /** O que pode ocupar um buraco: um símbolo curto, e nunca uma palavra. */
@@ -226,7 +531,10 @@ function fillUnreadable(title: string, recognized: string): string | null {
     if (at < 0) return null;
     if (index > 0) {
       // O que o modelo lê entre o vizinho anterior e este — ou, no fim do título, o próximo termo.
-      const between = anchor === "" ? (plain.slice(cursor).trim().split(" ")[0] ?? "") : plain.slice(cursor, at).trim();
+      const between =
+        anchor === ""
+          ? (plain.slice(cursor).trim().split(" ")[0] ?? "")
+          : plain.slice(cursor, at).trim();
       if (!SYMBOL_FILL.test(between)) return null;
       result += between;
     }
@@ -276,6 +584,15 @@ function stripLabel(text: string, item: ScanItem): string {
  * `\includegraphics` quebrado: um LaTeX que não compila é pior que uma figura que falta.
  */
 export function figureLatex(item: ScanItem): string {
+  const rows = item.metadata["tableRows"];
+  const table =
+    Array.isArray(rows) && rows.length > 0
+      ? tableLatex(
+          rows.map((row) => String(row).split("\t")),
+          item,
+        )
+      : null;
+  if (table !== null) return table;
   const name = item.metadata["figureLatexName"];
   const caption = (item.reviewedText ?? item.title ?? "").trim();
   const captionLine = caption === "" ? "" : `  \\caption{${escapeLatexText(caption)}}\n`;
@@ -285,7 +602,8 @@ export function figureLatex(item: ScanItem): string {
   }
 
   const fraction = Number(item.metadata["widthFraction"]);
-  const width = Number.isFinite(fraction) && fraction > 0 ? Math.min(1, Math.max(0.15, fraction)) : 0.6;
+  const width =
+    Number.isFinite(fraction) && fraction > 0 ? Math.min(1, Math.max(0.15, fraction)) : 0.6;
 
   return [
     "\\begin{figure}[H]",
@@ -296,6 +614,60 @@ export function figureLatex(item: ScanItem): string {
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+/**
+ * A tabela desenhada, em `tabular` (D78) — ou `null`, e a figura continua imagem.
+ *
+ * Do reconhecimento vem a forma — quantas linhas, quantas colunas — e o cabeçalho, que a camada de
+ * texto não lê (o ∧, o ~ desenhados). Das linhas completas da grade, as células vêm da camada de
+ * texto, que acerta cada uma: o modelo trocou um V por F na p. 17 do vol. 1. Se as duas grades
+ * não batem, não há como saber qual célula é qual, e a imagem é o que não mente.
+ */
+function tableLatex(rows: readonly (readonly string[])[], item: ScanItem): string | null {
+  const recognized = recognizedTable(readyLatex(item));
+  const width = rows[0]?.length ?? 0;
+  // Mesma forma, linha por linha: é o que deixa dizer que a célula (r, c) é a mesma nas duas.
+  if (
+    recognized === null ||
+    recognized.length !== rows.length ||
+    recognized.some((row) => row.length !== width)
+  )
+    return null;
+
+  const merged = recognized.map((row, r) => {
+    const text = rows[r]!;
+    const complete = text.every((cell) => cell !== "");
+    return row.map((cell, c) =>
+      complete && !hasUnreadableSymbol(text[c]!) ? escapeLatexText(text[c]!) : cell.trim(),
+    );
+  });
+  // As linhas incompletas no alto são o cabeçalho, que o livro separa com um fio.
+  const head = rows.findIndex((row) => row.every((cell) => cell !== ""));
+  const line = (cells: readonly string[]) => `${cells.join(" & ")} \\\\`;
+  return [
+    "\\begin{center}",
+    `\\begin{tabular}{|${Array.from({ length: width }, () => "c").join("|")}|}`,
+    "\\hline",
+    ...merged.slice(0, Math.max(0, head)).map(line),
+    ...(head > 0 ? ["\\hline"] : []),
+    ...merged.slice(Math.max(0, head)).map(line),
+    "\\hline",
+    "\\end{tabular}",
+    "\\end{center}",
+  ].join("\n");
+}
+
+/** As células do `tabular` que o modelo devolveu, sem as linhas desenhadas. */
+function recognizedTable(latex: string | null): string[][] | null {
+  if (latex === null) return null;
+  const body = /\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/.exec(latex)?.[1];
+  if (body === undefined) return null;
+  return body
+    .split(/\\\\/)
+    .map((row) => row.replace(/\\hline|\\cline\{[^}]*\}/g, "").trim())
+    .filter((row) => row !== "")
+    .map((row) => row.split(/(?<!\\)&/));
 }
 
 /**
@@ -356,13 +728,19 @@ export function questionLatex(
 ): QuestionLatex {
   const originalLatex = item.proposed.latex ?? escapeLatexText(item.proposed.text);
   /** Corta a resolução do texto: o que vem depois do marcador não é enunciado nem alternativa. */
-  const splitSolution = (source: readonly string[]): { readonly statement: string[]; readonly solution: string[] } => {
+  const splitSolution = (
+    source: readonly string[],
+  ): { readonly statement: string[]; readonly solution: string[] } => {
     const at = source.findIndex((line) => SOLUTION_MARKER.test(line));
-    return at < 0 ? { statement: [...source], solution: [] } : { statement: source.slice(0, at), solution: source.slice(at + 1) };
+    return at < 0
+      ? { statement: [...source], solution: [] }
+      : { statement: source.slice(0, at), solution: source.slice(at + 1) };
   };
 
   // Os itens estão dentro do texto do exercício (a região dele os contém).
-  const items = children.filter((child) => child.kind === "ITEM" && child.reviewState !== "REJECTED");
+  const items = children.filter(
+    (child) => child.kind === "ITEM" && child.reviewState !== "REJECTED",
+  );
 
   /*
     O texto revisado ou reconhecido também é cortado.
@@ -417,7 +795,8 @@ export function questionLatex(
       .filter((line) => !QUESTION_HEADER.test(line)),
   );
   let lines = cortado.statement;
-  const solutionLatex = cortado.solution.length === 0 ? "" : escapeLatexText(joinLines(cortado.solution));
+  const solutionLatex =
+    cortado.solution.length === 0 ? "" : escapeLatexText(joinLines(cortado.solution));
   if (lines[0]) lines[0] = lines[0].replace(EXERCISE_LABEL, "");
 
   // O enunciado é o que vem antes do primeiro item, e cada item vira um `\item`.
@@ -455,13 +834,19 @@ export function questionLatex(
     const entries = items.map((child) => {
       const label = child.originalLabel ?? `${child.number ?? ""})`;
       const ready = reviewedOrRecognized(child);
-      const body = ready ?? escapeLatexText(joinLines(textOf(child).split("\n")).replace(ITEM_LABEL, ""));
+      const body =
+        ready ?? escapeLatexText(joinLines(textOf(child).split("\n")).replace(ITEM_LABEL, ""));
       return `  \\item[${label}] ${body.trim()}`;
     });
     statement = `${statement}\n\\begin{enumerate}\n${entries.join("\n")}\n\\end{enumerate}`;
   }
 
-  return { statementLatex: statement.trim(), options, solutionLatex: solutionLatex.trim(), originalLatex };
+  return {
+    statementLatex: statement.trim(),
+    options,
+    solutionLatex: solutionLatex.trim(),
+    originalLatex,
+  };
 }
 
 /*
@@ -630,6 +1015,8 @@ function withLatexSymbols(latex: string): string {
   return latex.replace(UNICODE_MATH_CHARS, (char, index: number) => {
     const command = UNICODE_MATH[char] ?? char;
     if (masked[index] === char) return `$${command}$`;
-    return /^[A-Za-z]/.test(latex[index + 1] ?? "") && command.startsWith("\\") ? `${command} ` : command;
+    return /^[A-Za-z]/.test(latex[index + 1] ?? "") && command.startsWith("\\")
+      ? `${command} `
+      : command;
   });
 }
