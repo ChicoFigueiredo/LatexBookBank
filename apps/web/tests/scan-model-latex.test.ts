@@ -88,6 +88,22 @@ describe("o LaTeX do modelo", () => {
   });
 });
 
+describe("o ângulo com circunflexo da geometria (vol. 9)", () => {
+  it("a letra com circunflexo dentro da conta vira \\hat, e dentro do \\widehat perde o circunflexo", () => {
+    // "Command \^ invalid in math mode": o Ĉ nem é latin-1, e passava cru para o pdflatex.
+    expect(
+      modelLatex("$\\widehat{BÂM} = \\widehat{PĈM}$ e $\\hat{ê} > \\hat{B}$ e $PÔP' < 90^\\circ$"),
+    ).toBe("$\\widehat{BAM} = \\widehat{PCM}$ e $\\hat{e} > \\hat{B}$ e $P\\hat{O}P' < 90^\\circ$");
+  });
+
+  it("o \\hat solto no texto vai para a conta, e a palavra acentuada não é tocada", () => {
+    expect(modelLatex("o ângulo \\hat{B} e o \\widehat{ABC}, você vê")).toBe(
+      "o ângulo $\\hat{B}$ e o $\\widehat{ABC}$, você vê",
+    );
+    expect(modelLatex("$\\text{ângulo } \\hat{A}$")).toBe("$\\text{ângulo } \\hat{A}$");
+  });
+});
+
 describe("o circunflexo combinado do ângulo (AB̂C, vol. 7)", () => {
   it("vira \\hat, dentro e fora da conta", () => {
     expect(modelLatex("o ângulo $AB̂C$ e o ângulo AB̂C")).toBe(

@@ -69,17 +69,58 @@ export function modelLatex(latex: string): string {
       (_, top: string, bottom: string) => `\\binom{${top.trim()}}{${bottom.trim()}}`,
     )
     .replace(/(?<!\\)#/g, "\\#");
-  return combiningHat(textInMath(wrapBareMath(fixed.replace(/R\$(?=\s*\d)/g, "R\\$"))));
+  return combiningHat(
+    textInMath(angleHats(wrapBareMath(fixed.replace(/R\$(?=\s*\d)/g, "R\\$")))),
+  );
 }
 
 /**
  * O circunflexo combinado do ângulo — "AB̂C", U+0302 depois da letra —, que o pdflatex recusa:
- * `\hat{B}` dentro da conta, `$\hat{B}$` fora dela (vol. 7 do Fundamentos).
+ * `\hat{B}` dentro da conta, `$\hat{B}$` fora dela (vol. 7 do Fundamentos). E o `\hat` que o
+ * modelo deixa solto no texto — "o ângulo \hat{B}" — vai para a conta ("\hat allowed only in math
+ * mode", vol. 9).
  */
 function combiningHat(latex: string): string {
   const masked = outsideMath(latex);
-  return latex.replace(/([A-Za-z])̂/g, (_, letter: string, at: number) =>
+  const combined = latex.replace(/([A-Za-z])̂/g, (_, letter: string, at: number) =>
     masked[at] === letter ? `$\\hat{${letter}}$` : `\\hat{${letter}}`,
+  );
+  const remasked = outsideMath(combined);
+  return combined.replace(/\\(?:hat|widehat)\{[^{}]*\}/g, (found: string, at: number) =>
+    remasked[at] === "\\" ? `$${found}$` : found,
+  );
+}
+
+/** A letra com circunflexo — o ângulo da geometria, "BÂM", "PĈM", "ê" — e a base dela. */
+const CIRCUMFLEXED = "ÂĈÊĜĤÎĴÔŜÛŴŶẐâĉêĝĥîĵôŝûŵŷẑ";
+const baseOf = (char: string): string => char.normalize("NFD").charAt(0);
+const LONE_CIRCUMFLEX = new RegExp(`(?<![a-zà-ÿ])[${CIRCUMFLEXED}](?![a-zà-ÿ])`, "g");
+const TEXT_GROUP = /(\\(?:text|textrm|textbf|textit|mathrm|operatorname|mbox)\s*\{[^{}]*\})/;
+
+/**
+ * O ângulo com circunflexo dentro da conta (vol. 9, geometria plana): o modelo escreve
+ * "$\widehat{BÂM}$", "$\hat{ê}$" e "$PÔP'$", e o pdflatex recusa a letra acentuada em modo
+ * matemático ("Command \^ invalid in math mode") — o Ĉ nem é latin-1. Dentro do `\hat` e do
+ * `\widehat`, a letra perde o circunflexo (o chapéu já está em cima); solta, vira `\hat`. Só a letra
+ * que não é parte de palavra: "ângulo" e "você" dentro da conta são da `textInMath`, e o
+ * `\text{…}` não é tocado.
+ */
+function angleHats(latex: string): string {
+  return latex.replace(MATH, (math) =>
+    math
+      .split(TEXT_GROUP)
+      .map((piece, index) =>
+        index % 2 === 1
+          ? piece
+          : piece
+              .replace(
+                /\\(widehat|hat)\{([^{}]*)\}/g,
+                (_, command: string, argument: string) =>
+                  `\\${command}{${[...argument].map((char) => (CIRCUMFLEXED.includes(char) ? baseOf(char) : char)).join("")}}`,
+              )
+              .replace(LONE_CIRCUMFLEX, (char) => `\\hat{${baseOf(char)}}`),
+      )
+      .join(""),
   );
 }
 
